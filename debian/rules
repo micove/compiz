@@ -1,0 +1,107 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+# Sample debian/rules that uses debhelper.
+# This file was originally written by Joey Hess and Craig Small.
+# As a special exception, when this file is copied by dh-make into a
+# dh-make output file, you may use that output file without restriction.
+# This special exception was added by Craig Small in version 0.37 of dh-make.
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+export GCONF_DISABLE_MAKEFILE_SCHEMA_INSTALL=1
+
+PACKAGE = compiz
+
+include debian/xsfbs/xsfbs.mk
+
+CFLAGS = -Wall -g
+ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
+	CFLAGS += -O0
+else
+	CFLAGS += -O2
+endif
+ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
+	INSTALL_PROGRAM += -s
+endif
+
+DEB_HOST_ARCH		?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
+DEB_HOST_GNU_TYPE	?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+DEB_BUILD_GNU_TYPE	?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+ifeq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
+	confflags += --build=$(DEB_HOST_GNU_TYPE)
+else
+	confflags += --build=$(DEB_BUILD_GNU_TYPE) --host=$(DEB_HOST_GNU_TYPE)
+endif
+
+INSTALL = /usr/bin/install
+
+confflags += --enable-librsvg \
+             --disable-kde
+
+build: patch build-stamp
+build-stamp:
+	dh_testdir
+
+	mkdir obj-$(DEB_BUILD_GNU_TYPE)
+	cd obj-$(DEB_BUILD_GNU_TYPE) && \
+	../autogen.sh --prefix=/usr --sysconfdir=\$${prefix}/share $(confflags) \
+	              CFLAGS="$(CFLAGS)"
+	cd obj-$(DEB_BUILD_GNU_TYPE) && $(MAKE)
+
+	touch $@
+
+clean: xsfclean
+	dh_testdir
+	dh_testroot
+	rm -f build-stamp
+
+	rm -f config.cache config.log config.status
+	rm -f */config.cache */config.log */config.status
+	rm -f conftest* */conftest*
+	rm -rf autom4te.cache */autom4te.cache
+	rm -rf obj-*
+
+	dh_clean
+
+install: build
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	dh_installdirs
+
+	# the upstream build system needs this
+	ln -sf config/mkinstalldirs
+	cd obj-$(DEB_BUILD_GNU_TYPE) && $(MAKE) DESTDIR=$(CURDIR)/debian/tmp install
+	rm mkinstalldirs
+
+	mv $(CURDIR)/debian/tmp/usr/bin/compiz $(CURDIR)/debian/tmp/usr/bin/compiz.real
+	$(INSTALL) --mode 0755 debian/compiz.wrapper $(CURDIR)/debian/tmp/usr/bin/compiz
+
+# Build architecture-dependent files here.
+binary-arch: build install
+	dh_testdir
+	dh_testroot
+
+	dh_installdocs
+	dh_installchangelogs
+	dh_install --sourcedir=debian/tmp --list-missing
+	dh_installman
+	dh_link
+	dh_gconf -pcompiz-plugins
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_shlibdeps
+	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+# Build architecture-independent files here.
+binary-indep: build install
+# Nothing to do
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install
+

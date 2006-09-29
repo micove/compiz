@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# start the gtk-window-decorator if present
+if [ -x /usr/bin/gtk-window-decorator ]; then
+	/usr/bin/gtk-window-decorator --replace &
+fi
+
+# always load the gconf plugin
+/usr/bin/compiz.real --strict-binding --indirect-rendering --use-cow "$@" gconf
+

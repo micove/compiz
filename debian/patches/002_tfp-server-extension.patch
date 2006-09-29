@@ -1,0 +1,36 @@
+Make compiz look for GLX_EXT_texture_from_pixmap in the server extensions
+
+From: Kristian Høgsberg <krh@redhat.com>
+
+too.
+---
+
+ src/screen.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/src/screen.c b/src/screen.c
+index 0941107..9ec30d5 100644
+--- a/src/screen.c
++++ b/src/screen.c
+@@ -897,7 +897,7 @@ addScreen (CompDisplay *display,
+     Window		 *children;
+     unsigned int	 nchildren;
+     int			 defaultDepth, nvisinfo, nElements, value, i;
+-    const char		 *glxExtensions, *glExtensions;
++    const char		 *glxExtensions, *glxServerExtensions, *glExtensions;
+     GLint	         stencilBits;
+     XSetWindowAttributes attrib;
+     GLfloat		 globalAmbient[]  = { 0.1f, 0.1f,  0.1f, 0.1f };
+@@ -1117,7 +1117,11 @@ addScreen (CompDisplay *display,
+     XFree (visinfo);
+ 
+     glxExtensions = glXQueryExtensionsString (s->display->display, screenNum);
+-    if (!strstr (glxExtensions, "GLX_EXT_texture_from_pixmap"))
++    glxServerExtensions = glXQueryServerString(s->display->display,
++					       screenNum, GLX_EXTENSIONS );
++
++    if (!strstr (glxExtensions, "GLX_EXT_texture_from_pixmap") &&
++	!strstr (glxServerExtensions, "GLX_EXT_texture_from_pixmap"))
+     {
+ 	fprintf (stderr, "%s: GLX_EXT_texture_from_pixmap is missing\n",
+ 		 programName);

@@ -1,0 +1,5 @@
+002_tfp-server-extension.patch
+005_glfinish.patch
+010_snap-by-default.patch
+011_plane-plugin-schema.patch
+012_freedesktop-schema.patch -p0

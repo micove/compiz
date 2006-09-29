@@ -1,0 +1,36 @@
+compiz (0.0.13+git20060928-1) unstable; urgency=low
+
+  * Initial release. (Closes: #352151)
+  * Install the compiz schema during postinst and removes it during prerm
+    (using dh_gconf).
+  * Add patches by Kristian Høgsberg to make compiz work on AIGLX:
+    + 002_tfp-server-extension.patch
+    + 005_glfinish.patch
+  * No longer build the compiz-kde package, because it is unusable.
+  * Add gtk-window-decorator.1 manpage.
+  * Install the window settings configuration plugin into the right location
+    (/usr/lib/libgnome-window-settings1/libcompiz.so).
+  * Bump build-dependency on libxcomposite-dev (>= 0.3) because it provides
+    the XComposite{Get,Release}OverlayWindow functions.
+  * Install a compiz wrapper as /usr/bin/compiz to call compiz.real with
+    required arguments (load gconf plugin).
+  * Add 010_snap-by-default.patch to turn snapping on by default.
+  * Add a versioned build-dependency on x11proto-gl-dev (>= 1.4.8-1) to make
+    sure compiz gets built with the correct opcodes for the GLX_EXT_tfp
+    extension.
+  * Add build-dependency on libmetacity-dev, which is needed for metacity
+    theme support.
+  * Add the compiz-gtk package containing the former gnome-window-decorator.
+    The compiz-gnome package provides the files necessary to integrate compiz
+    and compiz-gtk with the GNOME desktop environment.
+  * Add a build-dependency on libxinerama-dev, needed to build compiz with
+    support for the xinerama extension.
+  * Revise the compiz.1 manpage.
+  * Rename the compiz package to compiz-core and make compiz a meta-package
+    pulling in everything necessary to run compiz from within GNOME.
+  * Add 011_plane-plugin-schema.patch by Eugene Konev adding gconf settings
+    for the plane plugin.
+  * Add 012_freedesktop-schema.patch that fixes a typo in compiz.schema.in.
+
+ -- Thierry Reding <thierry@gilfi.de>  Fri, 29 Sep 2006 07:56:05 +0200
+

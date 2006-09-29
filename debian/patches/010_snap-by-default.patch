@@ -1,0 +1,64 @@
+diff --git a/plugins/wobbly.c b/plugins/wobbly.c
+index c4df9ba..6c189b8 100644
+--- a/plugins/wobbly.c
++++ b/plugins/wobbly.c
+@@ -177,7 +177,8 @@ static int displayPrivateIndex;
+ 
+ #define WOBBLY_DISPLAY_OPTION_SNAP   0
+ #define WOBBLY_DISPLAY_OPTION_SHIVER 1
+-#define WOBBLY_DISPLAY_OPTION_NUM    2
++#define WOBBLY_DISPLAY_OPTION_SNAP_ENABLE 2
++#define WOBBLY_DISPLAY_OPTION_NUM    3
+ 
+ typedef struct _WobblyDisplay {
+     int		    screenPrivateIndex;
+@@ -2334,6 +2335,7 @@ wobblyHandleEvent (CompDisplay *d,
+ 		XkbStateNotifyEvent *stateEvent = (XkbStateNotifyEvent *) event;
+ 		CompAction	    *action;
+ 		unsigned int	    mods = 0xffffffff;
++		Bool snap_enable = &wd->opt[WOBBLY_DISPLAY_OPTION_SNAP_ENABLE].value.b;
+ 
+ 		action = &wd->opt[WOBBLY_DISPLAY_OPTION_SNAP].value.action;
+ 
+@@ -2341,9 +2343,15 @@ wobblyHandleEvent (CompDisplay *d,
+ 		    mods = action->key.modifiers;
+ 
+ 		if ((stateEvent->mods & mods) == mods)
+-		    wobblyEnableSnapping (d, NULL, 0, NULL, 0);
++		    if (snap_enable)
++		        wobblyDisableSnapping (d, NULL, 0, NULL, 0);
++		    else
++		        wobblyEnableSnapping (d, NULL, 0, NULL, 0);
+ 		else
+-		    wobblyDisableSnapping (d, NULL, 0, NULL, 0);
++		    if (snap_enable)
++		        wobblyEnableSnapping (d, NULL, 0, NULL, 0);
++		    else
++		        wobblyDisableSnapping (d, NULL, 0, NULL, 0);
+ 	    }
+ 	}
+ 	break;
+@@ -2854,6 +2862,9 @@ wobblySetDisplayOption (CompDisplay     
+ 	if (setDisplayAction (display, o, value))
+ 	    return TRUE;
+ 	break;
++	case WOBBLY_DISPLAY_OPTION_SNAP_ENABLE:
++	if (compSetBoolOption(o, value))
++	    return TRUE;
+     default:
+ 	break;
+     }
+@@ -2893,6 +2904,13 @@ wobblyDisplayInitOptions (WobblyDisplay 
+     o->value.action.state    |= CompActionStateInitKey;
+     o->value.action.state    |= CompActionStateInitButton;
+     o->value.action.type      = 0;
++
++    o = &wd->opt[WOBBLY_DISPLAY_OPTION_SNAP_ENABLE];
++    o->name = "snap_enable";
++    o->shortDesc = N_("Snap Enable");
++    o->longDesc = N_("Default window snapping mode.");
++    o->type = CompOptionTypeBool;
++    o->value.b = TRUE;
+ }
+ 
+ static Bool
