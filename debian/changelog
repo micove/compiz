@@ -1,3 +1,14 @@
+compiz (0.0.13+git20060928-2) unstable; urgency=low
+
+  * Change the maintainer field to the Debian X Strike Force.
+  * Add myself to the uploaders field.
+  * Move compiz.{docs,install,manpages} to compiz-core.{docs,install,manpages}
+    so the installed files end up in the correct package.
+  * Rename compiz.1 to compiz.real.1, because it's actually documenting the
+    real compiz binary.
+
+ -- Thierry Reding <thierry@gilfi.de>  Fri, 29 Sep 2006 09:24:30 +0200
+
 compiz (0.0.13+git20060928-1) unstable; urgency=low
 
   * Initial release. (Closes: #352151)
