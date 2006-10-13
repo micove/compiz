@@ -47,22 +47,13 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 mkinstalldirs = $(SHELL) $(top_srcdir)/config/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES = compiz.desktop
-am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
-am__vpath_adj = case $$p in \
-    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
-    *) f=$$p;; \
-  esac;
-am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
-am__installdirs = "$(DESTDIR)$(moduledir)" \
-	"$(DESTDIR)$(desktopfilesdir)"
-moduleLTLIBRARIES_INSTALL = $(INSTALL)
-LTLIBRARIES = $(module_LTLIBRARIES)
+LTLIBRARIES = $(noinst_LTLIBRARIES)
 libcompiz_la_DEPENDENCIES =
 am__libcompiz_la_SOURCES_DIST = compiz-window-manager.c \
 	compiz-window-manager.h
 @USE_GNOME_TRUE@am_libcompiz_la_OBJECTS = compiz-window-manager.lo
 libcompiz_la_OBJECTS = $(am_libcompiz_la_OBJECTS)
-@USE_GNOME_TRUE@am_libcompiz_la_rpath = -rpath $(moduledir)
+@USE_GNOME_TRUE@am_libcompiz_la_rpath =
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/config/depcomp
 am__depfiles_maybe = depfiles
@@ -76,8 +67,7 @@ LINK = $(LIBTOOL) --tag=CC --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(libcompiz_la_SOURCES)
 DIST_SOURCES = $(am__libcompiz_la_SOURCES_DIST)
-desktopfilesDATA_INSTALL = $(INSTALL_DATA)
-DATA = $(desktopfiles_DATA)
+DATA = $(noinst_DATA)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -253,22 +243,22 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 windowsettingsdatadir = @windowsettingsdatadir@
 windowsettingslibdir = @windowsettingslibdir@
-@USE_GNOME_TRUE@libcompiz_la_LDFLAGS = -export-dynamic -avoid-version
+moduledir = $(DESTDIR)$(windowsettingslibdir)/window-manager-settings
+@USE_GNOME_TRUE@libcompiz_la_LDFLAGS = -export-dynamic -avoid-version -rpath $(moduledir)
 @USE_GNOME_TRUE@libcompiz_la_LIBADD = @GNOME_WINDOW_SETTINGS_LIBS@
 @USE_GNOME_TRUE@libcompiz_la_SOURCES = \
 @USE_GNOME_TRUE@	compiz-window-manager.c	\
 @USE_GNOME_TRUE@	compiz-window-manager.h
 
 @USE_GNOME_TRUE@libcompiz_module = libcompiz.la
-@USE_GNOME_TRUE@desktopfilesdir = $(windowsettingsdatadir)/gnome/wm-properties
+@USE_GNOME_TRUE@desktopfilesdir = $(DESTDIR)$(windowsettingsdatadir)/gnome/wm-properties
 @USE_GNOME_TRUE@desktopfiles_in_files = compiz.desktop.in
 @USE_GNOME_TRUE@desktopfiles_files = $(desktopfiles_in_files:.desktop.in=.desktop)
-@USE_GNOME_TRUE@desktopfiles_DATA = $(desktopfiles_files)
+@USE_GNOME_TRUE@noinst_DATA = $(desktopfiles_files)
 INCLUDES = @GNOME_WINDOW_SETTINGS_CFLAGS@			   \
 	-DMETACITY_THEME_DIR=\""$(windowsettingsdatadir)/themes"\"
 
-moduledir = $(windowsettingslibdir)/window-manager-settings
-module_LTLIBRARIES = \
+noinst_LTLIBRARIES = \
 	$(libcompiz_module)
 
 all: all-am
@@ -306,28 +296,10 @@ $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 compiz.desktop: $(top_builddir)/config.status $(srcdir)/compiz.desktop.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
-install-moduleLTLIBRARIES: $(module_LTLIBRARIES)
-	@$(NORMAL_INSTALL)
-	test -z "$(moduledir)" || $(mkdir_p) "$(DESTDIR)$(moduledir)"
-	@list='$(module_LTLIBRARIES)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    f=$(am__strip_dir) \
-	    echo " $(LIBTOOL) --mode=install $(moduleLTLIBRARIES_INSTALL) $(INSTALL_STRIP_FLAG) '$$p' '$(DESTDIR)$(moduledir)/$$f'"; \
-	    $(LIBTOOL) --mode=install $(moduleLTLIBRARIES_INSTALL) $(INSTALL_STRIP_FLAG) "$$p" "$(DESTDIR)$(moduledir)/$$f"; \
-	  else :; fi; \
-	done
 
-uninstall-moduleLTLIBRARIES:
-	@$(NORMAL_UNINSTALL)
-	@set -x; list='$(module_LTLIBRARIES)'; for p in $$list; do \
-	  p=$(am__strip_dir) \
-	  echo " $(LIBTOOL) --mode=uninstall rm -f '$(DESTDIR)$(moduledir)/$$p'"; \
-	  $(LIBTOOL) --mode=uninstall rm -f "$(DESTDIR)$(moduledir)/$$p"; \
-	done
-
-clean-moduleLTLIBRARIES:
-	-test -z "$(module_LTLIBRARIES)" || rm -f $(module_LTLIBRARIES)
-	@list='$(module_LTLIBRARIES)'; for p in $$list; do \
+clean-noinstLTLIBRARIES:
+	-test -z "$(noinst_LTLIBRARIES)" || rm -f $(noinst_LTLIBRARIES)
+	@list='$(noinst_LTLIBRARIES)'; for p in $$list; do \
 	  dir="`echo $$p | sed -e 's|/[^/]*$$||'`"; \
 	  test "$$dir" != "$$p" || dir=.; \
 	  echo "rm -f \"$${dir}/so_locations\""; \
@@ -374,23 +346,6 @@ clean-libtool:
 distclean-libtool:
 	-rm -f libtool
 uninstall-info-am:
-install-desktopfilesDATA: $(desktopfiles_DATA)
-	@$(NORMAL_INSTALL)
-	test -z "$(desktopfilesdir)" || $(mkdir_p) "$(DESTDIR)$(desktopfilesdir)"
-	@list='$(desktopfiles_DATA)'; for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  f=$(am__strip_dir) \
-	  echo " $(desktopfilesDATA_INSTALL) '$$d$$p' '$(DESTDIR)$(desktopfilesdir)/$$f'"; \
-	  $(desktopfilesDATA_INSTALL) "$$d$$p" "$(DESTDIR)$(desktopfilesdir)/$$f"; \
-	done
-
-uninstall-desktopfilesDATA:
-	@$(NORMAL_UNINSTALL)
-	@list='$(desktopfiles_DATA)'; for p in $$list; do \
-	  f=$(am__strip_dir) \
-	  echo " rm -f '$(DESTDIR)$(desktopfilesdir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(desktopfilesdir)/$$f"; \
-	done
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -471,9 +426,6 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(LTLIBRARIES) $(DATA)
 installdirs:
-	for dir in "$(DESTDIR)$(moduledir)" "$(DESTDIR)$(desktopfilesdir)"; do \
-	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
-	done
 install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
@@ -498,9 +450,12 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+@USE_GNOME_FALSE@uninstall-local:
+@USE_GNOME_FALSE@install-data-local:
+@USE_GNOME_FALSE@install-exec-local:
 clean: clean-am
 
-clean-am: clean-generic clean-libtool clean-moduleLTLIBRARIES \
+clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
 	mostlyclean-am
 
 distclean: distclean-am
@@ -519,9 +474,9 @@ info: info-am
 
 info-am:
 
-install-data-am: install-desktopfilesDATA install-moduleLTLIBRARIES
+install-data-am: install-data-local
 
-install-exec-am:
+install-exec-am: install-exec-local
 
 install-info: install-info-am
 
@@ -547,23 +502,45 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-desktopfilesDATA uninstall-info-am \
-	uninstall-moduleLTLIBRARIES
+uninstall-am: uninstall-info-am uninstall-local
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
-	clean-libtool clean-moduleLTLIBRARIES ctags distclean \
+	clean-libtool clean-noinstLTLIBRARIES ctags distclean \
 	distclean-compile distclean-generic distclean-libtool \
 	distclean-tags distdir dvi dvi-am html html-am info info-am \
 	install install-am install-data install-data-am \
-	install-desktopfilesDATA install-exec install-exec-am \
-	install-info install-info-am install-man \
-	install-moduleLTLIBRARIES install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags uninstall uninstall-am uninstall-desktopfilesDATA \
-	uninstall-info-am uninstall-moduleLTLIBRARIES
+	install-data-local install-exec install-exec-am \
+	install-exec-local install-info install-info-am install-man \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
+	pdf pdf-am ps ps-am tags uninstall uninstall-am \
+	uninstall-info-am uninstall-local
 
+
+@USE_GNOME_TRUE@install-exec-local:
+@USE_GNOME_TRUE@	if mkdir -p $(moduledir) && test -w $(moduledir); then ( \
+@USE_GNOME_TRUE@		$(LIBTOOL) --mode=install $(INSTALL) $(libcompiz_module) \
+@USE_GNOME_TRUE@		$(moduledir) \
+@USE_GNOME_TRUE@		); \
+@USE_GNOME_TRUE@	fi
+
+@USE_GNOME_TRUE@install-data-local:
+@USE_GNOME_TRUE@	if mkdir -p $(desktopfilesdir) && test -w $(desktopfilesdir); then ( \
+@USE_GNOME_TRUE@		$(INSTALL) -m 644 $(desktopfiles_files) \
+@USE_GNOME_TRUE@		$(desktopfilesdir) \
+@USE_GNOME_TRUE@		); \
+@USE_GNOME_TRUE@	fi
+
+@USE_GNOME_TRUE@uninstall-local:
+@USE_GNOME_TRUE@	if test -w $(moduledir); then ( \
+@USE_GNOME_TRUE@		rm -f $(moduledir)/libcompiz.* \
+@USE_GNOME_TRUE@		); \
+@USE_GNOME_TRUE@	fi
+@USE_GNOME_TRUE@	if test -w $(desktopfilesdir); then ( \
+@USE_GNOME_TRUE@		rm -f $(desktopfilesdir)/compiz.desktop \
+@USE_GNOME_TRUE@		); \
+@USE_GNOME_TRUE@	fi
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

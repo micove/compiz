@@ -1,10 +1,24 @@
 #!/bin/sh
 
+COMPIZ_OPTIONS="--strict-binding --use-cow"
+COMPIZ_PLUGINS=""
+
+# if the GLX implementation is not by NVIDIA, use indirect rendering
+/usr/bin/glxinfo | grep "client glx vendor string: NVIDIA Corporation" > /dev/null 2>&1
+if [ "x$?" != "x0" ]; then
+	COMPIZ_OPTIONS="$COMPIZ_OPTIONS --indirect-rendering"
+fi
+
 # start the gtk-window-decorator if present
 if [ -x /usr/bin/gtk-window-decorator ]; then
 	/usr/bin/gtk-window-decorator --replace &
 fi
 
+# load the gconf plugin if present
+if [ -f /usr/lib/compiz/libgconf.so ]; then
+	COMPIZ_PLUGINS="$COMPIZ_PLUGINS gconf"
+fi
+
 # always load the gconf plugin
-/usr/bin/compiz.real --strict-binding --indirect-rendering --use-cow "$@" gconf
+/usr/bin/compiz.real $COMPIZ_OPTIONS "$@" $COMPIZ_PLUGINS
 

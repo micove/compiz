@@ -36,7 +36,9 @@ endif
 
 INSTALL = /usr/bin/install
 
-confflags += --enable-librsvg \
+confflags += --disable-static \
+             --enable-librsvg \
+             --enable-gconf-dump \
              --disable-kde
 
 build: patch build-stamp
@@ -45,8 +47,8 @@ build-stamp:
 
 	mkdir obj-$(DEB_BUILD_GNU_TYPE)
 	cd obj-$(DEB_BUILD_GNU_TYPE) && \
-	../autogen.sh --prefix=/usr --sysconfdir=\$${prefix}/share $(confflags) \
-	              CFLAGS="$(CFLAGS)"
+	../configure --prefix=/usr --sysconfdir=\$${prefix}/share $(confflags) \
+	             CFLAGS="$(CFLAGS)"
 	cd obj-$(DEB_BUILD_GNU_TYPE) && $(MAKE)
 
 	touch $@
@@ -78,17 +80,24 @@ install: build
 	mv $(CURDIR)/debian/tmp/usr/bin/compiz $(CURDIR)/debian/tmp/usr/bin/compiz.real
 	$(INSTALL) --mode 0755 debian/compiz.wrapper $(CURDIR)/debian/tmp/usr/bin/compiz
 
+	# remove unneeded .la files
+	find $(CURDIR)/debian/tmp/usr/lib -type f -name '*.la' | xargs rm -f
+
+	# install schemas file for the Gtk window decorator
+	$(INSTALL) --mode 0644 $(CURDIR)/debian/gtk-window-decorator.schemas \
+	                       $(CURDIR)/debian/tmp/usr/share/gconf/schemas
+
 # Build architecture-dependent files here.
 binary-arch: build install
 	dh_testdir
 	dh_testroot
 
 	dh_installdocs
-	dh_installchangelogs
+	dh_installchangelogs ChangeLog
 	dh_install --sourcedir=debian/tmp --list-missing
 	dh_installman
 	dh_link
-	dh_gconf -pcompiz-plugins
+	dh_gconf
 	dh_strip
 	dh_compress
 	dh_fixperms

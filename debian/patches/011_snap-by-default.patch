@@ -1,0 +1,22 @@
+--- a/plugins/compiz.schemas.in	2006-10-09 11:28:27.000000000 +0200
++++ b/plugins/compiz.schemas.in	2006-10-09 11:28:53.000000000 +0200
+@@ -24850,7 +24850,7 @@
+             <applyto>/apps/compiz/plugins/wobbly/allscreens/options/snap_inverted</applyto>
+             <owner>compiz</owner>
+             <type>bool</type>
+-            <default>false</default>
++            <default>true</default>
+             <locale name="C">
+                 <short>Snap Inverted</short>
+                 <long>Inverted window snapping</long>
+--- a/plugins/wobbly.c	2006-10-09 11:28:37.000000000 +0200
++++ b/plugins/wobbly.c	2006-10-09 11:29:44.000000000 +0200
+@@ -171,7 +171,7 @@
+ 
+ #define WOBBLY_SNAP_MODIFIERS_DEFAULT ShiftMask
+ 
+-#define WOBBLY_SNAP_INVERTED_DEFAULT FALSE
++#define WOBBLY_SNAP_INVERTED_DEFAULT TRUE
+ 
+ #define WOBBLY_MAXIMIZE_EFFECT_DEFAULT TRUE
+ 

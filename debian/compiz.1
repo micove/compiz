@@ -1,0 +1,32 @@
+.TH COMPIZ 1 "September 29, 2006"
+
+.SH NAME
+compiz \- OpenGL window and compositing manager
+
+.SH SYNOPSIS
+.B compiz
+.RI [ options ]
+.RI [ plugins ]
+.SH DESCRIPTION
+\fBcompiz\fR is a wrapper around the real \fBcompiz.real\fR binary that
+automatically sets up everything needed to properly run compiz on a Debian
+system.
+
+In order to use the X server's accelerated indirect rendering (AIGLX)
+capabilities, the wrapper will call \fBcompiz.real\fR with the necessary
+command-line arguments.
+
+If the package \fBcompiz-gtk\fR is installed, the wrapper will automatically
+start the \fBgtk-window-decorator\fR.
+
+The wrapper will also check if the \fBcompiz-plugins\fR package has been
+installed and load the \fBgconf\fR plugin which will in turn load the standard
+set of plugins.
+
+.SH AUTHOR
+The compiz wrapper was written by Thierry Reding <thierry@gilfi.de> for the
+Debian project (but may be used by others).
+
+.SH "SEE ALSO"
+.BR compiz.real(1)
+

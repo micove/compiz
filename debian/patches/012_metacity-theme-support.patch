@@ -1,0 +1,44 @@
+Use GdkRectangle instead of MetaButtonSpace for backwards compatibility with
+older versions of libmetacity.
+
+Index: gtk/window-decorator/gtk-window-decorator.c
+===================================================================
+--- a/gtk/window-decorator/gtk-window-decorator.c
++++ b/gtk/window-decorator/gtk-window-decorator.c
+@@ -2803,7 +2803,7 @@
+     MetaFrameFlags    flags;
+     MetaTheme	      *theme;
+     GdkRectangle      clip;
+-    MetaButtonSpace   *space;
++    GdkRectangle      *space;
+ 
+     theme = meta_theme_get_current ();
+ 
+@@ -2823,10 +2823,10 @@
+ 	break;
+     }
+ 
+-    *x = space->clickable.x;
+-    *y = space->clickable.y;
+-    *w = space->clickable.width;
+-    *h = space->clickable.height;
++    *x = space->x;
++    *y = space->y;
++    *w = space->width;
++    *h = space->height;
+ }
+ #endif
+ 
+Index: configure.ac
+===================================================================
+--- a/configure.ac
++++ b/configure.ac
+@@ -218,7 +218,7 @@
+     LIBS="$save_LIBS"
+ 
+     if test "x$use_metacity" = "xyes"; then
+-      PKG_CHECK_MODULES(METACITY, libmetacity-private >= 2.15.21,
++      PKG_CHECK_MODULES(METACITY, libmetacity-private,
+ 			[use_metacity=yes], [use_metacity=no])
+     fi
+ 

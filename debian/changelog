@@ -1,3 +1,43 @@
+compiz (0.2.0-1) unstable; urgency=low
+
+  [ Thierry Reding ]
+  * New upstream release.
+    + Drop 011_plane-plugin-schema.patch, applied upstream.
+    + Drop 012_freedesktop-schema.patch, applied upstream.
+  * Replace 010_snap-by-default by the upstream patch 010_snap-inverted and
+    add 011_snap-by-default to enable snapping by default.
+  * Add 012_metacity-theme-support.patch which uses an older version of the
+    metacity library for theme support so that compiz can be built for Debian
+    unstable.
+  * Install a schemas file for the Gtk window decorator which is used to
+    enable the use of metacity themes.
+  * Suggest nvidia-glx (>= 1.0.9625-1). (Closes: #390326).
+  * Add code to the compiz wrapper to handle the NVIDIA GLX implementation
+    Closes: #390814.
+  * No longer build static versions of the plugins.
+  * Remove .la files manually because they are not needed.
+  * Clean up build-dependencies:
+    + Remove unnecessarily versioned build-dependencies.
+    + Tighten the build-dependency on libxcomposite-dev to (>= 1:0.3-2).
+      Closes: 390304, 390416.
+  * Add a manpage documenting the compiz wrapper.
+  * Check if the gconf plugin is installed before trying to load it in the
+    wrapper.
+  * Enable building the gconf-dump plugin.
+  * Add a README file to the compiz-core package.
+  * List copyright holders and contributors in the copyright file.
+    Closes: #392422.
+  * Add 013_dont-fail-if-theme-not-found.patch which will make compiz use its
+    default theme if the metacity theme cannot be found.
+  * Make compiz-gtk suggest gnome-themes so people can take advantage of the
+    metacity theme support.
+
+  [ David Nusinow ]
+  * Tighten up all the X library build-depends by explicitly using current
+    versions. Thanks aj.
+
+ -- David Nusinow <dnusinow@debian.org>  Fri, 13 Oct 2006 16:22:17 -0400
+
 compiz (0.0.13+git20060928-2) unstable; urgency=low
 
   * Change the maintainer field to the Debian X Strike Force.

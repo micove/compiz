@@ -1,6 +1,6 @@
 AC_PREREQ(2.57)
 
-AC_INIT([compiz], [0.0.13], [davidr@novell.com])
+AC_INIT([compiz], [0.2.0], [davidr@novell.com])
 
 AC_CONFIG_AUX_DIR(config)
 
@@ -218,7 +218,7 @@ if test "x$use_gtk" = "xyes"; then
     LIBS="$save_LIBS"
 
     if test "x$use_metacity" = "xyes"; then
-      PKG_CHECK_MODULES(METACITY, libmetacity-private,
+      PKG_CHECK_MODULES(METACITY, libmetacity-private >= 2.15.21,
 			[use_metacity=yes], [use_metacity=no])
     fi
 
@@ -255,8 +255,8 @@ if test "$use_gnome" = yes; then
 fi
 
 AC_ARG_ENABLE(kde,
-  [  --disable-kde           Disable kde window decorator],
-  [use_kde=$enableval], [use_kde=yes])
+  [  --enable-kde           Enable kde window decorator],
+  [use_kde=$enableval], [use_kde=no])
 
 if test "x$use_kde" = "xyes"; then
   PKG_CHECK_MODULES(KDE_WINDOW_DECORATOR,

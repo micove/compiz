@@ -1,5 +1,6 @@
 002_tfp-server-extension.patch
 005_glfinish.patch
-010_snap-by-default.patch
-011_plane-plugin-schema.patch
-012_freedesktop-schema.patch -p0
+010_snap-inverted.patch
+011_snap-by-default.patch
+012_metacity-theme-support.patch
+013_dont-fail-if-theme-not-found.patch
