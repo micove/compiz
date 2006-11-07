@@ -12,7 +12,7 @@ diff --git a/src/display.c b/src/display.c
 index 7cf12e1..c44b2a2 100644
 --- a/src/display.c
 +++ b/src/display.c
-@@ -2079,6 +2079,8 @@ eventLoop (void)
+@@ -2131,6 +2131,8 @@ eventLoop (void)
  
  		    (*s->donePaintScreen) (s);
  

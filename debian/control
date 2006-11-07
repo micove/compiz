@@ -2,7 +2,7 @@ Source: compiz
 Section: x11
 Priority: optional
 Maintainer: Debian X Strike Force <debian-x@lists.debian.org>
-Uploaders: Thierry Reding <thierry@gilfi.de>
+Uploaders: Thierry Reding <thierry@gilfi.de>, David Nusinow <dnusinow@debian.org>
 Build-Depends: debhelper (>= 5), quilt (>= 0.40), automake1.9, libtool, libglib2.0-dev, libgconf2-dev, libpng12-dev | libpng-dev, libxcomposite-dev (>= 1:0.3-2), libxfixes-dev (>= 1:4.0.1), libxdamage-dev (>=1:1.0.3), libxrandr-dev (>= 2:1.1.0.2), libxrender-dev (>= 1:0.9.1), libice-dev (>= 1:1.0.1), libsm-dev (>= 1:1.0.1), libgl1-mesa-dev (>= 6.5.1) | libgl-dev, libcairo-dev, librsvg2-dev, libgnome-desktop-dev, libgnome-window-settings-dev, libdbus-1-dev, libwnck-dev, libgtk2.0-dev, libpango1.0-dev, x11proto-gl-dev (>= 1.4.8-1), libxinerama-dev, libmetacity-dev
 Standards-Version: 3.7.2
 
@@ -21,7 +21,7 @@ Description: OpenGL window and compositing manager
 
 Package: compiz-core
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, mesa-utils
 Recommends: compiz-plugins (= ${Source-Version})
 Suggests: nvidia-glx (>= 1.0.9625-1)
 Description: OpenGL window and compositing manager
@@ -51,6 +51,7 @@ Package: compiz-gtk
 Architecture: any
 Depends: compiz-core (= ${Source-Version}), ${shlibs:Depends}, ${misc:Depends}
 Suggests: gnome-themes
+Conflicts: libmetacity0 (>= 1:2.15.21)
 Description: OpenGL window and compositing manager - Gtk window decorator
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users

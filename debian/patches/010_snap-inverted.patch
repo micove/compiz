@@ -8,7 +8,7 @@ Add snap_inverted option to wobbly plugin.
 
 --- a/plugins/compiz.schemas.in
 +++ b/plugins/compiz.schemas.in
-@@ -24846,6 +24846,18 @@
+@@ -10738,6 +10738,18 @@
          </schema>
  
          <schema>

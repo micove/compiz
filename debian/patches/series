@@ -3,4 +3,4 @@
 010_snap-inverted.patch
 011_snap-by-default.patch
 012_metacity-theme-support.patch
-013_dont-fail-if-theme-not-found.patch
+013_fix-default-plugins.patch

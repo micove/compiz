@@ -1,3 +1,19 @@
+Release 0.2.2 (2006-10-20 David Reveman <davidr@novell.com>)
+============================================================
+Some missing options have been added to compiz.schemas.in.
+
+A typo that caused the prev_all option in switcher plugin
+to not work has been fixed.
+
+Max texture size and the maximium size that should be used
+for windows are now calculated more properly.
+
+Support for_NET_WM_STATE_DEMANDS_ATTENTION hint has been
+fixed.
+
+Support for WM_TAKE_FOCUS hint has been fixed.
+
+
 Release 0.2.0 (2006-10-02 David Reveman <davidr@novell.com>)
 ============================================================
 First official release of compiz.

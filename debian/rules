@@ -36,10 +36,12 @@ endif
 
 INSTALL = /usr/bin/install
 
+PLUGINS = gconf,decoration,wobbly,fade,minimize,cube,rotate,zoom,scale,move,resize,place,dbus,switcher,screenshot
+
 confflags += --disable-static \
              --enable-librsvg \
              --enable-gconf-dump \
-             --disable-kde
+             --with-default-plugins="$(PLUGINS)"
 
 build: patch build-stamp
 build-stamp:

@@ -1,3 +1,28 @@
+compiz (0.2.2-1) unstable; urgency=low
+
+  [ Thierry Reding ]
+  * New upstream release:
+    + Drop 013_dont-fail-if-theme-not-found.patch, applied upstream.
+  * Make 012_metacity-theme-support also patch the configure script, not only
+    configure.ac.
+  * Add 013_fix-default-plugins.patch which fixes upstream's handling of the
+    default plugins configuration variable.
+  * Make all plugins that were enabled in previous versions default plugins so
+    compiz' behaviour doesn't change. Drop the 'water' plugin because our X
+    server does not support it yet.
+  * Drop --disable-kde from the configure flags because it is now disabled by
+    default.
+  * Add a dependency on mesa-utils to compiz-core to provide glxinfo that is
+    needed by the compiz wrapper. Thanks Per Bojsen.
+    Closes: #393113.
+  * Conflict with libmetacity0 (>= 1:2.15.21) because it would currently make
+    gtk-window-decorator segfault.
+
+  [ David Nusinow ]
+  * Add myself to uploaders. Thierry is still the primary maintainer.
+
+ -- David Nusinow <dnusinow@debian.org>  Mon,  6 Nov 2006 23:13:41 -0500
+
 compiz (0.2.0-1) unstable; urgency=low
 
   [ Thierry Reding ]

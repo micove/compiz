@@ -1,6 +1,6 @@
 AC_PREREQ(2.57)
 
-AC_INIT([compiz], [0.2.0], [davidr@novell.com])
+AC_INIT([compiz], [0.2.2], [davidr@novell.com])
 
 AC_CONFIG_AUX_DIR(config)
 
@@ -187,6 +187,16 @@ if test -n "$SCALE_CORNER"; then
   AC_DEFINE_UNQUOTED(SCALE_CORNER, "$SCALE_CORNER", [Default scale plugin activation corner])
 fi
 AC_SUBST(SCALE_CORNER)
+
+AC_ARG_WITH(default-plugins,
+  [  --with-default-plugins  Set default plugins],
+  [DEFAULT_PLUGINS="$withval"],
+  [DEFAULT_PLUGINS="decoration fade minimize move resize switcher"])
+
+if test -n "$DEFAULT_PLUGINS"; then
+  AC_DEFINE_UNQUOTED(DEFAULT_PLUGINS, "$DEFAULT_PLUGINS", [Default plugins])
+fi
+AC_SUBST(DEFAULT_PLUGINS)
 
 AC_ARG_ENABLE(gtk,
   [  --disable-gtk           Disable gtk window decorator],

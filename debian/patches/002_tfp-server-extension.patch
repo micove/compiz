@@ -1,8 +1,7 @@
-Make compiz look for GLX_EXT_texture_from_pixmap in the server extensions
+Make compiz look for GLX_EXT_texture_from_pixmap in the server extensions too.
 
 From: Kristian Høgsberg <krh@redhat.com>
 
-too.
 ---
 
  src/screen.c |    8 ++++++--
@@ -12,7 +11,7 @@ diff --git a/src/screen.c b/src/screen.c
 index 0941107..9ec30d5 100644
 --- a/src/screen.c
 +++ b/src/screen.c
-@@ -897,7 +897,7 @@ addScreen (CompDisplay *display,
+@@ -1043,7 +1043,7 @@ addScreen (CompDisplay *display,
      Window		 *children;
      unsigned int	 nchildren;
      int			 defaultDepth, nvisinfo, nElements, value, i;
@@ -21,7 +20,7 @@ index 0941107..9ec30d5 100644
      GLint	         stencilBits;
      XSetWindowAttributes attrib;
      GLfloat		 globalAmbient[]  = { 0.1f, 0.1f,  0.1f, 0.1f };
-@@ -1117,7 +1117,11 @@ addScreen (CompDisplay *display,
+@@ -1274,7 +1274,11 @@ addScreen (CompDisplay *display,
      XFree (visinfo);
  
      glxExtensions = glXQueryExtensionsString (s->display->display, screenNum);

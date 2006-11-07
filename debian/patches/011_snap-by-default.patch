@@ -1,6 +1,11 @@
+Enable snapping of windows by default.
+
+This patch by Thierry Reding.
+Not submitted to upstream.
+
 --- a/plugins/compiz.schemas.in	2006-10-09 11:28:27.000000000 +0200
 +++ b/plugins/compiz.schemas.in	2006-10-09 11:28:53.000000000 +0200
-@@ -24850,7 +24850,7 @@
+@@ -10742,7 +10742,7 @@
              <applyto>/apps/compiz/plugins/wobbly/allscreens/options/snap_inverted</applyto>
              <owner>compiz</owner>
              <type>bool</type>
