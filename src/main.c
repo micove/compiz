@@ -40,7 +40,7 @@ char *programName;
 char **programArgv;
 int  programArgc;
 
-char *backgroundImage = "background.png";
+char *backgroundImage = NULL;
 
 REGION   emptyRegion;
 REGION   infiniteRegion;
@@ -79,10 +79,11 @@ CompWindow *lastDamagedWindow = 0;
 
 Bool replaceCurrentWm = FALSE;
 Bool indirectRendering = FALSE;
-Bool strictBinding = FALSE;
+Bool strictBinding = TRUE;
+Bool noDetection = FALSE;
 
 #ifdef USE_COW
-Bool useCow = FALSE;
+Bool useCow = TRUE;
 #endif
 
 static void
@@ -94,15 +95,15 @@ usage (void)
 	    "[--refresh-rate RATE]\n       "
 	    "[--fast-filter] "
 	    "[--indirect-rendering] "
-	    "[--strict-binding] "
-	    "[--test-mode]\n       "
-	    "[--replace] "
+	    "[--loose-binding] "
+	    "[--replace]\n       "
 	    "[--sm-disable] "
 	    "[--sm-client-id ID] "
+	    "[--no-detection] "
 	    "[--version]\n       "
 
 #ifdef USE_COW
-	    "[--use-cow] "
+	    "[--use-root-window] "
 #endif
 
 	    "[--help] "
@@ -191,15 +192,15 @@ main (int argc, char **argv)
 	{
 	    indirectRendering = TRUE;
 	}
-	else if (!strcmp (argv[i], "--strict-binding"))
+	else if (!strcmp (argv[i], "--loose-binding"))
 	{
-	    strictBinding = TRUE;
+	    strictBinding = FALSE;
 	}
 
 #ifdef USE_COW
-	else if (!strcmp (argv[i], "--use-cow"))
+	else if (!strcmp (argv[i], "--use-root-window"))
 	{
-	    useCow = TRUE;
+	    useCow = FALSE;
 	}
 #endif
 
@@ -215,6 +216,10 @@ main (int argc, char **argv)
 	{
 	    if (i + 1 < argc)
 		clientId = argv[++i];
+	}
+	else if (!strcmp (argv[i], "--no-detection"))
+	{
+	    noDetection = TRUE;
 	}
 	else if (!strcmp (argv[i], "--bg-image"))
 	{

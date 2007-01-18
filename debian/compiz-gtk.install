@@ -1,2 +1,2 @@
-usr/share/gconf/schemas/gtk-window-decorator.schemas
+usr/share/gconf/schemas/gwd.schemas
 usr/bin/gtk-window-decorator

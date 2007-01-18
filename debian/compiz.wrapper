@@ -1,12 +1,26 @@
 #!/bin/sh
 
-COMPIZ_OPTIONS="--strict-binding --use-cow"
-COMPIZ_PLUGINS=""
+GLXINFO='/usr/bin/glxinfo'
+EXT_TFP='GLX_EXT_texture_from_pixmap'
 
-# if the GLX implementation is not by NVIDIA, use indirect rendering
-/usr/bin/glxinfo | grep "client glx vendor string: NVIDIA Corporation" > /dev/null 2>&1
-if [ "x$?" != "x0" ]; then
-	COMPIZ_OPTIONS="$COMPIZ_OPTIONS --indirect-rendering"
+COMPIZ_OPTIONS="--no-fbo"
+
+# Check whether the GLX_EXT_texture_from_pixmap extension is available in
+# direct or indirect rendering contexts. If it is available only in indirect
+# rendering contexts, force compiz to use indirect rendering.
+if test `$GLXINFO 2> /dev/null | grep -c $EXT_TFP` -lt 3; then
+	echo "$EXT_TFP is not available with direct rendering."
+
+	export LIBGL_ALWAYS_INDIRECT=1
+	if test `$GLXINFO 2> /dev/null | grep -c $EXT_TFP` -lt 3; then
+		echo "$EXT_TFP is not available with indirect rendering. Aborting!"
+		unset LIBGL_ALWAYS_INDIRECT
+		exit 1
+	else
+		echo "$EXT_TFP is available with indirect rendering."
+	fi
+else
+	echo "$EXT_TFP is available with direct rendering."
 fi
 
 # start the gtk-window-decorator if present

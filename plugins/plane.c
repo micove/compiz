@@ -214,6 +214,7 @@ planePreparePaintScreen (CompScreen *s,
 static void
 planePaintTransformedScreen (CompScreen		     *screen,
 			     const ScreenPaintAttrib *sAttrib,
+			     Region		     region,
 			     int                     output,
 			     unsigned int	     mask)
 {
@@ -227,8 +228,7 @@ planePaintTransformedScreen (CompScreen		     *screen,
 	double dx, dy, tx, ty;
 	int vx, vy;
 
-	glClearColor (0.0, 0.0, 0.0, 1.0);
-	glClear (GL_COLOR_BUFFER_BIT);
+	clearTargetOutput (screen->display, GL_COLOR_BUFFER_BIT);
 
 	computeTranslation (ps, &dx, &dy);
 
@@ -271,7 +271,8 @@ planePaintTransformedScreen (CompScreen		     *screen,
 	glPushMatrix ();
 
 	glTranslatef (dx, -dy, 0.0);
-	(*screen->paintTransformedScreen) (screen, sAttrib, output, mask);
+	(*screen->paintTransformedScreen) (screen, sAttrib, region, output,
+					   mask);
 	if (dx > 0)
 	{
 	    glTranslatef (-1.0, 0.0, 0.0);
@@ -282,7 +283,8 @@ planePaintTransformedScreen (CompScreen		     *screen,
 	    glTranslatef (1.0, 0.0, 0.0);
 	    moveScreenViewport (screen, -1, 0, FALSE);
 	}
-	(*screen->paintTransformedScreen) (screen, sAttrib, output, mask);
+	(*screen->paintTransformedScreen) (screen, sAttrib, region, output,
+					   mask);
 	if (dy > 0)
 	{
 	    glTranslatef (0.0, 1.0, 0.0);
@@ -293,7 +295,8 @@ planePaintTransformedScreen (CompScreen		     *screen,
 	    glTranslatef (0.0, -1.0, 0.0);
 	    moveScreenViewport (screen, 0, -1, FALSE);
 	}
-	(*screen->paintTransformedScreen) (screen, sAttrib, output, mask);
+	(*screen->paintTransformedScreen) (screen, sAttrib, region, output,
+					   mask);
 	if (dx > 0)
 	{
 	    glTranslatef (1.0, 0.0, 0.0);
@@ -304,7 +307,8 @@ planePaintTransformedScreen (CompScreen		     *screen,
 	    glTranslatef (-1.0, 0.0, 0.0);
 	    moveScreenViewport (screen, 1, 0, FALSE);
 	}
-	(*screen->paintTransformedScreen) (screen, sAttrib, output, mask);
+	(*screen->paintTransformedScreen) (screen, sAttrib, region, output,
+					   mask);
 	if (dy > 0)
 	{
 	    glTranslatef (0.0, -1.0, 0.0);
@@ -322,7 +326,8 @@ planePaintTransformedScreen (CompScreen		     *screen,
     }
     else
     {
-	(*screen->paintTransformedScreen) (screen, sAttrib, output, mask);
+	(*screen->paintTransformedScreen) (screen, sAttrib, region, output,
+					   mask);
     }
 
     WRAP (ps, screen, paintTransformedScreen, planePaintTransformedScreen);
@@ -861,20 +866,21 @@ planeFini (CompPlugin *p)
 	freeDisplayPrivateIndex (displayPrivateIndex);
 }
 
-CompPluginDep planeDeps[] = {
-#if 0
-    /* We need a new CompPluginRuleConflicts */
-    { CompPluginRuleConflicts, "rotate" },
-    { CompPluginRuleConflicts, "cube" },
-#endif
-};
-
 static int
 planeGetVersion (CompPlugin *plugin,
 		 int	    version)
 {
     return ABIVERSION;
 }
+
+CompPluginDep planeDeps[] = {
+    { CompPluginRuleBefore, "scale" },
+    { CompPluginRuleBefore, "switcher" }
+};
+
+CompPluginFeature planeFeatures[] = {
+    { "largedesktop" }
+};
 
 CompPluginVTable planeVTable = {
     "plane",
@@ -894,7 +900,9 @@ CompPluginVTable planeVTable = {
     NULL, /* planeGetScreenOptions, */
     NULL, /* planeSetScreenOption, */
     planeDeps,
-    sizeof (planeDeps) / sizeof (planeDeps[0])
+    sizeof (planeDeps) / sizeof (planeDeps[0]),
+    planeFeatures,
+    sizeof (planeFeatures) / sizeof (planeFeatures[0])
 };
 
 CompPluginVTable *

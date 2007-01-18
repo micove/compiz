@@ -1,0 +1,53 @@
+Index: compiz.git/src/main.c
+===================================================================
+--- compiz.git.orig/src/main.c	2007-01-03 12:39:16.000000000 +0100
++++ compiz.git/src/main.c	2007-01-03 13:09:29.000000000 +0100
+@@ -81,6 +81,7 @@
+ Bool indirectRendering = FALSE;
+ Bool strictBinding = TRUE;
+ Bool noDetection = FALSE;
++Bool noFBO = FALSE;
+ 
+ #ifdef USE_COW
+ Bool useCow = TRUE;
+@@ -100,6 +101,7 @@
+ 	    "[--sm-disable] "
+ 	    "[--sm-client-id ID] "
+ 	    "[--no-detection] "
++	    "[--no-fbo] "
+ 	    "[--version]\n       "
+ 
+ #ifdef USE_COW
+@@ -196,6 +198,10 @@
+ 	{
+ 	    strictBinding = FALSE;
+ 	}
++	else if (!strcmp (argv[i], "--no-fbo"))
++	{
++	    noFBO = TRUE;
++	}
+ 
+ #ifdef USE_COW
+ 	else if (!strcmp (argv[i], "--use-root-window"))
+Index: compiz.git/src/screen.c
+===================================================================
+--- compiz.git.orig/src/screen.c	2007-01-03 13:09:29.000000000 +0100
++++ compiz.git/src/screen.c	2007-01-03 13:10:13.000000000 +0100
+@@ -45,6 +45,8 @@
+ 
+ #include <compiz.h>
+ 
++extern Bool noFBO;
++
+ #define DETECT_REFRESH_RATE_DEFAULT TRUE
+ 
+ #define SCREEN_HSIZE_DEFAULT 4
+@@ -1804,7 +1806,7 @@
+     }
+ 
+     s->fbo = 0;
+-    if (strstr (glExtensions, "GL_EXT_framebuffer_object"))
++    if (!noFBO && strstr (glExtensions, "GL_EXT_framebuffer_object"))
+     {
+ 	s->genFramebuffers = (GLGenFramebuffersProc)
+ 	    getProcAddress (s, "glGenFramebuffersEXT");

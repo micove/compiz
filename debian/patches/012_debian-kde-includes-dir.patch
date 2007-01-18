@@ -1,0 +1,34 @@
+diff --git a/configure.ac b/configure.ac
+index 0aede52..102df37 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -372,15 +372,27 @@ if test "x$use_kde" = "xyes"; then
+   if test "x$use_kde" = xyes; then
+     kdedir=`kde-config --prefix --expandvars 2>/dev/null`
+     kdelibs=`kde-config --install lib --expandvars 2>/dev/null`
+-    kdeincs=$kdedir/include
++
++    kdeincdirs="$KDEINC $kdedir/include $kdedir/include/kde"
++    for dir in $kdeincdirs; do
++        if test -e "$dir/kapplication.h"; then
++            kdeincs="$dir"
++            break
++        fi
++    done
++
+     if test -d $kdelibs; then
+       PKG_CHECK_MODULES(KDE_WINDOW_DECORATOR,
+ 			dbus-1 xdamage xcomposite,
+ 			[use_kde=yes], [use_kde=no])
+ 
+-      KDE_CFLAGS="$QT_CXXFLAGS -I$kdeincs"
++      KDE_CFLAGS="$QT_CXXFLAGS"
+       KDE_LIBS="$QT_LIBS -L$kdelibs -lkdecore -lkdecorations -ldbus-qt-1"
+ 
++      if test -n "$kdeincs"; then
++          KDE_CFLAGS="$KDE_CFLAGS -I$kdeincs"
++      fi
++
+       QT_MOC=$QTDIR/bin/moc
+       DCOPIDL=$kdedir/bin/dcopidl
+       DCOPIDL2CPP=$kdedir/bin/dcopidl2cpp

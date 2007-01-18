@@ -99,7 +99,9 @@ static int displayPrivateIndex;
 #define SWITCH_DISPLAY_OPTION_PREV	     1
 #define SWITCH_DISPLAY_OPTION_NEXT_ALL	     2
 #define SWITCH_DISPLAY_OPTION_PREV_ALL	     3
-#define SWITCH_DISPLAY_OPTION_NUM	     4
+#define SWITCH_DISPLAY_OPTION_NEXT_NO_POPUP  4
+#define SWITCH_DISPLAY_OPTION_PREV_NO_POPUP  5
+#define SWITCH_DISPLAY_OPTION_NUM	     6
 
 typedef struct _SwitchDisplay {
     int		    screenPrivateIndex;
@@ -480,6 +482,9 @@ isSwitchWin (CompWindow *w)
     if (!(ss->wMask & w->type))
 	return FALSE;
 
+    if (w->wmType & (CompWindowTypeDockMask | CompWindowTypeDesktopMask))
+	return FALSE;
+
     if (w->state & CompWindowStateSkipTaskbarMask)
 	return FALSE;
 
@@ -515,7 +520,7 @@ compareWindows (const void *elem1,
 
     if (w2->mapNum && !w1->mapNum)
 	return 1;
-    
+
     return w2->activeNum - w1->activeNum;
 }
 
@@ -542,6 +547,8 @@ static void
 switchUpdateWindowList (CompScreen *s,
 			int	   count)
 {
+    int x, y;
+
     SWITCH_SCREEN (s);
 
     if (count > 1)
@@ -556,10 +563,15 @@ switchUpdateWindowList (CompScreen *s,
 
     ss->selectedWindow = ss->windows[0]->id;
 
+    x = s->outputDev[s->currentOutputDev].region.extents.x1 +
+	s->outputDev[s->currentOutputDev].width / 2;
+    y = s->outputDev[s->currentOutputDev].region.extents.y1 +
+	s->outputDev[s->currentOutputDev].height / 2;
+
     if (ss->popupWindow)
 	XMoveResizeWindow (s->display->display, ss->popupWindow,
-			   s->width  / 2 - WINDOW_WIDTH (count) / 2,
-			   s->height / 2 - WINDOW_HEIGHT / 2,
+			   x - WINDOW_WIDTH (count) / 2,
+			   y - WINDOW_HEIGHT / 2,
 			   WINDOW_WIDTH (count),
 			   WINDOW_HEIGHT);
 }
@@ -716,7 +728,8 @@ findArgbVisual (Display *dpy, int scr)
 
 static void
 switchInitiate (CompScreen *s,
-		Bool	   allWindows)
+		Bool	   allWindows,
+		Bool	   showPopup)
 {
     int count;
 
@@ -731,7 +744,7 @@ switchInitiate (CompScreen *s,
     if (count < 1)
 	return;
 
-    if (!ss->popupWindow)
+    if (!ss->popupWindow && showPopup)
     {
 	Display		     *dpy = s->display->display;
 	XSizeHints	     xsh;
@@ -798,6 +811,10 @@ switchInitiate (CompScreen *s,
 			 XInternAtom (dpy, "_NET_WM_STATE", 0),
 			 XA_ATOM, 32, PropModeReplace,
 			 (unsigned char *) state, nState);
+
+	setWindowProp (s->display, ss->popupWindow,
+		       s->display->winDesktopAtom,
+		       0xffffffff);
     }
 
     if (!ss->grabIndex)
@@ -813,7 +830,7 @@ switchInitiate (CompScreen *s,
 
 	    ss->sTranslate = ss->zoom;
 
-	    if (ss->popupWindow)
+	    if (ss->popupWindow && showPopup)
 	    {
 		CompWindow *w;
 
@@ -929,13 +946,17 @@ switchNext (CompDisplay     *d,
 
 	if (!ss->switching)
 	{
-	    switchInitiate (s, FALSE);
+	    switchInitiate (s, FALSE, TRUE);
 
 	    if (state & CompActionStateInitKey)
 		action->state |= CompActionStateTermKey;
 
 	    if (state & CompActionStateInitButton)
 		action->state |= CompActionStateTermButton;
+
+	    if (state & CompActionStateInitEdge)
+		action->state |= CompActionStateTermEdge;
+
 	}
 
 	switchToWindow (s, TRUE);
@@ -963,13 +984,16 @@ switchPrev (CompDisplay     *d,
 
 	if (!ss->switching)
 	{
-	    switchInitiate (s, FALSE);
+	    switchInitiate (s, FALSE, TRUE);
 
 	    if (state & CompActionStateInitKey)
 		action->state |= CompActionStateTermKey;
 
 	    if (state & CompActionStateInitButton)
 		action->state |= CompActionStateTermButton;
+
+	    if (state & CompActionStateInitEdge)
+		action->state |= CompActionStateTermEdge;
 	}
 
 	switchToWindow (s, FALSE);
@@ -997,13 +1021,16 @@ switchNextAll (CompDisplay     *d,
 
 	if (!ss->switching)
 	{
-	    switchInitiate (s, TRUE);
+	    switchInitiate (s, TRUE, TRUE);
 
 	    if (state & CompActionStateInitKey)
 		action->state |= CompActionStateTermKey;
 
 	    if (state & CompActionStateInitButton)
 		action->state |= CompActionStateTermButton;
+
+	    if (state & CompActionStateInitEdge)
+		action->state |= CompActionStateTermEdge;
 	}
 
 	switchToWindow (s, TRUE);
@@ -1031,13 +1058,91 @@ switchPrevAll (CompDisplay     *d,
 
 	if (!ss->switching)
 	{
-	    switchInitiate (s, TRUE);
+	    switchInitiate (s, TRUE, TRUE);
 
 	    if (state & CompActionStateInitKey)
 		action->state |= CompActionStateTermKey;
 
 	    if (state & CompActionStateInitButton)
 		action->state |= CompActionStateTermButton;
+
+	    if (state & CompActionStateInitEdge)
+		action->state |= CompActionStateTermEdge;
+	}
+
+	switchToWindow (s, FALSE);
+    }
+
+    return FALSE;
+}
+
+static Bool
+switchNextNoPopup (CompDisplay     *d,
+		   CompAction      *action,
+		   CompActionState state,
+		   CompOption      *option,
+		   int	           nOption)
+{
+    CompScreen *s;
+    Window     xid;
+
+    xid = getIntOptionNamed (option, nOption, "root", 0);
+
+    s = findScreenAtDisplay (d, xid);
+    if (s)
+    {
+	SWITCH_SCREEN (s);
+
+	if (!ss->switching)
+	{
+	    switchInitiate (s, FALSE, FALSE);
+
+	    if (state & CompActionStateInitKey)
+		action->state |= CompActionStateTermKey;
+
+	    if (state & CompActionStateInitButton)
+		action->state |= CompActionStateTermButton;
+
+	    if (state & CompActionStateInitEdge)
+		action->state |= CompActionStateTermEdge;
+
+	}
+
+	switchToWindow (s, TRUE);
+    }
+
+    return FALSE;
+}
+
+static Bool
+switchPrevNoPopup (CompDisplay     *d,
+		   CompAction      *action,
+		   CompActionState state,
+		   CompOption      *option,
+		   int	           nOption)
+{
+    CompScreen *s;
+    Window     xid;
+
+    xid = getIntOptionNamed (option, nOption, "root", 0);
+
+    s = findScreenAtDisplay (d, xid);
+    if (s)
+    {
+	SWITCH_SCREEN (s);
+
+	if (!ss->switching)
+	{
+	    switchInitiate (s, FALSE, FALSE);
+
+	    if (state & CompActionStateInitKey)
+		action->state |= CompActionStateTermKey;
+
+	    if (state & CompActionStateInitButton)
+		action->state |= CompActionStateTermButton;
+
+	    if (state & CompActionStateInitEdge)
+		action->state |= CompActionStateTermEdge;
 	}
 
 	switchToWindow (s, FALSE);
@@ -1403,9 +1508,8 @@ switchPaintScreen (CompScreen		   *s,
 	    switcher->destroyed = saveDestroyed;
 
 	    glPushMatrix ();
-	    glTranslatef (-0.5f, -0.5f, -DEFAULT_Z_CAMERA);
-	    glScalef (1.0f / s->width, -1.0f / s->height, 1.0f);
-	    glTranslatef (0.0f, -s->height, 0.0f);
+
+	    prepareXCoords (s, output, -DEFAULT_Z_CAMERA);
 
 	    if (!switcher->destroyed			 &&
 		switcher->attrib.map_state == IsViewable &&
@@ -1455,17 +1559,6 @@ switchDonePaintScreen (CompScreen *s)
 }
 
 static void
-switchMoveWindow (CompWindow *w,
-		  int        dx,
-		  int        dy)
-{
-    w->attrib.x += dx;
-    w->attrib.y += dy;
-
-    XOffsetRegion (w->region, dx, dy);
-}
-
-static void
 switchPaintThumb (CompWindow		  *w,
 		  const WindowPaintAttrib *attrib,
 		  unsigned int		  mask,
@@ -1476,11 +1569,8 @@ switchPaintThumb (CompWindow		  *w,
 {
     DrawWindowGeometryProc oldDrawWindowGeometry;
     WindowPaintAttrib	   sAttrib = *attrib;
-    int			   dx, dy;
     int			   wx, wy;
     float		   width, height;
-    REGION		   reg;
-    CompMatrix		   matrix;
     CompIcon		   *icon = NULL;
 
     /* Wrap drawWindowGeometry to make sure the general
@@ -1490,32 +1580,31 @@ switchPaintThumb (CompWindow		  *w,
 
     mask |= PAINT_WINDOW_TRANSFORMED_MASK;
 
-    reg.rects    = &reg.extents;
-    reg.numRects = 1;
-
-    reg.extents.y1 = MINSHORT;
-    reg.extents.y2 = MAXSHORT;
-
     if (w->mapNum)
     {
-	if (!w->texture.pixmap)
+	if (!w->texture->pixmap)
 	    bindWindow (w);
     }
 
     if (w->mapNum)
     {
+	int ww, wh;
+
 	SWITCH_SCREEN (w->screen);
 
 	width  = WIDTH  - (SPACE << 1);
 	height = HEIGHT - (SPACE << 1);
 
-	if (w->width > width)
-	    sAttrib.xScale = width / w->width;
+	ww = w->width  + w->input.left + w->input.right;
+	wh = w->height + w->input.top  + w->input.bottom;
+
+	if (ww > width)
+	    sAttrib.xScale = width / ww;
 	else
 	    sAttrib.xScale = 1.0f;
 
-	if (w->height > height)
-	    sAttrib.yScale = height / w->height;
+	if (wh > height)
+	    sAttrib.yScale = height / wh;
 	else
 	    sAttrib.yScale = 1.0f;
 
@@ -1524,35 +1613,16 @@ switchPaintThumb (CompWindow		  *w,
 	else
 	    sAttrib.xScale = sAttrib.yScale;
 
-	width  = w->width  * sAttrib.xScale;
-	height = w->height * sAttrib.yScale;
+	width  = ww * sAttrib.xScale;
+	height = wh * sAttrib.yScale;
 
 	wx = x + SPACE + ((WIDTH  - (SPACE << 1)) - width)  / 2;
 	wy = y + SPACE + ((HEIGHT - (SPACE << 1)) - height) / 2;
 
-	dx = wx - w->attrib.x;
-	dy = wy - w->attrib.y;
+	sAttrib.xTranslate = wx - w->attrib.x + w->input.left * sAttrib.xScale;
+	sAttrib.yTranslate = wy - w->attrib.y + w->input.top  * sAttrib.yScale;
 
-	switchMoveWindow (w, dx, dy);
-
-	matrix = w->texture.matrix;
-	matrix.x0 -= (w->attrib.x * w->matrix.xx);
-	matrix.y0 -= (w->attrib.y * w->matrix.yy);
-
-	if (w->alpha || sAttrib.opacity != OPAQUE)
-	    mask |= PAINT_WINDOW_TRANSLUCENT_MASK;
-	else if (sAttrib.opacity == OPAQUE)
-	    mask &= ~PAINT_WINDOW_TRANSLUCENT_MASK;
-
-	reg.extents.x1 = wx + (x1 - wx) / sAttrib.xScale;
-	reg.extents.x2 = wx + (x2 - wx) / sAttrib.xScale;
-
-	w->vCount = 0;
-	addWindowGeometry (w, &matrix, 1, w->region, &reg);
-	if (w->vCount)
-	    (*w->screen->drawWindowTexture) (w, &w->texture, &sAttrib, mask);
-
-	switchMoveWindow (w, -dx, -dy);
+	(w->screen->drawWindow) (w, &sAttrib, &infiniteRegion, mask);
 
 	if (ss->opt[SWITCH_SCREEN_OPTION_ICON].value.b)
 	{
@@ -1607,14 +1677,10 @@ switchPaintThumb (CompWindow		  *w,
 
     if (icon && (icon->texture.name || iconToTexture (w->screen, icon)))
     {
-	REGION iconReg;
+	REGION     iconReg;
+	CompMatrix matrix;
 
 	mask |= PAINT_WINDOW_TRANSLUCENT_MASK;
-
-	dx = wx - w->attrib.x;
-	dy = wy - w->attrib.y;
-
-	switchMoveWindow (w, dx, dy);
 
 	iconReg.rects    = &iconReg.extents;
 	iconReg.numRects = 1;
@@ -1625,20 +1691,18 @@ switchPaintThumb (CompWindow		  *w,
 	iconReg.extents.y2 = w->attrib.y + icon->height;
 
 	matrix = icon->texture.matrix;
-	matrix.x0 -= (wx * icon->texture.matrix.xx);
-	matrix.y0 -= (wy * icon->texture.matrix.yy);
+	matrix.x0 -= (w->attrib.x * icon->texture.matrix.xx);
+	matrix.y0 -= (w->attrib.y * icon->texture.matrix.yy);
 
-	reg.extents.x1 = wx + (x1 - wx) / sAttrib.xScale;
-	reg.extents.x2 = wx + (x2 - wx) / sAttrib.xScale;
+	sAttrib.xTranslate = wx - w->attrib.x;
+	sAttrib.yTranslate = wy - w->attrib.y;
 
 	w->vCount = 0;
-	addWindowGeometry (w, &matrix, 1, &iconReg, &reg);
+	addWindowGeometry (w, &matrix, 1, &iconReg, &infiniteRegion);
 	if (w->vCount)
 	    (*w->screen->drawWindowTexture) (w,
 					     &icon->texture, &sAttrib,
 					     mask);
-
-	switchMoveWindow (w, -dx, -dy);
     }
 
     w->screen->drawWindowGeometry = oldDrawWindowGeometry;
@@ -1681,6 +1745,11 @@ switchPaintWindow (CompWindow		   *w,
 	if (ss->opt[SWITCH_SCREEN_OPTION_MIPMAP].value.b)
 	    s->display->textureFilter = GL_LINEAR_MIPMAP_LINEAR;
 
+	glPushAttrib (GL_SCISSOR_BIT);
+
+	glEnable (GL_SCISSOR_TEST);
+	glScissor (x1, 0, x2 - x1, w->screen->height);
+
 	for (i = 0; i < ss->nWindows; i++)
 	{
 	    if (x + WIDTH > x1)
@@ -1700,6 +1769,8 @@ switchPaintWindow (CompWindow		   *w,
 
 	    x += WIDTH;
 	}
+
+	glPopAttrib ();
 
 	s->display->textureFilter = filter;
 
@@ -1845,8 +1916,10 @@ switchSetDisplayOption (CompDisplay     *display,
     switch (index) {
     case SWITCH_DISPLAY_OPTION_NEXT:
     case SWITCH_DISPLAY_OPTION_NEXT_ALL:
+    case SWITCH_DISPLAY_OPTION_NEXT_NO_POPUP:
     case SWITCH_DISPLAY_OPTION_PREV:
     case SWITCH_DISPLAY_OPTION_PREV_ALL:
+    case SWITCH_DISPLAY_OPTION_PREV_NO_POPUP:
 	if (setDisplayAction (display, o, value))
 	    return TRUE;
     default:
@@ -1935,6 +2008,32 @@ switchDisplayInitOptions (SwitchDisplay *sd,
     o->value.action.key.keycode   =
 	XKeysymToKeycode (display,
 			  XStringToKeysym (SWITCH_PREV_ALL_KEY_DEFAULT));
+
+    o = &sd->opt[SWITCH_DISPLAY_OPTION_NEXT_NO_POPUP];
+    o->name		      = "next_no_popup";
+    o->shortDesc	      = N_("Next window");
+    o->longDesc		      = N_("Select next window");
+    o->type		      = CompOptionTypeAction;
+    o->value.action.initiate  = switchNextNoPopup;
+    o->value.action.terminate = switchTerminate;
+    o->value.action.bell      = FALSE;
+    o->value.action.edgeMask  = 0;
+    o->value.action.state     = CompActionStateInitKey;
+    o->value.action.state    |= CompActionStateInitButton;
+    o->value.action.type      = 0;
+
+    o = &sd->opt[SWITCH_DISPLAY_OPTION_PREV_NO_POPUP];
+    o->name		      = "prev_no_popup";
+    o->shortDesc	      = N_("Prev window");
+    o->longDesc		      = N_("Select previous window");
+    o->type		      = CompOptionTypeAction;
+    o->value.action.initiate  = switchPrevNoPopup;
+    o->value.action.terminate = switchTerminate;
+    o->value.action.bell      = FALSE;
+    o->value.action.edgeMask  = 0;
+    o->value.action.state     = CompActionStateInitKey;
+    o->value.action.state    |= CompActionStateInitButton;
+    o->value.action.type      = 0;
 }
 
 static Bool
@@ -2035,6 +2134,8 @@ switchInitScreen (CompPlugin *p,
     addScreenAction (s, &sd->opt[SWITCH_DISPLAY_OPTION_PREV].value.action);
     addScreenAction (s, &sd->opt[SWITCH_DISPLAY_OPTION_NEXT_ALL].value.action);
     addScreenAction (s, &sd->opt[SWITCH_DISPLAY_OPTION_PREV_ALL].value.action);
+    addScreenAction (s, &sd->opt[SWITCH_DISPLAY_OPTION_NEXT_NO_POPUP].value.action);
+    addScreenAction (s, &sd->opt[SWITCH_DISPLAY_OPTION_PREV_NO_POPUP].value.action);
 
     WRAP (ss, s, preparePaintScreen, switchPreparePaintScreen);
     WRAP (ss, s, donePaintScreen, switchDonePaintScreen);
@@ -2106,8 +2207,10 @@ CompPluginVTable switchVTable = {
     switchSetDisplayOption,
     switchGetScreenOptions,
     switchSetScreenOption,
-    NULL,
-    0
+    0, /* Deps */
+    0, /* nDeps */
+    0, /* Features */
+    0  /* nFeatures */
 };
 
 CompPluginVTable *

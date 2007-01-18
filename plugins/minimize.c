@@ -268,7 +268,7 @@ minSetShade (CompWindow *w,
     XIntersectRegion (mw->region, &rect, w->region);
     XOffsetRegion (w->region, w->attrib.x, w->attrib.y - (h - shade));
 
-    w->matrix = w->texture.matrix;
+    w->matrix = w->texture->matrix;
     w->matrix.x0 -= (w->attrib.x * w->matrix.xx);
     w->matrix.y0 -= ((w->attrib.y - (h - shade)) * w->matrix.yy);
 
@@ -361,7 +361,7 @@ adjustMinVelocity (CompWindow *w)
 	xScale = yScale = 1.0f;
     }
 
-    dx = x1 - w->attrib.x;
+    dx = x1 - (w->attrib.x + mw->tx);
 
     adjust = dx * 0.15f;
     amount = fabs (dx) * 1.5f;
@@ -372,7 +372,7 @@ adjustMinVelocity (CompWindow *w)
 
     mw->xVelocity = (amount * mw->xVelocity + adjust) / (amount + 1.0f);
 
-    dy = y1 - w->attrib.y;
+    dy = y1 - (w->attrib.y + mw->ty);
 
     adjust = dy * 0.15f;
     amount = fabs (dy) * 1.5f;
@@ -434,7 +434,7 @@ minPreparePaintScreen (CompScreen *s,
     if (ms->moreAdjust)
     {
 	CompWindow *w;
-	int        steps, dx, dy, h;
+	int        steps, h;
 	float      amount, chunk;
 
 	amount = msSinceLastPaint * 0.05f * ms->speed;
@@ -460,13 +460,6 @@ minPreparePaintScreen (CompScreen *s,
 		    mw->ty += mw->yVelocity * chunk;
 		    mw->xScale += mw->xScaleVelocity * chunk;
 		    mw->yScale += mw->yScaleVelocity * chunk;
-
-		    dx = (w->serverX + mw->tx) - w->attrib.x;
-		    dy = (w->serverY + mw->ty) - w->attrib.y;
-
-		    moveWindow (w, dx, dy, FALSE, FALSE);
-
-		    (*s->setWindowScale) (w, mw->xScale, mw->yScale);
 
 		    if (!mw->adjust)
 		    {
@@ -628,11 +621,31 @@ minPaintWindow (CompWindow		*w,
     MIN_WINDOW (w);
 
     if (mw->adjust)
-	mask |= PAINT_WINDOW_TRANSFORMED_MASK;
+    {
+	WindowPaintAttrib mAttrib;
 
-    UNWRAP (ms, s, paintWindow);
-    status = (*s->paintWindow) (w, attrib, region, mask);
-    WRAP (ms, s, paintWindow, minPaintWindow);
+	UNWRAP (ms, s, paintWindow);
+	status = (*s->paintWindow) (w, attrib, region,
+				    mask | PAINT_WINDOW_NO_CORE_INSTANCE_MASK);
+	WRAP (ms, s, paintWindow, minPaintWindow);
+
+	mAttrib = w->lastPaint;
+
+	mAttrib.xScale = mw->xScale;
+	mAttrib.yScale = mw->yScale;
+
+	mAttrib.xTranslate = mw->tx;
+	mAttrib.yTranslate = mw->ty;
+
+	(*s->drawWindow) (w, &mAttrib, region,
+			  mask | PAINT_WINDOW_TRANSFORMED_MASK);
+    }
+    else
+    {
+	UNWRAP (ms, s, paintWindow);
+	status = (*s->paintWindow) (w, attrib, region, mask);
+	WRAP (ms, s, paintWindow, minPaintWindow);
+    }
 
     return status;
 }
@@ -671,7 +684,7 @@ minHandleEvent (CompDisplay *d,
 	{
 	    MIN_SCREEN (w->screen);
 
-	    if (w->pendingUnmaps) /* Normal -> Iconic */
+	    if (w->pendingUnmaps && onCurrentDesktop (w)) /* Normal -> Iconic */
 	    {
 		MIN_WINDOW (w);
 
@@ -750,13 +763,6 @@ minHandleEvent (CompDisplay *d,
 			XDestroyRegion (mw->region);
 			mw->region = NULL;
 		    }
-
-		    (*w->screen->setWindowScale) (w, 1.0f, 1.0f);
-
-		    moveWindow (w,
-				w->serverX - w->attrib.x,
-				w->serverY - w->attrib.y,
-				FALSE, TRUE);
 		}
 
 		mw->state = NormalState;
@@ -776,14 +782,13 @@ minDamageWindowRect (CompWindow *w,
 		     Bool	initial,
 		     BoxPtr     rect)
 {
-    Bool status;
+    Bool status = FALSE;
 
     MIN_SCREEN (w->screen);
+    MIN_WINDOW (w);
 
     if (initial)
     {
-	MIN_WINDOW (w);
-
 	if (mw->state == IconicState)
 	{
 	    if (!w->invisible	      &&
@@ -800,24 +805,8 @@ minDamageWindowRect (CompWindow *w,
 		    mw->xScale = (float) mw->icon.width  / w->width;
 		    mw->yScale = (float) mw->icon.height / w->height;
 
-		    moveWindow (w,
-				mw->icon.x - w->attrib.x,
-				mw->icon.y - w->attrib.y,
-				FALSE, TRUE);
-
-		    (*w->screen->setWindowScale) (w, mw->xScale, mw->yScale);
-
 		    addWindowDamage (w);
 		}
-	    }
-	    else
-	    {
-		moveWindow (w,
-			    w->serverX - w->attrib.x,
-			    w->serverY - w->attrib.y,
-			    FALSE, TRUE);
-
-		(*w->screen->setWindowScale) (w, 1.0f, 1.0f);
 	    }
 	}
 	else if (mw->region && mw->shade < w->height)
@@ -828,7 +817,7 @@ minDamageWindowRect (CompWindow *w,
 		XOffsetRegion (mw->region, -w->attrib.x, -w->attrib.y);
 
 		/* bind pixmap here so we have something to unshade with */
-		if (!w->texture.pixmap)
+		if (!w->texture->pixmap)
 		    bindWindow (w);
 
 		ms->moreAdjust = TRUE;
@@ -841,9 +830,20 @@ minDamageWindowRect (CompWindow *w,
 
 	mw->newState = NormalState;
     }
+    else if (mw->adjust)
+    {
+	damageTransformedWindowRect (w,
+				     mw->xScale,
+				     mw->yScale,
+				     mw->tx,
+				     mw->ty,
+				     rect);
+
+	status = TRUE;
+    }
 
     UNWRAP (ms, w->screen, damageWindowRect);
-    status = (*w->screen->damageWindowRect) (w, initial, rect);
+    status |= (*w->screen->damageWindowRect) (w, initial, rect);
     WRAP (ms, w->screen, damageWindowRect, minDamageWindowRect);
 
     return status;
@@ -985,17 +985,26 @@ minInitWindow (CompPlugin *p,
 
     mw->unmapCnt = 0;
 
-    if (w->shaded)
+    if (w->state & CompWindowStateHiddenMask)
     {
-	mw->state = mw->newState = NormalState;
-	mw->shade = 0;
-	mw->region = XCreateRegion ();
+	if (w->shaded)
+	{
+	    mw->state = mw->newState = NormalState;
+	    mw->shade = 0;
+	    mw->region = XCreateRegion ();
+	}
+	else
+	{
+	    mw->state = mw->newState = minGetWindowState (w);
+	    mw->shade = MAXSHORT;
+	    mw->region = NULL;
+	}
     }
     else
     {
-	mw->state = mw->newState = minGetWindowState (w);
-	mw->shade = MAXSHORT;
-	mw->region = NULL;
+	    mw->state = mw->newState = NormalState;
+	    mw->shade = MAXSHORT;
+	    mw->region = NULL;
     }
 
     w->privates[ms->windowPrivateIndex].ptr = mw;
@@ -1065,7 +1074,9 @@ static CompPluginVTable minVTable = {
     minGetScreenOptions,
     minSetScreenOption,
     minDeps,
-    sizeof (minDeps) / sizeof (minDeps[0])
+    sizeof (minDeps) / sizeof (minDeps[0]),
+    0, /* Features */
+    0  /* nFeatures */
 };
 
 CompPluginVTable *

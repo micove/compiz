@@ -50,14 +50,18 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am__kde_window_decorator_SOURCES_DIST = main.cpp qdecorator.cpp \
-	qwmutils.cpp qwmwindow.cpp qwmscreen.cpp decorations.cpp
-@USE_KDE_TRUE@am_kde_window_decorator_OBJECTS = main.$(OBJEXT) \
-@USE_KDE_TRUE@	qdecorator.$(OBJEXT) qwmutils.$(OBJEXT) \
-@USE_KDE_TRUE@	qwmwindow.$(OBJEXT) qwmscreen.$(OBJEXT) \
-@USE_KDE_TRUE@	decorations.$(OBJEXT)
+am__kde_window_decorator_SOURCES_DIST = decorator.moc.cpp \
+	window.moc.cpp KWinInterface_skel.cpp main.cpp utils.cpp \
+	utils.h decorator.cpp decorator.h window.cpp window.h \
+	options.cpp options.h KWinInterface.h
+@USE_KDE_TRUE@am__objects_1 = decorator.moc.$(OBJEXT) \
+@USE_KDE_TRUE@	window.moc.$(OBJEXT) \
+@USE_KDE_TRUE@	KWinInterface_skel.$(OBJEXT)
+@USE_KDE_TRUE@am_kde_window_decorator_OBJECTS = $(am__objects_1) \
+@USE_KDE_TRUE@	main.$(OBJEXT) utils.$(OBJEXT) \
+@USE_KDE_TRUE@	decorator.$(OBJEXT) window.$(OBJEXT) \
+@USE_KDE_TRUE@	options.$(OBJEXT)
 kde_window_decorator_OBJECTS = $(am_kde_window_decorator_OBJECTS)
-kde_window_decorator_DEPENDENCIES =
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/config/depcomp
 am__depfiles_maybe = depfiles
@@ -69,6 +73,14 @@ LTCXXCOMPILE = $(LIBTOOL) --tag=CXX --mode=compile $(CXX) $(DEFS) \
 CXXLD = $(CXX)
 CXXLINK = $(LIBTOOL) --tag=CXX --mode=link $(CXXLD) $(AM_CXXFLAGS) \
 	$(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) \
+	$(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) \
+	$(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(LIBTOOL) --tag=CC --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(kde_window_decorator_SOURCES)
 DIST_SOURCES = $(am__kde_window_decorator_SOURCES_DIST)
 ETAGS = etags
@@ -79,6 +91,10 @@ ALL_LINGUAS = @ALL_LINGUAS@
 AMDEP_FALSE = @AMDEP_FALSE@
 AMDEP_TRUE = @AMDEP_TRUE@
 AMTAR = @AMTAR@
+ANNOTATE_CFLAGS = @ANNOTATE_CFLAGS@
+ANNOTATE_LIBS = @ANNOTATE_LIBS@
+ANNOTATE_PLUGIN_FALSE = @ANNOTATE_PLUGIN_FALSE@
+ANNOTATE_PLUGIN_TRUE = @ANNOTATE_PLUGIN_TRUE@
 AR = @AR@
 AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
@@ -101,9 +117,16 @@ CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DATADIRNAME = @DATADIRNAME@
 DBUS_CFLAGS = @DBUS_CFLAGS@
+DBUS_GLIB_CFLAGS = @DBUS_GLIB_CFLAGS@
+DBUS_GLIB_LIBS = @DBUS_GLIB_LIBS@
 DBUS_LIBS = @DBUS_LIBS@
 DBUS_PLUGIN_FALSE = @DBUS_PLUGIN_FALSE@
 DBUS_PLUGIN_TRUE = @DBUS_PLUGIN_TRUE@
+DCOPIDL = @DCOPIDL@
+DCOPIDL2CPP = @DCOPIDL2CPP@
+DECORATION_CFLAGS = @DECORATION_CFLAGS@
+DECORATION_LIBS = @DECORATION_LIBS@
+DECORATION_REQUIRES = @DECORATION_REQUIRES@
 DEFAULT_PLUGINS = @DEFAULT_PLUGINS@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
@@ -120,8 +143,6 @@ GCONF_CFLAGS = @GCONF_CFLAGS@
 GCONF_DUMP_PLUGIN_FALSE = @GCONF_DUMP_PLUGIN_FALSE@
 GCONF_DUMP_PLUGIN_TRUE = @GCONF_DUMP_PLUGIN_TRUE@
 GCONF_LIBS = @GCONF_LIBS@
-GCONF_PLUGIN_FALSE = @GCONF_PLUGIN_FALSE@
-GCONF_PLUGIN_TRUE = @GCONF_PLUGIN_TRUE@
 GCONF_SCHEMAS_INSTALL_FALSE = @GCONF_SCHEMAS_INSTALL_FALSE@
 GCONF_SCHEMAS_INSTALL_TRUE = @GCONF_SCHEMAS_INSTALL_TRUE@
 GCONF_SCHEMA_CONFIG_SOURCE = @GCONF_SCHEMA_CONFIG_SOURCE@
@@ -136,12 +157,16 @@ GNOME_WINDOW_SETTINGS_LIBS = @GNOME_WINDOW_SETTINGS_LIBS@
 GREP = @GREP@
 GTK_WINDOW_DECORATOR_CFLAGS = @GTK_WINDOW_DECORATOR_CFLAGS@
 GTK_WINDOW_DECORATOR_LIBS = @GTK_WINDOW_DECORATOR_LIBS@
+INOTIFY_PLUGIN_FALSE = @INOTIFY_PLUGIN_FALSE@
+INOTIFY_PLUGIN_TRUE = @INOTIFY_PLUGIN_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 INSTOBJEXT = @INSTOBJEXT@
 INTLLIBS = @INTLLIBS@
+KDE_CFLAGS = @KDE_CFLAGS@
+KDE_LIBS = @KDE_LIBS@
 KDE_WINDOW_DECORATOR_CFLAGS = @KDE_WINDOW_DECORATOR_CFLAGS@
 KDE_WINDOW_DECORATOR_LIBS = @KDE_WINDOW_DECORATOR_LIBS@
 LDFLAGS = @LDFLAGS@
@@ -183,6 +208,8 @@ SCALE_CORNER = @SCALE_CORNER@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+USE_GCONF_FALSE = @USE_GCONF_FALSE@
+USE_GCONF_TRUE = @USE_GCONF_TRUE@
 USE_GNOME_FALSE = @USE_GNOME_FALSE@
 USE_GNOME_TRUE = @USE_GNOME_TRUE@
 USE_GTK_FALSE = @USE_GTK_FALSE@
@@ -247,15 +274,36 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 windowsettingsdatadir = @windowsettingsdatadir@
 windowsettingslibdir = @windowsettingslibdir@
-@USE_KDE_TRUE@kde_window_decorator_LDADD = @KDE_WINDOW_DECORATOR_LIBS@
-@USE_KDE_TRUE@kde_window_decorator_SOURCES = main.cpp qdecorator.cpp qwmutils.cpp \
-@USE_KDE_TRUE@	qwmwindow.cpp qwmscreen.cpp decorations.cpp
+@USE_KDE_TRUE@BUILDSOURCES = \
+@USE_KDE_TRUE@	decorator.moc.cpp      \
+@USE_KDE_TRUE@	window.moc.cpp	       \
+@USE_KDE_TRUE@	KWinInterface_skel.cpp
 
-@USE_KDE_TRUE@BUILT_SOURCES = qdecorator.moc qwmscreen.moc qwmwindow.moc
+@USE_KDE_TRUE@kde_window_decorator_DEPENDENCIES = \
+@USE_KDE_TRUE@	$(top_builddir)/libdecoration/libdecoration.la
+
+@USE_KDE_TRUE@kde_window_decorator_LDADD = \
+@USE_KDE_TRUE@	$(top_builddir)/libdecoration/libdecoration.la \
+@USE_KDE_TRUE@	@KDE_WINDOW_DECORATOR_LIBS@ @KDE_LIBS@
+
+@USE_KDE_TRUE@kde_window_decorator_SOURCES = \
+@USE_KDE_TRUE@	$(BUILDSOURCES)	       \
+@USE_KDE_TRUE@	main.cpp	       \
+@USE_KDE_TRUE@	utils.cpp	       \
+@USE_KDE_TRUE@	utils.h		       \
+@USE_KDE_TRUE@	decorator.cpp	       \
+@USE_KDE_TRUE@	decorator.h	       \
+@USE_KDE_TRUE@	window.cpp	       \
+@USE_KDE_TRUE@	window.h	       \
+@USE_KDE_TRUE@	options.cpp	       \
+@USE_KDE_TRUE@	options.h	       \
+@USE_KDE_TRUE@	KWinInterface.h
+
 @USE_KDE_TRUE@kde_window_decorator_program = kde-window-decorator
-@USE_KDE_TRUE@INCLUDES = @KDE_WINDOW_DECORATOR_CFLAGS@
-all: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) all-am
+@USE_KDE_TRUE@INCLUDES = -I$(top_srcdir)/include @KDE_WINDOW_DECORATOR_CFLAGS@ @KDE_CFLAGS@
+@USE_KDE_TRUE@CLEANFILES = $(BUILDSOURCES) KWinInterface_skel.* KWinInterface_stub.*
+@USE_KDE_TRUE@EXTRA_DIST = $(BUILDSOURCES)
+all: all-am
 
 .SUFFIXES:
 .SUFFIXES: .cpp .lo .o .obj
@@ -326,12 +374,14 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/decorations.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/KWinInterface_skel.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/decorator.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/decorator.moc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qdecorator.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qwmscreen.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qwmutils.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qwmwindow.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/options.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utils.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/window.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/window.moc.Po@am__quote@
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	if $(CXXCOMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
@@ -440,15 +490,13 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
-check: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) check-am
+check: check-am
 all-am: Makefile $(PROGRAMS)
 installdirs:
 	for dir in "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
 	done
-install: $(BUILT_SOURCES)
-	$(MAKE) $(AM_MAKEFLAGS) install-am
+install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
 uninstall: uninstall-am
@@ -465,6 +513,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -472,7 +521,6 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
 clean: clean-am
 
 clean-am: clean-binPROGRAMS clean-generic clean-libtool mostlyclean-am
@@ -536,8 +584,14 @@ uninstall-am: uninstall-binPROGRAMS uninstall-info-am
 	uninstall-binPROGRAMS uninstall-info-am
 
 
-@USE_KDE_TRUE@%.moc: %.h
+@USE_KDE_TRUE@%.moc.cpp: %.h
 @USE_KDE_TRUE@	$(QT_MOC) $< > $@
+
+@USE_KDE_TRUE@%.kidl: %.h
+@USE_KDE_TRUE@	$(DCOPIDL) $< > $@
+
+@USE_KDE_TRUE@%_skel.cpp: %.kidl
+@USE_KDE_TRUE@	$(DCOPIDL2CPP) $< > $@
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

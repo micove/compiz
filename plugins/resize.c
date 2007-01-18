@@ -77,6 +77,8 @@ typedef struct _ResizeDisplay {
     unsigned int      mask;
     int		      width;
     int		      height;
+    int		      ucWidth;	/* unconstrained width */
+    int		      ucHeight;	/* unconstrained height */
     KeyCode	      key[NUM_KEYS];
 } ResizeDisplay;
 
@@ -184,6 +186,8 @@ resizeInitiate (CompDisplay     *d,
 
 	rd->w	        = w;
 	rd->mask        = mask;
+	rd->ucWidth     = w->attrib.width;
+	rd->ucHeight    = w->attrib.height;
 	rd->width       = w->attrib.width;
 	rd->height      = w->attrib.height;
 	rd->savedAttrib = w->attrib;
@@ -278,7 +282,7 @@ resizeTerminate (CompDisplay	 *d,
 	    xwc.width  = rd->savedAttrib.width;
 	    xwc.height = rd->savedAttrib.height;
 
-	    XConfigureWindow (d->display, rd->w->id,
+	    configureXWindow (rd->w,
 			      CWX | CWY | CWWidth | CWHeight,
 			      &xwc);
 	}
@@ -313,13 +317,13 @@ resizeUpdateWindowSize (CompDisplay *d)
 	return;
 
     if (rd->w->state & CompWindowStateMaximizedVertMask)
-	rd->height = rd->w->attrib.height;
+	rd->height = rd->w->serverHeight;
 
     if (rd->w->state & CompWindowStateMaximizedHorzMask)
-	rd->width = rd->w->attrib.width;
+	rd->width = rd->w->serverWidth;
 
-    if (rd->width  == rd->w->attrib.width &&
-	rd->height == rd->w->attrib.height)
+    if (rd->width  == rd->w->serverWidth &&
+	rd->height == rd->w->serverHeight)
 	return;
 
     if (rd->w->syncWait)
@@ -333,18 +337,18 @@ resizeUpdateWindowSize (CompDisplay *d)
 
 	xwc.x = rd->w->attrib.x;
 	if (rd->mask & ResizeLeftMask)
-	    xwc.x -= width - rd->w->attrib.width;
+	    xwc.x -= width - rd->w->serverWidth;
 
 	xwc.y = rd->w->attrib.y;
 	if (rd->mask & ResizeUpMask)
-	    xwc.y -= height - rd->w->attrib.height;
+	    xwc.y -= height - rd->w->serverHeight;
 
 	xwc.width  = width;
 	xwc.height = height;
 
 	sendSyncRequest (rd->w);
 
-	XConfigureWindow (d->display, rd->w->id,
+	configureXWindow (rd->w,
 			  CWX | CWY | CWWidth | CWHeight,
 			  &xwc);
     }
@@ -448,7 +452,6 @@ resizeHandleKeyEvent (CompScreen *s,
 		rd->mask = rKeys[i].resizeMask;
 		updateScreenGrab (s, rs->grabIndex, rs->cursor[i]);
 	    }
-			    
 	    break;
 	}
     }
@@ -474,8 +477,8 @@ resizeHandleMotionEvent (CompScreen *s,
 	{
 	    int w, h;
 
-	    w = rd->width;
-	    h = rd->height;
+	    w = rd->ucWidth;
+	    h = rd->ucHeight;
 
 	    if (rd->mask & ResizeLeftMask)
 		w -= pointerDx;
@@ -486,6 +489,9 @@ resizeHandleMotionEvent (CompScreen *s,
 		h -= pointerDy;
 	    else if (rd->mask & ResizeDownMask)
 		h += pointerDy;
+
+	    rd->ucWidth  = w;
+	    rd->ucHeight = h;
 
 	    resizeConstrainMinMax (rd->w, w, h, &w, &h);
 
@@ -868,8 +874,10 @@ CompPluginVTable resizeVTable = {
     resizeSetDisplayOption,
     0, /* GetScreenOptions */
     0, /* SetScreenOption */
-    NULL,
-    0
+    0, /* Deps */
+    0, /* nDeps */
+    0, /* Features */
+    0  /* nFeatures */
 };
 
 CompPluginVTable *

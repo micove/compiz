@@ -69,12 +69,12 @@
 
 #define ROTATE_SNAP_TOP_DEFAULT FALSE
 
-#define ROTATE_SPEED_DEFAULT   1.5f
+#define ROTATE_SPEED_DEFAULT   2.0f
 #define ROTATE_SPEED_MIN       0.1f
 #define ROTATE_SPEED_MAX       50.0f
 #define ROTATE_SPEED_PRECISION 0.1f
 
-#define ROTATE_TIMESTEP_DEFAULT   1.2f
+#define ROTATE_TIMESTEP_DEFAULT   1.0f
 #define ROTATE_TIMESTEP_MIN       0.1f
 #define ROTATE_TIMESTEP_MAX       50.0f
 #define ROTATE_TIMESTEP_PRECISION 0.1f
@@ -606,6 +606,9 @@ rotateInitiate (CompDisplay     *d,
     {
 	ROTATE_SCREEN (s);
 
+	if (s->hsize < 2)
+	    return FALSE;
+
 	if (rs->rotateHandle && rs->grabWindow)
 	{
 	    if (otherScreenGrabExist (s, "rotate", "move", 0))
@@ -706,6 +709,9 @@ rotate (CompDisplay     *d,
 
 	ROTATE_SCREEN (s);
 
+	if (s->hsize < 2)
+	    return FALSE;
+
 	if (otherScreenGrabExist (s, "rotate", "move", "switcher", "cube", 0))
 	    return FALSE;
 
@@ -765,6 +771,9 @@ rotateWithWindow (CompDisplay     *d,
 	int direction;
 
 	ROTATE_SCREEN (s);
+
+	if (s->hsize < 2)
+	    return FALSE;
 
 	direction = getIntOptionNamed (option, nOption, "direction", 0);
 	if (!direction)
@@ -1055,6 +1064,9 @@ rotateEdgeFlip (CompScreen      *s,
     CompOption o[4];
 
     ROTATE_DISPLAY (s->display);
+
+    if (s->hsize < 2)
+	return;
 
     if (otherScreenGrabExist (s, "rotate", "move", 0))
 	return;
@@ -2136,7 +2148,9 @@ CompPluginVTable rotateVTable = {
     rotateGetScreenOptions,
     rotateSetScreenOption,
     rotateDeps,
-    sizeof (rotateDeps) / sizeof (rotateDeps[0])
+    sizeof (rotateDeps) / sizeof (rotateDeps[0]),
+    0, /* Features */
+    0  /* nFeatures */
 };
 
 CompPluginVTable *

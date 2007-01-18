@@ -1,3 +1,65 @@
+compiz (0.3.6-1) experimental; urgency=low
+
+  [ Thierry Reding ]
+  * New upstream release:
+    + Drop 002_tfp-server-extension.patch, obsolete.
+    + Drop 005_glfinish.patch, fixed upstream.
+    + Refresh 011_snap-by-default.patch.
+  * Replace build-dependency on libdbus-1-dev by libdbus-glib-1-dev.
+  * Add build-dependency on kdebase-dev and libdbus-qt-1-dev for the KDE
+    window decorator.
+  * Add patch 012_debian-kde-includes-dir to correctly detect the KDE include
+    directory on Debian systems.
+  * Add patch 013_set-qtdir-fallback to set the QTDIR variable to /usr if it
+    has not explicitly been set before. This allows the configure script to
+    correctly detect the moc compiler.
+  * Add the compiz-kde package which provides a window decorator for KDE.
+    Closes: #390338.
+  * Add the libdecoration0 and libdecoration0-dev packages. libdecoration0 is
+    needed by both Gtk and KDE window decorators while libdecoration0-dev can
+    be used to write additional decorators.
+  * Add patch 015_optional-fbo which adds a command-line option for disabling
+    the use of FBOs (work around buggy drivers). Add the --no-fbo option to
+    command-line in the compiz wrapper.
+  * Remove the --strict-binding and --use-cow options from the command-line in
+    the compiz wrapper. These are now the defaults.
+  * Add png and svg to the list of default plugins. They are needed to load
+    PNG and SVG images (e.g. for the cube's top face).
+  * Check whether the GLX_EXT_texture_from_pixmap extension is available in
+    direct or indirect rendering contexts. If it is available only in indirect
+    rendering contexts, force compiz to use indirect rendering.
+
+ -- David Nusinow <dnusinow@debian.org>  Wed, 17 Jan 2007 23:46:34 -0500
+
+compiz (0.3.4-1) experimental; urgency=low
+
+  * New upstream release:
+    + Drop 012_metacity-theme-support.patch, fixed upstream.
+    + Drop 013_fix-default-plugins.patch, fixed upstream.
+    + Refresh all other patches.
+  * Don't use xsfbs anymore until there's an easy way to keep it up-to-date
+    in git repositories. For now using quilt works just fine.
+  * Drop build-dependencies on automake1.9 and libtool because we don't run
+    the complete autotools stack anymore.
+  * Add missing dependencies to the compiz-dev package. It needs to pull in
+    all packages required by its pkgconfig file.
+  * Add a dependency on libgl1-mesa-dev | libgl-dev to compiz-dev because
+    compiz.h includes files provided in that package.
+
+ -- Thierry Reding <thierry@gilfi.de>  Sun, 26 Nov 2006 00:36:39 +0100
+
+
+compiz (0.3.2-1) experimental; urgency=low
+
+  * New upstream release. Closes: #396770.
+    + Remove 010_snap-inverted.patch, applied upstream.
+    + Refreshed other patches to apply cleanly again.
+    + Remove gtk-window-decorator.schemas and use the one provided by
+      upstream (gtk/window-decorator/gwd.schemas).
+  * Targetted at experimental until the release of etch.
+
+ -- Thierry Reding <thierry@gilfi.de>  Tue, 14 Nov 2006 02:36:40 +0100
+
 compiz (0.2.2-1) unstable; urgency=low
 
   [ Thierry Reding ]

@@ -77,6 +77,11 @@ static CompWatchFdHandle lastWatchFdHandle = 1;
 static struct pollfd     *watchPollFds = 0;
 static int               nWatchFds = 0;
 
+static CompFileWatchHandle lastFileWatchHandle = 1;
+
+static CompScreen *targetScreen = NULL;
+static int        targetOutput = 0;
+
 static Bool inHandleEvent = FALSE;
 
 static Bool shutDown = FALSE;
@@ -115,6 +120,9 @@ int pointerY     = 0;
 #define MAXIMIZE_WINDOW_KEY_DEFAULT       "F10"
 #define MAXIMIZE_WINDOW_MODIFIERS_DEFAULT CompAltMask
 
+#define RAISE_WINDOW_BUTTON_DEFAULT    6
+#define RAISE_WINDOW_MODIFIERS_DEFAULT ControlMask
+
 #define LOWER_WINDOW_BUTTON_DEFAULT    6
 #define LOWER_WINDOW_MODIFIERS_DEFAULT CompAltMask
 
@@ -147,6 +155,8 @@ int pointerY     = 0;
 
 #define TOGGLE_WINDOW_SHADING_KEY_DEFAULT       "s"
 #define TOGGLE_WINDOW_SHADING_MODIFIERS_DEFAULT (CompAltMask | ControlMask)
+
+#define IGNORE_HINTS_WHEN_MAXIMIZED_DEFAULT TRUE
 
 #define NUM_OPTIONS(d) (sizeof ((d)->opt) / sizeof (CompOption))
 
@@ -394,6 +404,25 @@ toggleSlowAnimations (CompDisplay     *d,
     s = findScreenAtDisplay (d, xid);
     if (s)
 	s->slowAnimations = !s->slowAnimations;
+
+    return TRUE;
+}
+
+static Bool
+raise (CompDisplay     *d,
+       CompAction      *action,
+       CompActionState state,
+       CompOption      *option,
+       int	       nOption)
+{
+    CompWindow *w;
+    Window     xid;
+
+    xid = getIntOptionNamed (option, nOption, "window", 0);
+
+    w = findTopLevelWindowAtDisplay (d, xid);
+    if (w)
+	raiseWindow (w);
 
     return TRUE;
 }
@@ -948,6 +977,21 @@ compDisplayInitOptions (CompDisplay *display,
 	XKeysymToKeycode (display->display,
 			  XStringToKeysym (SLOW_ANIMATIONS_KEY_DEFAULT));
 
+    o = &display->opt[COMP_DISPLAY_OPTION_RAISE_WINDOW];
+    o->name			     = "raise_window";
+    o->shortDesc		     = N_("Raise Window");
+    o->longDesc			     = N_("Raise window above other windows");
+    o->type			     = CompOptionTypeAction;
+    o->value.action.initiate	     = raise;
+    o->value.action.terminate        = 0;
+    o->value.action.bell	     = FALSE;
+    o->value.action.edgeMask	     = 0;
+    o->value.action.state	     = CompActionStateInitKey;
+    o->value.action.state	    |= CompActionStateInitButton;
+    o->value.action.type	     = CompBindingTypeButton;
+    o->value.action.button.modifiers = RAISE_WINDOW_MODIFIERS_DEFAULT;
+    o->value.action.button.button    = RAISE_WINDOW_BUTTON_DEFAULT;
+
     o = &display->opt[COMP_DISPLAY_OPTION_LOWER_WINDOW];
     o->name			     = "lower_window";
     o->shortDesc		     = N_("Lower Window");
@@ -1145,6 +1189,14 @@ compDisplayInitOptions (CompDisplay *display,
     o->value.action.key.keycode   =
 	XKeysymToKeycode (display->display,
 			  XStringToKeysym (TOGGLE_WINDOW_SHADING_KEY_DEFAULT));
+
+    o = &display->opt[COMP_DISPLAY_OPTION_IGNORE_HINTS_WHEN_MAXIMIZED];
+    o->name	 = "ignore_hints_when_maximized";
+    o->shortDesc = N_("Ignore Hints When Maximized");
+    o->longDesc	 = N_("Ignore size increment and aspect hints when window is "
+	"maximized");
+    o->type	 = CompOptionTypeBool;
+    o->value.b	 = IGNORE_HINTS_WHEN_MAXIMIZED_DEFAULT;
 }
 
 CompOption *
@@ -1206,6 +1258,7 @@ setDisplayOption (CompDisplay     *display,
     case COMP_DISPLAY_OPTION_AUTORAISE:
     case COMP_DISPLAY_OPTION_RAISE_ON_CLICK:
     case COMP_DISPLAY_OPTION_HIDE_SKIP_TASKBAR_WINDOWS:
+    case COMP_DISPLAY_OPTION_IGNORE_HINTS_WHEN_MAXIMIZED:
 	if (compSetBoolOption (o, value))
 	    return TRUE;
 	break;
@@ -1252,6 +1305,7 @@ setDisplayOption (CompDisplay     *display,
     case COMP_DISPLAY_OPTION_RUN_COMMAND10:
     case COMP_DISPLAY_OPTION_RUN_COMMAND11:
     case COMP_DISPLAY_OPTION_SLOW_ANIMATIONS:
+    case COMP_DISPLAY_OPTION_RAISE_WINDOW:
     case COMP_DISPLAY_OPTION_LOWER_WINDOW:
     case COMP_DISPLAY_OPTION_OPACITY_INCREASE:
     case COMP_DISPLAY_OPTION_OPACITY_DECREASE:
@@ -1956,6 +2010,8 @@ eventLoop (void)
 		    if (!s->damageMask || s->timeLeft > timeToNextRedraw)
 			continue;
 
+		    targetScreen = s;
+
 		    timeDiff = TIMEVALDIFF (&tv, &s->lastRedraw);
 
 		    /* handle clock rollback */
@@ -2016,15 +2072,23 @@ eventLoop (void)
 		    mask = s->damageMask;
 		    s->damageMask = 0;
 
+		    if (s->clearBuffers)
+		    {
+			if (mask & COMP_SCREEN_DAMAGE_ALL_MASK)
+			    glClear (GL_COLOR_BUFFER_BIT);
+		    }
+
 		    for (i = 0; i < s->nOutputDev; i++)
 		    {
+			targetScreen = s;
+			targetOutput = i;
+
 			if (s->nOutputDev > 1)
-			    glScissor (s->outputDev[i].region.extents.x1,
-				       s->outputDev[i].region.extents.y1,
-				       s->outputDev[i].region.extents.x2 -
-				       s->outputDev[i].region.extents.x1,
-				       s->outputDev[i].region.extents.y2 -
-				       s->outputDev[i].region.extents.y1);
+			    glViewport (s->outputDev[i].region.extents.x1,
+					s->height -
+					s->outputDev[i].region.extents.y2,
+					s->outputDev[i].width,
+					s->outputDev[i].height);
 
 			if (mask & COMP_SCREEN_DAMAGE_ALL_MASK)
 			{
@@ -2033,12 +2097,6 @@ eventLoop (void)
 					       &s->outputDev[i].region, i,
 					       PAINT_SCREEN_REGION_MASK |
 					       PAINT_SCREEN_FULL_MASK);
-
-			    if (i + 1 == s->nOutputDev)
-			    {
-				waitForVideoSync (s);
-				glXSwapBuffers (s->display->display, s->output);
-			    }
 			}
 			else if (mask & COMP_SCREEN_DAMAGE_REGION_MASK)
 			{
@@ -2046,84 +2104,90 @@ eventLoop (void)
 					      &s->outputDev[i].region,
 					      outputRegion);
 
-			    if ((*s->paintScreen) (s,
-						   &defaultScreenPaintAttrib,
-						   outputRegion, i,
-						   PAINT_SCREEN_REGION_MASK))
-			    {
-				BoxPtr pBox;
-				int    nBox, y;
-
-				pBox = outputRegion->rects;
-				nBox = outputRegion->numRects;
-
-				waitForVideoSync (s);
-
-				if (s->copySubBuffer)
-				{
-				    while (nBox--)
-				    {
-					y = s->height - pBox->y2;
-
-					(*s->copySubBuffer) (display->display,
-							     s->output,
-							     pBox->x1, y,
-							     pBox->x2 -
-							     pBox->x1,
-							     pBox->y2 -
-							     pBox->y1);
-
-					pBox++;
-				    }
-				}
-				else
-				{
-				    glEnable (GL_SCISSOR_TEST);
-				    glDrawBuffer (GL_FRONT);
-
-				    while (nBox--)
-				    {
-					y = s->height - pBox->y2;
-
-					glBitmap (0, 0, 0, 0,
-						  pBox->x1 - s->rasterX,
-						  y - s->rasterY,
-						  NULL);
-
-					s->rasterX = pBox->x1;
-					s->rasterY = y;
-
-					glScissor (pBox->x1, y,
-						   pBox->x2 - pBox->x1,
-						   pBox->y2 - pBox->y1);
-
-					glCopyPixels (pBox->x1, y,
-						      pBox->x2 - pBox->x1,
-						      pBox->y2 - pBox->y1,
-						      GL_COLOR);
-
-					pBox++;
-				    }
-
-				    glDrawBuffer (GL_BACK);
-				    glDisable (GL_SCISSOR_TEST);
-				    glFlush ();
-				}
-			    }
-			    else
+			    if (!(*s->paintScreen) (s,
+						    &defaultScreenPaintAttrib,
+						    outputRegion, i,
+						    PAINT_SCREEN_REGION_MASK))
 			    {
 				(*s->paintScreen) (s,
 						   &defaultScreenPaintAttrib,
 						   &s->outputDev[i].region, i,
 						   PAINT_SCREEN_FULL_MASK);
 
-				if (i + 1 == s->nOutputDev)
-				{
-				    waitForVideoSync (s);
-				    glXSwapBuffers (display->display,
-						    s->output);
-				}
+				XUnionRegion (tmpRegion,
+					      &s->outputDev[i].region,
+					      tmpRegion);
+
 			    }
+			}
+		    }
+
+		    targetScreen = NULL;
+		    targetOutput = 0;
+
+		    waitForVideoSync (s);
+
+		    if (mask & COMP_SCREEN_DAMAGE_ALL_MASK)
+		    {
+			glXSwapBuffers (display->display, s->output);
+		    }
+		    else
+		    {
+			BoxPtr pBox;
+			int    nBox, y;
+
+			pBox = tmpRegion->rects;
+			nBox = tmpRegion->numRects;
+
+			if (s->copySubBuffer)
+			{
+			    while (nBox--)
+			    {
+				y = s->height - pBox->y2;
+
+				(*s->copySubBuffer) (display->display,
+						     s->output,
+						     pBox->x1, y,
+						     pBox->x2 -
+						     pBox->x1,
+						     pBox->y2 -
+						     pBox->y1);
+
+				pBox++;
+			    }
+			}
+			else
+			{
+			    glEnable (GL_SCISSOR_TEST);
+			    glDrawBuffer (GL_FRONT);
+
+			    while (nBox--)
+			    {
+				y = s->height - pBox->y2;
+
+				glBitmap (0, 0, 0, 0,
+					  pBox->x1 - s->rasterX,
+					  y - s->rasterY,
+					  NULL);
+
+				s->rasterX = pBox->x1;
+				s->rasterY = y;
+
+				glScissor (pBox->x1, y,
+					   pBox->x2 - pBox->x1,
+					   pBox->y2 - pBox->y1);
+
+				glCopyPixels (pBox->x1, y,
+					      pBox->x2 - pBox->x1,
+					      pBox->y2 - pBox->y1,
+					      GL_COLOR);
+
+				pBox++;
+			    }
+
+			    glDrawBuffer (GL_BACK);
+			    glDisable (GL_SCISSOR_TEST);
+			    glFlush ();
 			}
 		    }
 
@@ -2351,6 +2415,7 @@ addScreenActions (CompDisplay *d, CompScreen *s)
     addScreenAction (s, &d->opt[COMP_DISPLAY_OPTION_RUN_COMMAND11].value.action);
     addScreenAction (s,
 		     &d->opt[COMP_DISPLAY_OPTION_SLOW_ANIMATIONS].value.action);
+    addScreenAction (s, &d->opt[COMP_DISPLAY_OPTION_RAISE_WINDOW].value.action);
     addScreenAction (s, &d->opt[COMP_DISPLAY_OPTION_LOWER_WINDOW].value.action);
     addScreenAction (s,
 		     &d->opt[COMP_DISPLAY_OPTION_OPACITY_INCREASE].value.action);
@@ -2456,7 +2521,16 @@ addDisplay (char *name,
     d->initPluginForDisplay = initPluginForDisplay;
     d->finiPluginForDisplay = finiPluginForDisplay;
 
-    d->handleEvent = handleEvent;
+    d->handleEvent	 = handleEvent;
+    d->handleCompizEvent = handleCompizEvent;
+
+    d->fileToImage = fileToImage;
+    d->imageToFile = imageToFile;
+
+    d->fileWatchAdded   = fileWatchAdded;
+    d->fileWatchRemoved = fileWatchRemoved;
+
+    d->fileWatch = NULL;
 
     d->supportedAtom	     = XInternAtom (dpy, "_NET_SUPPORTED", 0);
     d->supportingWmCheckAtom = XInternAtom (dpy, "_NET_SUPPORTING_WM_CHECK", 0);
@@ -2534,20 +2608,25 @@ addDisplay (char *name,
     d->winStateDisplayModalAtom	    =
 	XInternAtom (dpy, "_NET_WM_STATE_DISPLAY_MODAL", 0);
 
-    d->winActionMoveAtom	 = XInternAtom (dpy, "_NET_WM_ACTION_MOVE", 0);
-    d->winActionResizeAtom	 =
+    d->winActionMoveAtom	  = XInternAtom (dpy, "_NET_WM_ACTION_MOVE", 0);
+    d->winActionResizeAtom	  =
 	XInternAtom (dpy, "_NET_WM_ACTION_RESIZE", 0);
-    d->winActionStickAtom	 = XInternAtom (dpy, "_NET_WM_ACTION_STICK", 0);
-    d->winActionMinimizeAtom	 =
+    d->winActionStickAtom	  =
+	XInternAtom (dpy, "_NET_WM_ACTION_STICK", 0);
+    d->winActionMinimizeAtom	  =
 	XInternAtom (dpy, "_NET_WM_ACTION_MINIMIZE", 0);
-    d->winActionMaximizeHorzAtom =
+    d->winActionMaximizeHorzAtom  =
 	XInternAtom (dpy, "_NET_WM_ACTION_MAXIMIZE_HORZ", 0);
-    d->winActionMaximizeVertAtom =
+    d->winActionMaximizeVertAtom  =
 	XInternAtom (dpy, "_NET_WM_ACTION_MAXIMIZE_VERT", 0);
-    d->winActionFullscreenAtom	 =
+    d->winActionFullscreenAtom	  =
 	XInternAtom (dpy, "_NET_WM_ACTION_FULLSCREEN", 0);
-    d->winActionCloseAtom	 = XInternAtom (dpy, "_NET_WM_ACTION_CLOSE", 0);
-    d->winActionShadeAtom	 = XInternAtom (dpy, "_NET_WM_ACTION_SHADE", 0);
+    d->winActionCloseAtom	  =
+	XInternAtom (dpy, "_NET_WM_ACTION_CLOSE", 0);
+    d->winActionShadeAtom	  =
+	XInternAtom (dpy, "_NET_WM_ACTION_SHADE", 0);
+    d->winActionChangeDesktopAtom =
+	XInternAtom (dpy, "_NET_WM_ACTION_CHANGE_DESKTOP", 0);
 
     d->wmAllowedActionsAtom = XInternAtom (dpy, "_NET_WM_ALLOWED_ACTIONS", 0);
 
@@ -2605,6 +2684,8 @@ addDisplay (char *name,
     d->xdndEnterAtom    = XInternAtom (dpy, "XdndEnter", 0);
     d->xdndLeaveAtom    = XInternAtom (dpy, "XdndLeave", 0);
     d->xdndPositionAtom = XInternAtom (dpy, "XdndPosition", 0);
+    d->xdndStatusAtom   = XInternAtom (dpy, "XdndStatus", 0);
+    d->xdndDropAtom     = XInternAtom (dpy, "XdndDrop", 0);
 
     d->managerAtom   = XInternAtom (dpy, "MANAGER", 0);
     d->targetsAtom   = XInternAtom (dpy, "TARGETS", 0);
@@ -3274,4 +3355,169 @@ setDisplayAction (CompDisplay     *display,
 	return TRUE;
 
     return FALSE;
+}
+
+void
+clearTargetOutput (CompDisplay	*display,
+		   unsigned int mask)
+{
+    if (targetScreen)
+	clearScreenOutput (targetScreen,
+			   targetOutput,
+			   mask);
+}
+
+#define HOME_IMAGEDIR ".compiz/images"
+
+Bool
+readImageFromFile (CompDisplay *display,
+		   const char  *name,
+		   int	       *width,
+		   int	       *height,
+		   void	       **data)
+{
+    Bool status;
+    int  stride;
+
+    status = (*display->fileToImage) (display, NULL, name, width, height,
+				      &stride, data);
+    if (!status)
+    {
+	char *home;
+
+	home = getenv ("HOME");
+	if (home)
+	{
+	    char *path;
+
+	    path = malloc (strlen (home) + strlen (HOME_IMAGEDIR) + 2);
+	    if (path)
+	    {
+		sprintf (path, "%s/%s", home, HOME_IMAGEDIR);
+		status = (*display->fileToImage) (display, path, name,
+						  width, height, &stride,
+						  data);
+
+		free (path);
+
+		if (status)
+		    return TRUE;
+	    }
+	}
+
+	status = (*display->fileToImage) (display, IMAGEDIR, name,
+					  width, height, &stride, data);
+    }
+
+    return status;
+}
+
+Bool
+writeImageToFile (CompDisplay *display,
+		  const char  *path,
+		  const char  *name,
+		  const char  *format,
+		  int	      width,
+		  int	      height,
+		  void	      *data)
+{
+    return (*display->imageToFile) (display, path, name, format, width, height,
+				    width * 4, data);
+}
+
+Bool
+fileToImage (CompDisplay *display,
+	     const char	 *path,
+	     const char	 *name,
+	     int	 *width,
+	     int	 *height,
+	     int	 *stride,
+	     void	 **data)
+{
+    return FALSE;
+}
+
+Bool
+imageToFile (CompDisplay *display,
+	     const char	 *path,
+	     const char	 *name,
+	     const char	 *format,
+	     int	 width,
+	     int	 height,
+	     int	 stride,
+	     void	 *data)
+{
+    return FALSE;
+}
+
+CompFileWatchHandle
+addFileWatch (CompDisplay	    *display,
+	      const char	    *path,
+	      int		    mask,
+	      FileWatchCallBackProc callBack,
+	      void		    *closure)
+{
+    CompFileWatch *fileWatch;
+
+    fileWatch = malloc (sizeof (CompFileWatch));
+    if (!fileWatch)
+	return 0;
+
+    fileWatch->path	= strdup (path);
+    fileWatch->mask	= mask;
+    fileWatch->callBack = callBack;
+    fileWatch->closure  = closure;
+    fileWatch->handle   = lastFileWatchHandle++;
+
+    if (lastFileWatchHandle == MAXSHORT)
+	lastFileWatchHandle = 1;
+
+    fileWatch->next = display->fileWatch;
+    display->fileWatch = fileWatch;
+
+    (*display->fileWatchAdded) (display, fileWatch);
+
+    return fileWatch->handle;
+}
+
+void
+removeFileWatch (CompDisplay	     *display,
+		 CompFileWatchHandle handle)
+{
+    CompFileWatch *p = 0, *w;
+
+    for (w = display->fileWatch; w; w = w->next)
+    {
+	if (w->handle == handle)
+	    break;
+
+	p = w;
+    }
+
+    if (w)
+    {
+	if (p)
+	    p->next = w->next;
+	else
+	    display->fileWatch = w->next;
+
+	(*display->fileWatchRemoved) (display, w);
+
+	if (w->path)
+	    free (w->path);
+
+	free (w);
+    }
+}
+
+void
+fileWatchAdded (CompDisplay   *display,
+		CompFileWatch *fileWatch)
+{
+}
+
+void
+fileWatchRemoved (CompDisplay   *display,
+		  CompFileWatch *fileWatch)
+{
 }

@@ -63,9 +63,17 @@
 
 #define UNREDIRECT_FS_DEFAULT FALSE
 
-#define DEFAULT_ICON_DEFAULT "icon.png"
+#define DEFAULT_ICON_DEFAULT "icon"
 
 #define SYNC_TO_VBLANK_DEFAULT TRUE
+
+#define SCREEN_NUMBER_OF_DESKTOPS_DEFAULT 1
+#define SCREEN_NUMBER_OF_DESKTOPS_MIN     1
+#define SCREEN_NUMBER_OF_DESKTOPS_MAX     MAX_DESKTOPS
+
+#define DETECT_OUTPUTS_DEFAULT TRUE
+
+#define OUTPUTS_DEFAULT "640x480+0+0"
 
 #define NUM_OPTIONS(s) (sizeof ((s)->opt) / sizeof (CompOption))
 
@@ -107,61 +115,325 @@ freeScreenPrivateIndex (CompDisplay *display,
 		      index);
 }
 
+static Bool
+desktopHintEqual (CompScreen	*s,
+		  unsigned long *data,
+		  int		size,
+		  int		offset,
+		  int		hintSize)
+{
+    if (size != s->desktopHintSize)
+	return FALSE;
+
+    if (memcmp (data + offset,
+		s->desktopHintData + offset,
+		hintSize * sizeof (unsigned long)) == 0)
+	return TRUE;
+
+    return FALSE;
+}
+
+static void
+setDesktopHints (CompScreen *s)
+{
+    CompDisplay   *d = s->display;
+    unsigned long *data;
+    int		  size, offset, hintSize, i;
+
+    size = s->nDesktop * 2 + s->nDesktop * 2 + s->nDesktop * 4 + 1;
+
+    data = malloc (sizeof (unsigned long) * size);
+    if (!data)
+	return;
+
+    offset   = 0;
+    hintSize = s->nDesktop * 2;
+
+    for (i = 0; i < s->nDesktop; i++)
+    {
+	data[offset + i * 2 + 0] = s->x * s->width;
+	data[offset + i * 2 + 1] = s->y * s->height;
+    }
+
+    if (!desktopHintEqual (s, data, size, offset, hintSize))
+	XChangeProperty (d->display, s->root, d->desktopViewportAtom,
+			 XA_CARDINAL, 32, PropModeReplace,
+			 (unsigned char *) &data[offset], hintSize);
+
+    offset += hintSize;
+
+    for (i = 0; i < s->nDesktop; i++)
+    {
+	data[offset + i * 2 + 0] = s->width  * s->hsize;
+	data[offset + i * 2 + 1] = s->height * s->vsize;
+    }
+
+    if (!desktopHintEqual (s, data, size, offset, hintSize))
+	XChangeProperty (d->display, s->root, d->desktopGeometryAtom,
+			 XA_CARDINAL, 32, PropModeReplace,
+			 (unsigned char *) &data[offset], hintSize);
+
+    offset += hintSize;
+    hintSize = s->nDesktop * 4;
+
+    for (i = 0; i < s->nDesktop; i++)
+    {
+	data[offset + i * 4 + 0] = s->workArea.x;
+	data[offset + i * 4 + 1] = s->workArea.y;
+	data[offset + i * 4 + 2] = s->workArea.width;
+	data[offset + i * 4 + 3] = s->workArea.height;
+    }
+
+    if (!desktopHintEqual (s, data, size, offset, hintSize))
+	XChangeProperty (d->display, s->root, d->workareaAtom,
+			 XA_CARDINAL, 32, PropModeReplace,
+			 (unsigned char *) &data[offset], hintSize);
+
+    offset += hintSize;
+
+    data[offset] = s->nDesktop;
+    hintSize = 1;
+
+    if (!desktopHintEqual (s, data, size, offset, hintSize))
+	XChangeProperty (d->display, s->root, d->numberOfDesktopsAtom,
+			 XA_CARDINAL, 32, PropModeReplace,
+			 (unsigned char *) &data[offset], hintSize);
+
+    if (s->desktopHintData)
+	free (s->desktopHintData);
+
+    s->desktopHintData = data;
+    s->desktopHintSize = size;
+}
+
 static void
 setVirtualScreenSize (CompScreen *screen,
 		      int	 hsize,
 		      int	 vsize)
 {
-    unsigned long data[2];
-
-    data[0] = screen->width * hsize;
-    data[1] = screen->height * vsize;
-
-    XChangeProperty (screen->display->display, screen->root,
-		     screen->display->desktopGeometryAtom,
-		     XA_CARDINAL, 32, PropModeReplace,
-		     (unsigned char *) data, 2);
-
     screen->hsize = hsize;
     screen->vsize = vsize;
+
+    setDesktopHints (screen);
 }
 
-static Bool
-updateDefaultIcon (CompScreen *screen)
+static void
+updateOutputDevices (CompScreen	*s)
 {
-    CompIcon     *icon;
-    char         *data;
-    unsigned int width, height;
+    CompOutput	  *o, *output = NULL;
+    CompListValue *list = &s->opt[COMP_SCREEN_OPTION_OUTPUTS].value.list;
+    int		  nOutput = 0;
+    int		  x, y, i, bits;
+    unsigned int  width, height;
+    int		  x1, y1, x2, y2;
+    Region	  region;
 
-    if (!readPng (screen->opt[COMP_SCREEN_OPTION_DEFAULT_ICON].value.s,
-		  &data, &width, &height))
-	return FALSE;
-
-    icon = malloc (sizeof (CompIcon) + width * height * sizeof (CARD32));
-    if (!icon)
+    for (i = 0; i < list->nValue; i++)
     {
-	free (data);
-	return FALSE;
+	if (!list->value[i].s)
+	    continue;
+
+	x      = 0;
+	y      = 0;
+	width  = s->width;
+	height = s->height;
+
+	bits = XParseGeometry (list->value[i].s, &x, &y, &width, &height);
+
+	if (bits & XNegative)
+	    x = s->width + x - width;
+
+	if (bits & YNegative)
+	    y = s->height + y - height;
+
+	x1 = x;
+	y1 = y;
+	x2 = x + width;
+	y2 = y + height;
+
+	if (x1 < 0)
+	    x1 = 0;
+	if (y1 < 0)
+	    y1 = 0;
+	if (x2 > s->width)
+	    x2 = s->width;
+	if (y2 > s->height)
+	    y2 = s->height;
+
+	if (x1 < x2 && y1 < y2)
+	{
+	    o = realloc (output, sizeof (CompOutput) * (nOutput + 1));
+	    if (o)
+	    {
+		o[nOutput].region.extents.x1 = x1;
+		o[nOutput].region.extents.y1 = y1;
+		o[nOutput].region.extents.x2 = x2;
+		o[nOutput].region.extents.y2 = y2;
+
+		output = o;
+		nOutput++;
+	    }
+	}
     }
 
-    if (screen->defaultIcon)
+    /* make sure we have at least one output */
+    if (!nOutput)
     {
-	finiTexture (screen, &screen->defaultIcon->texture);
-	free (screen->defaultIcon);
+	output = malloc (sizeof (CompOutput));
+	if (!output)
+	    return;
+
+	output->region.extents.x1 = 0;
+	output->region.extents.y1 = 0;
+	output->region.extents.x2 = s->width;
+	output->region.extents.y2 = s->height;
+
+	nOutput = 1;
     }
 
-    initTexture (screen, &icon->texture);
+    /* set name, width, height and update rect pointers in all regions */
+    for (i = 0; i < nOutput; i++)
+    {
+	output[i].name = malloc (sizeof (char) * 10);
+	if (output[i].name)
+	    snprintf (output[i].name, 10, "Output %d", nOutput);
 
-    icon->width  = width;
-    icon->height = height;
+	output[i].region.rects = &output[i].region.extents;
+	output[i].region.numRects = 1;
 
-    memcpy (icon + 1, data, + width * height * sizeof (CARD32));
+	output[i].width  = output[i].region.extents.x2 -
+	    output[i].region.extents.x1;
+	output[i].height = output[i].region.extents.y2 -
+	    output[i].region.extents.y1;
 
-    screen->defaultIcon = icon;
+	output[i].workArea.x      = output[i].region.extents.x1;
+	output[i].workArea.y      = output[i].region.extents.x1;
+	output[i].workArea.width  = output[i].width;
+	output[i].workArea.height = output[i].height;
 
-    free (data);
+    }
 
-    return TRUE;
+    if (s->outputDev)
+    {
+	for (i = 0; i < s->nOutputDev; i++)
+	    if (s->outputDev[i].name)
+		free (s->outputDev[i].name);
+
+	free (s->outputDev);
+    }
+
+    s->outputDev  = output;
+    s->nOutputDev = nOutput;
+
+    setCurrentOutput (s, s->currentOutputDev);
+
+    updateWorkareaForScreen (s);
+
+    setDefaultViewport (s);
+    damageScreen (s);
+
+    region = XCreateRegion ();
+    if (region)
+    {
+	REGION r;
+
+	r.rects = &r.extents;
+	r.numRects = 1;
+
+	if (s->display->nScreenInfo)
+	{
+	    for (i = 0; i < s->display->nScreenInfo; i++)
+	    {
+		r.extents.x1 = s->display->screenInfo[i].x_org;
+		r.extents.y1 = s->display->screenInfo[i].y_org;
+		r.extents.x2 = r.extents.x1 + s->display->screenInfo[i].width;
+		r.extents.y2 = r.extents.y1 + s->display->screenInfo[i].height;
+
+		XUnionRegion (region, &r, region);
+	    }
+	}
+	else
+	{
+	    r.extents.x1 = 0;
+	    r.extents.y1 = 0;
+	    r.extents.x2 = s->width;
+	    r.extents.y2 = s->height;
+
+	    XUnionRegion (region, &r, region);
+	}
+
+	/* remove all output regions from visible screen region */
+	for (i = 0; i < s->nOutputDev; i++)
+	    XSubtractRegion (region, &s->outputDev[i].region, region);
+
+	/* we should clear color buffers before swapping if we have visible
+	   regions without output */
+	s->clearBuffers = REGION_NOT_EMPTY (region);
+
+	XDestroyRegion (region);
+    }
+
+    (*s->outputChangeNotify) (s);
+}
+
+static void
+detectOutputDevices (CompScreen *s)
+{
+    if (!noDetection && s->opt[COMP_SCREEN_OPTION_DETECT_OUTPUTS].value.b)
+    {
+	char		*name;
+	CompOptionValue	value;
+	char		output[1024];
+	int		i, size = sizeof (output);
+
+	if (s->display->nScreenInfo)
+	{
+	    int n = s->display->nScreenInfo;
+
+	    value.list.nValue = n;
+	    value.list.value  = malloc (sizeof (CompOptionValue) * n);
+	    if (!value.list.value)
+		return;
+
+	    for (i = 0; i < n; i++)
+	    {
+		snprintf (output, size, "%dx%d+%d+%d",
+			  s->display->screenInfo[i].width,
+			  s->display->screenInfo[i].height,
+			  s->display->screenInfo[i].x_org,
+			  s->display->screenInfo[i].y_org);
+
+		value.list.value[i].s = strdup (output);
+	    }
+	}
+	else
+	{
+	    value.list.nValue = 1;
+	    value.list.value  = malloc (sizeof (CompOptionValue));
+	    if (!value.list.value)
+		return;
+
+	    snprintf (output, size, "%dx%d+%d+%d", s->width, s->height, 0, 0);
+
+	    value.list.value->s = strdup (output);
+	}
+
+	name = s->opt[COMP_SCREEN_OPTION_OUTPUTS].name;
+
+	s->opt[COMP_SCREEN_OPTION_DETECT_OUTPUTS].value.b = FALSE;
+	(*s->setScreenOption) (s, name, &value);
+	s->opt[COMP_SCREEN_OPTION_DETECT_OUTPUTS].value.b = TRUE;
+
+	for (i = 0; i < value.list.nValue; i++)
+	    if (value.list.value[i].s)
+		free (value.list.value[i].s);
+
+	free (value.list.value);
+    }
+    else
+    {
+	updateOutputDevices (s);
+    }
 }
 
 CompOption *
@@ -185,12 +457,29 @@ setScreenOption (CompScreen      *screen,
 	return FALSE;
 
     switch (index) {
-    case COMP_SCREEN_OPTION_DETECT_REFRESH_RATE:
     case COMP_SCREEN_OPTION_LIGHTING:
     case COMP_SCREEN_OPTION_UNREDIRECT_FS:
     case COMP_SCREEN_OPTION_SYNC_TO_VBLANK:
 	if (compSetBoolOption (o, value))
 	    return TRUE;
+	break;
+    case COMP_SCREEN_OPTION_DETECT_REFRESH_RATE:
+	if (compSetBoolOption (o, value))
+	{
+	    if (value->b)
+		detectRefreshRateOfScreen (screen);
+
+	    return TRUE;
+	}
+	break;
+    case COMP_SCREEN_OPTION_DETECT_OUTPUTS:
+	if (compSetBoolOption (o, value))
+	{
+	    if (value->b)
+		detectOutputDevices (screen);
+
+	    return TRUE;
+	}
 	break;
     case COMP_SCREEN_OPTION_REFRESH_RATE:
 	if (screen->opt[COMP_SCREEN_OPTION_DETECT_REFRESH_RATE].value.b)
@@ -206,8 +495,11 @@ setScreenOption (CompScreen      *screen,
     case COMP_SCREEN_OPTION_HSIZE:
 	if (compSetIntOption (o, value))
 	{
-	    CompOption *vsize = compFindOption (screen->opt, NUM_OPTIONS (screen), "vsize", NULL);
-	    
+	    CompOption *vsize;
+
+	    vsize = compFindOption (screen->opt, NUM_OPTIONS (screen),
+				    "vsize", NULL);
+
 	    if (o->value.i * screen->width > MAXSHORT)
 		return FALSE;
 
@@ -218,12 +510,22 @@ setScreenOption (CompScreen      *screen,
     case COMP_SCREEN_OPTION_VSIZE:
 	if (compSetIntOption (o, value))
 	{
-	    CompOption *hsize = compFindOption (screen->opt, NUM_OPTIONS (screen), "hsize", NULL);
+	    CompOption *hsize;
+
+	    hsize = compFindOption (screen->opt, NUM_OPTIONS (screen),
+				    "hsize", NULL);
 
 	    if (o->value.i * screen->height > MAXSHORT)
 		return FALSE;
 
 	    setVirtualScreenSize (screen, hsize->value.i, o->value.i);
+	    return TRUE;
+	}
+	break;
+    case COMP_SCREEN_OPTION_NUMBER_OF_DESKTOPS:
+	if (compSetIntOption (o, value))
+	{
+	    setNumberOfDesktops (screen, o->value.i);
 	    return TRUE;
 	}
 	break;
@@ -237,6 +539,17 @@ setScreenOption (CompScreen      *screen,
     case COMP_SCREEN_OPTION_DEFAULT_ICON:
 	if (compSetStringOption (o, value))
 	    return updateDefaultIcon (screen);
+	break;
+    case COMP_SCREEN_OPTION_OUTPUTS:
+	if (!noDetection &&
+	    screen->opt[COMP_SCREEN_OPTION_DETECT_OUTPUTS].value.b)
+	    return FALSE;
+
+	if (compSetOptionList (o, value))
+	{
+	    updateOutputDevices (screen);
+	    return TRUE;
+	}
     default:
 	break;
     }
@@ -281,7 +594,8 @@ compScreenInitOptions (CompScreen *screen)
     o = &screen->opt[COMP_SCREEN_OPTION_REFRESH_RATE];
     o->name       = "refresh_rate";
     o->shortDesc  = N_("Refresh Rate");
-    o->longDesc   = N_("The rate at which the screen is redrawn (times/second)");
+    o->longDesc   = N_("The rate at which the screen is redrawn "
+		       "(times/second)");
     o->type       = CompOptionTypeInt;
     o->value.i    = defaultRefreshRate;
     o->rest.i.min = 1;
@@ -317,8 +631,8 @@ compScreenInitOptions (CompScreen *screen)
     o = &screen->opt[COMP_SCREEN_OPTION_UNREDIRECT_FS];
     o->name       = "unredirect_fullscreen_windows";
     o->shortDesc  = N_("Unredirect Fullscreen Windows");
-    o->longDesc   = N_("Allow drawing of fullscreen windows to not be redirected "
-	"to offscreen pixmaps");
+    o->longDesc   = N_("Allow drawing of fullscreen windows to not be "
+		       "redirected to offscreen pixmaps");
     o->type       = CompOptionTypeBool;
     o->value.b    = UNREDIRECT_FS_DEFAULT;
 
@@ -338,6 +652,34 @@ compScreenInitOptions (CompScreen *screen)
 		       "blanking period");
     o->type       = CompOptionTypeBool;
     o->value.b    = SYNC_TO_VBLANK_DEFAULT;
+
+    o = &screen->opt[COMP_SCREEN_OPTION_NUMBER_OF_DESKTOPS];
+    o->name	      = "number_of_desktops";
+    o->shortDesc      = N_("Number of Desktops");
+    o->longDesc	      = N_("Number of virtual desktops");
+    o->type	      = CompOptionTypeInt;
+    o->value.i	      = SCREEN_NUMBER_OF_DESKTOPS_DEFAULT;
+    o->rest.i.min     = SCREEN_NUMBER_OF_DESKTOPS_MIN;
+    o->rest.i.max     = SCREEN_NUMBER_OF_DESKTOPS_MAX;
+
+    o = &screen->opt[COMP_SCREEN_OPTION_DETECT_OUTPUTS];
+    o->name       = "detect_outputs";
+    o->shortDesc  = N_("Detect Outputs");
+    o->longDesc   = N_("Automatic detection of output devices");
+    o->type       = CompOptionTypeBool;
+    o->value.b    = DETECT_OUTPUTS_DEFAULT;
+
+    o = &screen->opt[COMP_SCREEN_OPTION_OUTPUTS];
+    o->name	           = "outputs";
+    o->shortDesc           = N_("Outputs");
+    o->longDesc	           = N_("List of strings describing output devices");
+    o->type	           = CompOptionTypeList;
+    o->value.list.type     = CompOptionTypeString;
+    o->value.list.nValue   = 1;
+    o->value.list.value    = malloc (sizeof (CompOptionValue));
+    o->value.list.value->s = strdup (OUTPUTS_DEFAULT);
+    o->rest.s.string       = NULL;
+    o->rest.s.nString      = 0;
 }
 
 static void
@@ -470,14 +812,14 @@ updateScreenEdges (CompScreen *s)
 	int ww, w0;
 	int hh, h0;
     } geometry[SCREEN_EDGE_NUM] = {
-	{ 0,  0,   0,  1,   0,  1,   1, -2 }, /* left */
-	{ 1, -1,   0,  1,   0,  1,   1, -2 }, /* right */
-	{ 0,  1,   0,  0,   1, -2,   0,  1 }, /* top */
-	{ 0,  1,   1, -1,   1, -2,   0,  1 }, /* bottom */
-	{ 0,  0,   0,  0,   0,  1,   0,  1 }, /* top-left */
-	{ 1, -1,   0,  0,   0,  1,   0,  1 }, /* top-right */
-	{ 0,  0,   1, -1,   0,  1,   0,  1 }, /* bottom-left */
-	{ 1, -1,   1, -1,   0,  1,   0,  1 }  /* bottom-right */
+	{ 0,  0,   0,  2,   0,  2,   1, -4 }, /* left */
+	{ 1, -2,   0,  2,   0,  2,   1, -4 }, /* right */
+	{ 0,  2,   0,  0,   1, -4,   0,  2 }, /* top */
+	{ 0,  2,   1, -2,   1, -4,   0,  2 }, /* bottom */
+	{ 0,  0,   0,  0,   0,  2,   0,  2 }, /* top-left */
+	{ 1, -2,   0,  0,   0,  2,   0,  2 }, /* top-right */
+	{ 0,  0,   1, -2,   0,  2,   0,  2 }, /* bottom-left */
+	{ 1, -2,   1, -2,   0,  2,   0,  2 }  /* bottom-right */
     };
     int i;
 
@@ -536,72 +878,6 @@ perspective (GLfloat fovy,
    frustum (xmin, xmax, ymin, ymax, zNear, zFar);
 }
 
-static void
-updateOutputDevices (CompScreen *s)
-{
-    CompOutput *output;
-    int	       nOutput, i;
-
-    if (s->display->screenInfo)
-    {
-	XineramaScreenInfo *screenInfo = s->display->screenInfo;
-	int		   nScreenInfo = s->display->nScreenInfo;
-
-	output = malloc (sizeof (CompOutput) * nScreenInfo);
-	if (!output)
-	    return;
-
-	for (i = 0; i < nScreenInfo; i++)
-	{
-	    output->name = malloc (sizeof (char) * 10);
-	    if (output->name)
-		snprintf (output->name, 10, "Output %d", i);
-
-	    output[i].region.rects    = &output[i].region.extents;
-	    output[i].region.numRects = 1;
-
-	    output[i].region.extents.x1 = screenInfo[i].x_org;
-	    output[i].region.extents.y1 = screenInfo[i].y_org;
-	    output[i].region.extents.x2 = screenInfo[i].x_org +
-		screenInfo[i].width;
-	    output[i].region.extents.y2 = screenInfo[i].y_org +
-		screenInfo[i].height;
-	}
-
-	nOutput = nScreenInfo;
-    }
-    else
-    {
-	output = malloc (sizeof (CompOutput));
-	if (!output)
-	    return;
-
-	output->name   = strdup ("Output 0");
-
-	output->region.rects    = &output->region.extents;
-	output->region.numRects = 1;
-
-	output->region.extents.x1 = 0;
-	output->region.extents.y1 = 0;
-	output->region.extents.x2 = s->attrib.width;
-	output->region.extents.y2 = s->attrib.height;
-
-	nOutput = 1;
-    }
-
-    if (s->outputDev)
-    {
-	for (i = 0; i < s->nOutputDev; i++)
-	    if (s->outputDev->name)
-		free (s->outputDev->name);
-
-	free (s->outputDev);
-    }
-
-    s->outputDev  = output;
-    s->nOutputDev = nOutput;
-}
-
 void
 setCurrentOutput (CompScreen *s,
 		  int	     outputNum)
@@ -617,6 +893,12 @@ reshape (CompScreen *s,
 	 int	    w,
 	 int	    h)
 {
+
+#ifdef USE_COW
+    if (useCow)
+	XMoveResizeWindow (s->display->display, s->overlay, 0, 0, w, h);
+#endif
+
     glMatrixMode (GL_PROJECTION);
     glLoadIdentity ();
     glMatrixMode (GL_MODELVIEW);
@@ -627,7 +909,6 @@ reshape (CompScreen *s,
 
     s->rasterX = s->rasterY = 0;
 
-    glViewport (0, 0, w, h);
     glMatrixMode (GL_PROJECTION);
     glLoadIdentity ();
     perspective (60.0f, 1.0f, 0.1f, 100.0f);
@@ -644,12 +925,7 @@ reshape (CompScreen *s,
     s->width  = w;
     s->height = h;
 
-    updateOutputDevices (s);
-
-    setCurrentOutput (s, s->currentOutputDev);
-
     updateScreenEdges (s);
-    updateWorkareaForScreen (s);
 }
 
 void
@@ -663,6 +939,8 @@ configureScreen (CompScreen	 *s,
 	s->attrib.height = ce->height;
 
 	reshape (s, ce->width, ce->height);
+
+	detectOutputDevices (s);
 
 	damageScreen (s);
     }
@@ -768,7 +1046,7 @@ updateScreenBackground (CompScreen  *screen,
 	initTexture (screen, texture);
     }
 
-    if (!texture->name)
+    if (!texture->name && backgroundImage)
 	readImageToTexture (screen, texture, backgroundImage, &width, &height);
 
     if (texture->target == GL_TEXTURE_2D)
@@ -783,7 +1061,7 @@ updateScreenBackground (CompScreen  *screen,
 void
 detectRefreshRateOfScreen (CompScreen *s)
 {
-    if (s->opt[COMP_SCREEN_OPTION_DETECT_REFRESH_RATE].value.b)
+    if (!noDetection && s->opt[COMP_SCREEN_OPTION_DETECT_REFRESH_RATE].value.b)
     {
 	XRRScreenConfiguration *config;
 	char		       *name;
@@ -799,6 +1077,11 @@ detectRefreshRateOfScreen (CompScreen *s)
 	s->opt[COMP_SCREEN_OPTION_DETECT_REFRESH_RATE].value.b = FALSE;
 	(*s->setScreenOption) (s, name, &value);
 	s->opt[COMP_SCREEN_OPTION_DETECT_REFRESH_RATE].value.b = TRUE;
+    }
+    else
+    {
+	s->redrawTime = 1000 / s->opt[COMP_SCREEN_OPTION_REFRESH_RATE].value.i;
+	s->optimalRedrawTime = s->redrawTime;
     }
 }
 
@@ -903,6 +1186,7 @@ setSupported (CompScreen *s)
     data[i++] = d->winActionFullscreenAtom;
     data[i++] = d->winActionCloseAtom;
     data[i++] = d->winActionShadeAtom;
+    data[i++] = d->winActionChangeDesktopAtom;
 
     data[i++] = d->winTypeAtom;
     data[i++] = d->winTypeDesktopAtom;
@@ -926,7 +1210,7 @@ setSupported (CompScreen *s)
 }
 
 static void
-setDesktopHints (CompScreen *s)
+getDesktopHints (CompScreen *s)
 {
     CompDisplay   *d = s->display;
     unsigned long data[2];
@@ -936,15 +1220,29 @@ setDesktopHints (CompScreen *s)
     unsigned char *propData;
 
     result = XGetWindowProperty (s->display->display, s->root,
-				 d->desktopViewportAtom, 0L, 2L, FALSE,
+				 d->numberOfDesktopsAtom, 0L, 1L, FALSE,
 				 XA_CARDINAL, &actual, &format,
+				 &n, &left, &propData);
+
+    if (result == Success && n && propData)
+    {
+	memcpy (data, propData, sizeof (unsigned long));
+	XFree (propData);
+
+	if (data[0] > 0 && data[0] < 0xffffffff)
+	    s->nDesktop = data[0];
+    }
+
+    result = XGetWindowProperty (s->display->display, s->root,
+				 d->desktopViewportAtom, 0L, 2L,
+				 FALSE, XA_CARDINAL, &actual, &format,
 				 &n, &left, &propData);
 
     if (result == Success && n && propData)
     {
 	if (n == 2)
 	{
-	    memcpy (data, propData, sizeof (unsigned long));
+	    memcpy (data, propData, sizeof (unsigned long) * 2);
 
 	    if (data[0] / s->width < s->hsize - 1)
 		s->x = data[0] / s->width;
@@ -956,39 +1254,25 @@ setDesktopHints (CompScreen *s)
 	XFree (propData);
     }
 
-    data[0] = s->x * s->width;
-    data[1] = s->y * s->height;
+    result = XGetWindowProperty (s->display->display, s->root,
+				 d->currentDesktopAtom, 0L, 1L, FALSE,
+				 XA_CARDINAL, &actual, &format,
+				 &n, &left, &propData);
 
-    XChangeProperty (d->display, s->root, d->desktopViewportAtom,
-		     XA_CARDINAL, 32, PropModeReplace,
-		     (unsigned char *) data, 2);
+    if (result == Success && n && propData)
+    {
+	memcpy (data, propData, sizeof (unsigned long));
+	XFree (propData);
 
-    data[0] = s->width * s->hsize;
-    data[1] = s->height * s->vsize;
-
-    XChangeProperty (d->display, s->root, d->desktopGeometryAtom,
-		     XA_CARDINAL, 32, PropModeReplace,
-		     (unsigned char *) data, 2);
-
-    data[0] = 1;
-
-    XChangeProperty (d->display, s->root, d->numberOfDesktopsAtom,
-		     XA_CARDINAL, 32, PropModeReplace,
-		     (unsigned char *) data, 1);
-
-    data[0] = 0;
-
-    XChangeProperty (d->display, s->root, d->currentDesktopAtom,
-		     XA_CARDINAL, 32, PropModeReplace,
-		     (unsigned char *) data, 1);
-
-    data[0] = 0;
+	if (data[0] >= 0 && data[0] < s->nDesktop)
+	    s->currentDesktop = data[0];
+    }
 
     result = XGetWindowProperty (s->display->display, s->root,
 				 d->showingDesktopAtom, 0L, 1L, FALSE,
 				 XA_CARDINAL, &actual, &format,
 				 &n, &left, &propData);
-    
+
     if (result == Success && n && propData)
     {
 	memcpy (data, propData, sizeof (unsigned long));
@@ -998,31 +1282,88 @@ setDesktopHints (CompScreen *s)
 	    enterShowDesktopMode (s);
     }
 
+    data[0] = s->currentDesktop;
+
+    XChangeProperty (d->display, s->root, d->currentDesktopAtom,
+		     XA_CARDINAL, 32, PropModeReplace,
+		     (unsigned char *) data, 1);
+
+    data[0] = s->showingDesktopMask ? TRUE : FALSE;
+
     XChangeProperty (d->display, s->root, d->showingDesktopAtom,
 		     XA_CARDINAL, 32, PropModeReplace,
 		     (unsigned char *) data, 1);
 }
 
+void
+showOutputWindow (CompScreen *s)
+{
+
 #ifdef USE_COW
+    if (useCow)
+    {
+	Display       *dpy = s->display->display;
+	XserverRegion region;
+
+	region = XFixesCreateRegion (dpy, NULL, 0);
+
+	XFixesSetWindowShapeRegion (dpy,
+				    s->output,
+				    ShapeBounding,
+				    0, 0, 0);
+	XFixesSetWindowShapeRegion (dpy,
+				    s->output,
+				    ShapeInput,
+				    0, 0, region);
+
+	XFixesDestroyRegion (dpy, region);
+
+	damageScreen (s);
+    }
+#endif
+
+}
+
+void
+hideOutputWindow (CompScreen *s)
+{
+
+#ifdef USE_COW
+    if (useCow)
+    {
+	Display       *dpy = s->display->display;
+	XserverRegion region;
+
+	region = XFixesCreateRegion (dpy, NULL, 0);
+
+	XFixesSetWindowShapeRegion (dpy,
+				    s->output,
+				    ShapeBounding,
+				    0, 0, region);
+
+	XFixesDestroyRegion (dpy, region);
+    }
+#endif
+
+}
+
 static void
 makeOutputWindow (CompScreen *s)
 {
-    Display       *dpy = s->display->display;
-    XserverRegion region;
 
-    s->overlay   = XCompositeGetOverlayWindow (dpy, s->root);
-    s->output    = s->overlay;
-
-    region = XFixesCreateRegion (dpy, NULL, 0);
-
-    XFixesSetWindowShapeRegion (dpy,
-				s->output,
-				ShapeInput,
-				0, 0, region);
-
-    XFixesDestroyRegion (dpy, region);
-}
+#ifdef USE_COW
+    if (useCow)
+    {
+	s->overlay = XCompositeGetOverlayWindow (s->display->display, s->root);
+	s->output  = s->overlay;
+    }
+    else
 #endif
+
+	s->output = s->overlay = s->root;
+
+    showOutputWindow (s);
+}
 
 Bool
 addScreen (CompDisplay *display,
@@ -1085,6 +1426,9 @@ addScreen (CompDisplay *display,
     s->y     = 0;
     s->hsize = SCREEN_HSIZE_DEFAULT;
     s->vsize = SCREEN_VSIZE_DEFAULT;
+
+    s->nDesktop	      = 1;
+    s->currentDesktop = 0;
 
     for (i = 0; i < SCREEN_EDGE_NUM; i++)
     {
@@ -1159,6 +1503,11 @@ addScreen (CompDisplay *display,
 
     s->overlayWindowCount = 0;
 
+    s->desktopHintData = NULL;
+    s->desktopHintSize = 0;
+
+    s->clearBuffers = TRUE;
+
     gettimeofday (&s->lastRedraw, 0);
 
     s->setScreenOption	        = setScreenOption;
@@ -1167,23 +1516,29 @@ addScreen (CompDisplay *display,
     s->initPluginForScreen = initPluginForScreen;
     s->finiPluginForScreen = finiPluginForScreen;
 
-    s->preparePaintScreen     = preparePaintScreen;
-    s->donePaintScreen        = donePaintScreen;
-    s->paintScreen	      = paintScreen;
-    s->paintTransformedScreen = paintTransformedScreen;
-    s->paintBackground        = paintBackground;
-    s->paintWindow            = paintWindow;
-    s->addWindowGeometry      = addWindowGeometry;
-    s->drawWindowTexture      = drawWindowTexture;
-    s->drawWindowGeometry     = drawWindowGeometry;
-    s->damageWindowRect       = damageWindowRect;
-    s->focusWindow	      = focusWindow;
-    s->setWindowScale	      = setWindowScale;
+    s->preparePaintScreen	 = preparePaintScreen;
+    s->donePaintScreen		 = donePaintScreen;
+    s->paintScreen		 = paintScreen;
+    s->paintTransformedScreen	 = paintTransformedScreen;
+    s->applyScreenTransform	 = applyScreenTransform;
+    s->paintBackground		 = paintBackground;
+    s->paintWindow		 = paintWindow;
+    s->drawWindow		 = drawWindow;
+    s->addWindowGeometry	 = addWindowGeometry;
+    s->drawWindowTexture	 = drawWindowTexture;
+    s->drawWindowGeometry	 = drawWindowGeometry;
+    s->damageWindowRect		 = damageWindowRect;
+    s->getOutputExtentsForWindow = getOutputExtentsForWindow;
+    s->focusWindow		 = focusWindow;
 
     s->windowResizeNotify = windowResizeNotify;
     s->windowMoveNotify	  = windowMoveNotify;
     s->windowGrabNotify   = windowGrabNotify;
     s->windowUngrabNotify = windowUngrabNotify;
+
+    s->windowStateChangeNotify = windowStateChangeNotify;
+
+    s->outputChangeNotify = outputChangeNotify;
 
     s->getProcAddress = 0;
 
@@ -1197,13 +1552,7 @@ addScreen (CompDisplay *display,
 
     s->grabWindow = None;
 
-#ifdef USE_COW
-    if (useCow)
-	makeOutputWindow (s);
-    else
-#endif
-
-	s->overlay = s->output = s->root;
+    makeOutputWindow (s);
 
     templ.visualid = XVisualIDFromVisual (s->attrib.visual);
 
@@ -1264,22 +1613,49 @@ addScreen (CompDisplay *display,
     if (display->screens)
 	shareList = display->screens->ctx;
 
-    s->ctx = glXCreateContext (dpy, visinfo, shareList, !indirectRendering);
-    if (!s->ctx)
+    /* try both direct and indirect rendering contexts in case one of them
+       fail to support GLX_EXT_texture_from_pixmap */
+    for (i = 0; i < 2; i++)
     {
-	fprintf (stderr, "%s: glXCreateContext failed\n", programName);
-	return FALSE;
+	s->ctx = glXCreateContext (dpy, visinfo, shareList, !indirectRendering);
+	if (!s->ctx)
+	{
+	    fprintf (stderr, "%s: glXCreateContext failed\n", programName);
+	    XFree (visinfo);
+
+	    return FALSE;
+	}
+
+	if (glXIsDirect (dpy, s->ctx) == indirectRendering)
+	    i++;
+
+	glxExtensions = glXQueryExtensionsString (dpy, screenNum);
+	if (!strstr (glxExtensions, "GLX_EXT_texture_from_pixmap"))
+	{
+	    if (i > 0)
+	    {
+		fprintf (stderr, "%s: GLX_EXT_texture_from_pixmap is missing\n",
+			 programName);
+		XFree (visinfo);
+
+		return FALSE;
+	    }
+	    else
+	    {
+		fprintf (stderr, "%s: GLX_EXT_texture_from_pixmap is not "
+			 "supported by %s rendering context, trying %s "
+			 "rendering context instead\n", programName,
+			 indirectRendering ? "indirect" : "direct",
+			 indirectRendering ? "direct" : "indirect");
+
+		indirectRendering = !indirectRendering;
+
+		glXDestroyContext (dpy, s->ctx);
+	    }
+	}
     }
 
     XFree (visinfo);
-
-    glxExtensions = glXQueryExtensionsString (s->display->display, screenNum);
-    if (!strstr (glxExtensions, "GLX_EXT_texture_from_pixmap"))
-    {
-	fprintf (stderr, "%s: GLX_EXT_texture_from_pixmap is missing\n",
-		 programName);
-	return FALSE;
-    }
 
     if (!strstr (glxExtensions, "GLX_SGIX_fbconfig"))
     {
@@ -1593,14 +1969,9 @@ addScreen (CompDisplay *display,
     }
 
     initTexture (s, &s->backgroundTexture);
+    s->backgroundLoaded = FALSE;
 
     s->defaultIcon = NULL;
-    if (!updateDefaultIcon (s))
-    {
-	fprintf (stderr, "%s: Couldn't load default window icon.\n",
-		 programName);
-	return FALSE;
-    }
 
     s->desktopWindowCount = 0;
 
@@ -1634,6 +2005,9 @@ addScreen (CompDisplay *display,
 
     reshape (s, s->attrib.width, s->attrib.height);
 
+    detectRefreshRateOfScreen (s);
+    detectOutputDevices (s);
+
     glLightModelfv (GL_LIGHT_MODEL_AMBIENT, globalAmbient);
 
     glEnable (GL_LIGHT0);
@@ -1650,9 +2024,9 @@ addScreen (CompDisplay *display,
 
     addScreenToDisplay (display, s);
 
-    screenInitPlugins (s);
+    getDesktopHints (s);
 
-    detectRefreshRateOfScreen (s);
+    screenInitPlugins (s);
 
     XQueryTree (dpy, s->root,
 		&rootReturn, &parentReturn,
@@ -1679,9 +2053,11 @@ addScreen (CompDisplay *display,
     XFree (children);
 
     attrib.override_redirect = 1;
+    attrib.event_mask	     = PropertyChangeMask;
+
     s->grabWindow = XCreateWindow (dpy, s->root, -100, -100, 1, 1, 0,
-				   CopyFromParent, InputOnly,
-				   CopyFromParent, CWOverrideRedirect,
+				   CopyFromParent, InputOnly, CopyFromParent,
+				   CWOverrideRedirect | CWEventMask,
 				   &attrib);
     XMapWindow (dpy, s->grabWindow);
 
@@ -2357,72 +2733,132 @@ updatePassiveGrabs (CompScreen *s)
     updatePassiveKeyGrabs (s);
 }
 
-void
-updateWorkareaForScreen (CompScreen *s)
+static void
+computeWorkareaForBox (CompScreen *s,
+		       BoxPtr     pBox,
+		       XRectangle *area)
 {
     CompWindow *w;
-    int	       leftStrut, rightStrut, topStrut, bottomStrut;
-    XRectangle workArea;
+    Region     region;
+    REGION     r;
+    int	       x1, y1, x2, y2;
 
-    leftStrut   = 0;
-    rightStrut  = 0;
-    topStrut    = 0;
-    bottomStrut = 0;
+    region = XCreateRegion ();
+    if (!region)
+    {
+	area->x      = pBox->x1;
+	area->y      = pBox->y1;
+	area->width  = pBox->x1 - pBox->x1;
+	area->height = pBox->y2 - pBox->y1;
+
+	return;
+    }
+
+    r.rects    = &r.extents;
+    r.numRects = r.size = 1;
+    r.extents  = *pBox;
+
+    XUnionRegion (&r, region, region);
 
     for (w = s->windows; w; w = w->next)
     {
-	if (w->attrib.map_state == IsUnmapped)
+	if (!w->mapNum)
 	    continue;
 
 	if (w->struts)
 	{
-	    if (w->struts->left.width > leftStrut)
-		leftStrut = w->struts->left.width;
+	    r.extents.y1 = pBox->y1;
+	    r.extents.y2 = pBox->y2;
 
-	    if (w->struts->right.width > rightStrut)
-		rightStrut = w->struts->right.width;
+	    x1 = w->struts->left.x;
+	    y1 = w->struts->left.y;
+	    x2 = x1 + w->struts->left.width;
+	    y2 = y1 + w->struts->left.height;
 
-	    if (w->struts->top.height > topStrut)
-		topStrut = w->struts->top.height;
+	    if (y1 < pBox->y2 && y2 > pBox->y1)
+	    {
+		r.extents.x1 = x1;
+		r.extents.x2 = x2;
 
-	    if (w->struts->bottom.height > bottomStrut)
-		bottomStrut = w->struts->bottom.height;
+		XSubtractRegion (region, &r, region);
+	    }
+
+	    x1 = w->struts->right.x;
+	    y1 = w->struts->right.y;
+	    x2 = x1 + w->struts->right.width;
+	    y2 = y1 + w->struts->right.height;
+
+	    if (y1 < pBox->y2 && y2 > pBox->y1)
+	    {
+		r.extents.x1 = x1;
+		r.extents.x2 = x2;
+
+		XSubtractRegion (region, &r, region);
+	    }
+
+	    r.extents.x1 = pBox->x1;
+	    r.extents.x2 = pBox->x2;
+
+	    x1 = w->struts->top.x;
+	    y1 = w->struts->top.y;
+	    x2 = x1 + w->struts->top.width;
+	    y2 = y1 + w->struts->top.height;
+
+	    if (x1 < pBox->x2 && x2 > pBox->x1)
+	    {
+		r.extents.y1 = y1;
+		r.extents.y2 = y2;
+
+		XSubtractRegion (region, &r, region);
+	    }
+
+	    x1 = w->struts->bottom.x;
+	    y1 = w->struts->bottom.y;
+	    x2 = x1 + w->struts->bottom.width;
+	    y2 = y1 + w->struts->bottom.height;
+
+	    if (x1 < pBox->x2 && x2 > pBox->x1)
+	    {
+		r.extents.y1 = y1;
+		r.extents.y2 = y2;
+
+		XSubtractRegion (region, &r, region);
+	    }
 	}
     }
 
-#define MIN_SANE_AREA 100
+    area->x      = region->extents.x1;
+    area->y      = region->extents.y1;
+    area->width  = region->extents.x2 - region->extents.x1;
+    area->height = region->extents.y2 - region->extents.y1;
 
-    if ((leftStrut + rightStrut) > (s->width - MIN_SANE_AREA))
-    {
-	leftStrut  = (s->width - MIN_SANE_AREA) / 2;
-	rightStrut = leftStrut;
-    }
+    XDestroyRegion (region);
+}
 
-    if ((topStrut + bottomStrut) > (s->height - MIN_SANE_AREA))
-    {
-	topStrut    = (s->height - MIN_SANE_AREA) / 2;
-	bottomStrut = topStrut;
-    }
+void
+updateWorkareaForScreen (CompScreen *s)
+{
+    XRectangle workArea;
+    BoxRec     box;
+    int        i;
 
-    workArea.x      = leftStrut;
-    workArea.y      = topStrut;
-    workArea.width  = s->width  - leftStrut - rightStrut;
-    workArea.height = s->height - topStrut  - bottomStrut;
+    for (i = 0; i < s->nOutputDev; i++)
+	computeWorkareaForBox (s,
+			       &s->outputDev[i].region.extents,
+			       &s->outputDev[i].workArea);
+
+    box.x1 = 0;
+    box.y1 = 0;
+    box.x2 = s->width;
+    box.y2 = s->height;
+
+    computeWorkareaForBox (s, &box, &workArea);
 
     if (memcmp (&workArea, &s->workArea, sizeof (XRectangle)))
     {
-	unsigned long data[4];
-
-	data[0] = workArea.x;
-	data[1] = workArea.y;
-	data[2] = workArea.width;
-	data[3] = workArea.height;
-
-	XChangeProperty (s->display->display, s->root,
-			 s->display->workareaAtom, XA_CARDINAL, 32,
-			 PropModeReplace, (unsigned char *) data, 4);
-
 	s->workArea = workArea;
+
+	setDesktopHints (s);
     }
 }
 
@@ -2672,6 +3108,9 @@ moveScreenViewport (CompScreen *s,
 	if (w->attrib.override_redirect)
 	    continue;
 
+	if (!w->managed && w->attrib.map_state != IsViewable)
+	    continue;
+
 	if (w->type & (CompWindowTypeDesktopMask | CompWindowTypeDockMask))
 	    continue;
 
@@ -2724,17 +3163,7 @@ moveScreenViewport (CompScreen *s,
     }
 
     if (sync)
-    {
-	unsigned long data[2];
-
-	data[0] = s->x * s->width;
-	data[1] = s->y * s->height;
-
-	XChangeProperty (s->display->display, s->root,
-			 s->display->desktopViewportAtom,
-			 XA_CARDINAL, 32, PropModeReplace,
-			 (unsigned char *) data, 2);
-    }
+	setDesktopHints (s);
 }
 
 void
@@ -2753,7 +3182,7 @@ moveWindowToViewportPosition (CompWindow *w,
     {
 	int m, wx;
 
-	if (w->attrib.override_redirect)
+	if (!w->managed)
 	    return;
 
 	if (w->type & (CompWindowTypeDesktopMask | CompWindowTypeDockMask))
@@ -2873,6 +3302,8 @@ applyStartupProperties (CompScreen *screen,
     {
 	window->initialViewportX = s->viewportX;
 	window->initialViewportY = s->viewportY;
+
+	window->desktop = sn_startup_sequence_get_workspace (s->sequence);
     }
 }
 
@@ -2944,8 +3375,10 @@ leaveShowDesktopMode (CompScreen *s,
 
 	for (w = s->windows; w; w = w->next)
 	{
-	    w->inShowDesktopMode = FALSE;
+	    if (!w->inShowDesktopMode)
+		continue;
 
+	    w->inShowDesktopMode = FALSE;
 	    showWindow (w);
 	}
     }
@@ -3058,9 +3491,9 @@ makeScreenCurrent (CompScreen *s)
     {
 	glXMakeCurrent (s->display->display, s->output, s->ctx);
 	currentRoot = s->root;
-
-	s->pendingCommands = TRUE;
     }
+
+    s->pendingCommands = TRUE;
 }
 
 void
@@ -3082,16 +3515,190 @@ outputDeviceForPoint (CompScreen *s,
 {
     int i, x1, y1, x2, y2;
 
-    for (i = 0; i < s->nOutputDev; i++)
+    i = s->nOutputDev;
+    while (i--)
     {
 	x1 = s->outputDev[i].region.extents.x1;
 	y1 = s->outputDev[i].region.extents.y1;
 	x2 = s->outputDev[i].region.extents.x2;
 	y2 = s->outputDev[i].region.extents.y2;
 
-	if (x1 < x && x2 >= x && y1 < y && y2 >= y)
+	if (x1 <= x && x2 > x && y1 <= y && y2 > y)
 	    return i;
     }
 
     return s->currentOutputDev;
+}
+
+void
+getCurrentOutputExtents (CompScreen *s,
+			 int	    *x1,
+			 int	    *y1,
+			 int	    *x2,
+			 int	    *y2)
+{
+    if (x1)
+	*x1 = s->outputDev[s->currentOutputDev].region.extents.x1;
+
+    if (y1)
+	*y1 = s->outputDev[s->currentOutputDev].region.extents.y1;
+
+    if (x2)
+	*x2 = s->outputDev[s->currentOutputDev].region.extents.x2;
+
+    if (y2)
+	*y2 = s->outputDev[s->currentOutputDev].region.extents.y2;
+}
+
+void
+setNumberOfDesktops (CompScreen   *s,
+		     unsigned int nDesktop)
+{
+    CompWindow *w;
+
+    if (nDesktop < 1 || nDesktop >= 0xffffffff)
+	return;
+
+    if (nDesktop == s->nDesktop)
+	return;
+
+    if (s->currentDesktop >= nDesktop)
+	s->currentDesktop = nDesktop - 1;
+
+    for (w = s->windows; w; w = w->next)
+    {
+	if (w->desktop == 0xffffffff)
+	    continue;
+
+	if (w->desktop >= nDesktop)
+	    setDesktopForWindow (w, nDesktop - 1);
+    }
+
+    s->nDesktop = nDesktop;
+
+    setDesktopHints (s);
+}
+
+void
+setCurrentDesktop (CompScreen   *s,
+		   unsigned int desktop)
+{
+    unsigned long data;
+    CompWindow    *w;
+
+    if (desktop < 0 || desktop >= s->nDesktop)
+	return;
+
+    if (desktop == s->currentDesktop)
+	return;
+
+    s->currentDesktop = desktop;
+
+    for (w = s->windows; w; w = w->next)
+    {
+	if (w->desktop == 0xffffffff)
+	    continue;
+
+	if (w->desktop == desktop)
+	    showWindow (w);
+	else
+	    hideWindow (w);
+    }
+
+    data = desktop;
+
+    XChangeProperty (s->display->display, s->root,
+		     s->display->currentDesktopAtom,
+		     XA_CARDINAL, 32, PropModeReplace,
+		     (unsigned char *) &data, 1);
+}
+
+void
+getWorkareaForOutput (CompScreen *s,
+		      int	 output,
+		      XRectangle *area)
+{
+    *area = s->outputDev[output].workArea;
+}
+
+void
+setDefaultViewport (CompScreen *s)
+{
+    glViewport (s->outputDev->region.extents.x1,
+		s->height - s->outputDev->region.extents.y2,
+		s->outputDev->width,
+		s->outputDev->height);
+}
+
+void
+outputChangeNotify (CompScreen *s)
+{
+}
+
+void
+clearScreenOutput (CompScreen	*s,
+		   int		output,
+		   unsigned int mask)
+{
+    BoxPtr pBox = &s->outputDev[output].region.extents;
+
+    if (pBox->x1 != 0	     ||
+	pBox->y1 != 0	     ||
+	pBox->x2 != s->width ||
+	pBox->y2 != s->height)
+    {
+	glPushAttrib (GL_SCISSOR_BIT);
+
+	glEnable (GL_SCISSOR_TEST);
+	glScissor (pBox->x1,
+		   s->height - pBox->y2,
+		   pBox->x2 - pBox->x1,
+		   pBox->y2 - pBox->y1);
+	glClear (mask);
+
+	glPopAttrib ();
+    }
+    else
+    {
+	glClear (mask);
+    }
+}
+
+Bool
+updateDefaultIcon (CompScreen *screen)
+{
+    CompIcon *icon;
+    char     *file = screen->opt[COMP_SCREEN_OPTION_DEFAULT_ICON].value.s;
+    void     *data;
+    int      width, height;
+
+    if (screen->defaultIcon)
+    {
+	finiTexture (screen, &screen->defaultIcon->texture);
+	free (screen->defaultIcon);
+	screen->defaultIcon = NULL;
+    }
+
+    if (!readImageFromFile (screen->display, file, &width, &height, &data))
+	return FALSE;
+
+    icon = malloc (sizeof (CompIcon) + width * height * sizeof (CARD32));
+    if (!icon)
+    {
+	free (data);
+	return FALSE;
+    }
+
+    initTexture (screen, &icon->texture);
+
+    icon->width  = width;
+    icon->height = height;
+
+    memcpy (icon + 1, data, + width * height * sizeof (CARD32));
+
+    screen->defaultIcon = icon;
+
+    free (data);
+
+    return TRUE;
 }

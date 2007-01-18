@@ -1,5 +1,5 @@
 /*
- * Copyright © 2005 Novell, Inc.
+ * Copyright © 2006 Novell, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software
  * and its documentation for any purpose is hereby granted without
@@ -31,9 +31,21 @@
 
 #include <compiz.h>
 
-#define HOME_IMAGEDIR ".compiz/images"
-
 #define PNG_SIG_SIZE 8
+
+static int displayPrivateIndex;
+
+typedef struct _PngDisplay {
+    FileToImageProc fileToImage;
+    ImageToFileProc imageToFile;
+} PngDisplay;
+
+#define GET_PNG_DISPLAY(d)				    \
+    ((PngDisplay *) (d)->privates[displayPrivateIndex].ptr)
+
+#define PNG_DISPLAY(d)			 \
+    PngDisplay *pd = GET_PNG_DISPLAY (d)
+
 
 static void
 premultiplyData (png_structp   png,
@@ -61,16 +73,17 @@ premultiplyData (png_structp   png,
 }
 
 static Bool
-readPngData (png_struct	  *png,
-	     png_info	  *info,
-	     char	  **data,
-	     unsigned int *width,
-	     unsigned int *height)
+readPngData (png_struct	*png,
+	     png_info	*info,
+	     void	**data,
+	     int	*width,
+	     int	*height)
 {
     png_uint_32	 png_width, png_height;
     int		 depth, color_type, interlace, i;
     unsigned int pixel_size;
     png_byte	 **row_pointers;
+    char	 *d;
 
     png_read_info (png, info);
 
@@ -78,8 +91,8 @@ readPngData (png_struct	  *png,
 		  &png_width, &png_height, &depth,
 		  &color_type, &interlace, NULL, NULL);
 
-    *width  = png_width;
-    *height = png_height;
+    *width  = (int) png_width;
+    *height = (int) png_height;
 
     /* convert palette/gray image to rgb */
     if (color_type == PNG_COLOR_TYPE_PALETTE)
@@ -115,19 +128,21 @@ readPngData (png_struct	  *png,
     png_read_update_info (png, info);
 
     pixel_size = 4;
-    *data = (char *) malloc (png_width * png_height * pixel_size);
-    if (*data == NULL)
+    d = (char *) malloc (png_width * png_height * pixel_size);
+    if (!d)
 	return FALSE;
+
+    *data = d;
 
     row_pointers = (png_byte **) malloc (png_height * sizeof (char *));
     if (!row_pointers)
     {
-	free (*data);
+	free (d);
 	return FALSE;
     }
 
     for (i = 0; i < png_height; i++)
-	row_pointers[i] = (png_byte *) (*data + i * png_width * pixel_size);
+	row_pointers[i] = (png_byte *) (d + i * png_width * pixel_size);
 
     png_read_image (png, row_pointers);
     png_read_end (png, info);
@@ -137,113 +152,30 @@ readPngData (png_struct	  *png,
     return TRUE;
 }
 
-Bool
-openImageFile (const char *filename,
-	       char	  **returnFilename,
-	       FILE	  **returnFile)
-{
-    FILE *file;
-    char *image = NULL;
-
-    file = fopen (filename, "r");
-    if (!file)
-    {
-	char *home;
-
-	home = getenv ("HOME");
-	if (home)
-	{
-	    image = malloc (strlen (home) +
-			    strlen (HOME_IMAGEDIR) +
-			    strlen (filename) + 3);
-	    if (image)
-	    {
-		sprintf (image, "%s/%s/%s", home, HOME_IMAGEDIR, filename);
-		file = fopen (image, "r");
-		if (!file)
-		{
-		    free (image);
-		    image = NULL;
-		}
-	    }
-	}
-
-	if (!file)
-	{
-	    image = malloc (strlen (IMAGEDIR) + strlen (filename) + 2);
-	    if (image)
-	    {
-		sprintf (image, "%s/%s", IMAGEDIR, filename);
-		file = fopen (image, "r");
-	    }
-
-	    if (!file)
-	    {
-		if (image)
-		    free (image);
-
-		return FALSE;
-	    }
-	}
-    }
-
-    if (returnFilename)
-    {
-	if (image)
-	    *returnFilename = image;
-	else
-	    *returnFilename = strdup (filename);
-    }
-    else
-    {
-	if (image)
-	    free (image);
-    }
-
-    if (returnFile)
-    {
-	*returnFile = file;
-    }
-    else
-    {
-	fclose (file);
-    }
-
-    return TRUE;
-}
-
-Bool
-readPng (const char   *filename,
-	 char	      **data,
-	 unsigned int *width,
-	 unsigned int *height)
+static Bool
+readPngFileToImage (FILE *file,
+		    int  *width,
+		    int  *height,
+		    void **data)
 {
     unsigned char png_sig[PNG_SIG_SIZE];
-    FILE	  *file;
     int		  sig_bytes;
     png_struct	  *png;
     png_info	  *info;
     Bool	  status;
 
-    if (!openImageFile (filename, NULL, &file))
-	return FALSE;
-
     sig_bytes = fread (png_sig, 1, PNG_SIG_SIZE, file);
     if (png_check_sig (png_sig, sig_bytes) == 0)
-    {
-	fclose (file);
 	return FALSE;
-    }
 
     png = png_create_read_struct (PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if (!png)
 	return FALSE;
 
     info = png_create_info_struct (png);
-    if (info == NULL)
+    if (!info)
     {
 	png_destroy_read_struct (&png, NULL, NULL);
-	fclose (file);
 
 	return FALSE;
     }
@@ -254,11 +186,11 @@ readPng (const char   *filename,
     status = readPngData (png, info, data, width, height);
 
     png_destroy_read_struct (&png, &info, NULL);
-    fclose (file);
 
     return status;
 }
 
+#if 0
 static void
 userReadData (png_structp png_ptr,
 	      png_bytep   data,
@@ -271,7 +203,7 @@ userReadData (png_structp png_ptr,
     *buffer += length;
 }
 
-Bool
+static Bool
 readPngBuffer (const unsigned char *buffer,
 	       char		   **data,
 	       unsigned int	   *width,
@@ -292,7 +224,7 @@ readPngBuffer (const unsigned char *buffer,
 	return FALSE;
 
     info = png_create_info_struct (png);
-    if (info == NULL)
+    if (!info)
     {
 	png_destroy_read_struct (&png, NULL, NULL);
 	return FALSE;
@@ -307,6 +239,7 @@ readPngBuffer (const unsigned char *buffer,
 
     return status;
 }
+#endif
 
 static Bool
 writePng (unsigned char *buffer,
@@ -391,23 +324,227 @@ stdioWriteFunc (png_structp png,
 	png_error (png, "Write Error");
 }
 
-Bool
-writePngToFile (unsigned char *buffer,
-		char	      *filename,
-		int	      width,
-		int	      height,
-		int	      stride)
+static char *
+pngExtension (const char *name)
 {
-    FILE *file;
-    Bool status;
 
-    file = fopen (filename, "wb");
-    if (!file)
-	return FALSE;
+    if (strlen (name) > 4)
+    {
+	if (strcasecmp (name + (strlen (name) - 4), ".png") == 0)
+	    return "";
+    }
 
-    status = writePng (buffer, stdioWriteFunc, file, width, height, stride);
+    return ".png";
+}
 
-    fclose (file);
+static Bool
+pngImageToFile (CompDisplay *d,
+		const char  *path,
+		const char  *name,
+		const char  *format,
+		int	    width,
+		int	    height,
+		int	    stride,
+		void	    *data)
+{
+    Bool status = FALSE;
+    char *extension = pngExtension (name);
+    char *file;
+    FILE *fp;
+    int  len;
+
+    PNG_DISPLAY (d);
+
+    len = (path ? strlen (path) : 0) + strlen (name) + strlen (extension) + 2;
+
+    file = malloc (len);
+    if (file)
+    {
+	if (path)
+	    sprintf (file, "%s/%s%s", path, name, extension);
+	else
+	    sprintf (file, "%s%s", name, extension);
+    }
+
+    if (file && strcasecmp (format, "png") == 0)
+    {
+	fp = fopen (file, "wb");
+	if (fp)
+	{
+	    status = writePng (data, stdioWriteFunc, fp, width, height, stride);
+	    fclose (fp);
+	}
+
+	if (status)
+	{
+	    free (file);
+	    return TRUE;
+	}
+    }
+
+    UNWRAP (pd, d, imageToFile);
+    status = (*d->imageToFile) (d, path, name, format, width, height, stride,
+				data);
+    WRAP (pd, d, imageToFile, pngImageToFile);
+
+    if (!status && file)
+    {
+	fp = fopen (file, "wb");
+	if (fp)
+	{
+	    status = writePng (data, stdioWriteFunc, fp, width, height, stride);
+	    fclose (fp);
+	}
+    }
+
+    if (file)
+	free (file);
 
     return status;
+}
+
+static Bool
+pngFileToImage (CompDisplay *d,
+		const char  *path,
+		const char  *name,
+		int	    *width,
+		int	    *height,
+		int	    *stride,
+		void	    **data)
+{
+    Bool status = FALSE;
+    char *extension = pngExtension (name);
+    char *file;
+    int  len;
+
+    PNG_DISPLAY (d);
+
+    len = (path ? strlen (path) : 0) + strlen (name) + strlen (extension) + 2;
+
+    file = malloc (len);
+    if (file)
+    {
+	FILE *fp;
+
+	if (path)
+	    sprintf (file, "%s/%s%s", path, name, extension);
+	else
+	    sprintf (file, "%s%s", name, extension);
+
+	fp = fopen (file, "r");
+	if (fp)
+	{
+	    status = readPngFileToImage (fp,
+					 width,
+					 height,
+					 data);
+	    fclose (fp);
+	}
+
+	free (file);
+
+	if (status)
+	{
+	    *stride = *width * 4;
+	    return TRUE;
+	}
+    }
+
+    UNWRAP (pd, d, fileToImage);
+    status = (*d->fileToImage) (d, path, name, width, height, stride, data);
+    WRAP (pd, d, fileToImage, pngFileToImage);
+
+    return status;
+}
+
+static Bool
+pngInitDisplay (CompPlugin  *p,
+		CompDisplay *d)
+{
+    PngDisplay *pd;
+    CompScreen *s;
+
+    pd = malloc (sizeof (PngDisplay));
+    if (!pd)
+	return FALSE;
+
+    WRAP (pd, d, fileToImage, pngFileToImage);
+    WRAP (pd, d, imageToFile, pngImageToFile);
+
+    d->privates[displayPrivateIndex].ptr = pd;
+
+    for (s = d->screens; s; s = s->next) 
+	updateDefaultIcon (s);
+
+    return TRUE;
+}
+
+static void
+pngFiniDisplay (CompPlugin  *p,
+		CompDisplay *d)
+{
+    CompScreen *s;
+
+    PNG_DISPLAY (d);
+
+    UNWRAP (pd, d, fileToImage);
+    UNWRAP (pd, d, imageToFile);
+
+    for (s = d->screens; s; s = s->next) 
+	updateDefaultIcon (s);
+
+    free (pd);
+}
+
+static Bool
+pngInit (CompPlugin *p)
+{
+    displayPrivateIndex = allocateDisplayPrivateIndex ();
+    if (displayPrivateIndex < 0)
+	return FALSE;
+
+    return TRUE;
+}
+
+static void
+pngFini (CompPlugin *p)
+{
+    if (displayPrivateIndex >= 0)
+	freeDisplayPrivateIndex (displayPrivateIndex);
+}
+
+static int
+pngGetVersion (CompPlugin *plugin,
+	       int	  version)
+{
+    return ABIVERSION;
+}
+
+CompPluginVTable pngVTable = {
+    "png",
+    "Png",
+    "Png image loader",
+    pngGetVersion,
+    pngInit,
+    pngFini,
+    pngInitDisplay,
+    pngFiniDisplay,
+    0, /* InitScreen */
+    0, /* FiniScreen */
+    0, /* InitWindow */
+    0, /* FiniWindow */
+    0, /* GetDisplayOptions */
+    0, /* SetDisplayOption */
+    0, /* GetScreenOptions */
+    0, /* SetScreenOption */
+    0, /* Deps */
+    0, /* nDeps */
+    0, /* Features */
+    0  /* nFeatures */
+};
+
+CompPluginVTable *
+getCompPluginInfo (void)
+{
+    return &pngVTable;
 }

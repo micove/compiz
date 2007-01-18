@@ -3,9 +3,11 @@ Enable snapping of windows by default.
 This patch by Thierry Reding.
 Not submitted to upstream.
 
---- a/plugins/compiz.schemas.in	2006-10-09 11:28:27.000000000 +0200
-+++ b/plugins/compiz.schemas.in	2006-10-09 11:28:53.000000000 +0200
-@@ -10742,7 +10742,7 @@
+Index: compiz.git/plugins/compiz.schemas.in
+===================================================================
+--- compiz.git.orig/plugins/compiz.schemas.in	2006-12-31 16:44:56.000000000 +0100
++++ compiz.git/plugins/compiz.schemas.in	2006-12-31 18:44:44.000000000 +0100
+@@ -12775,7 +12775,7 @@
              <applyto>/apps/compiz/plugins/wobbly/allscreens/options/snap_inverted</applyto>
              <owner>compiz</owner>
              <type>bool</type>
@@ -14,9 +16,11 @@ Not submitted to upstream.
              <locale name="C">
                  <short>Snap Inverted</short>
                  <long>Inverted window snapping</long>
---- a/plugins/wobbly.c	2006-10-09 11:28:37.000000000 +0200
-+++ b/plugins/wobbly.c	2006-10-09 11:29:44.000000000 +0200
-@@ -171,7 +171,7 @@
+Index: compiz.git/plugins/wobbly.c
+===================================================================
+--- compiz.git.orig/plugins/wobbly.c	2006-12-31 16:44:56.000000000 +0100
++++ compiz.git/plugins/wobbly.c	2006-12-31 18:44:44.000000000 +0100
+@@ -168,7 +168,7 @@
  
  #define WOBBLY_SNAP_MODIFIERS_DEFAULT ShiftMask
  

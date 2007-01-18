@@ -27,10 +27,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
+#include <dirent.h>
 
 #include <compiz.h>
-
-#define HOME_PLUGINDIR ".compiz/plugins"
 
 CompPlugin *plugins = 0;
 
@@ -115,8 +114,70 @@ dlloaderUnloadPlugin (CompPlugin *p)
     dlclose (p->devPrivate.ptr);
 }
 
+static int
+dlloaderFilter (const struct dirent *name)
+{
+    int length = strlen (name->d_name);
+
+    if (length < 7)
+	return 0;
+
+    if (strncmp (name->d_name, "lib", 3) ||
+	strncmp (name->d_name + length - 3, ".so", 3))
+	return 0;
+
+    return 1;
+}
+
+static char **
+dlloaderListPlugins (char *path,
+		     int  *n)
+{
+    struct dirent **nameList;
+    char	  **list;
+    char	  *name;
+    int		  length, nFile, i, j = 0;
+
+    if (!path)
+	path = ".";
+
+    nFile = scandir (path, &nameList, dlloaderFilter, alphasort);
+    if (!nFile)
+	return 0;
+
+    list = malloc (nFile * sizeof (char *));
+    if (!list)
+	return 0;
+
+    for (i = 0; i < nFile; i++)
+    {
+	length = strlen (nameList[i]->d_name);
+
+	name = malloc ((length - 5) * sizeof (char));
+	if (name)
+	{
+	    strncpy (name, nameList[i]->d_name + 3, length - 6);
+	    name[length - 6] = '\0';
+
+	    list[j++] = name;
+	}
+    }
+
+    if (j)
+    {
+	*n = j;
+
+	return list;
+    }
+
+    free (list);
+
+    return NULL;
+}
+
 LoadPluginProc   loaderLoadPlugin   = dlloaderLoadPlugin;
 UnloadPluginProc loaderUnloadPlugin = dlloaderUnloadPlugin;
+ListPluginsProc  loaderListPlugins  = dlloaderListPlugins;
 
 Bool
 initPluginForDisplay (CompPlugin  *p,
@@ -331,6 +392,41 @@ findActivePlugin (char *name)
     return 0;
 }
 
+static CompPlugin *
+findActivePluginWithFeature (char	       *name,
+			     CompPluginFeature **feature)
+{
+    CompPlugin *p;
+    int	       i;
+
+    for (p = plugins; p; p = p->next)
+    {
+	for (i = 0; i < p->vTable->nFeatures; i++)
+	{
+	    if (strcmp (p->vTable->features[i].name, name) == 0)
+	    {
+		if (feature)
+		    *feature = &p->vTable->features[i];
+
+		return p;
+	    }
+	}
+    }
+
+    return 0;
+}
+
+CompPluginFeature *
+findActiveFeature (char *name)
+{
+    CompPluginFeature *feature;
+
+    if (findActivePluginWithFeature (name, &feature))
+	return feature;
+
+    return 0;
+}
+
 void
 unloadPlugin (CompPlugin *p)
 {
@@ -392,19 +488,29 @@ checkPluginDeps (CompPlugin *p)
     {
 	switch (deps->rule) {
 	case CompPluginRuleBefore:
-	    if (findActivePlugin (deps->plugin))
+	    if (findActivePlugin (deps->name))
 	    {
 		fprintf (stderr, "%s: '%s' plugin must be loaded before '%s' "
-			 "plugin\n", programName, p->vTable->name, deps->plugin);
+			 "plugin\n", programName, p->vTable->name, deps->name);
 
 		return FALSE;
 	    }
 	    break;
 	case CompPluginRuleAfter:
-	    if (!findActivePlugin (deps->plugin))
+	    if (!findActivePlugin (deps->name))
 	    {
 		fprintf (stderr, "%s: '%s' plugin must be loaded after '%s' "
-			 "plugin\n", programName, p->vTable->name, deps->plugin);
+			 "plugin\n", programName, p->vTable->name, deps->name);
+
+		return FALSE;
+	    }
+	    break;
+	case CompPluginRuleRequire:
+	    if (!findActiveFeature (deps->name))
+	    {
+		fprintf (stderr, "%s: '%s' plugin needs feature '%s' which "
+			 "is currently not provided by any plugin\n",
+			 programName, p->vTable->name, deps->name);
 
 		return FALSE;
 	    }
@@ -420,12 +526,29 @@ checkPluginDeps (CompPlugin *p)
 Bool
 pushPlugin (CompPlugin *p)
 {
+    CompPlugin *plugin;
+    int	       i;
+
     if (findActivePlugin (p->vTable->name))
     {
 	fprintf (stderr, "%s: Plugin '%s' already active\n", programName,
 		 p->vTable->name);
 
 	return FALSE;
+    }
+
+    for (i = 0; i < p->vTable->nFeatures; i++)
+    {
+	plugin = findActivePluginWithFeature (p->vTable->features[i].name, 0);
+	if (plugin)
+	{
+	    fprintf (stderr, "%s: Plugin '%s' can't be activated because "
+		     "plugin '%s' is already providing feature '%s'\n",
+		     programName, p->vTable->name, plugin->vTable->name,
+		     p->vTable->features[i].name);
+
+	    return FALSE;
+	}
     }
 
     if (!checkPluginDeps (p))
@@ -470,4 +593,89 @@ CompPlugin *
 getPlugins (void)
 {
     return plugins;
+}
+
+static Bool
+stringExist (char **list,
+	     int  nList,
+	     char *s)
+{
+    int i;
+
+    for (i = 0; i < nList; i++)
+	if (strcmp (list[i], s) == 0)
+	    return TRUE;
+
+    return FALSE;
+}
+
+char **
+availablePlugins (int *n)
+{
+    char *home, *plugindir;
+    char **list, **currentList, **pluginList, **homeList = NULL;
+    int  nCurrentList, nPluginList, nHomeList;
+    int  count, i, j;
+
+    home = getenv ("HOME");
+    if (home)
+    {
+	plugindir = malloc (strlen (home) + strlen (HOME_PLUGINDIR) + 3);
+	if (plugindir)
+	{
+	    sprintf (plugindir, "%s/%s", home, HOME_PLUGINDIR);
+	    homeList = (*loaderListPlugins) (plugindir, &nHomeList);
+	    free (plugindir);
+	}
+    }
+
+    pluginList  = (*loaderListPlugins) (PLUGINDIR, &nPluginList);
+    currentList = (*loaderListPlugins) (".", &nCurrentList);
+
+    count = 0;
+    if (homeList)
+	count += nHomeList;
+    if (pluginList)
+	count += nPluginList;
+    if (currentList)
+	count += nCurrentList;
+
+    if (!count)
+	return NULL;
+
+    list = malloc (count * sizeof (char *));
+    if (!list)
+	return NULL;
+
+    j = 0;
+    if (homeList)
+    {
+	for (i = 0; i < nHomeList; i++)
+	    if (!stringExist (list, j, homeList[i]))
+		list[j++] = homeList[i];
+
+	free (homeList);
+    }
+
+    if (pluginList)
+    {
+	for (i = 0; i < nPluginList; i++)
+	    if (!stringExist (list, j, pluginList[i]))
+		list[j++] = pluginList[i];
+
+	free (pluginList);
+    }
+
+    if (currentList)
+    {
+	for (i = 0; i < nCurrentList; i++)
+	    if (!stringExist (list, j, currentList[i]))
+		list[j++] = currentList[i];
+
+	free (currentList);
+    }
+
+    *n = j;
+
+    return list;
 }

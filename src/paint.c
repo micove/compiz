@@ -34,7 +34,7 @@ ScreenPaintAttrib defaultScreenPaintAttrib = {
 };
 
 WindowPaintAttrib defaultWindowPaintAttrib = {
-    OPAQUE, 1.0f, 1.0f
+    OPAQUE, BRIGHT, COLOR, 1.0f, 1.0f, 0.0f, 0.0f
 };
 
 void
@@ -45,23 +45,40 @@ void
 donePaintScreen (CompScreen *screen) {}
 
 void
-translateRotateScreen (const ScreenPaintAttrib *sa)
+applyScreenTransform (CompScreen	      *screen,
+		      const ScreenPaintAttrib *sAttrib,
+		      int		      output)
 {
-    glTranslatef (sa->xTranslate,
-		  sa->yTranslate,
-		  sa->zTranslate + sa->zCamera);
+    glTranslatef (sAttrib->xTranslate,
+		  sAttrib->yTranslate,
+		  sAttrib->zTranslate + sAttrib->zCamera);
 
-    glRotatef (sa->xRotate, 0.0f, 1.0f, 0.0f);
-    glRotatef (sa->vRotate,
-	       1.0f - sa->xRotate / 90.0f,
+    glRotatef (sAttrib->xRotate, 0.0f, 1.0f, 0.0f);
+    glRotatef (sAttrib->vRotate,
+	       1.0f - sAttrib->xRotate / 90.0f,
 	       0.0f,
-	       sa->xRotate / 90.0f);
-    glRotatef (sa->yRotate, 0.0f, 1.0f, 0.0f);
+	       sAttrib->xRotate / 90.0f);
+    glRotatef (sAttrib->yRotate, 0.0f, 1.0f, 0.0f);
+}
+
+void
+prepareXCoords (CompScreen *screen,
+		int	   output,
+		float      z)
+{
+    glTranslatef (-0.5f, -0.5f, z);
+    glScalef (1.0f  / screen->outputDev[output].width,
+	      -1.0f / screen->outputDev[output].height,
+	      1.0f);
+    glTranslatef (-screen->outputDev[output].region.extents.x1,
+		  -screen->outputDev[output].region.extents.y2,
+		  0.0f);
 }
 
 void
 paintTransformedScreen (CompScreen		*screen,
 			const ScreenPaintAttrib *sAttrib,
+			Region			region,
 			int			output,
 			unsigned int		mask)
 {
@@ -70,17 +87,15 @@ paintTransformedScreen (CompScreen		*screen,
     int	       backgroundMask;
 
     if (mask & PAINT_SCREEN_CLEAR_MASK)
-	glClear (GL_COLOR_BUFFER_BIT);
+	clearTargetOutput (screen->display, GL_COLOR_BUFFER_BIT);
 
     screenLighting (screen, TRUE);
 
     glPushMatrix ();
 
-    translateRotateScreen (sAttrib);
+    (screen->applyScreenTransform) (screen, sAttrib, output);
 
-    glTranslatef (-0.5f, -0.5f, -sAttrib->zTranslate);
-    glScalef (1.0f / screen->width, -1.0f / screen->height, 1.0f);
-    glTranslatef (0.0f, -screen->height, 0.0f);
+    prepareXCoords (screen, output, -sAttrib->zTranslate);
 
     if (mask & PAINT_SCREEN_TRANSFORMED_MASK)
     {
@@ -91,8 +106,7 @@ paintTransformedScreen (CompScreen		*screen,
 	{
 	    backgroundMask |= PAINT_BACKGROUND_WITH_STENCIL_MASK;
 
-	    (*screen->paintBackground) (screen, &screen->region,
-					backgroundMask);
+	    (*screen->paintBackground) (screen, region, backgroundMask);
 
 	    glEnable (GL_STENCIL_TEST);
 
@@ -107,8 +121,7 @@ paintTransformedScreen (CompScreen		*screen,
 			continue;
 		}
 
-		(*screen->paintWindow) (w, &w->paint, &screen->region,
-					windowMask);
+		(*screen->paintWindow) (w, &w->paint, region, windowMask);
 	    }
 
 	    glDisable (GL_STENCIL_TEST);
@@ -121,7 +134,7 @@ paintTransformedScreen (CompScreen		*screen,
     else
 	windowMask = backgroundMask = 0;
 
-    (*screen->paintBackground) (screen, &screen->region, backgroundMask);
+    (*screen->paintBackground) (screen, region, backgroundMask);
 
     for (w = screen->windows; w; w = w->next)
     {
@@ -134,7 +147,7 @@ paintTransformedScreen (CompScreen		*screen,
 		continue;
 	}
 
-	(*screen->paintWindow) (w, &w->paint, &screen->region, windowMask);
+	(*screen->paintWindow) (w, &w->paint, region, windowMask);
     }
 
     glPopMatrix ();
@@ -156,8 +169,10 @@ paintScreen (CompScreen		     *screen,
 	{
 	    if (mask & PAINT_SCREEN_FULL_MASK)
 	    {
-		(*screen->paintTransformedScreen) (screen, sAttrib, output,
-						   mask);
+		region = &screen->outputDev[output].region;
+
+		(*screen->paintTransformedScreen) (screen, sAttrib, region,
+						   output, mask);
 
 		return TRUE;
 	    }
@@ -169,7 +184,9 @@ paintScreen (CompScreen		     *screen,
     }
     else if (mask & PAINT_SCREEN_FULL_MASK)
     {
-	(*screen->paintTransformedScreen) (screen, sAttrib, output, mask);
+	(*screen->paintTransformedScreen) (screen, sAttrib,
+					   &screen->outputDev[output].region,
+					   output, mask);
 
 	return TRUE;
     }
@@ -180,9 +197,7 @@ paintScreen (CompScreen		     *screen,
 
     glPushMatrix ();
 
-    glTranslatef (-0.5f, -0.5f, -DEFAULT_Z_CAMERA);
-    glScalef (1.0f / screen->width, -1.0f / screen->height, 1.0f);
-    glTranslatef (0.0f, -screen->height, 0.0f);
+    prepareXCoords (screen, output, -DEFAULT_Z_CAMERA);
 
     if (mask & PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS_MASK)
     {
@@ -408,7 +423,7 @@ addWindowGeometry (CompWindow *w,
 
 	for (it = 0; it < nMatrix; it++)
 	{
-	    if (matrix[it].xy != 0.0f && matrix[it].yx != 0.0f)
+	    if (matrix[it].xy != 0.0f || matrix[it].yx != 0.0f)
 	    {
 		rect = FALSE;
 		break;
@@ -569,7 +584,9 @@ drawWindowTexture (CompWindow		   *w,
     {
 	glTranslatef (w->attrib.x, w->attrib.y, 0.0f);
 	glScalef (attrib->xScale, attrib->yScale, 0.0f);
-	glTranslatef (-w->attrib.x, -w->attrib.y, 0.0f);
+	glTranslatef (attrib->xTranslate / attrib->xScale - w->attrib.x,
+		      attrib->yTranslate / attrib->yScale - w->attrib.y,
+		      0.0f);
 
 	filter = w->screen->filter[WINDOW_TRANS_FILTER];
     }
@@ -785,10 +802,10 @@ drawWindowTexture (CompWindow		   *w,
 }
 
 Bool
-paintWindow (CompWindow		     *w,
-	     const WindowPaintAttrib *attrib,
-	     Region		     region,
-	     unsigned int	     mask)
+drawWindow (CompWindow		    *w,
+	    const WindowPaintAttrib *attrib,
+	    Region		    region,
+	    unsigned int	    mask)
 {
     if (mask & PAINT_WINDOW_TRANSFORMED_MASK)
 	region = &infiniteRegion;
@@ -823,7 +840,7 @@ paintWindow (CompWindow		     *w,
 	    mask |= PAINT_WINDOW_SOLID_MASK;
     }
 
-    if (!w->texture.pixmap)
+    if (!w->texture->pixmap)
     {
 	bindWindow (w);
 	if (!w->mapNum)
@@ -833,12 +850,28 @@ paintWindow (CompWindow		     *w,
     w->vCount = 0;
     (*w->screen->addWindowGeometry) (w, &w->matrix, 1, w->region, region);
     if (w->vCount)
-    {
-	w->lastPaint = *attrib;
-	(*w->screen->drawWindowTexture) (w, &w->texture, attrib, mask);
-    }
+	(*w->screen->drawWindowTexture) (w, w->texture, attrib, mask);
 
     return TRUE;
+}
+
+Bool
+paintWindow (CompWindow		     *w,
+	     const WindowPaintAttrib *attrib,
+	     Region		     region,
+	     unsigned int	     mask)
+{
+    w->lastPaint = *attrib;
+
+    if (mask & PAINT_WINDOW_NO_CORE_INSTANCE_MASK)
+    {
+	if (mask & PAINT_WINDOW_SOLID_MASK)
+	    return FALSE;
+
+	return TRUE;
+    }
+
+    return (*w->screen->drawWindow) (w, attrib, region, mask);
 }
 
 void
@@ -862,13 +895,17 @@ paintBackground (CompScreen   *s,
 	    initTexture (s, bg);
 	}
 
+	s->backgroundLoaded = FALSE;
+
 	if (!(mask & PAINT_BACKGROUND_WITH_STENCIL_MASK))
 	    return;
     }
     else
     {
-	if (!bg->name)
+	if (!s->backgroundLoaded)
 	    updateScreenBackground (s, bg);
+
+	s->backgroundLoaded = TRUE;
     }
 
     data = malloc (sizeof (GLfloat) * nBox * 16);
@@ -922,14 +959,23 @@ paintBackground (CompScreen   *s,
     }
     else
     {
-	if (mask & PAINT_BACKGROUND_ON_TRANSFORMED_SCREEN_MASK)
-	    enableTexture (s, bg, COMP_TEXTURE_FILTER_GOOD);
+	if (bg->name)
+	{
+	    if (mask & PAINT_BACKGROUND_ON_TRANSFORMED_SCREEN_MASK)
+		enableTexture (s, bg, COMP_TEXTURE_FILTER_GOOD);
+	    else
+		enableTexture (s, bg, COMP_TEXTURE_FILTER_FAST);
+
+	    glDrawArrays (GL_QUADS, 0, nBox * 4);
+
+	    disableTexture (s, bg);
+	}
 	else
-	    enableTexture (s, bg, COMP_TEXTURE_FILTER_FAST);
-
-	glDrawArrays (GL_QUADS, 0, nBox * 4);
-
-	disableTexture (s, bg);
+	{
+	    glColor4us (0, 0, 0, 0);
+	    glDrawArrays (GL_QUADS, 0, nBox * 4);
+	    glColor4usv (defaultColor);
+	}
     }
 
     if (mask & PAINT_BACKGROUND_WITH_STENCIL_MASK)

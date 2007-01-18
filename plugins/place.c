@@ -184,32 +184,19 @@ static void
 get_workarea_of_current_output_device (CompScreen *s,
 				       XRectangle *area)
 {
-    int x1, y1, x2, y2;
-    int oX1, oY1, oX2, oY2;
+    getWorkareaForOutput (s, s->currentOutputDev, area);
+}
 
-    x1 = s->workArea.x;
-    y1 = s->workArea.y;
-    x2 = x1 + s->workArea.width;
-    y2 = y1 + s->workArea.height;
+static int
+get_window_width (CompWindow *window)
+{
+    return window->serverWidth + window->serverBorderWidth * 2;
+}
 
-    oX1 = s->outputDev[s->currentOutputDev].region.extents.x1;
-    oY1 = s->outputDev[s->currentOutputDev].region.extents.y1;
-    oX2 = s->outputDev[s->currentOutputDev].region.extents.x2;
-    oY2 = s->outputDev[s->currentOutputDev].region.extents.y2;
-
-    if (x1 < oX1)
-	x1 = oX1;
-    if (y1 < oY1)
-	y1 = oY1;
-    if (x2 > oX2)
-	x2 = oX2;
-    if (y2 > oY2)
-	y2 = oY2;
-
-    area->x      = x1;
-    area->y      = y1;
-    area->width  = x2 - x1;
-    area->height = y2 - y1;
+static int
+get_window_height (CompWindow *window)
+{
+    return window->serverHeight + window->serverBorderWidth * 2;
 }
 
 static void
@@ -257,9 +244,9 @@ find_next_cascade (CompWindow *window,
 
     /* Find first cascade position that's not used. */
 
-    window_width = window->attrib.width + window->input.left +
+    window_width = get_window_width (window) + window->input.left +
 	window->input.right;
-    window_height = window->attrib.height + window->input.top +
+    window_height = get_window_height (window) + window->input.top +
 	window->input.bottom;
 
     cascade_stage = 0;
@@ -718,8 +705,12 @@ placeWindow (CompWindow *window,
 	window->screen->width;
     int	       y0 = (window->initialViewportY - window->screen->y) *
 	window->screen->height;
+    int	       window_width, window_height;
 
     PLACE_SCREEN (window->screen);
+
+    window_width = get_window_width (window);
+    window_height = get_window_height (window);
 
     get_workarea_of_current_output_device (window->screen, &work_area);
 
@@ -836,18 +827,18 @@ placeWindow (CompWindow *window,
 	    x = parent->attrib.x;
 	    y = parent->attrib.y;
 
-	    w = parent->width;
+	    w = get_window_width (parent);
 
 	    /* center of parent */
 	    x = x + w / 2;
 
 	    /* center of child over center of parent */
-	    x -= window->width / 2;
+	    x -= window_width / 2;
 
 	    /* "visually" center window over parent, leaving twice as
 	     * much space below as on top.
 	     */
-	    y += (parent->height - window->height) / 3;
+	    y += (get_window_height (parent) - window_height) / 3;
 
 	    /* put top of child's frame, not top of child's client */
 	    y += window->input.top;
@@ -860,10 +851,10 @@ placeWindow (CompWindow *window,
 
 		get_workarea_of_current_output_device (window->screen, &area);
 
-		if (x + window->width > area.x + area.width)
-		    x = area.x + area.width - window->width;
-		if (y + window->height > area.y + area.height)
-		    y = area.y + area.height - window->height;
+		if (x + window_width > area.x + area.width)
+		    x = area.x + area.width - window_width;
+		if (y + window_height > area.y + area.height)
+		    y = area.y + area.height - window_height;
 		if (x < area.x) x = area.x;
 		if (y < area.y) y = area.y;
 	    }
@@ -887,8 +878,8 @@ placeWindow (CompWindow *window,
 	w = window->screen->width;
 	h = window->screen->height;
 
-	x = (w - window->width) / 2;
-	y = (h - window->height) / 2;
+	x = (w - window_width) / 2;
+	y = (h - window_height) / 2;
 
 	goto done_check_denied_focus;
     }
@@ -902,10 +893,13 @@ placeWindow (CompWindow *window,
 	if (!wi->shaded && wi->attrib.map_state != IsViewable)
 	    continue;
 
-	if (wi->attrib.x >= work_area.x + work_area.width  ||
-	    wi->attrib.x + wi->width <= work_area.x	   ||
-	    wi->attrib.y >= work_area.y + work_area.height ||
-	    wi->attrib.y + wi->height <= work_area.y)
+	if (wi->attrib.x >= work_area.x + work_area.width       ||
+	    wi->attrib.x + get_window_width (wi) <= work_area.x	||
+	    wi->attrib.y >= work_area.y + work_area.height      ||
+	    wi->attrib.y + get_window_height (wi) <= work_area.y)
+	    continue;
+
+	if (wi->attrib.override_redirect)
 	    continue;
 
 	if (wi->state & (CompWindowTypeDesktopMask    |
@@ -1006,17 +1000,17 @@ done_check_denied_focus:
     g_list_free (windows);
 
 done:
-    if (x + window->width + window->input.right > work_area.x + work_area.width)
-	x = work_area.x + work_area.width - window->width - window->input.right;
+    if (x + window_width + window->input.right > work_area.x + work_area.width)
+	x = work_area.x + work_area.width - window_width - window->input.right;
 
     if (x - window->input.left < work_area.x)
 	x = work_area.x + window->input.left;
 
 done_no_x_constraints:
-    if (y + window->height + window->input.bottom >
+    if (y + window_height + window->input.bottom >
 	work_area.y + work_area.height)
 	y = work_area.y + work_area.height
-	    - window->height - window->input.bottom;
+	    - window_height - window->input.bottom;
 
     if (y - window->input.top < work_area.y)
 	y = work_area.y + window->input.top;
@@ -1163,8 +1157,10 @@ static CompPluginVTable placeVTable = {
     0, /* SetDisplayOption */
     placeGetScreenOptions,
     placeSetScreenOption,
-    0,
-    0
+    0, /* Deps */
+    0, /* nDeps */
+    0, /* Features */
+    0  /* nFeatures */
 };
 
 CompPluginVTable *

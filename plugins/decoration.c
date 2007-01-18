@@ -23,39 +23,21 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
+#ifdef HAVE_CONFIG_H
+#  include "../config.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <unistd.h>
 
 #include <X11/Xatom.h>
 #include <X11/extensions/shape.h>
 
 #include <compiz.h>
-
-#define GRAVITY_WEST  (1 << 0)
-#define GRAVITY_EAST  (1 << 1)
-#define GRAVITY_NORTH (1 << 2)
-#define GRAVITY_SOUTH (1 << 3)
-
-#define ALIGN_LEFT   (0)
-#define ALIGN_RIGHT  (1 << 0)
-#define ALIGN_TOP    (0)
-#define ALIGN_BOTTOM (1 << 1)
-
-#define CLAMP_HORZ (1 << 0)
-#define CLAMP_VERT (1 << 1)
-
-#define XX_MASK (1 << 12)
-#define XY_MASK (1 << 13)
-#define YX_MASK (1 << 14)
-#define YY_MASK (1 << 15)
-
-typedef struct _Point {
-    int	x;
-    int	y;
-    int gravity;
-} Point;
+#include <decoration.h>
 
 typedef struct _Vector {
     int	dx;
@@ -63,16 +45,6 @@ typedef struct _Vector {
     int	x0;
     int	y0;
 } Vector;
-
-typedef struct _Quad {
-    Point      p1;
-    Point      p2;
-    int	       maxWidth;
-    int	       maxHeight;
-    int	       align;
-    int	       clamp;
-    CompMatrix m;
-} Quad;
 
 #define DECOR_BARE   0
 #define DECOR_NORMAL 1
@@ -92,9 +64,10 @@ typedef struct _Decoration {
     DecorTexture      *texture;
     CompWindowExtents output;
     CompWindowExtents input;
+    CompWindowExtents maxInput;
     int		      minWidth;
     int		      minHeight;
-    Quad	      *quad;
+    decor_quad_t      *quad;
     int		      nQuad;
 } Decoration;
 
@@ -119,15 +92,24 @@ typedef struct _WindowDecoration {
 #define DECOR_SHADOW_OPACITY_MAX       6.0f
 #define DECOR_SHADOW_OPACITY_PRECISION 0.01f
 
+#define DECOR_SHADOW_COLOR_RED_DEFAULT   0x0000
+#define DECOR_SHADOW_COLOR_GREEN_DEFAULT 0x0000
+#define DECOR_SHADOW_COLOR_BLUE_DEFAULT  0x0000
+
 #define DECOR_SHADOW_OFFSET_DEFAULT   1
 #define DECOR_SHADOW_OFFSET_MIN     -16
 #define DECOR_SHADOW_OFFSET_MAX      16
 
+#define DECOR_MIPMAP_DEFAULT FALSE
+
 #define DECOR_DISPLAY_OPTION_SHADOW_RADIUS   0
 #define DECOR_DISPLAY_OPTION_SHADOW_OPACITY  1
-#define DECOR_DISPLAY_OPTION_SHADOW_OFFSET_X 2
-#define DECOR_DISPLAY_OPTION_SHADOW_OFFSET_Y 3
-#define DECOR_DISPLAY_OPTION_NUM             4
+#define DECOR_DISPLAY_OPTION_SHADOW_COLOR    2
+#define DECOR_DISPLAY_OPTION_SHADOW_OFFSET_X 3
+#define DECOR_DISPLAY_OPTION_SHADOW_OFFSET_Y 4
+#define DECOR_DISPLAY_OPTION_COMMAND         5
+#define DECOR_DISPLAY_OPTION_MIPMAP          6
+#define DECOR_DISPLAY_OPTION_NUM             7
 
 static int displayPrivateIndex;
 
@@ -149,11 +131,14 @@ typedef struct _DecorScreen {
 
     Decoration *decor[DECOR_NUM];
 
-    PaintWindowProc	 paintWindow;
-    DamageWindowRectProc damageWindowRect;
+    DrawWindowProc		  drawWindow;
+    DamageWindowRectProc	  damageWindowRect;
+    GetOutputExtentsForWindowProc getOutputExtentsForWindow;
 
     WindowMoveNotifyProc   windowMoveNotify;
     WindowResizeNotifyProc windowResizeNotify;
+
+    WindowStateChangeNotifyProc windowStateChangeNotify;
 } DecorScreen;
 
 typedef struct _DecorWindow {
@@ -213,9 +198,40 @@ decorSetDisplayOption (CompDisplay     *display,
 	if (compSetFloatOption (o, value))
 	    return TRUE;
 	break;
+    case DECOR_DISPLAY_OPTION_SHADOW_COLOR:
+	if (compSetColorOption (o, value))
+	    return TRUE;
+	break;
     case DECOR_DISPLAY_OPTION_SHADOW_OFFSET_X:
     case DECOR_DISPLAY_OPTION_SHADOW_OFFSET_Y:
 	if (compSetIntOption (o, value))
+	    return TRUE;
+	break;
+    case DECOR_DISPLAY_OPTION_COMMAND:
+	if (compSetStringOption (o, value))
+	{
+	    if (display->screens && *o->value.s != '\0')
+	    {
+		DECOR_SCREEN (display->screens);
+
+		/* run decorator command if no decorator is present on
+		   first screen */
+		if (!ds->dmWin)
+		{
+		    if (fork () == 0)
+		    {
+			putenv (display->displayString);
+			execl ("/bin/sh", "/bin/sh", "-c", o->value.s, NULL);
+			exit (0);
+		    }
+		}
+	    }
+
+	    return TRUE;
+	}
+	break;
+    case DECOR_DISPLAY_OPTION_MIPMAP:
+	if (compSetBoolOption (o, value))
 	    return TRUE;
     default:
 	break;
@@ -249,6 +265,16 @@ decorDisplayInitOptions (DecorDisplay *dd)
     o->rest.f.max	= DECOR_SHADOW_OPACITY_MAX;
     o->rest.f.precision = DECOR_SHADOW_OPACITY_PRECISION;
 
+    o = &dd->opt[DECOR_DISPLAY_OPTION_SHADOW_COLOR];
+    o->name		= "shadow_color";
+    o->shortDesc	= "Shadow Color";
+    o->longDesc		= "Drop shadow color";
+    o->type		= CompOptionTypeColor;
+    o->value.c[0]	= DECOR_SHADOW_COLOR_RED_DEFAULT;
+    o->value.c[1]	= DECOR_SHADOW_COLOR_GREEN_DEFAULT;
+    o->value.c[2]	= DECOR_SHADOW_COLOR_BLUE_DEFAULT;
+    o->value.c[3]	= 0xffff;
+
     o = &dd->opt[DECOR_DISPLAY_OPTION_SHADOW_OFFSET_X];
     o->name		= "shadow_offset_x";
     o->shortDesc	= N_("Shadow Offset X");
@@ -266,13 +292,30 @@ decorDisplayInitOptions (DecorDisplay *dd)
     o->value.i		= DECOR_SHADOW_OFFSET_DEFAULT;
     o->rest.i.min	= DECOR_SHADOW_OFFSET_MIN;
     o->rest.i.max	= DECOR_SHADOW_OFFSET_MAX;
+
+    o = &dd->opt[DECOR_DISPLAY_OPTION_COMMAND];
+    o->name		= "command";
+    o->shortDesc	= N_("Command");
+    o->longDesc		= N_("Decorator command line that is executed if no "
+			     "decorator is already running");
+    o->type		= CompOptionTypeString;
+    o->value.s		= strdup ("");
+    o->rest.s.string	= NULL;
+    o->rest.s.nString	= 0;
+
+    o = &dd->opt[DECOR_DISPLAY_OPTION_MIPMAP];
+    o->name	 = "mipmap";
+    o->shortDesc = N_("Mipmap");
+    o->longDesc	 = ("Allow mipmaps to be generated for decoration textures");
+    o->type	 = CompOptionTypeBool;
+    o->value.b   = DECOR_MIPMAP_DEFAULT;
 }
 
 static Bool
-decorPaintWindow (CompWindow		  *w,
-		  const WindowPaintAttrib *attrib,
-		  Region		  region,
-		  unsigned int		  mask)
+decorDrawWindow (CompWindow		 *w,
+		 const WindowPaintAttrib *attrib,
+		 Region			 region,
+		 unsigned int		 mask)
 {
     Bool status;
 
@@ -318,9 +361,9 @@ decorPaintWindow (CompWindow		  *w,
 	}
     }
 
-    UNWRAP (ds, w->screen, paintWindow);
-    status = (*w->screen->paintWindow) (w, attrib, region, mask);
-    WRAP (ds, w->screen, paintWindow, decorPaintWindow);
+    UNWRAP (ds, w->screen, drawWindow);
+    status = (*w->screen->drawWindow) (w, attrib, region, mask);
+    WRAP (ds, w->screen, drawWindow, decorDrawWindow);
 
     return status;
 }
@@ -367,6 +410,9 @@ decorGetTexture (CompScreen *screen,
 	return NULL;
     }
 
+    if (!dd->opt[DECOR_DISPLAY_OPTION_MIPMAP].value.b)
+	texture->texture.mipmap = FALSE;
+
     texture->damage = XDamageCreate (screen->display->display, pixmap,
 				     XDamageReportRawRectangles);
 
@@ -411,52 +457,122 @@ decorReleaseTexture (CompScreen   *screen,
     free (texture);
 }
 
-/*
-  decoration property
-  -------------------
+static void
+applyGravity (int gravity,
+	      int x,
+	      int y,
+	      int width,
+	      int height,
+	      int *return_x,
+	      int *return_y)
+{
+    if (gravity & GRAVITY_EAST)
+    {
+	x += width;
+	*return_x = MAX (0, x);
+    }
+    else if (gravity & GRAVITY_WEST)
+    {
+	*return_x = MIN (width, x);
+    }
+    else
+    {
+	x += width / 2;
+	x = MAX (0, x);
+	x = MIN (width, x);
+	*return_x = x;
+    }
 
-  data[0] = pixmap
+    if (gravity & GRAVITY_SOUTH)
+    {
+	y += height;
+	*return_y = MAX (0, y);
+    }
+    else if (gravity & GRAVITY_NORTH)
+    {
+	*return_y = MIN (height, y);
+    }
+    else
+    {
+	y += height / 2;
+	y = MAX (0, y);
+	y = MIN (height, y);
+	*return_y = y;
+    }
+}
 
-  data[1] = input left
-  data[2] = input right
-  data[3] = input top
-  data[4] = input bottom
+static void
+computeQuadBox (decor_quad_t *q,
+		int	     width,
+		int	     height,
+		int	     *return_x1,
+		int	     *return_y1,
+		int	     *return_x2,
+		int	     *return_y2)
+{
+    int x1, y1, x2, y2;
 
-  data[5] = min width
-  data[6] = min height
+    applyGravity (q->p1.gravity, q->p1.x, q->p1.y, width, height, &x1, &y1);
+    applyGravity (q->p2.gravity, q->p2.x, q->p2.y, width, height, &x2, &y2);
 
-  flags
+    if (q->clamp & CLAMP_HORZ)
+    {
+	if (x1 < 0)
+	    x1 = 0;
+	if (x2 > width)
+	    x2 = width;
+    }
 
-  1st to 4nd bit p1 gravity, 5rd to 8th bit p2 gravity,
-  9rd and 10th bit alignment, 11rd and 12th bit clamp,
-  13th bit XX, 14th bit XY, 15th bit YX, 16th bit YY.
+    if (q->clamp & CLAMP_VERT)
+    {
+	if (y1 < 0)
+	    y1 = 0;
+	if (y2 > height)
+	    y2 = height;
+    }
 
-  data[6 + n * 9 + 1] = flags
-  data[6 + n * 9 + 2] = p1 x
-  data[6 + n * 9 + 3] = p1 y
-  data[6 + n * 9 + 4] = p2 x
-  data[6 + n * 9 + 5] = p2 y
-  data[6 + n * 9 + 6] = widthMax
-  data[6 + n * 9 + 7] = heightMax
-  data[6 + n * 9 + 8] = x0
-  data[6 + n * 9 + 9] = y0
- */
+    if (q->max_width < x2 - x1)
+    {
+	if (q->align & ALIGN_RIGHT)
+	    x1 = x2 - q->max_width;
+	else
+	    x2 = x1 + q->max_width;
+    }
+
+    if (q->max_height < y2 - y1)
+    {
+	if (q->align & ALIGN_BOTTOM)
+	    y1 = y2 - q->max_height;
+	else
+	    y2 = y1 + q->max_height;
+    }
+
+    *return_x1 = x1;
+    *return_y1 = y1;
+    *return_x2 = x2;
+    *return_y2 = y2;
+}
+
 static Decoration *
 decorCreateDecoration (CompScreen *screen,
 		       Window	  id,
 		       Atom	  decorAtom)
 {
-    Decoration	  *decoration;
-    Atom	  actual;
-    int		  result, format;
-    unsigned long n, nleft;
-    unsigned char *data;
-    long	  *prop;
-    Pixmap	  pixmap;
-    Quad	  *quad;
-    int		  nQuad;
-    int		  left, right, top, bottom;
-    int		  flags;
+    Decoration	    *decoration;
+    Atom	    actual;
+    int		    result, format;
+    unsigned long   n, nleft;
+    unsigned char   *data;
+    long	    *prop;
+    Pixmap	    pixmap;
+    decor_extents_t input;
+    decor_extents_t maxInput;
+    decor_quad_t    *quad;
+    int		    nQuad;
+    int		    minWidth;
+    int		    minHeight;
+    int		    left, right, top, bottom;
+    int		    x1, y1, x2, y2;
 
     result = XGetWindowProperty (screen->display->display, id,
 				 decorAtom, 0L, 1024L, FALSE,
@@ -466,99 +582,100 @@ decorCreateDecoration (CompScreen *screen,
     if (result != Success || !n || !data)
 	return NULL;
 
-    if (n < 5 + 9)
+    prop = (long *) data;
+
+    if (decor_property_get_version (prop) != decor_version ())
+    {
+	fprintf (stderr, "%s: decoration: property ignored because "
+		 "version is %d and decoration plugin version is %d\n",
+		 programName, decor_property_get_version (prop),
+		 decor_version ());
+
+	XFree (data);
+	return NULL;
+    }
+
+    nQuad = (n - BASE_PROP_SIZE) / QUAD_PROP_SIZE;
+
+    quad = malloc (sizeof (decor_quad_t) * nQuad);
+    if (!quad)
     {
 	XFree (data);
+	return NULL;
+    }
+
+    nQuad = decor_property_to_quads (prop,
+				     n,
+				     &pixmap,
+				     &input,
+				     &maxInput,
+				     &minWidth,
+				     &minHeight,
+				     quad);
+
+    XFree (data);
+
+    if (!nQuad)
+    {
+	free (quad);
 	return NULL;
     }
 
     decoration = malloc (sizeof (Decoration));
     if (!decoration)
     {
-	XFree (data);
+	free (quad);
 	return NULL;
     }
-
-    prop = (long *) data;
-
-    memcpy (&pixmap, prop++, sizeof (Pixmap));
 
     decoration->texture = decorGetTexture (screen, pixmap);
     if (!decoration->texture)
     {
 	free (decoration);
-	XFree (data);
+	free (quad);
 	return NULL;
     }
 
-    decoration->input.left   = *prop++;
-    decoration->input.right  = *prop++;
-    decoration->input.top    = *prop++;
-    decoration->input.bottom = *prop++;
+    decoration->minWidth  = minWidth;
+    decoration->minHeight = minHeight;
+    decoration->quad	  = quad;
+    decoration->nQuad	  = nQuad;
 
-    decoration->minWidth  = *prop++;
-    decoration->minHeight = *prop++;
-
-    nQuad = (n - 7) / 9;
-
-    quad = malloc (sizeof (Quad) * nQuad);
-    if (!quad)
-    {
-	decorReleaseTexture (screen, decoration->texture);
-	free (decoration);
-	XFree (data);
-	return NULL;
-    }
-
-    decoration->quad  = quad;
-    decoration->nQuad = nQuad;
-
-    left = right = top = bottom = 0;
+    left   = 0;
+    right  = minWidth;
+    top    = 0;
+    bottom = minHeight;
 
     while (nQuad--)
     {
-	flags = *prop++;
+	computeQuadBox (quad, minWidth, minHeight, &x1, &y1, &x2, &y2);
 
-	quad->p1.gravity = (flags >> 0) & 0xf;
-	quad->p2.gravity = (flags >> 4) & 0xf;
-
-	quad->align = (flags >> 8)  & 0x3;
-	quad->clamp = (flags >> 10) & 0x3;
-
-	quad->m.xx = (flags & XX_MASK) ? 1.0f : 0.0f;
-	quad->m.xy = (flags & XY_MASK) ? 1.0f : 0.0f;
-	quad->m.yx = (flags & YX_MASK) ? 1.0f : 0.0f;
-	quad->m.yy = (flags & YY_MASK) ? 1.0f : 0.0f;
-
-	quad->p1.x = *prop++;
-	quad->p1.y = *prop++;
-	quad->p2.x = *prop++;
-	quad->p2.y = *prop++;
-
-	quad->maxWidth  = *prop++;
-	quad->maxHeight = *prop++;
-
-	quad->m.x0 = *prop++;
-	quad->m.y0 = *prop++;
-
-	if (quad->p1.x < left)
-	    left = quad->p1.x;
-	if (quad->p1.y < top)
-	    top = quad->p1.y;
-	if (quad->p2.x > right)
-	    right = quad->p2.x;
-	if (quad->p2.y > bottom)
-	    bottom = quad->p2.y;
+	if (x1 < left)
+	    left = x1;
+	if (y1 < top)
+	    top = y1;
+	if (x2 > right)
+	    right = x2;
+	if (y2 > bottom)
+	    bottom = y2;
 
 	quad++;
     }
 
-    XFree (data);
-
     decoration->output.left   = -left;
-    decoration->output.right  = right;
+    decoration->output.right  = right - minWidth;
     decoration->output.top    = -top;
-    decoration->output.bottom = bottom;
+    decoration->output.bottom = bottom - minHeight;
+
+    decoration->input.left   = input.left;
+    decoration->input.right  = input.right;
+    decoration->input.top    = input.top;
+    decoration->input.bottom = input.bottom;
+
+    decoration->maxInput.left   = maxInput.left;
+    decoration->maxInput.right  = maxInput.right;
+    decoration->maxInput.top    = maxInput.top;
+    decoration->maxInput.bottom = maxInput.bottom;
 
     decoration->refCount = 1;
 
@@ -640,20 +757,34 @@ setDecorationMatrices (CompWindow *w)
 	wd->quad[i].matrix = wd->decor->texture->texture.matrix;
 
 	x0 = wd->decor->quad[i].m.x0;
-	if (wd->decor->quad[i].align & ALIGN_RIGHT)
-	    x0 -= wd->quad[i].box.x2 - wd->quad[i].box.x1;
-
 	y0 = wd->decor->quad[i].m.y0;
-	if (wd->decor->quad[i].align & ALIGN_BOTTOM)
-	    y0 -= wd->quad[i].box.y2 - wd->quad[i].box.y1;
 
 	wd->quad[i].matrix.x0 += x0 * wd->quad[i].matrix.xx;
 	wd->quad[i].matrix.y0 += y0 * wd->quad[i].matrix.yy;
 
+	wd->quad[i].matrix.xy = wd->decor->quad[i].m.xy * wd->quad[i].matrix.xx;
+	wd->quad[i].matrix.yx = wd->decor->quad[i].m.yx * wd->quad[i].matrix.yy;
+
 	wd->quad[i].matrix.xx *= wd->decor->quad[i].m.xx;
 	wd->quad[i].matrix.yy *= wd->decor->quad[i].m.yy;
-	wd->quad[i].matrix.xy *= wd->decor->quad[i].m.xy;
-	wd->quad[i].matrix.yx *= wd->decor->quad[i].m.yx;
+
+	if (wd->decor->quad[i].align & ALIGN_RIGHT)
+	    x0 = wd->quad[i].box.x2 - wd->quad[i].box.x1;
+	else
+	    x0 = 0.0f;
+
+	if (wd->decor->quad[i].align & ALIGN_BOTTOM)
+	    y0 = wd->quad[i].box.y2 - wd->quad[i].box.y1;
+	else
+	    y0 = 0.0f;
+
+	wd->quad[i].matrix.x0 -=
+	    x0 * wd->quad[i].matrix.xx +
+	    y0 * wd->quad[i].matrix.xy;
+
+	wd->quad[i].matrix.y0 -=
+	    y0 * wd->quad[i].matrix.yy +
+	    x0 * wd->quad[i].matrix.yx;
 
 	wd->quad[i].matrix.x0 -=
 	    wd->quad[i].box.x1 * wd->quad[i].matrix.xx +
@@ -666,37 +797,10 @@ setDecorationMatrices (CompWindow *w)
 }
 
 static void
-applyGravity (int gravity,
-	      int x,
-	      int y,
-	      int width,
-	      int height,
-	      int *return_x,
-	      int *return_y)
-{
-    if (gravity & GRAVITY_EAST)
-	*return_x = x + width;
-    else if (gravity & GRAVITY_WEST)
-	*return_x = x;
-    else
-	*return_x = (width >> 1) + x;
-
-    if (gravity & GRAVITY_SOUTH)
-	*return_y = y + height;
-    else if (gravity & GRAVITY_NORTH)
-	*return_y = y;
-    else
-	*return_y = (height >> 1) + y;
-}
-
-static void
 updateWindowDecorationScale (CompWindow *w)
 {
     WindowDecoration *wd;
     int		     x1, y1, x2, y2;
-    int		     maxWidth, maxHeight;
-    int		     align;
-    int		     clamp;
     int		     i;
 
     DECOR_WINDOW (w);
@@ -707,52 +811,8 @@ updateWindowDecorationScale (CompWindow *w)
 
     for (i = 0; i < wd->nQuad; i++)
     {
-	applyGravity (wd->decor->quad[i].p1.gravity,
-		      wd->decor->quad[i].p1.x, wd->decor->quad[i].p1.y,
-		      w->width, w->height,
-		      &x1, &y1);
-
-	applyGravity (wd->decor->quad[i].p2.gravity,
-		      wd->decor->quad[i].p2.x, wd->decor->quad[i].p2.y,
-		      w->width, w->height,
-		      &x2, &y2);
-
-	maxWidth  = wd->decor->quad[i].maxWidth;
-	maxHeight = wd->decor->quad[i].maxHeight;
-	align	  = wd->decor->quad[i].align;
-	clamp	  = wd->decor->quad[i].clamp;
-
-	if (clamp & CLAMP_HORZ)
-	{
-	    if (x1 < 0)
-		x1 = 0;
-	    if (x2 > w->width)
-		x2 = w->width;
-	}
-
-	if (clamp & CLAMP_VERT)
-	{
-	    if (y1 < 0)
-		y1 = 0;
-	    if (y2 > w->height)
-		y2 = w->height;
-	}
-
-	if (maxWidth < x2 - x1)
-	{
-	    if (align & ALIGN_RIGHT)
-		x1 = x2 - maxWidth;
-	    else
-		x2 = x1 + maxWidth;
-	}
-
-	if (maxHeight < y2 - y1)
-	{
-	    if (align & ALIGN_BOTTOM)
-		y1 = y2 - maxHeight;
-	    else
-		y2 = y1 + maxHeight;
-	}
+	computeQuadBox (&wd->decor->quad[i], w->width, w->height,
+			&x1, &y1, &x2, &y2);
 
 	wd->quad[i].box.x1 = x1 + w->attrib.x;
 	wd->quad[i].box.y1 = y1 + w->attrib.y;
@@ -776,7 +836,6 @@ decorWindowUpdate (CompWindow *w,
 {
     WindowDecoration *wd;
     Decoration	     *old, *decor = NULL;
-    int		     dx, dy;
 
     DECOR_SCREEN (w->screen);
     DECOR_WINDOW (w);
@@ -838,25 +897,10 @@ decorWindowUpdate (CompWindow *w,
     if (decor == old)
 	return FALSE;
 
+    damageWindowOutputExtents (w);
+
     if (old)
-    {
-	damageWindowOutputExtents (w);
 	destroyWindowDecoration (w->screen, wd);
-    }
-
-    if (decor)
-    {
-	dx = decor->input.left;
-	dy = decor->input.top;
-    }
-    else
-	dx = dy = 0;
-
-    dx -= w->input.left;
-    dy -= w->input.top;
-
-    /* if (dx == 0 && dy == 0) */
-	move = FALSE;
 
     if (decor)
     {
@@ -864,20 +908,19 @@ decorWindowUpdate (CompWindow *w,
 	if (!dw->wd)
 	    return FALSE;
 
-	setWindowFrameExtents (w, &decor->input, &decor->output);
+	if ((w->state & MAXIMIZE_STATE) == MAXIMIZE_STATE)
+	    setWindowFrameExtents (w, &decor->maxInput);
+	else
+	    setWindowFrameExtents (w, &decor->input);
 
-	if (!move)
-	    damageWindowOutputExtents (w);
-
+	updateWindowOutputExtents (w);
+	damageWindowOutputExtents (w);
 	updateWindowDecorationScale (w);
     }
     else
     {
 	dw->wd = NULL;
     }
-
-    if (move)
-	moveWindow (w, dx, dy, TRUE, TRUE);
 
     return TRUE;
 }
@@ -1005,9 +1048,6 @@ decorHandleEvent (CompDisplay *d,
 
 			for (w = s->windows; w; w = w->next)
 			{
-			    if (w->attrib.override_redirect)
-				continue;
-
 			    if (w->shaded || w->mapNum)
 			    {
 				dw = GET_DECOR_WINDOW (w, ds);
@@ -1130,6 +1170,33 @@ decorDamageWindowRect (CompWindow *w,
 }
 
 static void
+decorGetOutputExtentsForWindow (CompWindow	  *w,
+				CompWindowExtents *output)
+{
+    DECOR_SCREEN (w->screen);
+    DECOR_WINDOW (w);
+
+    UNWRAP (ds, w->screen, getOutputExtentsForWindow);
+    (*w->screen->getOutputExtentsForWindow) (w, output);
+    WRAP (ds, w->screen, getOutputExtentsForWindow,
+	  decorGetOutputExtentsForWindow);
+
+    if (dw->wd)
+    {
+	CompWindowExtents *e = &dw->wd->decor->output;
+
+	if (e->left > output->left)
+	    output->left = e->left;
+	if (e->right > output->right)
+	    output->right = e->right;
+	if (e->top > output->top)
+	    output->top = e->top;
+	if (e->bottom > output->bottom)
+	    output->bottom = e->bottom;
+    }
+}
+
+static void
 decorWindowMoveNotify (CompWindow *w,
 		       int	  dx,
 		       int	  dy,
@@ -1170,6 +1237,27 @@ decorWindowResizeNotify (CompWindow *w)
     UNWRAP (ds, w->screen, windowResizeNotify);
     (*w->screen->windowResizeNotify) (w);
     WRAP (ds, w->screen, windowResizeNotify, decorWindowResizeNotify);
+}
+
+static void
+decorWindowStateChangeNotify (CompWindow *w)
+{
+    DECOR_SCREEN (w->screen);
+    DECOR_WINDOW (w);
+
+    if (dw->wd && dw->wd->decor)
+    {
+	Decoration *decor = dw->wd->decor;
+
+	if ((w->state & MAXIMIZE_STATE) == MAXIMIZE_STATE)
+	    setWindowFrameExtents (w, &decor->maxInput);
+	else
+	    setWindowFrameExtents (w, &decor->input);
+    }
+
+    UNWRAP (ds, w->screen, windowStateChangeNotify);
+    (*w->screen->windowStateChangeNotify) (w);
+    WRAP (ds, w->screen, windowStateChangeNotify, decorWindowStateChangeNotify);
 }
 
 static Bool
@@ -1246,10 +1334,12 @@ decorInitScreen (CompPlugin *p,
 
     ds->dmWin = None;
 
-    WRAP (ds, s, paintWindow, decorPaintWindow);
+    WRAP (ds, s, drawWindow, decorDrawWindow);
     WRAP (ds, s, damageWindowRect, decorDamageWindowRect);
+    WRAP (ds, s, getOutputExtentsForWindow, decorGetOutputExtentsForWindow);
     WRAP (ds, s, windowMoveNotify, decorWindowMoveNotify);
     WRAP (ds, s, windowResizeNotify, decorWindowResizeNotify);
+    WRAP (ds, s, windowStateChangeNotify, decorWindowStateChangeNotify);
 
     s->privates[dd->screenPrivateIndex].ptr = ds;
 
@@ -1270,10 +1360,12 @@ decorFiniScreen (CompPlugin *p,
 	if (ds->decor[i])
 	    decorReleaseDecoration (s, ds->decor[i]);
 
-    UNWRAP (ds, s, paintWindow);
+    UNWRAP (ds, s, drawWindow);
     UNWRAP (ds, s, damageWindowRect);
+    UNWRAP (ds, s, getOutputExtentsForWindow);
     UNWRAP (ds, s, windowMoveNotify);
     UNWRAP (ds, s, windowResizeNotify);
+    UNWRAP (ds, s, windowStateChangeNotify);
 
     free (ds);
 }
@@ -1350,6 +1442,10 @@ CompPluginDep decorDeps[] = {
     { CompPluginRuleBefore, "scale" }
 };
 
+CompPluginFeature decorFeatures[] = {
+    { "decorations" }
+};
+
 static CompPluginVTable decorVTable = {
     "decoration",
     N_("Window Decoration"),
@@ -1368,7 +1464,9 @@ static CompPluginVTable decorVTable = {
     0, /* GetScreenOptions */
     0, /* SetScreenOption */
     decorDeps,
-    sizeof (decorDeps) / sizeof (decorDeps[0])
+    sizeof (decorDeps) / sizeof (decorDeps[0]),
+    decorFeatures,
+    sizeof (decorFeatures) / sizeof (decorFeatures[0])
 };
 
 CompPluginVTable *
