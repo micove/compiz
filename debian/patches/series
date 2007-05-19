@@ -1,5 +1,3 @@
 011_snap-by-default.patch
-012_debian-kde-includes-dir.patch
-013_set-qtdir-fallback.patch
 014_fix-no-border-window-shadow.patch
 015_optional-fbo.patch

@@ -500,7 +500,7 @@ annoInitiate (CompDisplay     *d,
 	as->eraseMode = FALSE;
     }
 
-    return FALSE;
+    return TRUE;
 }
 
 static Bool
@@ -609,6 +609,7 @@ annoClear (CompDisplay     *d,
 static Bool
 annoPaintScreen (CompScreen		 *s,
 		 const ScreenPaintAttrib *sAttrib,
+		 const CompTransform	 *transform,
 		 Region			 region,
 		 int			 output,
 		 unsigned int		 mask)
@@ -618,7 +619,7 @@ annoPaintScreen (CompScreen		 *s,
     ANNO_SCREEN (s);
 
     UNWRAP (as, s, paintScreen);
-    status = (*s->paintScreen) (s, sAttrib, region, output, mask);
+    status = (*s->paintScreen) (s, sAttrib, transform, region, output, mask);
     WRAP (as, s, paintScreen, annoPaintScreen);
 
     if (status && as->content && region->numRects)
@@ -962,6 +963,7 @@ annoFiniScreen (CompPlugin *p,
 		CompScreen *s)
 {
     ANNO_SCREEN (s);
+    ANNO_DISPLAY (s->display);
 
     if (as->cairo)
 	cairo_destroy (as->cairo);
@@ -973,6 +975,11 @@ annoFiniScreen (CompPlugin *p,
 
     if (as->pixmap)
 	XFreePixmap (s->display->display, as->pixmap);
+
+    removeScreenAction (s, 
+			&ad->opt[ANNO_DISPLAY_OPTION_INITIATE].value.action);
+    removeScreenAction (s, &ad->opt[ANNO_DISPLAY_OPTION_ERASE].value.action);
+    removeScreenAction (s, &ad->opt[ANNO_DISPLAY_OPTION_CLEAR].value.action);
 
     UNWRAP (as, s, paintScreen);
 

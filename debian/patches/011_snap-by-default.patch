@@ -5,9 +5,9 @@ Not submitted to upstream.
 
 Index: compiz.git/plugins/compiz.schemas.in
 ===================================================================
---- compiz.git.orig/plugins/compiz.schemas.in	2006-12-31 16:44:56.000000000 +0100
-+++ compiz.git/plugins/compiz.schemas.in	2006-12-31 18:44:44.000000000 +0100
-@@ -12775,7 +12775,7 @@
+--- compiz.git.orig/plugins/compiz.schemas.in	2007-04-05 09:45:45.000000000 +0200
++++ compiz.git/plugins/compiz.schemas.in	2007-04-05 10:12:40.000000000 +0200
+@@ -12910,7 +12910,7 @@
              <applyto>/apps/compiz/plugins/wobbly/allscreens/options/snap_inverted</applyto>
              <owner>compiz</owner>
              <type>bool</type>
@@ -18,9 +18,9 @@ Index: compiz.git/plugins/compiz.schemas.in
                  <long>Inverted window snapping</long>
 Index: compiz.git/plugins/wobbly.c
 ===================================================================
---- compiz.git.orig/plugins/wobbly.c	2006-12-31 16:44:56.000000000 +0100
-+++ compiz.git/plugins/wobbly.c	2006-12-31 18:44:44.000000000 +0100
-@@ -168,7 +168,7 @@
+--- compiz.git.orig/plugins/wobbly.c	2007-04-05 09:45:45.000000000 +0200
++++ compiz.git/plugins/wobbly.c	2007-04-05 10:12:40.000000000 +0200
+@@ -155,7 +155,7 @@
  
  #define WOBBLY_SNAP_MODIFIERS_DEFAULT ShiftMask
  

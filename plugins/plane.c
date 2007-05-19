@@ -76,8 +76,6 @@ typedef struct _PlaneDisplay {
     HandleEventProc	handleEvent;
 
     CompOption		opt[PLANE_N_DISPLAY_OPTIONS];
-
-    int			flipTime;
 } PlaneDisplay;
 
 typedef struct _PlaneScreen {
@@ -86,7 +84,6 @@ typedef struct _PlaneScreen {
     DonePaintScreenProc			donePaintScreen;
     PaintScreenProc			paintScreen;
 
-    SetScreenOptionForPluginProc	setScreenOptionForPlugin;
     WindowGrabNotifyProc		windowGrabNotify;
     WindowUngrabNotifyProc		windowUngrabNotify;
 
@@ -214,17 +211,18 @@ planePreparePaintScreen (CompScreen *s,
 static void
 planePaintTransformedScreen (CompScreen		     *screen,
 			     const ScreenPaintAttrib *sAttrib,
+			     const CompTransform     *transform,
 			     Region		     region,
 			     int                     output,
 			     unsigned int	     mask)
 {
     PLANE_SCREEN (screen);
 
-    glPushMatrix ();
     UNWRAP (ps, screen, paintTransformedScreen);
 
     if (ps->timeoutHandle)
     {
+	CompTransform sTransform = *transform;
 	double dx, dy, tx, ty;
 	int vx, vy;
 
@@ -268,71 +266,71 @@ planePaintTransformedScreen (CompScreen		     *screen,
 	    vy--;
 	}
 
-	glPushMatrix ();
+	matrixTranslate (&sTransform, dx, -dy, 0.0);
 
-	glTranslatef (dx, -dy, 0.0);
-	(*screen->paintTransformedScreen) (screen, sAttrib, region, output,
-					   mask);
+	(*screen->paintTransformedScreen) (screen, sAttrib, &sTransform,
+					   region, output, mask);
+
 	if (dx > 0)
 	{
-	    glTranslatef (-1.0, 0.0, 0.0);
+	    matrixTranslate (&sTransform, -1.0, 0.0, 0.0);
 	    moveScreenViewport (screen, 1, 0, FALSE);
 	}
 	else
 	{
-	    glTranslatef (1.0, 0.0, 0.0);
+	    matrixTranslate (&sTransform, 1.0, 0.0, 0.0);
 	    moveScreenViewport (screen, -1, 0, FALSE);
 	}
-	(*screen->paintTransformedScreen) (screen, sAttrib, region, output,
-					   mask);
+
+	(*screen->paintTransformedScreen) (screen, sAttrib, &sTransform,
+					   region, output, mask);
+
 	if (dy > 0)
 	{
-	    glTranslatef (0.0, 1.0, 0.0);
+	    matrixTranslate (&sTransform, 0.0, 1.0, 0.0);
 	    moveScreenViewport (screen, 0, 1, FALSE);
 	}
 	else
 	{
-	    glTranslatef (0.0, -1.0, 0.0);
+	    matrixTranslate (&sTransform, 0.0, -1.0, 0.0);
 	    moveScreenViewport (screen, 0, -1, FALSE);
 	}
-	(*screen->paintTransformedScreen) (screen, sAttrib, region, output,
-					   mask);
+
+	(*screen->paintTransformedScreen) (screen, sAttrib, &sTransform,
+					   region, output, mask);
+
 	if (dx > 0)
 	{
-	    glTranslatef (1.0, 0.0, 0.0);
+	    matrixTranslate (&sTransform, 1.0, 0.0, 0.0);
 	    moveScreenViewport (screen, -1, 0, FALSE);
 	}
 	else
 	{
-	    glTranslatef (-1.0, 0.0, 0.0);
+	    matrixTranslate (&sTransform, -1.0, 0.0, 0.0);
 	    moveScreenViewport (screen, 1, 0, FALSE);
 	}
-	(*screen->paintTransformedScreen) (screen, sAttrib, region, output,
-					   mask);
+
+	(*screen->paintTransformedScreen) (screen, sAttrib, &sTransform,
+					   region, output, mask);
+
 	if (dy > 0)
 	{
-	    glTranslatef (0.0, -1.0, 0.0);
 	    moveScreenViewport (screen, 0, -1, FALSE);
 	}
 	else
 	{
-	    glTranslatef (0.0, 1.0, 0.0);
 	    moveScreenViewport (screen, 0, 1, FALSE);
 	}
-	glTranslatef (-dx, -dy, 0.0);
-	glPopMatrix ();
 
 	moveScreenViewport (screen, -vx, -vy, FALSE);
     }
     else
     {
-	(*screen->paintTransformedScreen) (screen, sAttrib, region, output,
-					   mask);
+	(*screen->paintTransformedScreen) (screen, sAttrib, transform,
+					   region, output, mask);
     }
 
     WRAP (ps, screen, paintTransformedScreen, planePaintTransformedScreen);
-    glPopMatrix ();
-
 }
 
 static void
@@ -353,6 +351,7 @@ planeDonePaintScreen (CompScreen *s)
 static Bool
 planePaintScreen (CompScreen		  *s,
 		  const ScreenPaintAttrib *sAttrib,
+		  const CompTransform	  *transform,
 		  Region		  region,
 		  int			  output,
 		  unsigned int		  mask)
@@ -368,7 +367,7 @@ planePaintScreen (CompScreen		  *s,
     }
 
     UNWRAP (ps, s, paintScreen);
-    status = (*s->paintScreen) (s, sAttrib, region, output, mask);
+    status = (*s->paintScreen) (s, sAttrib, transform, region, output, mask);
     WRAP (ps, s, paintScreen, planePaintScreen);
 
     return status;
@@ -461,22 +460,6 @@ planeWindowUngrabNotify (CompWindow *w)
     UNWRAP (ps, w->screen, windowUngrabNotify);
     (*w->screen->windowUngrabNotify) (w);
     WRAP (ps, w->screen, windowUngrabNotify, planeWindowUngrabNotify);
-}
-
-static Bool
-planeSetScreenOptionForPlugin (CompScreen      *s,
-			       char	       *plugin,
-			       char	       *name,
-			       CompOptionValue *value)
-{
-    PLANE_SCREEN (s);
-    Bool status;
-
-    UNWRAP (ps, s, setScreenOptionForPlugin);
-    status = (*s->setScreenOptionForPlugin) (s, plugin, name, value);
-    WRAP (ps, s, setScreenOptionForPlugin, planeSetScreenOptionForPlugin);
-
-    return status;
 }
 
 static CompOption *
@@ -823,7 +806,6 @@ planeInitScreen (CompPlugin *p,
     WRAP (ps, s, preparePaintScreen, planePreparePaintScreen);
     WRAP (ps, s, donePaintScreen, planeDonePaintScreen);
     WRAP (ps, s, paintScreen, planePaintScreen);
-    WRAP (ps, s, setScreenOptionForPlugin, planeSetScreenOptionForPlugin);
     WRAP (ps, s, windowGrabNotify, planeWindowGrabNotify);
     WRAP (ps, s, windowUngrabNotify, planeWindowUngrabNotify);
 
@@ -837,12 +819,30 @@ planeFiniScreen (CompPlugin *p,
 		 CompScreen *s)
 {
     PLANE_SCREEN (s);
+    PLANE_DISPLAY (s->display);
+
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_LEFT].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_RIGHT].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_DOWN].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_UP].value.action);
+
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_TO_1].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_TO_2].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_TO_3].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_TO_4].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_TO_5].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_TO_6].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_TO_7].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_TO_8].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_TO_9].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_TO_10].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_TO_11].value.action);
+    removeScreenAction (s, &pd->opt[PLANE_DISPLAY_OPTION_TO_12].value.action);
 
     UNWRAP (ps, s, paintTransformedScreen);
     UNWRAP (ps, s, preparePaintScreen);
     UNWRAP (ps, s, donePaintScreen);
     UNWRAP (ps, s, paintScreen);
-    UNWRAP (ps, s, setScreenOptionForPlugin);
     UNWRAP (ps, s, windowGrabNotify);
     UNWRAP (ps, s, windowUngrabNotify);
 

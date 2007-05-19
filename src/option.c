@@ -54,14 +54,14 @@ struct _Modifier {
 #define N_MODIFIERS (sizeof (modifiers) / sizeof (struct _Modifier))
 
 static char *edgeName[] = {
-    N_("Left"),
-    N_("Right"),
-    N_("Top"),
-    N_("Bottom"),
-    N_("TopLeft"),
-    N_("TopRight"),
-    N_("BottomLeft"),
-    N_("BottomRight")
+    "Left",
+    "Right",
+    "Top",
+    "Bottom",
+    "TopLeft",
+    "TopRight",
+    "BottomLeft",
+    "BottomRight"
 };
 
 CompOption *
@@ -121,9 +121,10 @@ compSetFloatOption (CompOption	    *option,
 		    CompOptionValue *value)
 {
     float v, p;
+    int sign = (value->f < 0 ? -1 : 1);
 
     p = 1.0f / option->rest.f.precision;
-    v = ((int) (value->f * p + 0.5f)) / p;
+    v = ((int) (value->f * p + sign * 0.5f)) / p;
 
     if (v < option->rest.f.min ||
 	v > option->rest.f.max ||
@@ -230,6 +231,30 @@ compSetActionOption (CompOption      *option,
 }
 
 Bool
+compSetMatchOption (CompOption      *option,
+		    CompOptionValue *value)
+{
+    CompDisplay *display = option->value.match.display;
+    CompMatch	match;
+
+    if (matchEqual (&option->value.match, &value->match))
+	return FALSE;
+
+    if (!matchCopy (&match, &value->match))
+	return FALSE;
+
+    matchFini (&option->value.match);
+
+    option->value.match.op  = match.op;
+    option->value.match.nOp = match.nOp;
+
+    if (display)
+	matchUpdate (display, &option->value.match);
+
+    return TRUE;
+}
+
+Bool
 compSetOptionList (CompOption      *option,
 		   CompOptionValue *value)
 {
@@ -247,15 +272,15 @@ compSetOptionList (CompOption      *option,
 
 	min = MIN (value->list.nValue, option->value.list.nValue);
 
-	if (min < option->value.list.nValue)
+	for (i = min; i < option->value.list.nValue; i++)
 	{
 	    switch (option->value.list.type) {
 	    case CompOptionTypeString:
-		for (i = min; i < option->value.list.nValue; i++)
-		{
-		    if (option->value.list.value[i].s)
-			free (option->value.list.value[i].s);
-		}
+		if (option->value.list.value[i].s)
+		    free (option->value.list.value[i].s);
+		break;
+	    case CompOptionTypeMatch:
+		matchFini (&option->value.list.value[i].match);
 	    default:
 		break;
 	    }
@@ -298,6 +323,9 @@ compSetOptionList (CompOption      *option,
 	    break;
 	case CompOptionTypeColor:
 	    status |= compSetColorOption (&o, &value->list.value[i]);
+	    break;
+	case CompOptionTypeMatch:
+	    status |= compSetMatchOption (&o, &value->list.value[i]);
 	default:
 	    break;
 	}
@@ -315,42 +343,7 @@ compWindowTypeMaskFromStringList (CompOptionValue *value)
     unsigned int mask = 0;
 
     for (i = 0; i < value->list.nValue; i++)
-    {
-	if (strcasecmp (value->list.value[i].s, "desktop") == 0)
-	    mask |= CompWindowTypeDesktopMask;
-	else if (strcasecmp (value->list.value[i].s, "dock") == 0)
-	    mask |= CompWindowTypeDockMask;
-	else if (strcasecmp (value->list.value[i].s, "toolbar") == 0)
-	    mask |= CompWindowTypeToolbarMask;
-	else if (strcasecmp (value->list.value[i].s, "menu") == 0)
-	    mask |= CompWindowTypeMenuMask;
-	else if (strcasecmp (value->list.value[i].s, "utility") == 0)
-	    mask |= CompWindowTypeUtilMask;
-	else if (strcasecmp (value->list.value[i].s, "splash") == 0)
-	    mask |= CompWindowTypeSplashMask;
-	else if (strcasecmp (value->list.value[i].s, "dialog") == 0)
-	    mask |= CompWindowTypeDialogMask;
-	else if (strcasecmp (value->list.value[i].s, "normal") == 0)
-	    mask |= CompWindowTypeNormalMask;
-	else if (strcasecmp (value->list.value[i].s, "dropdownmenu") == 0)
-	    mask |= CompWindowTypeDropdownMenuMask;
-	else if (strcasecmp (value->list.value[i].s, "popupmenu") == 0)
-	    mask |= CompWindowTypePopupMenuMask;
-	else if (strcasecmp (value->list.value[i].s, "tooltip") == 0)
-	    mask |= CompWindowTypeTooltipMask;
-	else if (strcasecmp (value->list.value[i].s, "notification") == 0)
-	    mask |= CompWindowTypeNotificationMask;
-	else if (strcasecmp (value->list.value[i].s, "combo") == 0)
-	    mask |= CompWindowTypeComboMask;
-	else if (strcasecmp (value->list.value[i].s, "dnd") == 0)
-	    mask |= CompWindowTypeDndMask;
-	else if (strcasecmp (value->list.value[i].s, "modaldialog") == 0)
-	    mask |= CompWindowTypeModalDialogMask;
-	else if (strcasecmp (value->list.value[i].s, "fullscreen") == 0)
-	    mask |= CompWindowTypeFullscreenMask;
-	else if (strcasecmp (value->list.value[i].s, "unknown") == 0)
-	    mask |= CompWindowTypeUnknownMask;
-    }
+	mask |= windowTypeFromString (value->list.value[i].s);
 
     return mask;
 }
@@ -438,6 +431,24 @@ getColorOptionNamed (CompOption	    *option,
 	if (option->type == CompOptionTypeColor)
 	    if (strcmp (option->name, name) == 0)
 		return option->value.c;
+
+	option++;
+    }
+
+    return defaultValue;
+}
+
+CompMatch *
+getMatchOptionNamed (CompOption	*option,
+		     int	nOption,
+		     char	*name,
+		     CompMatch  *defaultValue)
+{
+    while (nOption--)
+    {
+	if (option->type == CompOptionTypeMatch)
+	    if (strcmp (option->name, name) == 0)
+		return &option->value.match;
 
 	option++;
     }
@@ -674,6 +685,8 @@ optionTypeToString (CompOptionType type)
     switch (type) {
     case CompOptionTypeAction:
 	return "action";
+    case CompOptionTypeMatch:
+	return "match";
     case CompOptionTypeBool:
 	return "bool";
     case CompOptionTypeInt:

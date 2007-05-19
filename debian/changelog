@@ -1,3 +1,37 @@
+compiz (0.5.0.dfsg-1) unstable; urgency=low
+
+  [ Thierry Reding ]
+  * New upstream development release:
+    - Remove stencil buffer requirement.
+    - Focus stealing prevention support.
+    - Better occlusion detection and more efficient rendering.
+    - Added plugins:
+      + blur: blur windows and contents behind translucent windows
+      + fuse: map compiz options to a file-system
+      + ini: flat file configuration backend
+      + inotify: file change notification
+      + video: composited video interface for efficient playback
+  * Forward-port patches:
+    - Dropped 012_debian-kde-includes-dir.patch, no longer needed.
+    - Dropped 013_set-qtdir-fallback.patch, no longer needed.
+    - Refresh other patches.
+  * Use compiz' default set of plugins.
+  * Add build-dependency on libfuse-dev needed by the fuse plugin.
+  * No longer conflict with metacity >= 2.15.21, now that metacity 2.18 is in
+    unstable. (Closes: #411012)
+  * Add symlink to the compiz-core README to the compiz package.
+    (Closes: #408605)
+  * Drop po/*.gmo and kde/window-decorator/*.moc.cpp from the original
+    tarball. Add a note to debian/copyright.
+  * Pass QTDIR=/usr to the configure script so that the moc can be found.
+  * shlibs bump for libdecoration because it contains added symbols.
+    Thanks Julien Cristau.
+
+  [ Julien Cristau ]
+  * Don't remove .cvsignore files and autogen.sh in clean.
+
+ -- Thierry Reding <thierry@gilfi.de>  Sat, 19 May 2007 17:34:51 +0200
+
 compiz (0.3.6-1) experimental; urgency=low
 
   [ Thierry Reding ]

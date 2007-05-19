@@ -109,6 +109,7 @@ decor_quads_to_property (long		 *data,
 	    (quad->p2.gravity << 4)    |
 	    (quad->align      << 8)    |
 	    (quad->clamp      << 10)   |
+	    (quad->stretch    << 12)   |
 	    (quad->m.xx ? XX_MASK : 0) |
 	    (quad->m.xy ? XY_MASK : 0) |
 	    (quad->m.yx ? YX_MASK : 0) |
@@ -177,8 +178,9 @@ decor_property_to_quads (long		 *data,
 	quad->p1.gravity = (flags >> 0) & 0xf;
 	quad->p2.gravity = (flags >> 4) & 0xf;
 
-	quad->align = (flags >> 8)  & 0x3;
-	quad->clamp = (flags >> 10) & 0x3;
+	quad->align   = (flags >> 8)  & 0x3;
+	quad->clamp   = (flags >> 10) & 0x3;
+	quad->stretch = (flags >> 12) & 0x3;
 
 	quad->m.xx = (flags & XX_MASK) ? 1.0f : 0.0f;
 	quad->m.xy = (flags & XY_MASK) ? 1.0f : 0.0f;
@@ -200,6 +202,185 @@ decor_property_to_quads (long		 *data,
     }
 
     return n;
+}
+
+static int
+add_blur_boxes (long   *data,
+		BoxPtr box,
+		int    n_box,
+		int    width,
+		int    height,
+		int    gravity,
+		int    offset)
+{
+    int x1, y1, x2, y2;
+    int more_gravity;
+    int n = n_box;
+
+    while (n--)
+    {
+	x1 = box->x1;
+	y1 = box->y1;
+	x2 = box->x2;
+	y2 = box->y2;
+
+	if (gravity & (GRAVITY_NORTH | GRAVITY_SOUTH))
+	{
+	    if (x1 > offset)
+	    {
+		more_gravity = GRAVITY_EAST;
+		x1 -= width;
+	    }
+	    else
+	    {
+		more_gravity = GRAVITY_WEST;
+	    }
+	}
+	else
+	{
+	    if (y1 > offset)
+	    {
+		more_gravity = GRAVITY_SOUTH;
+		y1 -= height;
+	    }
+	    else
+	    {
+		more_gravity = GRAVITY_NORTH;
+	    }
+	}
+
+	*data++ = gravity | more_gravity;
+	*data++ = x1;
+	*data++ = y1;
+
+	if (gravity & (GRAVITY_NORTH | GRAVITY_SOUTH))
+	{
+	    if (x2 > offset)
+	    {
+		more_gravity = GRAVITY_EAST;
+		x2 -= width;
+	    }
+	    else
+	    {
+		more_gravity = GRAVITY_WEST;
+	    }
+	}
+	else
+	{
+	    if (y2 > offset)
+	    {
+		more_gravity = GRAVITY_SOUTH;
+		y2 -= height;
+	    }
+	    else
+	    {
+		more_gravity = GRAVITY_NORTH;
+	    }
+	}
+
+	*data++ = gravity | more_gravity;
+	*data++ = x2;
+	*data++ = y2;
+
+	box++;
+    }
+
+    return n_box * 6;
+}
+
+void
+decor_region_to_blur_property (long   *data,
+			       int    threshold,
+			       int    filter,
+			       int    width,
+			       int    height,
+			       Region top_region,
+			       int    top_offset,
+			       Region bottom_region,
+			       int    bottom_offset,
+			       Region left_region,
+			       int    left_offset,
+			       Region right_region,
+			       int    right_offset)
+{
+    *data++ = threshold;
+    *data++ = filter;
+
+    if (top_region)
+	data += add_blur_boxes (data,
+				top_region->rects,
+				top_region->numRects,
+				width, height,
+				GRAVITY_NORTH,
+				top_offset);
+
+    if (bottom_region)
+	data += add_blur_boxes (data,
+				bottom_region->rects,
+				bottom_region->numRects,
+				width, height,
+				GRAVITY_SOUTH,
+				bottom_offset);
+
+    if (left_region)
+	data += add_blur_boxes (data,
+				left_region->rects,
+				left_region->numRects,
+				width, height,
+				GRAVITY_WEST,
+				left_offset);
+
+    if (right_region)
+	data += add_blur_boxes (data,
+				right_region->rects,
+				right_region->numRects,
+				width, height,
+				GRAVITY_EAST,
+				right_offset);
+}
+
+void
+decor_apply_gravity (int gravity,
+		     int x,
+		     int y,
+		     int width,
+		     int height,
+		     int *return_x,
+		     int *return_y)
+{
+    if (gravity & GRAVITY_EAST)
+    {
+	x += width;
+	*return_x = MAX (0, x);
+    }
+    else if (gravity & GRAVITY_WEST)
+    {
+	*return_x = MIN (width, x);
+    }
+    else
+    {
+	x += width / 2;
+	x = MAX (0, x);
+	x = MIN (width, x);
+	*return_x = x;
+    }
+
+    if (gravity & GRAVITY_SOUTH)
+    {
+	y += height;
+	*return_y = MAX (0, y);
+    }
+    else if (gravity & GRAVITY_NORTH)
+    {
+	*return_y = MIN (height, y);
+    }
+    else
+    {
+	y += height / 2;
+	y = MAX (0, y);
+	y = MIN (height, y);
+	*return_y = y;
+    }
 }
 
 int
@@ -230,6 +411,7 @@ decor_set_vert_quad_row (decor_quad_t *q,
     q->max_height = top + top_corner;
     q->align	  = ALIGN_TOP;
     q->clamp	  = CLAMP_VERT;
+    q->stretch    = 0;
     q->m.x0	  = x0;
     q->m.y0	  = y0;
 
@@ -260,6 +442,7 @@ decor_set_vert_quad_row (decor_quad_t *q,
     q->max_height = SHRT_MAX;
     q->align	  = 0;
     q->clamp	  = CLAMP_VERT;
+    q->stretch    = 0;
 
     if (rotation)
     {
@@ -292,6 +475,7 @@ decor_set_vert_quad_row (decor_quad_t *q,
     q->max_height = bottom_corner + bottom;
     q->align	  = ALIGN_BOTTOM;
     q->clamp	  = CLAMP_VERT;
+    q->stretch    = 0;
 
     if (rotation)
     {
@@ -344,6 +528,7 @@ decor_set_horz_quad_line (decor_quad_t *q,
     q->max_height = SHRT_MAX;
     q->align	  = ALIGN_LEFT;
     q->clamp	  = 0;
+    q->stretch    = 0;
     q->m.xx	  = 1.0;
     q->m.xy	  = 0.0;
     q->m.yx	  = 0.0;
@@ -363,6 +548,7 @@ decor_set_horz_quad_line (decor_quad_t *q,
     q->max_height = SHRT_MAX;
     q->align	  = 0;
     q->clamp	  = 0;
+    q->stretch    = 0;
     q->m.xx	  = 0.0;
     q->m.xy	  = 0.0;
     q->m.yx	  = 0.0;
@@ -382,6 +568,7 @@ decor_set_horz_quad_line (decor_quad_t *q,
     q->max_height = SHRT_MAX;
     q->align	  = ALIGN_RIGHT;
     q->clamp	  = 0;
+    q->stretch    = 0;
     q->m.xx	  = 1.0;
     q->m.xy	  = 0.0;
     q->m.yx	  = 0.0;
@@ -1825,6 +2012,41 @@ _decor_pad_border_picture (Display     *xdisplay,
 			  1, y2 - y1);
     }
 }
+
+#ifndef HAVE_XRENDER_0_9_3
+/* XRenderCreateLinearGradient and XRenderCreateRadialGradient used to be
+ * broken. Flushing Xlib's output buffer before calling one of these
+ * functions will avoid this specific issue.
+ */
+static Picture
+XRenderCreateLinearGradient_wrapper (Display		   *xdisplay,
+				     const XLinearGradient *gradient,
+				     const XFixed	   *stops,
+				     const XRenderColor	   *colors,
+				     int		   nStops)
+{
+    XFlush (xdisplay);
+
+    return XRenderCreateLinearGradient (xdisplay, gradient,
+					stops, colors, nStops);
+}
+
+static Picture
+XRenderCreateRadialGradient_wrapper (Display		   *xdisplay,
+				     const XRadialGradient *gradient,
+				     const XFixed	   *stops,
+				     const XRenderColor	   *colors,
+				     int		   nStops)
+{
+    XFlush (xdisplay);
+
+    return XRenderCreateRadialGradient (xdisplay, gradient,
+					stops, colors, nStops);
+}
+
+#define XRenderCreateLinearGradient XRenderCreateLinearGradient_wrapper
+#define XRenderCreateRadialGradient XRenderCreateRadialGradient_wrapper
+#endif
 
 static void
 _decor_blend_horz_border_picture (Display	  *xdisplay,

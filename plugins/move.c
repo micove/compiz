@@ -131,7 +131,7 @@ moveInitiate (CompDisplay     *d,
     xid = getIntOptionNamed (option, nOption, "window", 0);
 
     w = findWindowAtDisplay (d, xid);
-    if (w)
+    if (w && (w->actions & CompWindowActionMoveMask))
     {
 	XRectangle   workArea;
 	unsigned int mods;
@@ -209,6 +209,9 @@ moveInitiate (CompDisplay     *d,
 
 		warpPointer (d, xRoot - pointerX, yRoot - pointerY);
 	    }
+
+	    if (md->moveOpacity != OPAQUE)
+		addWindowDamage (w);
 	}
     }
 
@@ -243,6 +246,9 @@ moveTerminate (CompDisplay     *d,
 	    removeScreenGrab (md->w->screen, ms->grabIndex, NULL);
 	    ms->grabIndex = 0;
 	}
+
+	if (md->moveOpacity != OPAQUE)
+	    addWindowDamage (md->w);
 
 	md->w = 0;
     }
@@ -427,6 +433,11 @@ moveHandleMotionEvent (CompScreen *s,
 			{
 			    int wy;
 
+			    /* update server position before maximizing
+			       window again so that it is maximized on
+			       correct output */
+			    syncWindowPosition (w);
+
 			    maximizeWindow (w, ms->origState);
 
 			    wy  = workArea.y + (w->input.top >> 1);
@@ -489,6 +500,20 @@ moveHandleEvent (CompDisplay *d,
     MOVE_DISPLAY (d);
 
     switch (event->type) {
+    case ButtonPress:
+	s = findScreenAtDisplay (d, event->xbutton.root);
+	if (s)
+	{
+	    MOVE_SCREEN (s);
+
+	    if (ms->grabIndex)
+	    {
+		moveTerminate (d,
+			       &md->opt[MOVE_DISPLAY_OPTION_INITIATE].value.action,
+			       0, NULL, 0);
+	    }
+	}
+	break;
     case KeyPress:
     case KeyRelease:
 	s = findScreenAtDisplay (d, event->xkey.root);
@@ -610,6 +635,7 @@ moveHandleEvent (CompDisplay *d,
 static Bool
 movePaintWindow (CompWindow		 *w,
 		 const WindowPaintAttrib *attrib,
+		 const CompTransform	 *transform,
 		 Region			 region,
 		 unsigned int		 mask)
 {
@@ -634,7 +660,7 @@ movePaintWindow (CompWindow		 *w,
     }
 
     UNWRAP (ms, s, paintWindow);
-    status = (*s->paintWindow) (w, attrib, region, mask);
+    status = (*s->paintWindow) (w, attrib, transform, region, mask);
     WRAP (ms, s, paintWindow, movePaintWindow);
 
     return status;
@@ -820,8 +846,15 @@ moveFiniScreen (CompPlugin *p,
 		CompScreen *s)
 {
     MOVE_SCREEN (s);
+    MOVE_DISPLAY (s->display);
+
+    removeScreenAction (s, 
+			&md->opt[MOVE_DISPLAY_OPTION_INITIATE].value.action);
 
     UNWRAP (ms, s, paintWindow);
+
+    if (ms->moveCursor)
+	XFreeCursor (s->display->display, ms->moveCursor);
 
     free (ms);
 }

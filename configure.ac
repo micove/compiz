@@ -1,6 +1,6 @@
 AC_PREREQ(2.57)
 
-AC_INIT([compiz], [0.3.6], [davidr@novell.com])
+AC_INIT([compiz], [0.5.0], [davidr@novell.com])
 
 AC_CONFIG_AUX_DIR(config)
 
@@ -9,7 +9,7 @@ AC_CONFIG_HEADER([config.h])
 AM_MAINTAINER_MODE
 
 /* decorator interface version */
-AC_DEFINE(DECOR_INTERFACE_VERSION, 20061011, [Decorator interface version])
+AC_DEFINE(DECOR_INTERFACE_VERSION, 20070319, [Decorator interface version])
 
 AC_ISC_POSIX
 AC_PROG_CC
@@ -19,7 +19,7 @@ AC_PROG_LIBTOOL
 AC_HEADER_STDC
 AC_CHECK_HEADERS([stdlib.h sys/time.h unistd.h])
 
-ALL_LINGUAS="cs de es fi fr hu it ja pl pt_BR sv zh_CN zh_TW"
+ALL_LINGUAS="cs de es fi fr hu it ja pl pt_BR sv zh_CN zh_TW af ar bg bn bs ca cy da el en_GB en_US et gl gu he hi hr id ka km ko lo lt mk mr nb nl pa pt ro ru sk sl sr ta tr uk vi xh zu"
 AC_SUBST(ALL_LINGUAS)
 AM_GLIB_GNU_GETTEXT
 GETTEXT_PACKAGE=compiz
@@ -100,6 +100,14 @@ DECORATION_REQUIRES="xrender"
 
 PKG_CHECK_MODULES(DECORATION, $DECORATION_REQUIRES)
 AC_SUBST(DECORATION_REQUIRES)
+
+PKG_CHECK_EXISTS(xrender >= 0.9.3,
+		 [have_xrender_0_9_3=yes], [have_xrender_0_9_3=no])
+
+if test "$have_xrender_0_9_3" = yes; then
+  AC_DEFINE(HAVE_XRENDER_0_9_3, 1,
+	    [Define to 1 if xrender version >= 0.9.3])
+fi
 
 AC_MSG_CHECKING(for GL_CFLAGS)
 AC_ARG_WITH(gl-cflags, [  --with-gl-cflags=CFLAGS ],
@@ -194,6 +202,19 @@ fi
 AM_CONDITIONAL(INOTIFY_PLUGIN, test "x$use_inotify" = "xyes")
 if test "$use_inotify" = yes; then
   AC_DEFINE(USE_INOTIFY, 1, [Build inotify plugin])
+fi
+
+AC_ARG_ENABLE(fuse,
+  [  --disable-fuse          Disable fuse plugin],
+  [use_fuse=$enableval], [use_fuse=yes])
+
+if test "x$use_fuse" = "xyes"; then
+  PKG_CHECK_MODULES(FUSE, fuse, [use_fuse=yes], [use_fuse=no])
+fi
+
+AM_CONDITIONAL(FUSE_PLUGIN, test "x$use_fuse" = "xyes")
+if test "$use_fuse" = yes; then
+  AC_DEFINE(USE_FUSE, 1, [Build fuse plugin])
 fi
 
 AC_ARG_ENABLE(annotate,
@@ -322,7 +343,7 @@ if test "$use_gnome" = yes; then
 fi
 
 AC_ARG_ENABLE(kde,
-  [  --disable-kde           Enable kde window decorator],
+  [  --disable-kde           Disable kde window decorator],
   [use_kde=$enableval], [use_kde=yes])
 
 if test "x$use_kde" = "xyes"; then
@@ -372,7 +393,7 @@ if test "x$use_kde" = "xyes"; then
   if test "x$use_kde" = xyes; then
     kdedir=`kde-config --prefix --expandvars 2>/dev/null`
     kdelibs=`kde-config --install lib --expandvars 2>/dev/null`
-    kdeincs=$kdedir/include
+    kdeincs=`kde-config --install include --expandvars 2>/dev/null`
     if test -d $kdelibs; then
       PKG_CHECK_MODULES(KDE_WINDOW_DECORATOR,
 			dbus-1 xdamage xcomposite,
@@ -437,6 +458,8 @@ echo "  place:    $use_place"
 echo "  dbus:     $use_dbus"
 echo "  annotate: $use_annotate"
 echo "  svg:      $use_librsvg"
+echo "  inotify:  $use_inotify"
+echo "  fuse:     $use_fuse"
 echo ""
 echo "and the following optional features will be compiled:"
 echo "  svg:      $use_librsvg"

@@ -1,48 +1,51 @@
+Index: compiz.git/include/compiz.h
+===================================================================
+--- compiz.git.orig/include/compiz.h	2007-04-05 10:13:01.000000000 +0200
++++ compiz.git/include/compiz.h	2007-04-05 10:13:49.000000000 +0200
+@@ -219,6 +219,7 @@
+ extern Bool       noDetection;
+ extern Bool	  useDesktopHints;
+ extern Bool       onlyCurrentScreen;
++extern Bool       noFBO;
+ 
+ extern int  defaultRefreshRate;
+ extern char *defaultTextureFilter;
 Index: compiz.git/src/main.c
 ===================================================================
---- compiz.git.orig/src/main.c	2007-01-03 12:39:16.000000000 +0100
-+++ compiz.git/src/main.c	2007-01-03 13:09:29.000000000 +0100
-@@ -81,6 +81,7 @@
- Bool indirectRendering = FALSE;
- Bool strictBinding = TRUE;
+--- compiz.git.orig/src/main.c	2007-04-05 10:13:01.000000000 +0200
++++ compiz.git/src/main.c	2007-04-05 10:13:49.000000000 +0200
+@@ -84,6 +84,7 @@
  Bool noDetection = FALSE;
+ Bool useDesktopHints = TRUE;
+ Bool onlyCurrentScreen = FALSE;
 +Bool noFBO = FALSE;
  
  #ifdef USE_COW
  Bool useCow = TRUE;
-@@ -100,6 +101,7 @@
+@@ -103,6 +104,7 @@
  	    "[--sm-disable] "
  	    "[--sm-client-id ID] "
- 	    "[--no-detection] "
+ 	    "[--no-detection]\n       "
 +	    "[--no-fbo] "
- 	    "[--version]\n       "
+ 	    "[--ignore-desktop-hints] "
+ 	    "[--only-current-screen]"
  
- #ifdef USE_COW
-@@ -196,6 +198,10 @@
+@@ -217,6 +219,10 @@
  	{
- 	    strictBinding = FALSE;
+ 	    onlyCurrentScreen = TRUE;
  	}
 +	else if (!strcmp (argv[i], "--no-fbo"))
 +	{
-+	    noFBO = TRUE;
++		noFBO = TRUE;
 +	}
  
  #ifdef USE_COW
  	else if (!strcmp (argv[i], "--use-root-window"))
 Index: compiz.git/src/screen.c
 ===================================================================
---- compiz.git.orig/src/screen.c	2007-01-03 13:09:29.000000000 +0100
-+++ compiz.git/src/screen.c	2007-01-03 13:10:13.000000000 +0100
-@@ -45,6 +45,8 @@
- 
- #include <compiz.h>
- 
-+extern Bool noFBO;
-+
- #define DETECT_REFRESH_RATE_DEFAULT TRUE
- 
- #define SCREEN_HSIZE_DEFAULT 4
-@@ -1804,7 +1806,7 @@
+--- compiz.git.orig/src/screen.c	2007-04-05 10:13:01.000000000 +0200
++++ compiz.git/src/screen.c	2007-04-05 10:13:49.000000000 +0200
+@@ -1971,7 +1971,7 @@
      }
  
      s->fbo = 0;

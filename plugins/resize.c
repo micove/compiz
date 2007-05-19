@@ -126,7 +126,7 @@ resizeInitiate (CompDisplay     *d,
     xid = getIntOptionNamed (option, nOption, "window", 0);
 
     w = findWindowAtDisplay (d, xid);
-    if (w)
+    if (w && (w->actions & CompWindowActionResizeMask))
     {
 	unsigned int mods;
 	unsigned int mask;
@@ -335,11 +335,11 @@ resizeUpdateWindowSize (CompDisplay *d)
     {
 	XWindowChanges xwc;
 
-	xwc.x = rd->w->attrib.x;
+	xwc.x = rd->w->serverX;
 	if (rd->mask & ResizeLeftMask)
 	    xwc.x -= width - rd->w->serverWidth;
 
-	xwc.y = rd->w->attrib.y;
+	xwc.y = rd->w->serverY;
 	if (rd->mask & ResizeUpMask)
 	    xwc.y -= height - rd->w->serverHeight;
 
@@ -650,26 +650,26 @@ resizeHandleEvent (CompDisplay *d,
 
 	    resizeTerminate (d, action, 0, NULL, 0);
 	}
-	break;
     default:
-	if (event->type == d->syncEvent + XSyncAlarmNotify)
-	{
-	    if (rd->w)
-	    {
-		XSyncAlarmNotifyEvent *sa;
-
-		sa = (XSyncAlarmNotifyEvent *) event;
-
-		if (rd->w->syncAlarm == sa->alarm)
-		    resizeUpdateWindowSize (d);
-	    }
-	}
 	break;
     }
 
     UNWRAP (rd, d, handleEvent);
     (*d->handleEvent) (d, event);
     WRAP (rd, d, handleEvent, resizeHandleEvent);
+
+    if (event->type == d->syncEvent + XSyncAlarmNotify)
+    {
+	if (rd->w)
+	{
+	    XSyncAlarmNotifyEvent *sa;
+
+	    sa = (XSyncAlarmNotifyEvent *) event;
+
+	    if (rd->w->syncAlarm == sa->alarm)
+		resizeUpdateWindowSize (d);
+	}
+    }
 }
 
 static CompOption *
@@ -829,6 +829,29 @@ resizeFiniScreen (CompPlugin *p,
 		  CompScreen *s)
 {
     RESIZE_SCREEN (s);
+    RESIZE_DISPLAY (s->display);
+
+    if (rs->leftCursor)
+	XFreeCursor (s->display->display, rs->leftCursor);
+    if (rs->rightCursor)
+	XFreeCursor (s->display->display, rs->rightCursor);
+    if (rs->upCursor)
+	XFreeCursor (s->display->display, rs->upCursor);
+    if (rs->downCursor)
+	XFreeCursor (s->display->display, rs->downCursor);
+    if (rs->middleCursor)
+	XFreeCursor (s->display->display, rs->middleCursor);
+    if (rs->upLeftCursor)
+	XFreeCursor (s->display->display, rs->upLeftCursor);
+    if (rs->upRightCursor)
+	XFreeCursor (s->display->display, rs->upRightCursor);
+    if (rs->downLeftCursor)
+	XFreeCursor (s->display->display, rs->downLeftCursor);
+    if (rs->downRightCursor)
+	XFreeCursor (s->display->display, rs->downRightCursor);
+    
+    removeScreenAction (s, 
+			&rd->opt[RESIZE_DISPLAY_OPTION_INITIATE].value.action);
 
     free (rs);
 }

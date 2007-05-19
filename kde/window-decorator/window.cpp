@@ -29,6 +29,7 @@
 #include <X11/Xlib.h>
 #include <X11/extensions/shape.h>
 #include <X11/extensions/Xcomposite.h>
+#include <X11/Xregion.h>
 
 #include <fixx11h.h>
 
@@ -84,6 +85,8 @@ KWD::Window::Window (QWidget *parent,
     mPendingConfigure (0),
     mProcessKiller (0)
 {
+    memset (&mBorder, 0, sizeof (mBorder));
+
     if (mType == Normal || mType == Switcher)
     {
 	KWin::WindowInfo wInfo = KWin::windowInfo (mClientId, NET::WMState, 0);
@@ -134,6 +137,9 @@ KWD::Window::~Window (void)
     if (mPicture)
 	XRenderFreePicture (qt_xdisplay (), mPicture);
 
+    if (mPixmap)
+	XFreePixmap (qt_xdisplay (), mPixmap);
+
     if (mTexturePicture)
 	XRenderFreePicture (qt_xdisplay (), mTexturePicture);
 
@@ -162,22 +168,29 @@ KWD::Window::isActive (void) const
 bool
 KWD::Window::isCloseable (void) const
 {
+    KWin::WindowInfo wInfo;
+
     if (mType != Normal)
 	return false;
 
-    return true;
+    wInfo = KWin::windowInfo (mClientId, NET::WMPid, NET::WM2AllowedActions);
+    return wInfo.actionSupported (NET::ActionClose);
 }
 
 bool
 KWD::Window::isMaximizable (void) const
 {
+    KWin::WindowInfo wInfo;
+
     if (mType != Normal)
 	return false;
 
-    return true;
+    wInfo = KWin::windowInfo (mClientId, NET::WMPid, NET::WM2AllowedActions);
+    return wInfo.actionSupported (NET::ActionMax);
 }
 
-KDecoration::MaximizeMode KWD::Window::maximizeMode (void) const
+KDecoration::MaximizeMode
+KWD::Window::maximizeMode (void) const
 {
     MaximizeMode mode = MaximizeRestore;
 
@@ -194,10 +207,13 @@ KDecoration::MaximizeMode KWD::Window::maximizeMode (void) const
 bool
 KWD::Window::isMinimizable (void) const
 {
+    KWin::WindowInfo wInfo;
+
     if (mType != Normal)
 	return false;
 
-    return true;
+    wInfo = KWin::windowInfo (mClientId, NET::WMPid, NET::WM2AllowedActions);
+    return wInfo.actionSupported (NET::ActionMinimize);
 }
 
 bool
@@ -992,11 +1008,7 @@ KWD::Window::updateShadow (void)
 					    &mLayout);
 
     if (mPixmap)
-    {
-	/* hm, update or repaint doesn't seem to do it */
-	mDecor->widget ()->hide ();
-	mDecor->widget ()->show ();
-    }
+	mDecor->widget ()->repaint ();
 
     mUpdateProperty = true;
 }
@@ -1160,6 +1172,7 @@ KWD::Window::resizeDecoration (bool force)
 
     mDecor->resize (QSize (w, h));
     mDecor->widget ()->show ();
+    mDecor->widget ()->repaint ();
 
     return TRUE;
 }
@@ -1221,6 +1234,110 @@ KWD::Window::handleConfigure (void)
 }
 
 void
+KWD::Window::updateBlurProperty (int topOffset,
+				 int bottomOffset,
+				 int leftOffset,
+				 int rightOffset)
+{
+    Atom    atom = Atoms::compizWindowBlurDecor;
+    QRegion topQRegion, bottomQRegion, leftQRegion, rightQRegion;
+    Region  topRegion = NULL;
+    Region  bottomRegion = NULL;
+    Region  leftRegion = NULL;
+    Region  rightRegion = NULL;
+    int     size = 0;
+    int     w, h;
+
+    w = mGeometry.width () + mContext.extents.left + mContext.extents.right;
+    h = mGeometry.height () + mContext.extents.top + mContext.extents.bottom;
+
+    if (blurType != BLUR_TYPE_NONE)
+    {
+	QRegion r, shape = QRegion (0, 0, w, h);
+
+	if (mShapeSet)
+	    shape = mShape;
+
+	r = QRegion (0, 0, w, mContext.extents.top);
+	topQRegion = r.intersect (shape);
+	if (!topQRegion.isEmpty ())
+	{
+	    topQRegion.translate (-mContext.extents.left,
+				  -mContext.extents.top);
+	    topRegion = topQRegion.handle ();
+	}
+
+	if (blurType == BLUR_TYPE_ALL)
+	{
+	    r = QRegion (0, h - mContext.extents.bottom,
+			 w, mContext.extents.bottom);
+	    bottomQRegion = r.intersect (shape);
+	    if (!bottomQRegion.isEmpty ())
+	    {
+		bottomQRegion.translate (-mContext.extents.left,
+					 -(h - mContext.extents.bottom));
+		bottomRegion = bottomQRegion.handle ();
+	    }
+
+	    r = QRegion (0, mContext.extents.top,
+			 mContext.extents.left, mGeometry.height ());
+	    leftQRegion = r.intersect (shape);
+	    if (!leftQRegion.isEmpty ())
+	    {
+		leftQRegion.translate (-mContext.extents.left,
+				       -mContext.extents.top);
+		leftRegion = leftQRegion.handle ();
+	    }
+
+	    r = QRegion (w - mContext.extents.right, mContext.extents.top,
+			 mContext.extents.right, mGeometry.height ());
+	    rightQRegion = r.intersect (shape);
+	    if (!rightQRegion.isEmpty ())
+	    {
+		rightQRegion.translate (-(w - mContext.extents.right),
+					-mContext.extents.top);
+		rightRegion = rightQRegion.handle ();
+	    }
+	}
+    }
+
+    if (topRegion)
+	size += topRegion->numRects;
+    if (bottomRegion)
+	size += bottomRegion->numRects;
+    if (leftRegion)
+	size += leftRegion->numRects;
+    if (rightRegion)
+	size += rightRegion->numRects;
+
+    if (size)
+    {
+	long data[size * 6 + 2];
+
+	decor_region_to_blur_property (data, 4, 0,
+				       mGeometry.width (),
+				       mGeometry.height (),
+				       topRegion, topOffset,
+				       bottomRegion, bottomOffset,
+				       leftRegion, leftOffset,
+				       rightRegion, rightOffset);
+
+	KWD::trapXError ();
+	XChangeProperty (qt_xdisplay (), mClientId, atom,
+			 XA_INTEGER,
+			 32, PropModeReplace, (unsigned char *) data,
+			 2 + size * 6);
+	KWD::popXError ();
+    }
+    else
+    {
+	KWD::trapXError ();
+	XDeleteProperty (qt_xdisplay (), mClientId, atom);
+	KWD::popXError ();
+    }
+}
+
+void
 KWD::Window::updateProperty (void)
 {
     Atom	    atom = Atoms::netWindowDecor;
@@ -1243,6 +1360,7 @@ KWD::Window::updateProperty (void)
     mDecor->borders (maxExtents.left, maxExtents.right,
 		     maxExtents.top, maxExtents.bottom);
     mState = saveState;
+    mDecor->borders (mBorder.left, mBorder.right, mBorder.top, mBorder.bottom);
 
     if (mLayout.rotation)
 	lh = mLayout.left.x2 - mLayout.left.x1;
@@ -1259,13 +1377,49 @@ KWD::Window::updateProperty (void)
 
     if (mType == Normal || mType == Switcher)
     {
+	int topXOffset = w / 2;
+
+	if (mDecor)
+	{
+	    QWidget *widget = mDecor->widget ();
+	    int	    x;
+
+	    x = w - mContext.left_space - mContext.left_corner_space;
+	    if (x > topXOffset)
+		topXOffset = x;
+
+	    if (widget)
+	    {
+		const QObjectList *children = widget->children ();
+
+		if (children)
+		{
+		    QWidget *child;
+
+		    for (QObjectListIt it(*children); it.current (); ++it)
+		    {
+			if (!it.current ()->isWidgetType ())
+			    continue;
+
+			child = static_cast <QWidget *> (it.current ());
+
+			x = child->x () - mBorder.left - 2;
+			if (x > w / 2 && x < topXOffset)
+			    topXOffset = x;
+		    }
+		}
+	    }
+	}
+
 	nQuad = decor_set_lXrXtXbX_window_quads (quads,
 						 &mContext,
 						 &mLayout,
 						 lh / 2,
 						 rh / 2,
-						 w / 2,
+						 topXOffset,
 						 w / 2);
+
+	updateBlurProperty (topXOffset, w / 2, lh / 2, rh / 2);
 
 	minWidth = mContext.left_corner_space + 1 + mContext.right_corner_space;
     }
@@ -1519,7 +1673,7 @@ KWD::Window::updateState (void)
     if (stateChange & NET::Max)
     {
 	mDecor->maximizeChange ();
-	resizeDecoration (true);
+	resizeDecoration (false);
     }
 
     if (stateChange & NET::KeepAbove && !(mState & NET::KeepAbove))
@@ -1599,6 +1753,7 @@ KWD::Window::moveWindow (QMouseEvent *qme)
     XUngrabPointer (qt_xdisplay (), CurrentTime);
     XUngrabKeyboard (qt_xdisplay (), CurrentTime);
 
+    Decorator::rootInfo ()->restackRequest (mClientId, None, Above);
     Decorator::rootInfo ()->moveResizeRequest (mClientId,
 					       qme->globalX (),
 					       qme->globalY (),

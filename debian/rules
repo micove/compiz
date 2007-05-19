@@ -36,12 +36,9 @@ endif
 
 INSTALL = /usr/bin/install
 
-PLUGINS = gconf,png,svg,decoration,wobbly,fade,minimize,cube,rotate,zoom,scale,move,resize,place,dbus,switcher,screenshot
-
 confflags += --disable-static \
              --enable-librsvg \
-             --enable-gconf-dump \
-             --with-default-plugins="$(PLUGINS)"
+             --enable-gconf-dump
 
 build: patch build-stamp
 build-stamp:
@@ -50,15 +47,13 @@ build-stamp:
 	mkdir obj-$(DEB_BUILD_GNU_TYPE)
 	cd obj-$(DEB_BUILD_GNU_TYPE) && \
 	../configure --prefix=/usr --sysconfdir=\$${prefix}/share $(confflags) \
-	             CFLAGS="$(CFLAGS)"
+	             CFLAGS="$(CFLAGS)" QTDIR=/usr
 	cd obj-$(DEB_BUILD_GNU_TYPE) && $(MAKE)
 	
 	touch $@
 
 prune:
-	rm -f autogen.sh
-	find -name .cvsignore | xargs rm -f
-	rm -f po/*.gmo
+	rm -f po/*.gmo kde/window-decorator/*.moc.cpp
 
 clean: prune unpatch
 	dh_testdir

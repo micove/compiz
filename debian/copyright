@@ -12,6 +12,15 @@ Contributors:
 
 ------------------------------------------------------------------------------
 
+The original source tarball was repackaged to remove the following generated
+and/or unused files:
+
+	kde/window-decorator/*.moc.cpp
+	kde/window-decorator/KWinInterface_skel.cpp
+	po/*.gmo
+
+------------------------------------------------------------------------------
+
 Copyright:
 
 This software is copyright © 2005, 2006 Novell, Inc.
@@ -116,6 +125,7 @@ Drepper <drepper@gnu.ai.mit.edu>.
 
 ------------------------------------------------------------------------------
 
-The Debian packaging is copyright © 2006 by Thierry Reding <thierry@gilfi.de>
-and is licensed under the GPL, see `/usr/share/common-licenses/GPL'.
+The Debian packaging is copyright © 2006, 2007 by Thierry Reding
+<thierry@gilfi.de> and is licensed under the GPL, see
+`/usr/share/common-licenses/GPL'.
 

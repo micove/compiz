@@ -11293,6 +11293,91 @@
         </schema>
 
         <schema>
+            <key>/schemas/apps/compiz/general/allscreens/options/command_terminal</key>
+            <applyto>/apps/compiz/general/allscreens/options/command_terminal</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default></default>
+            <locale name="C">
+                <short>Terminal command line</short>
+                <long>Terminal command line</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/general/allscreens/options/run_command_terminal_key</key>
+            <applyto>/apps/compiz/general/allscreens/options/run_command_terminal_key</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default>Disabled</default>
+            <locale name="C">
+                <short>Open a terminal</short>
+                <long>Open a terminal</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/general/allscreens/options/run_command_terminal_button</key>
+            <applyto>/apps/compiz/general/allscreens/options/run_command_terminal_button</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default>Disabled</default>
+            <locale name="C">
+                <short>Open a terminal</short>
+                <long>Open a terminal</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/general/allscreens/options/run_command_terminal_bell</key>
+            <applyto>/apps/compiz/general/allscreens/options/run_command_terminal_bell</applyto>
+            <owner>compiz</owner>
+            <type>bool</type>
+            <default>false</default>
+            <locale name="C">
+                <short>Open a terminal</short>
+                <long>Open a terminal</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/general/allscreens/options/run_command_terminal_edge</key>
+            <applyto>/apps/compiz/general/allscreens/options/run_command_terminal_edge</applyto>
+            <owner>compiz</owner>
+            <type>list</type>
+            <list_type>string</list_type>
+            <default>[]</default>
+            <locale name="C">
+                <short>Open a terminal</short>
+                <long>Open a terminal (Left, Right, Top, Bottom, TopLeft, TopRight, BottomLeft, BottomRight)</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/general/allscreens/options/run_command_terminal_edgebutton</key>
+            <applyto>/apps/compiz/general/allscreens/options/run_command_terminal_edgebutton</applyto>
+            <owner>compiz</owner>
+            <type>int</type>
+            <default>0</default>
+            <locale name="C">
+                <short>Open a terminal</short>
+                <long>Open a terminal</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/general/allscreens/options/ping_delay</key>
+            <applyto>/apps/compiz/general/allscreens/options/ping_delay</applyto>
+            <owner>compiz</owner>
+            <type>int</type>
+            <default>5000</default>
+            <locale name="C">
+                <short>Ping Delay</short>
+                <long>Interval between ping messages (1000-30000)</long>
+            </locale>
+        </schema>
+
+        <schema>
             <key>/schemas/apps/compiz/general/screen0/options/detect_refresh_rate</key>
             <applyto>/apps/compiz/general/screen0/options/detect_refresh_rate</applyto>
             <owner>compiz</owner>
@@ -11746,6 +11831,56 @@
             <locale name="C">
                 <short>Outputs</short>
                 <long>List of strings describing output devices</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/general/screen0/options/focus_prevention</key>
+            <applyto>/apps/compiz/general/screen0/options/focus_prevention</applyto>
+            <owner>compiz</owner>
+            <type>bool</type>
+            <default>true</default>
+            <locale name="C">
+                <short>Focus Prevention</short>
+                <long>Enable focus prevention</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/general/screen0/options/focus_prevention_match</key>
+            <applyto>/apps/compiz/general/screen0/options/focus_prevention_match</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default>any</default>
+            <locale name="C">
+                <short>Focus Prevention Windows</short>
+                <long>Focus prevention windows (match)</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/general/screen0/options/opacity_matches</key>
+            <applyto>/apps/compiz/general/screen0/options/opacity_matches</applyto>
+            <owner>compiz</owner>
+            <type>list</type>
+            <list_type>string</list_type>
+            <default>[]</default>
+            <locale name="C">
+                <short>Opacity windows</short>
+                <long>Windows that should be translucent by default</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/general/screen0/options/opacity_values</key>
+            <applyto>/apps/compiz/general/screen0/options/opacity_values</applyto>
+            <owner>compiz</owner>
+            <type>list</type>
+            <list_type>int</list_type>
+            <default>[]</default>
+            <locale name="C">
+                <short>Opacity window values</short>
+                <long>Opacity values for windows that should be translucent by default</long>
             </locale>
         </schema>
 
@@ -13244,7 +13379,7 @@
             <applyto>/apps/compiz/plugins/wobbly/screen0/options/map_effect</applyto>
             <owner>compiz</owner>
             <type>string</type>
-            <default>Shiver</default>
+            <default>None</default>
             <locale name="C">
                 <short>Map Effect</short>
                 <long>Map Window Effect (None, Shiver)</long>
@@ -13368,262 +13503,50 @@
         </schema>
 
         <schema>
-            <key>/schemas/apps/compiz/plugins/wobbly/screen0/options/map_window_types</key>
-            <applyto>/apps/compiz/plugins/wobbly/screen0/options/map_window_types</applyto>
+            <key>/schemas/apps/compiz/plugins/wobbly/screen0/options/map_window_match</key>
+            <applyto>/apps/compiz/plugins/wobbly/screen0/options/map_window_match</applyto>
             <owner>compiz</owner>
-            <type>list</type>
-            <list_type>string</list_type>
-            <default>[Splash,DropdownMenu,PopupMenu,Tooltip,Notification,Combo,Dnd,Unknown]</default>
+            <type>string</type>
+            <default>Splash | DropdownMenu | PopupMenu | Tooltip | Notification | Combo | Dnd | Unknown</default>
             <locale name="C">
-                <short>Map Window Types</short>
-                <long>Window types that should wobble when mapped (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="cs">
-                <short>Typy oken pro mapování</short>
-                <long>Typy oken, které se při mapování mají rozhoupat (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="de">
-                <short>Fenstertypen zuordnen</short>
-                <long>Fenstertypen, die beim Anzeigen wackeln sollen (Desktop, Dock, Toolbar [Symbolleiste], Menu [Menü], Utility [Dienstprogramm], Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Vollbild], Unknown [Unbekannt])</long>
-            </locale>
-            <locale name="es">
-                <short>Asignar tipos de ventanas</short>
-                <long>Tipos de ventanas que deben temblar cuando se asignen (Desktop [Escritorio], Dock, Toolbar [Barra de herramientas], Menu [Menús], Utility [Utilidades], Splash [Inicial], Dialog [Diálogos], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Diálogo de modos], Fullscreen [Pantalla completa], Unknown [Desconocidas])</long>
-            </locale>
-            <locale name="fi">
-                <short>Ilmestyessään huojuvat ikkunatyypit</short>
-                <long>Ikkunatyypit, jotka huojuvat ilmestyessään (Desktop [työpöytä], Dock [paneeli], Toolbar [työkalupalkki], Menu [valikko], Utility [työkalu], Splash [käynnistysikkuna], Dialog [valintaikkuna], Normal [ikkuna], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [pakotettu valintaikkuna], Fullscreen [kokoruutuikkuna], Unknown [tuntematon])</long>
-            </locale>
-            <locale name="fr">
-                <short>Mapper les types de fenêtres</short>
-                <long>Types de fenêtres à déformer lorsqu'elles sont mappées (Desktop [bureau], Dock [accueil], Toolbar [barre d'outils], Menu [menu], Utility [utilitaire], Splash [démarrage], Dialog [boîte de dialogue], Normal [normal], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [boîte de dialogue modale], Fullscreen [plein écran], Unknown [inconnu])</long>
-            </locale>
-            <locale name="hu">
-                <short>Ablaktérkép-típusok</short>
-                <long>Ablaktípusok, amelyek imbolyoghatnak, amikor térképezettek (Desktop [Munkaasztal], Dock [Dokk], Toolbar [Eszköztár], Menu [Menü], Utility [Segédprogram], Splash [Párbeszéd], Dialog, Normal [Normál], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Teljes képernyős], Unknown [Ismeretlen])</long>
-            </locale>
-            <locale name="it">
-                <short>Associa tipi di finestre</short>
-                <long>Tipi di finestre a cui applicare il tremolio quando mappate (Desktop, Dock [Agganciata], Toolbar [Barra degli strumenti], Menu, Utility [Utlity], Splash [Schermata iniziale], Dialog [Finestra di dialogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Modale], Fullscreen [Schermo intero], Unknown [Sconosciuta])</long>
-            </locale>
-            <locale name="ja">
-                <short>ウィンドウタイプのマップ</short>
-                <long>マップ時に揺れるウィンドウタイプ(デスクトップ、ドック、ツールバー、メニュー、ユーティリティ、スプラッシュ、ダイアログ、モデルダイアログ、標準、全画面、不明) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pl">
-                <short>Rodzaje mapowanych okien</short>
-                <long>Rodzaje okien, które powinny drgać przy mapowaniu (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pt_BR">
-                <short>Tipos de Mapa de Janelas</short>
-                <long>Tipos de janelas que deveriam ficar instáveis quando mapeados (Desktop [Área de Trabalho], Dock [Âncora], Toolbar [Barra de Ferramentas], Menu, Utility [Utilitário], Splash [Tela de Apresentação], Dialog [Caixa de Diálogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Caixa de Diálogo Modal], Fullscreen [Tela Inteira], Unknown [Desconhecido])</long>
-            </locale>
-            <locale name="sv">
-                <short>Koppla fönstertyper</short>
-                <long>Window types that should wobble when mapped (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_CN">
-                <short>图窗口类型</short>
-                <long>映射时应颤动的窗口类型（桌面、靠接、工具栏、菜单、实用程序、启动、对话框、模式对话框、常规、全屏和未知） (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_TW">
-                <short>映射視窗類型</short>
-                <long>應該要在映射時搖擺的視窗類型 (桌面、停駐、工具列、功能表、公用程式、開頭顯示、對話方塊、強制回應對話方塊、一般、全螢幕、未知的) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
+                <short>Map Windows</short>
+                <long>Windows that should wobble when mapped (match)</long>
             </locale>
         </schema>
 
         <schema>
-            <key>/schemas/apps/compiz/plugins/wobbly/screen0/options/focus_window_types</key>
-            <applyto>/apps/compiz/plugins/wobbly/screen0/options/focus_window_types</applyto>
+            <key>/schemas/apps/compiz/plugins/wobbly/screen0/options/focus_window_match</key>
+            <applyto>/apps/compiz/plugins/wobbly/screen0/options/focus_window_match</applyto>
             <owner>compiz</owner>
-            <type>list</type>
-            <list_type>string</list_type>
-            <default>[]</default>
+            <type>string</type>
+            <default></default>
             <locale name="C">
-                <short>Focus Window Types</short>
-                <long>Window types that should wobble when focused (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="cs">
-                <short>Typy okna pro efekt při zaměření</short>
-                <long>Typy oken, které se při zaměření mají rozhoupat (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="de">
-                <short>Fenstertypen fokussieren</short>
-                <long>Fenstertypen, die beim Erhalt des Fokus wackeln sollen (Desktop, Dock, Toolbar [Symbolleiste], Menu [Menü], Utility [Dienstprogramm], Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Vollbild], Unknown [Unbekannt])</long>
-            </locale>
-            <locale name="es">
-                <short>Enfocar ventanas de tipo</short>
-                <long>Tipos de ventanas que deben temblar cuando se enfoquen (Desktop [Escritorio], Dock, Toolbar [Barra de herramientas], Menu [Menús], Utility [Utilidades], Splash [Inicial], Dialog [Diálogos], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Diálogo de modos], Fullscreen [Pantalla completa], Unknown [Desconocidas])</long>
-            </locale>
-            <locale name="fi">
-                <short>Kohdistettaessa huojuvat ikkunat</short>
-                <long>Ikkunatyypit, jotka huojuvat kohdistettaessa(työpöytä = Desktop, paneeli = Dock, työkalupalkki = Toolbar, valikko = Menu, työkalu = Utility, käynnistysikkuna = Splash, valintaikkuna = Dialog, pakotettu valintaikkuna = ModalDialog, tavallinen ikkuna = Normal, kokoruutuikkuna = Fullscreen, tuntematon = Unknown) (Desktop [työpöytä], Dock [paneeli], Toolbar [työkalupalkki], Menu [valikko], Utility [työkalu], Splash [käynnistysikkuna], Dialog [valintaikkuna], Normal [ikkuna], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [pakotettu valintaikkuna], Fullscreen [kokoruutuikkuna], Unknown [tuntematon])</long>
-            </locale>
-            <locale name="fr">
-                <short>Focus des types de fenêtres</short>
-                <long>Types de fenêtres à déformer lorsque le focus est sur elles (Desktop [bureau], Dock [accueil], Toolbar [barre d'outils], Menu [menu], Utility [utilitaire], Splash [démarrage], Dialog [boîte de dialogue], Normal [normal], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [boîte de dialogue modale], Fullscreen [plein écran], Unknown [inconnu])</long>
-            </locale>
-            <locale name="hu">
-                <short>Ablakfókusz-típusok</short>
-                <long>Ablaktípusok, amelyek imbolyoghatnak fókuszáláskor (Desktop [Munkaasztal], Dock [Dokk], Toolbar [Eszköztár], Menu [Menü], Utility [Segédprogram], Splash [Párbeszéd], Dialog, Normal [Normál], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Teljes képernyős], Unknown [Ismeretlen])</long>
-            </locale>
-            <locale name="it">
-                <short>Tipi di finestre attive</short>
-                <long>Tipi di finestre a cui applicare il tremolio quando attivate (Desktop, Dock [Agganciata], Toolbar [Barra degli strumenti], Menu, Utility [Utlity], Splash [Schermata iniziale], Dialog [Finestra di dialogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Modale], Fullscreen [Schermo intero], Unknown [Sconosciuta])</long>
-            </locale>
-            <locale name="ja">
-                <short>ウィンドウタイプをフォーカス</short>
-                <long>フォーカス時に揺れるウィンドウタイプ(デスクトップ、ドック、ツールバー、メニュー、ユーティリティ、スプラッシュ、ダイアログ、モデルダイアログ、標準、全画面、不明) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pl">
-                <short>Rodzaje wybieranych okien</short>
-                <long>Rodzaje okien, które powinny drgać po wybraniu (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pt_BR">
-                <short>Tipos de Destaque de Janelas</short>
-                <long>Tipos de janelas que deveriam ficar instáveis quando destacados (Desktop [Área de Trabalho], Dock [Âncora], Toolbar [Barra de Ferramentas], Menu, Utility [Utilitário], Splash [Tela de Apresentação], Dialog [Caixa de Diálogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Caixa de Diálogo Modal], Fullscreen [Tela Inteira], Unknown [Desconhecido])</long>
-            </locale>
-            <locale name="sv">
-                <short>Fokusera fönstertyper</short>
-                <long>Window types that should wobble when focused (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_CN">
-                <short>聚焦窗口类型</short>
-                <long>聚焦时应颤动的窗口类型（桌面、靠接、工具栏、菜单、实用程序、启动、对话框、模式对话框、常规、全屏和未知） (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_TW">
-                <short>定焦視窗類型</short>
-                <long>應該要在定焦時搖擺的視窗類型 (桌面、停駐、工具列、功能表、公用程式、開頭顯示、對話方塊、強制回應對話方塊、一般、全螢幕、未知的) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
+                <short>Focus Windows</short>
+                <long>Windows that should wobble when focused (match)</long>
             </locale>
         </schema>
 
         <schema>
-            <key>/schemas/apps/compiz/plugins/wobbly/screen0/options/grab_window_types</key>
-            <applyto>/apps/compiz/plugins/wobbly/screen0/options/grab_window_types</applyto>
+            <key>/schemas/apps/compiz/plugins/wobbly/screen0/options/grab_window_match</key>
+            <applyto>/apps/compiz/plugins/wobbly/screen0/options/grab_window_match</applyto>
             <owner>compiz</owner>
-            <type>list</type>
-            <list_type>string</list_type>
-            <default>[]</default>
+            <type>string</type>
+            <default></default>
             <locale name="C">
-                <short>Grab Window Types</short>
-                <long>Window types that should wobble when grabbed (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="cs">
-                <short>Typy oken pro efekt při uchopení</short>
-                <long>Typy oken, které se při uchopení mají rozhoupat (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="de">
-                <short>Fenstertypen aufnehmen</short>
-                <long>Fenstertypen, die bei Aufnahme wackeln sollen (Desktop, Dock, Toolbar [Symbolleiste], Menu [Menü], Utility [Dienstprogramm], Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Vollbild], Unknown [Unbekannt])</long>
-            </locale>
-            <locale name="es">
-                <short>Obtener tipos de ventanas</short>
-                <long>Tipos de ventanas que deben temblar cuando se recuperen (Desktop [Escritorio], Dock, Toolbar [Barra de herramientas], Menu [Menús], Utility [Utilidades], Splash [Inicial], Dialog [Diálogos], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Diálogo de modos], Fullscreen [Pantalla completa], Unknown [Desconocidas])</long>
-            </locale>
-            <locale name="fi">
-                <short>Tartuttaessa huojuvat ikkunatyypit</short>
-                <long>Ikkunatyypit, jotka huojuvat tartuttaessa (Desktop [työpöytä], Dock [paneeli], Toolbar [työkalupalkki], Menu [valikko], Utility [työkalu], Splash [käynnistysikkuna], Dialog [valintaikkuna], Normal [ikkuna], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [pakotettu valintaikkuna], Fullscreen [kokoruutuikkuna], Unknown [tuntematon])</long>
-            </locale>
-            <locale name="fr">
-                <short>Saisir les types de fenêtres</short>
-                <long>Types de fenêtres à déformer lorsqu'elles sont saisies (Desktop [bureau], Dock [accueil], Toolbar [barre d'outils], Menu [menu], Utility [utilitaire], Splash [démarrage], Dialog [boîte de dialogue], Normal [normal], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [boîte de dialogue modale], Fullscreen [plein écran], Unknown [inconnu])</long>
-            </locale>
-            <locale name="hu">
-                <short>Ablaktípusok érzékelése</short>
-                <long>Ablaktípusok, amelyek imbolyoghatnak megfogáskor (Desktop [Munkaasztal], Dock [Dokk], Toolbar [Eszköztár], Menu [Menü], Utility [Segédprogram], Splash [Párbeszéd], Dialog, Normal [Normál], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Teljes képernyős], Unknown [Ismeretlen])</long>
-            </locale>
-            <locale name="it">
-                <short>Cattura tipi di finestre</short>
-                <long>Tipi di finestre a cui applicare il tremolio quando afferrate (Desktop, Dock [Agganciata], Toolbar [Barra degli strumenti], Menu, Utility [Utlity], Splash [Schermata iniziale], Dialog [Finestra di dialogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Modale], Fullscreen [Schermo intero], Unknown [Sconosciuta])</long>
-            </locale>
-            <locale name="ja">
-                <short>ウィンドウタイプを取得</short>
-                <long>取得時に揺れるウィンドウタイプ(デスクトップ、ドック、ツールバー、メニュー、ユーティリティ、スプラッシュ、ダイアログ、モデルダイアログ、標準、全画面、不明) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pl">
-                <short>Rodzaje chwytanych okien</short>
-                <long>Rodzaje okien, które powinny drgać przy chwytaniu  (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pt_BR">
-                <short>Capturar Tipos de Janelas</short>
-                <long>Tipos de janelas que deveriam ficar instáveis quando capturados (Desktop [Área de Trabalho], Dock [Âncora], Toolbar [Barra de Ferramentas], Menu, Utility [Utilitário], Splash [Tela de Apresentação], Dialog [Caixa de Diálogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Caixa de Diálogo Modal], Fullscreen [Tela Inteira], Unknown [Desconhecido])</long>
-            </locale>
-            <locale name="sv">
-                <short>Fånga fönstertyper</short>
-                <long>Window types that should wobble when grabbed (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_CN">
-                <short>捕捉窗口类型</short>
-                <long>捕获时应颤动的窗口类型（桌面、靠接、工具栏、菜单、实用程序、启动、对话框、模式对话框、常规、全屏和未知） (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_TW">
-                <short>抓取視窗類型</short>
-                <long>應該要在抓取時搖擺的視窗類型 (桌面、停駐、工具列、功能表、公用程式、開頭顯示、對話方塊、強制回應對話方塊、一般、全螢幕、未知的) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
+                <short>Grab Windows</short>
+                <long>Windows that should wobble when grabbed (match)</long>
             </locale>
         </schema>
 
         <schema>
-            <key>/schemas/apps/compiz/plugins/wobbly/screen0/options/move_window_types</key>
-            <applyto>/apps/compiz/plugins/wobbly/screen0/options/move_window_types</applyto>
+            <key>/schemas/apps/compiz/plugins/wobbly/screen0/options/move_window_match</key>
+            <applyto>/apps/compiz/plugins/wobbly/screen0/options/move_window_match</applyto>
             <owner>compiz</owner>
-            <type>list</type>
-            <list_type>string</list_type>
-            <default>[Toolbar,Menu,Utility,Dialog,ModalDialog,Normal]</default>
+            <type>string</type>
+            <default>Toolbar | Menu | Utility | Dialog | Normal | Unknown</default>
             <locale name="C">
-                <short>Move Window Types</short>
-                <long>Window types that should wobble when moved (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="cs">
-                <short>Typy oken pro efekt při přesunu</short>
-                <long>Typy oken, které se při přesouvání mají rozhoupat (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="de">
-                <short>Fenstertypen verschieben</short>
-                <long>Fenstertypen, die beim Verschieben wackeln sollen (Desktop, Dock, Toolbar [Symbolleiste], Menu [Menü], Utility [Dienstprogramm], Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Vollbild], Unknown [Unbekannt])</long>
-            </locale>
-            <locale name="es">
-                <short>Mover ventanas de tipo</short>
-                <long>Tipos de ventanas que deben temblar cuando se muevan (Desktop [Escritorio], Dock, Toolbar [Barra de herramientas], Menu [Menús], Utility [Utilidades], Splash [Inicial], Dialog [Diálogos], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Diálogo de modos], Fullscreen [Pantalla completa], Unknown [Desconocidas])</long>
-            </locale>
-            <locale name="fi">
-                <short>Siirrettäessä huojuvat ikkunatyypit</short>
-                <long>Ikkunatyypit, jotka huojuvat liikuteltaessa (Desktop [työpöytä], Dock [paneeli], Toolbar [työkalupalkki], Menu [valikko], Utility [työkalu], Splash [käynnistysikkuna], Dialog [valintaikkuna], Normal [ikkuna], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [pakotettu valintaikkuna], Fullscreen [kokoruutuikkuna], Unknown [tuntematon])</long>
-            </locale>
-            <locale name="fr">
-                <short>Déplacer les types de fenêtres</short>
-                <long>Types de fenêtres à déformer lorsqu'elles sont déplacées (Desktop [bureau], Dock [accueil], Toolbar [barre d'outils], Menu [menu], Utility [utilitaire], Splash [démarrage], Dialog [boîte de dialogue], Normal [normal], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [boîte de dialogue modale], Fullscreen [plein écran], Unknown [inconnu])</long>
-            </locale>
-            <locale name="hu">
-                <short>Ablakmozgatás típusai</short>
-                <long>Ablaktípusok, amelyek imbolyoghatnak mozgatáskor (Desktop [Munkaasztal], Dock [Dokk], Toolbar [Eszköztár], Menu [Menü], Utility [Segédprogram], Splash [Párbeszéd], Dialog, Normal [Normál], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Teljes képernyős], Unknown [Ismeretlen])</long>
-            </locale>
-            <locale name="it">
-                <short>Tipi di finestre mobili</short>
-                <long>Tipi di finestre a cui applicare il tremolio quando spostate (Desktop, Dock [Agganciata], Toolbar [Barra degli strumenti], Menu, Utility [Utlity], Splash [Schermata iniziale], Dialog [Finestra di dialogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Modale], Fullscreen [Schermo intero], Unknown [Sconosciuta])</long>
-            </locale>
-            <locale name="ja">
-                <short>ウィンドウタイプを移動</short>
-                <long>移動時に揺れるウィンドウタイプ(デスクトップ、ドック、ツールバー、メニュー、ユーティリティ、スプラッシュ、ダイアログ、モデルダイアログ、標準、全画面、不明) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pl">
-                <short>Rodzaje przenoszonych okien</short>
-                <long>Rodzaje ikon, które mają drgać podczas przesuwania (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pt_BR">
-                <short>Tipos de Movimentação de Janelas</short>
-                <long>Tipos de janelas que deveriam ficar instáveis quando movidos (Desktop [Área de Trabalho], Dock [Âncora], Toolbar [Barra de Ferramentas], Menu, Utility [Utilitário], Splash [Tela de Apresentação], Dialog [Caixa de Diálogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Caixa de Diálogo Modal], Fullscreen [Tela Inteira], Unknown [Desconhecido])</long>
-            </locale>
-            <locale name="sv">
-                <short>Flytta fönstertyper</short>
-                <long>Window types that should wobble when moved (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_CN">
-                <short>移动窗口类型</short>
-                <long>移动时应颤动的窗口类型（桌面、靠接、工具栏、菜单、实用程序、启动、对话框、模式对话框、常规、全屏和未知） (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_TW">
-                <short>移動視窗類型</short>
-                <long>應該要在移動時搖擺的視窗類型 (桌面、停駐、工具列、功能表、公用程式、開頭顯示、對話方塊、強制回應對話方塊、一般、全螢幕、未知的) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
+                <short>Move Windows</short>
+                <long>Windows that should wobble when moved (match)</long>
             </locale>
         </schema>
 
@@ -13895,124 +13818,71 @@
             <default>5.000000</default>
             <locale name="C">
                 <short>Fade Speed</short>
-                <long>Window fade speed (0.0-10.0)</long>
+                <long>Window fade speed (0.0-25.0)</long>
             </locale>
             <locale name="cs">
                 <short>Rychlost blednutí</short>
-                <long>Rychlost blednutí oken (0.0-10.0)</long>
+                <long>Rychlost blednutí oken (0.0-25.0)</long>
             </locale>
             <locale name="de">
                 <short>Ausblendgeschwindigkeit</short>
-                <long>Fenster-Ein-/Ausblendgeschwindigkeit (0,0-10,0)</long>
+                <long>Fenster-Ein-/Ausblendgeschwindigkeit (0,0-25,0)</long>
             </locale>
             <locale name="es">
                 <short>Velocidad de desvanecimiento</short>
-                <long>Velocidad de desvanecimiento de ventana (0,0-10,0)</long>
+                <long>Velocidad de desvanecimiento de ventana (0,0-25,0)</long>
             </locale>
             <locale name="fi">
                 <short>Häivytyksen nopeus</short>
-                <long>Ikkunan häivytysnopeus (0.0-10.0)</long>
+                <long>Ikkunan häivytysnopeus (0.0-25.0)</long>
             </locale>
             <locale name="fr">
                 <short>Vitesse de fondu</short>
-                <long>Vitesse de fondu de la fenêtre (0,0-10,0)</long>
+                <long>Vitesse de fondu de la fenêtre (0,0-25,0)</long>
             </locale>
             <locale name="hu">
                 <short>Elhalványulás sebessége</short>
-                <long>Ablak elhalványulásának sebessége (0,0-10,0)</long>
+                <long>Ablak elhalványulásának sebessége (0,0-25,0)</long>
             </locale>
             <locale name="it">
                 <short>Velocità dissolvenza</short>
-                <long>Velocità dissolvenza finestre (0.0-10.0)</long>
+                <long>Velocità dissolvenza finestre (0.0-25.0)</long>
             </locale>
             <locale name="ja">
                 <short>フェードスピード</short>
-                <long>ウィンドウフェード効果(0.1-10.0) (0.0-10.0)</long>
+                <long>ウィンドウフェード効果(0.1-10.0) (0.0-25.0)</long>
             </locale>
             <locale name="pl">
                 <short>Szybkość pojawiania się/zanikania</short>
-                <long>Szybkość płynnego pojawiania się/zanikania okien (0.0-10.0)</long>
+                <long>Szybkość płynnego pojawiania się/zanikania okien (0.0-25.0)</long>
             </locale>
             <locale name="pt_BR">
                 <short>Velocidade de Esmaecimento</short>
-                <long>Velocidade de esmaecimento das janelas (0.0-10.0)</long>
+                <long>Velocidade de esmaecimento das janelas (0.0-25.0)</long>
             </locale>
             <locale name="sv">
                 <short>Toningshastighet</short>
-                <long>Window fade speed (0.0-10.0)</long>
+                <long>Window fade speed (0.0-25.0)</long>
             </locale>
             <locale name="zh_CN">
                 <short>减弱速度</short>
-                <long>窗口减弱速度 (0.0-10.0)</long>
+                <long>窗口减弱速度 (0.0-25.0)</long>
             </locale>
             <locale name="zh_TW">
                 <short>淡出/淡入速度</short>
-                <long>視窗淡出/淡入速度 (0.0-10.0)</long>
+                <long>視窗淡出/淡入速度 (0.0-25.0)</long>
             </locale>
         </schema>
 
         <schema>
-            <key>/schemas/apps/compiz/plugins/fade/screen0/options/window_types</key>
-            <applyto>/apps/compiz/plugins/fade/screen0/options/window_types</applyto>
+            <key>/schemas/apps/compiz/plugins/fade/screen0/options/window_match</key>
+            <applyto>/apps/compiz/plugins/fade/screen0/options/window_match</applyto>
             <owner>compiz</owner>
-            <type>list</type>
-            <list_type>string</list_type>
-            <default>[Dock,Toolbar,Menu,Utility,Splash,Normal,Dialog,ModalDialog,DropdownMenu,PopupMenu,Tooltip,Notification,Combo,Dnd,Unknown]</default>
+            <type>string</type>
+            <default>any</default>
             <locale name="C">
-                <short>Window Types</short>
-                <long>Window types that should be fading (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="cs">
-                <short>Typy oken</short>
-                <long>Typy oken, které mají blednout (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="de">
-                <short>Fenstertypen</short>
-                <long>Fenstertypen, die ein-/ausgeblendet werden sollen (Desktop, Dock, Toolbar [Symbolleiste], Menu [Menü], Utility [Dienstprogramm], Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Vollbild], Unknown [Unbekannt])</long>
-            </locale>
-            <locale name="es">
-                <short>Tipos de ventana</short>
-                <long>Tipos de ventanas que se deben desvanecer (Desktop [Escritorio], Dock, Toolbar [Barra de herramientas], Menu [Menús], Utility [Utilidades], Splash [Inicial], Dialog [Diálogos], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Diálogo de modos], Fullscreen [Pantalla completa], Unknown [Desconocidas])</long>
-            </locale>
-            <locale name="fi">
-                <short>Ikkunatyypit</short>
-                <long>Häivytettävät ikkunatyypit (Desktop [työpöytä], Dock [paneeli], Toolbar [työkalupalkki], Menu [valikko], Utility [työkalu], Splash [käynnistysikkuna], Dialog [valintaikkuna], Normal [ikkuna], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [pakotettu valintaikkuna], Fullscreen [kokoruutuikkuna], Unknown [tuntematon])</long>
-            </locale>
-            <locale name="fr">
-                <short>Types de fenêtres</short>
-                <long>Types de fenêtres devant utiliser le fondu (Desktop [bureau], Dock [accueil], Toolbar [barre d'outils], Menu [menu], Utility [utilitaire], Splash [démarrage], Dialog [boîte de dialogue], Normal [normal], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [boîte de dialogue modale], Fullscreen [plein écran], Unknown [inconnu])</long>
-            </locale>
-            <locale name="hu">
-                <short>Ablaktípusok</short>
-                <long>Ablaktípusok, amelyek elhalványulhatnak (Desktop [Munkaasztal], Dock [Dokk], Toolbar [Eszköztár], Menu [Menü], Utility [Segédprogram], Splash [Párbeszéd], Dialog, Normal [Normál], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Teljes képernyős], Unknown [Ismeretlen])</long>
-            </locale>
-            <locale name="it">
-                <short>Tipi di finestre</short>
-                <long>Tipi di finestre a cui applicare la dissolvenza (Desktop, Dock [Agganciata], Toolbar [Barra degli strumenti], Menu, Utility [Utlity], Splash [Schermata iniziale], Dialog [Finestra di dialogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Modale], Fullscreen [Schermo intero], Unknown [Sconosciuta])</long>
-            </locale>
-            <locale name="ja">
-                <short>ウィンドウタイプ</short>
-                <long>フェードするウィンドウタイプ(デスクトップ、ドック、ツールバー、メニュー、ユーティリティ、スプラッシュ、ダイアログ、モデルダイアログ、標準、全画面、不明) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pl">
-                <short>Rodzaje okien</short>
-                <long>Rodzaje okien, które powinny płynnie pojawiać się/zanikać (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pt_BR">
-                <short>Tipos de Janelas</short>
-                <long>Tipos de janelas que deveriam esmaecer-se (Desktop [Área de Trabalho], Dock [Âncora], Toolbar [Barra de Ferramentas], Menu, Utility [Utilitário], Splash [Tela de Apresentação], Dialog [Caixa de Diálogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Caixa de Diálogo Modal], Fullscreen [Tela Inteira], Unknown [Desconhecido])</long>
-            </locale>
-            <locale name="sv">
-                <short>Fönstertyper</short>
-                <long>Window types that should be fading (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_CN">
-                <short>窗口类型</short>
-                <long>应减弱的窗口类型（桌面、靠接、工具栏、菜单、实用程序、启动、对话框、模式对话框、常规、全屏和未知） (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_TW">
-                <short>視窗類型</short>
-                <long>應該要淡出的視窗類型 (桌面、停駐、工具列、功能表、公用程式、開頭顯示、對話方塊、強制回應對話方塊、一般、全螢幕、未知的) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
+                <short>Fade windows</short>
+                <long>Windows that should be fading (match)</long>
             </locale>
         </schema>
 
@@ -14469,67 +14339,14 @@
         </schema>
 
         <schema>
-            <key>/schemas/apps/compiz/plugins/minimize/screen0/options/window_types</key>
-            <applyto>/apps/compiz/plugins/minimize/screen0/options/window_types</applyto>
+            <key>/schemas/apps/compiz/plugins/minimize/screen0/options/window_match</key>
+            <applyto>/apps/compiz/plugins/minimize/screen0/options/window_match</applyto>
             <owner>compiz</owner>
-            <type>list</type>
-            <list_type>string</list_type>
-            <default>[Toolbar,Utility,Dialog,Normal]</default>
+            <type>string</type>
+            <default>Toolbar | Utility | Dialog | Normal</default>
             <locale name="C">
-                <short>Window Types</short>
-                <long>Window types that should be transformed when minimized (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="cs">
-                <short>Typy oken</short>
-                <long>Typy oken, které mají být transformovány při minimalizaci (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="de">
-                <short>Fenstertypen</short>
-                <long>Fenstertypen, die beim Minimieren umgeformt werden sollen (Desktop, Dock, Toolbar [Symbolleiste], Menu [Menü], Utility [Dienstprogramm], Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Vollbild], Unknown [Unbekannt])</long>
-            </locale>
-            <locale name="es">
-                <short>Tipos de ventana</short>
-                <long>Tipos de ventanas que se deben transformar al minimizarse (Desktop [Escritorio], Dock, Toolbar [Barra de herramientas], Menu [Menús], Utility [Utilidades], Splash [Inicial], Dialog [Diálogos], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Diálogo de modos], Fullscreen [Pantalla completa], Unknown [Desconocidas])</long>
-            </locale>
-            <locale name="fi">
-                <short>Ikkunatyypit</short>
-                <long>Pienennettäessä animoitavat ikkunatyypit (Desktop [työpöytä], Dock [paneeli], Toolbar [työkalupalkki], Menu [valikko], Utility [työkalu], Splash [käynnistysikkuna], Dialog [valintaikkuna], Normal [ikkuna], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [pakotettu valintaikkuna], Fullscreen [kokoruutuikkuna], Unknown [tuntematon])</long>
-            </locale>
-            <locale name="fr">
-                <short>Types de fenêtres</short>
-                <long>Types de fenêtres à transformer lorsqu'elles sont réduites (Desktop [bureau], Dock [accueil], Toolbar [barre d'outils], Menu [menu], Utility [utilitaire], Splash [démarrage], Dialog [boîte de dialogue], Normal [normal], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [boîte de dialogue modale], Fullscreen [plein écran], Unknown [inconnu])</long>
-            </locale>
-            <locale name="hu">
-                <short>Ablaktípusok</short>
-                <long>Ablaktípusok, amelyek transzformálhatók, amikor ikonizáltak (Desktop [Munkaasztal], Dock [Dokk], Toolbar [Eszköztár], Menu [Menü], Utility [Segédprogram], Splash [Párbeszéd], Dialog, Normal [Normál], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Teljes képernyős], Unknown [Ismeretlen])</long>
-            </locale>
-            <locale name="it">
-                <short>Tipi di finestre</short>
-                <long>Tipi di finestre da trasformare quando ridotte a icona (Desktop, Dock [Agganciata], Toolbar [Barra degli strumenti], Menu, Utility [Utlity], Splash [Schermata iniziale], Dialog [Finestra di dialogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Modale], Fullscreen [Schermo intero], Unknown [Sconosciuta])</long>
-            </locale>
-            <locale name="ja">
-                <short>ウィンドウタイプ</short>
-                <long>最小化時に変換するウィンドウタイプ(デスクトップ、ドック、ツールバー、メニュー、ユーティリティ、スプラッシュ、ダイアログ、モデルダイアログ、標準、全画面、不明) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pl">
-                <short>Rodzaje okien</short>
-                <long>Rodzaje okien, które powinny być przekształcane podczas minimalizacji (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pt_BR">
-                <short>Tipos de Janelas</short>
-                <long>Tipos de janelas que deveriam transformar-se quando minimizados (Desktop [Área de Trabalho], Dock [Âncora], Toolbar [Barra de Ferramentas], Menu, Utility [Utilitário], Splash [Tela de Apresentação], Dialog [Caixa de Diálogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Caixa de Diálogo Modal], Fullscreen [Tela Inteira], Unknown [Desconhecido])</long>
-            </locale>
-            <locale name="sv">
-                <short>Fönstertyper</short>
-                <long>Window types that should be transformed when minimized (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_CN">
-                <short>窗口类型</short>
-                <long>最小化时应转换的窗口类型（桌面、靠接、工具栏、菜单、实用程序、启动、对话框、模式对话框、常规、全屏和未知） (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_TW">
-                <short>視窗類型</short>
-                <long>應該要在最小化時轉換的視窗類型 (桌面、停駐、工具列、功能表、公用程式、開頭顯示、對話方塊、強制回應對話方塊、一般、全螢幕、未知的) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
+                <short>Minimize Windows</short>
+                <long>Windows that should be transformed when minimized (match)</long>
             </locale>
         </schema>
 
@@ -17242,70 +17059,6 @@
         </schema>
 
         <schema>
-            <key>/schemas/apps/compiz/plugins/scale/screen0/options/sloppy_focus</key>
-            <applyto>/apps/compiz/plugins/scale/screen0/options/sloppy_focus</applyto>
-            <owner>compiz</owner>
-            <type>bool</type>
-            <default>true</default>
-            <locale name="C">
-                <short>Sloppy Focus</short>
-                <long>Focus window when mouse moves over them</long>
-            </locale>
-            <locale name="cs">
-                <short>Sloppy Focus</short>
-                <long>Změřit okno, když se nad něj přesune myš</long>
-            </locale>
-            <locale name="de">
-                <short>Verzögerter Fokus</short>
-                <long>Fenster fokussieren, wenn sich der Mauszeiger darüber befindet</long>
-            </locale>
-            <locale name="es">
-                <short>Enfoque aproximado</short>
-                <long>Enfoca las ventanas al pasar el ratón sobre ellas</long>
-            </locale>
-            <locale name="fi">
-                <short>Seuraava tarkennus</short>
-                <long>Kohdista ikkunaan osoittimen liikkuessa sen päälle</long>
-            </locale>
-            <locale name="fr">
-                <short>Focus flou</short>
-                <long>Focus de la fenêtre lorsque la souris se déplace sur elle</long>
-            </locale>
-            <locale name="hu">
-                <short>Lassú fókusz</short>
-                <long>Ablakra fókuszálás, ha az egér fölé kerül</long>
-            </locale>
-            <locale name="it">
-                <short>Attivazione casuale</short>
-                <long>Attiva finestra quando il mouse si sposta su di esse</long>
-            </locale>
-            <locale name="ja">
-                <short>スロッピフォーカス</short>
-                <long>マウスの移動時にウィンドウをフォーカス</long>
-            </locale>
-            <locale name="pl">
-                <short>Luźny fokus</short>
-                <long>Wybierz okno, gdy mysz przemieszcza się nad nim</long>
-            </locale>
-            <locale name="pt_BR">
-                <short>Foco Fraco</short>
-                <long>Destacar janela quando o mouse estiver sobre ela</long>
-            </locale>
-            <locale name="sv">
-                <short>Slapphänt fokusering</short>
-                <long>Fokusera fönster när musen flyttar sig ovanför</long>
-            </locale>
-            <locale name="zh_CN">
-                <short>任意焦点</short>
-                <long>鼠标移至窗口时聚焦该窗口</long>
-            </locale>
-            <locale name="zh_TW">
-                <short>寬鬆定焦</short>
-                <long>在滑鼠移動到上方時啟用定焦視窗</long>
-            </locale>
-        </schema>
-
-        <schema>
             <key>/schemas/apps/compiz/plugins/scale/screen0/options/speed</key>
             <applyto>/apps/compiz/plugins/scale/screen0/options/speed</applyto>
             <owner>compiz</owner>
@@ -17434,67 +17187,14 @@
         </schema>
 
         <schema>
-            <key>/schemas/apps/compiz/plugins/scale/screen0/options/window_types</key>
-            <applyto>/apps/compiz/plugins/scale/screen0/options/window_types</applyto>
+            <key>/schemas/apps/compiz/plugins/scale/screen0/options/window_match</key>
+            <applyto>/apps/compiz/plugins/scale/screen0/options/window_match</applyto>
             <owner>compiz</owner>
-            <type>list</type>
-            <list_type>string</list_type>
-            <default>[Toolbar,Utility,Dialog,ModalDialog,Fullscreen,Normal]</default>
+            <type>string</type>
+            <default>Toolbar | Utility | Dialog | Normal | Unknown</default>
             <locale name="C">
-                <short>Window Types</short>
-                <long>Window types that should scaled in scale mode (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="cs">
-                <short>Typy oken</short>
-                <long>Typy oken, které mají být škálovány v režimu škálování (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="de">
-                <short>Fenstertypen</short>
-                <long>Fenstertypen, die im Skaliermodus skaliert werden sollen (Desktop, Dock, Toolbar [Symbolleiste], Menu [Menü], Utility [Dienstprogramm], Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Vollbild], Unknown [Unbekannt])</long>
-            </locale>
-            <locale name="es">
-                <short>Tipos de ventana</short>
-                <long>Tipos de ventanas que deben cambiar de tamaño en el modo de escala (Desktop [Escritorio], Dock, Toolbar [Barra de herramientas], Menu [Menús], Utility [Utilidades], Splash [Inicial], Dialog [Diálogos], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Diálogo de modos], Fullscreen [Pantalla completa], Unknown [Desconocidas])</long>
-            </locale>
-            <locale name="fi">
-                <short>Ikkunatyypit</short>
-                <long>Skaalautuvat ikkunatyypit (Desktop [työpöytä], Dock [paneeli], Toolbar [työkalupalkki], Menu [valikko], Utility [työkalu], Splash [käynnistysikkuna], Dialog [valintaikkuna], Normal [ikkuna], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [pakotettu valintaikkuna], Fullscreen [kokoruutuikkuna], Unknown [tuntematon])</long>
-            </locale>
-            <locale name="fr">
-                <short>Types de fenêtres</short>
-                <long>Types de fenêtres à mettre à l'échelle en mode échelle (Desktop [bureau], Dock [accueil], Toolbar [barre d'outils], Menu [menu], Utility [utilitaire], Splash [démarrage], Dialog [boîte de dialogue], Normal [normal], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [boîte de dialogue modale], Fullscreen [plein écran], Unknown [inconnu])</long>
-            </locale>
-            <locale name="hu">
-                <short>Ablaktípusok</short>
-                <long>Ablaktípusok, amelyek skálázás módban méretezendők (Desktop [Munkaasztal], Dock [Dokk], Toolbar [Eszköztár], Menu [Menü], Utility [Segédprogram], Splash [Párbeszéd], Dialog, Normal [Normál], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Teljes képernyős], Unknown [Ismeretlen])</long>
-            </locale>
-            <locale name="it">
-                <short>Tipi di finestre</short>
-                <long>Tipi di finestre da ridimensionare in modalità scala (Desktop, Dock [Agganciata], Toolbar [Barra degli strumenti], Menu, Utility [Utlity], Splash [Schermata iniziale], Dialog [Finestra di dialogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Modale], Fullscreen [Schermo intero], Unknown [Sconosciuta])</long>
-            </locale>
-            <locale name="ja">
-                <short>ウィンドウタイプ</short>
-                <long>スケールモードでスケールするウィンドウタイプ(デスクトップ、ドック、ツールバー、メニュー、ユーティリティ、スプラッシュ、ダイアログ、モデルダイアログ、標準、全画面、不明) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pl">
-                <short>Rodzaje okien</short>
-                <long>Rodzaje okien, które powinny być skalowane w trybie skalowania (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pt_BR">
-                <short>Tipos de Janelas</short>
-                <long>Tipos de janelas que deveriam ser dimensionados no modo de escala (Desktop [Área de Trabalho], Dock [Âncora], Toolbar [Barra de Ferramentas], Menu, Utility [Utilitário], Splash [Tela de Apresentação], Dialog [Caixa de Diálogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Caixa de Diálogo Modal], Fullscreen [Tela Inteira], Unknown [Desconhecido])</long>
-            </locale>
-            <locale name="sv">
-                <short>Fönstertyper</short>
-                <long>Window types that should scaled in scale mode (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_CN">
-                <short>窗口类型</short>
-                <long>应在比例模式中调整大小的窗口类型（桌面、靠接、工具栏、菜单、实用程序、启动、对话框、模式对话框、常规、全屏和未知） (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_TW">
-                <short>視窗類型</short>
-                <long>應該要在調整比例模式中調整比例的視窗類型 (桌面、停駐、工具列、功能表、公用程式、開頭顯示、對話方塊、強制回應對話方塊、一般、全螢幕、未知的) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
+                <short>Scale Windows</short>
+                <long>Windows that should be scaled in scale mode (match)</long>
             </locale>
         </schema>
 
@@ -19184,6 +18884,18 @@
             </locale>
         </schema>
 
+        <schema>
+            <key>/schemas/apps/compiz/plugins/place/screen0/options/mode</key>
+            <applyto>/apps/compiz/plugins/place/screen0/options/mode</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default>Cascade</default>
+            <locale name="C">
+                <short>Placement Mode</short>
+                <long>Algorithm to use for window placement (Cascade, Centered, Smart, Maximize, Random)</long>
+            </locale>
+        </schema>
+
         <!-- dbus options -->
 
         <schema>
@@ -20019,67 +19731,14 @@
         </schema>
 
         <schema>
-            <key>/schemas/apps/compiz/plugins/switcher/screen0/options/window_types</key>
-            <applyto>/apps/compiz/plugins/switcher/screen0/options/window_types</applyto>
+            <key>/schemas/apps/compiz/plugins/switcher/screen0/options/window_match</key>
+            <applyto>/apps/compiz/plugins/switcher/screen0/options/window_match</applyto>
             <owner>compiz</owner>
-            <type>list</type>
-            <list_type>string</list_type>
-            <default>[Toolbar,Utility,Dialog,ModalDialog,Fullscreen,Normal]</default>
+            <type>string</type>
+            <default>Toolbar | Utility | Dialog | Normal | Unknown</default>
             <locale name="C">
-                <short>Window Types</short>
-                <long>Window types that should shown in switcher (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="cs">
-                <short>Typy oken</short>
-                <long>Typy oken, které mají být zobrazeny v přepínači (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="de">
-                <short>Fenstertypen</short>
-                <long>Fenstertypen, die im Switcher angezeigt werden sollen (Desktop, Dock, Toolbar [Symbolleiste], Menu [Menü], Utility [Dienstprogramm], Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Vollbild], Unknown [Unbekannt])</long>
-            </locale>
-            <locale name="es">
-                <short>Tipos de ventana</short>
-                <long>Tipos de ventanas que se deben mostrar en el conmutador (Desktop [Escritorio], Dock, Toolbar [Barra de herramientas], Menu [Menús], Utility [Utilidades], Splash [Inicial], Dialog [Diálogos], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Diálogo de modos], Fullscreen [Pantalla completa], Unknown [Desconocidas])</long>
-            </locale>
-            <locale name="fi">
-                <short>Ikkunatyypit</short>
-                <long>Ikkunavaihtajassa näkyvät ikkunatyypit(työpöytä = Desktop, paneeli = Dock, työkalupalkki = Toolbar, valikko = Menu, työkalu = Utility, käynnistysikkuna = Splash, valintaikkuna = Dialog, pakotettu valintaikkuna = ModalDialog, tavallinen ikkuna = Normal, kokoruutuikkuna = Fullscreen, tuntematon = Unknown) (Desktop [työpöytä], Dock [paneeli], Toolbar [työkalupalkki], Menu [valikko], Utility [työkalu], Splash [käynnistysikkuna], Dialog [valintaikkuna], Normal [ikkuna], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [pakotettu valintaikkuna], Fullscreen [kokoruutuikkuna], Unknown [tuntematon])</long>
-            </locale>
-            <locale name="fr">
-                <short>Types de fenêtres</short>
-                <long>Types de fenêtres à afficher dans le commutateur (Desktop [bureau], Dock [accueil], Toolbar [barre d'outils], Menu [menu], Utility [utilitaire], Splash [démarrage], Dialog [boîte de dialogue], Normal [normal], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [boîte de dialogue modale], Fullscreen [plein écran], Unknown [inconnu])</long>
-            </locale>
-            <locale name="hu">
-                <short>Ablaktípusok</short>
-                <long>Ablaktípusok, amelyek megjelenítendők az ablakválasztóban (Desktop [Munkaasztal], Dock [Dokk], Toolbar [Eszköztár], Menu [Menü], Utility [Segédprogram], Splash [Párbeszéd], Dialog, Normal [Normál], DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen [Teljes képernyős], Unknown [Ismeretlen])</long>
-            </locale>
-            <locale name="it">
-                <short>Tipi di finestre</short>
-                <long>Tipi di finestre da visualizzare nel commutatore (Desktop, Dock [Agganciata], Toolbar [Barra degli strumenti], Menu, Utility [Utlity], Splash [Schermata iniziale], Dialog [Finestra di dialogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Modale], Fullscreen [Schermo intero], Unknown [Sconosciuta])</long>
-            </locale>
-            <locale name="ja">
-                <short>ウィンドウタイプ</short>
-                <long>スイッチャで表示するウィンドウタイプ(デスクトップ、ドック、ツールバー、メニュー、ユーティリティ、スプラッシュ、ダイアログ、モデルダイアログ、標準、全画面、不明) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pl">
-                <short>Rodzaje okien</short>
-                <long>Rodzaje okien, które powinny być widoczne w przełączniku (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="pt_BR">
-                <short>Tipos de Janelas</short>
-                <long>Tipos de janelas que deveriam ser mostrados no alternador (Desktop [Área de Trabalho], Dock [Âncora], Toolbar [Barra de Ferramentas], Menu, Utility [Utilitário], Splash [Tela de Apresentação], Dialog [Caixa de Diálogo], Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog [Caixa de Diálogo Modal], Fullscreen [Tela Inteira], Unknown [Desconhecido])</long>
-            </locale>
-            <locale name="sv">
-                <short>Fönstertyper</short>
-                <long>Window types that should shown in switcher (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_CN">
-                <short>窗口类型</short>
-                <long>应显示在转换器中的窗口类型（桌面、靠接、工具栏、菜单、实用程序、启动、对话框、模式对话框、常规、全屏和未知） (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
-            </locale>
-            <locale name="zh_TW">
-                <short>視窗類型</short>
-                <long>應該要顯示在切換器中的視窗類型 (桌面、停駐、工具列、功能表、公用程式、開頭顯示、對話方塊、強制回應對話方塊、一般、全螢幕、未知的) (Desktop, Dock, Toolbar, Menu, Utility, Splash, Dialog, Normal, DropdownMenu, PopupMenu, Tooltip, Notification, Combo, Dnd, ModalDialog, Fullscreen, Unknown)</long>
+                <short>Switcher windows</short>
+                <long>Windows that should be shown in switcher (match)</long>
             </locale>
         </schema>
 
@@ -20591,6 +20250,18 @@
             </locale>
         </schema>
 
+        <schema>
+            <key>/schemas/apps/compiz/plugins/switcher/screen0/options/auto_rotate</key>
+            <applyto>/apps/compiz/plugins/switcher/screen0/options/auto_rotate</applyto>
+            <owner>compiz</owner>
+            <type>bool</type>
+            <default>false</default>
+            <locale name="C">
+                <short>Auto Rotate</short>
+                <long>Rotate to the selected window while switching</long>
+            </locale>
+        </schema>
+
         <!-- water options -->
 
         <schema>
@@ -20663,7 +20334,7 @@
             <owner>compiz</owner>
             <type>list</type>
             <list_type>string</list_type>
-            <default>[]</default>
+            <default>[blur]</default>
             <locale name="C">
                 <short>Plugins that this must load before</short>
                 <long>Do not modify</long>
@@ -22271,6 +21942,18 @@
             <locale name="C">
                 <short>Directory</short>
                 <long>Put screenshot images in this directory</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/screenshot/allscreens/options/launch_app</key>
+            <applyto>/apps/compiz/plugins/screenshot/allscreens/options/launch_app</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default></default>
+            <locale name="C">
+                <short>Launch Application</short>
+                <long>Automatically open screenshot in this application</long>
             </locale>
         </schema>
 
@@ -23941,6 +23624,539 @@
         <schema>
             <key>/schemas/apps/compiz/plugins/png/requires</key>
             <applyto>/apps/compiz/plugins/png/requires</applyto>
+            <owner>compiz</owner>
+            <type>list</type>
+            <list_type>string</list_type>
+            <default>[]</default>
+            <locale name="C">
+                <short>Plugins that this requires</short>
+                <long>Do not modify</long>
+            </locale>
+            <locale name="cs">
+                <short>Moduly, které jsou tímto vyžadovány</short>
+                <long>Neměnit</long>
+            </locale>
+            <locale name="de">
+                <short>Erforderliche Plugins</short>
+                <long>Nicht ändern</long>
+            </locale>
+            <locale name="es">
+                <short>Complementos que esto requiere</short>
+                <long>No modificar</long>
+            </locale>
+            <locale name="fi">
+                <short>Tähän vaadittavat liitännäiset</short>
+                <long>Älä muuta</long>
+            </locale>
+            <locale name="fr">
+                <short>Plug-ins requis</short>
+                <long>Ne pas modifier</long>
+            </locale>
+            <locale name="hu">
+                <short>Szükséges beépülő modulok</short>
+                <long>Nem módosít</long>
+            </locale>
+            <locale name="it">
+                <short>Plug-in necessari</short>
+                <long>Non modificare</long>
+            </locale>
+            <locale name="ja">
+                <short>これが必要なプラグイン</short>
+                <long>変更しないでください</long>
+            </locale>
+            <locale name="pl">
+                <short>Wtyczki wymagane przez ten element</short>
+                <long>Bez zmian</long>
+            </locale>
+            <locale name="pt_BR">
+                <short>Plug-ins necessários</short>
+                <long>Não modificar</long>
+            </locale>
+            <locale name="sv">
+                <short>Insticksmoduler som den här kräver</short>
+                <long>Ändra inte</long>
+            </locale>
+            <locale name="zh_CN">
+                <short>需要的插件</short>
+                <long>不修改</long>
+            </locale>
+            <locale name="zh_TW">
+                <short>這時需要的外掛程式</short>
+                <long>不要修改</long>
+            </locale>
+        </schema>
+
+        <!-- blur options -->
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/info</key>
+            <applyto>/apps/compiz/plugins/blur/info</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default></default>
+            <locale name="C">
+                <short>Blur Windows</short>
+                <long>Blur windows</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/load_before</key>
+            <applyto>/apps/compiz/plugins/blur/load_before</applyto>
+            <owner>compiz</owner>
+            <type>list</type>
+            <list_type>string</list_type>
+            <default>[]</default>
+            <locale name="C">
+                <short>Plugins that this must load before</short>
+                <long>Do not modify</long>
+            </locale>
+            <locale name="cs">
+                <short>Moduly, které musí být tímto předem načteny</short>
+                <long>Neměnit</long>
+            </locale>
+            <locale name="de">
+                <short>Plugins, die zuvor geladen werden müssen</short>
+                <long>Nicht ändern</long>
+            </locale>
+            <locale name="es">
+                <short>Complementos que esto debe cargar antes</short>
+                <long>No modificar</long>
+            </locale>
+            <locale name="fi">
+                <short>Etukäteen tätä varten ladattavat liitännäiset</short>
+                <long>Älä muuta</long>
+            </locale>
+            <locale name="fr">
+                <short>Plug-ins à charger avant</short>
+                <long>Ne pas modifier</long>
+            </locale>
+            <locale name="hu">
+                <short>Kötelezően betöltendő beépülő modulok </short>
+                <long>Nem módosít</long>
+            </locale>
+            <locale name="it">
+                <short>Plug-in da caricare per primi</short>
+                <long>Non modificare</long>
+            </locale>
+            <locale name="ja">
+                <short>これを前にロードする必要のあるプラグイン</short>
+                <long>変更しないでください</long>
+            </locale>
+            <locale name="pl">
+                <short>Wtyczki, które muszą zostać załadowane przed</short>
+                <long>Bez zmian</long>
+            </locale>
+            <locale name="pt_BR">
+                <short>Plug-ins que devem ser carregados antes de</short>
+                <long>Não modificar</long>
+            </locale>
+            <locale name="sv">
+                <short>Insticksmoduler som måste läsas in före</short>
+                <long>Ändra inte</long>
+            </locale>
+            <locale name="zh_CN">
+                <short>必须先装载的插件</short>
+                <long>不修改</long>
+            </locale>
+            <locale name="zh_TW">
+                <short>在此之前必須先載入的外掛程式</short>
+                <long>不要修改</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/requires</key>
+            <applyto>/apps/compiz/plugins/blur/requires</applyto>
+            <owner>compiz</owner>
+            <type>list</type>
+            <list_type>string</list_type>
+            <default>[]</default>
+            <locale name="C">
+                <short>Plugins that this requires</short>
+                <long>Do not modify</long>
+            </locale>
+            <locale name="cs">
+                <short>Moduly, které jsou tímto vyžadovány</short>
+                <long>Neměnit</long>
+            </locale>
+            <locale name="de">
+                <short>Erforderliche Plugins</short>
+                <long>Nicht ändern</long>
+            </locale>
+            <locale name="es">
+                <short>Complementos que esto requiere</short>
+                <long>No modificar</long>
+            </locale>
+            <locale name="fi">
+                <short>Tähän vaadittavat liitännäiset</short>
+                <long>Älä muuta</long>
+            </locale>
+            <locale name="fr">
+                <short>Plug-ins requis</short>
+                <long>Ne pas modifier</long>
+            </locale>
+            <locale name="hu">
+                <short>Szükséges beépülő modulok</short>
+                <long>Nem módosít</long>
+            </locale>
+            <locale name="it">
+                <short>Plug-in necessari</short>
+                <long>Non modificare</long>
+            </locale>
+            <locale name="ja">
+                <short>これが必要なプラグイン</short>
+                <long>変更しないでください</long>
+            </locale>
+            <locale name="pl">
+                <short>Wtyczki wymagane przez ten element</short>
+                <long>Bez zmian</long>
+            </locale>
+            <locale name="pt_BR">
+                <short>Plug-ins necessários</short>
+                <long>Não modificar</long>
+            </locale>
+            <locale name="sv">
+                <short>Insticksmoduler som den här kräver</short>
+                <long>Ändra inte</long>
+            </locale>
+            <locale name="zh_CN">
+                <short>需要的插件</short>
+                <long>不修改</long>
+            </locale>
+            <locale name="zh_TW">
+                <short>這時需要的外掛程式</short>
+                <long>不要修改</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/allscreens/options/pulse_key</key>
+            <applyto>/apps/compiz/plugins/blur/allscreens/options/pulse_key</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default>Disabled</default>
+            <locale name="C">
+                <short>Pulse</short>
+                <long>Pulse effect</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/allscreens/options/pulse_button</key>
+            <applyto>/apps/compiz/plugins/blur/allscreens/options/pulse_button</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default>Disabled</default>
+            <locale name="C">
+                <short>Pulse</short>
+                <long>Pulse effect</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/allscreens/options/pulse_bell</key>
+            <applyto>/apps/compiz/plugins/blur/allscreens/options/pulse_bell</applyto>
+            <owner>compiz</owner>
+            <type>bool</type>
+            <default>false</default>
+            <locale name="C">
+                <short>Pulse</short>
+                <long>Pulse effect</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/allscreens/options/pulse_edge</key>
+            <applyto>/apps/compiz/plugins/blur/allscreens/options/pulse_edge</applyto>
+            <owner>compiz</owner>
+            <type>list</type>
+            <list_type>string</list_type>
+            <default>[]</default>
+            <locale name="C">
+                <short>Pulse</short>
+                <long>Pulse effect (Left, Right, Top, Bottom, TopLeft, TopRight, BottomLeft, BottomRight)</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/allscreens/options/pulse_edgebutton</key>
+            <applyto>/apps/compiz/plugins/blur/allscreens/options/pulse_edgebutton</applyto>
+            <owner>compiz</owner>
+            <type>int</type>
+            <default>0</default>
+            <locale name="C">
+                <short>Pulse</short>
+                <long>Pulse effect</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/screen0/options/blur_speed</key>
+            <applyto>/apps/compiz/plugins/blur/screen0/options/blur_speed</applyto>
+            <owner>compiz</owner>
+            <type>float</type>
+            <default>3.500000</default>
+            <locale name="C">
+                <short>Blur Speed</short>
+                <long>Window blur speed (0.0-10.0)</long>
+            </locale>
+            <locale name="de">
+                <short>Blur Speed</short>
+                <long>Window blur speed (0,0-10,0)</long>
+            </locale>
+            <locale name="es">
+                <short>Blur Speed</short>
+                <long>Window blur speed (0,0-10,0)</long>
+            </locale>
+            <locale name="fr">
+                <short>Blur Speed</short>
+                <long>Window blur speed (0,0-10,0)</long>
+            </locale>
+            <locale name="hu">
+                <short>Blur Speed</short>
+                <long>Window blur speed (0,0-10,0)</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/screen0/options/focus_blur_match</key>
+            <applyto>/apps/compiz/plugins/blur/screen0/options/focus_blur_match</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default>Toolbar | Menu | Utility | Normal | Dialog | ModalDialog</default>
+            <locale name="C">
+                <short>Focus blur windows</short>
+                <long>Windows that should be affected by focus blur (match)</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/screen0/options/focus_blur</key>
+            <applyto>/apps/compiz/plugins/blur/screen0/options/focus_blur</applyto>
+            <owner>compiz</owner>
+            <type>bool</type>
+            <default>false</default>
+            <locale name="C">
+                <short>Focus Blur</short>
+                <long>Blur windows that doesn't have focus</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/screen0/options/alpha_blur_match</key>
+            <applyto>/apps/compiz/plugins/blur/screen0/options/alpha_blur_match</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default></default>
+            <locale name="C">
+                <short>Alpha blur windows</short>
+                <long>Windows that should use alpha blur by default (match)</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/screen0/options/alpha_blur</key>
+            <applyto>/apps/compiz/plugins/blur/screen0/options/alpha_blur</applyto>
+            <owner>compiz</owner>
+            <type>bool</type>
+            <default>true</default>
+            <locale name="C">
+                <short>Alpha Blur</short>
+                <long>Blur behind translucent parts of windows</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/screen0/options/filter</key>
+            <applyto>/apps/compiz/plugins/blur/screen0/options/filter</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default>4xBilinear</default>
+            <locale name="C">
+                <short>Blur Filter</short>
+                <long>Filter method used for blurring (4xBilinear, Gaussian, Mipmap)</long>
+            </locale>
+            <locale name="hu">
+                <short>Blur Filter</short>
+                <long>Filter method used for blurring (4xBilinear, Gaussian, Mipmap [MIP térkép])</long>
+            </locale>
+            <locale name="ja">
+                <short>Blur Filter</short>
+                <long>Filter method used for blurring (4xBilinear, Gaussian, Mipmap [ミップマップ])</long>
+            </locale>
+            <locale name="pl">
+                <short>Blur Filter</short>
+                <long>Filter method used for blurring (4xBilinear, Gaussian, Mipmap [Mipmapa])</long>
+            </locale>
+            <locale name="pt_BR">
+                <short>Blur Filter</short>
+                <long>Filter method used for blurring (4xBilinear, Gaussian, Mipmap [Mapa])</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/screen0/options/gaussian_radius</key>
+            <applyto>/apps/compiz/plugins/blur/screen0/options/gaussian_radius</applyto>
+            <owner>compiz</owner>
+            <type>int</type>
+            <default>3</default>
+            <locale name="C">
+                <short>Gaussian Radius</short>
+                <long>Gaussian radius (1-15)</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/screen0/options/gaussian_strength</key>
+            <applyto>/apps/compiz/plugins/blur/screen0/options/gaussian_strength</applyto>
+            <owner>compiz</owner>
+            <type>float</type>
+            <default>1.000000</default>
+            <locale name="C">
+                <short>Gaussian Strength</short>
+                <long>Gaussian strength (0.00-1.00)</long>
+            </locale>
+            <locale name="de">
+                <short>Gaussian Strength</short>
+                <long>Gaussian strength (0,00-1,00)</long>
+            </locale>
+            <locale name="es">
+                <short>Gaussian Strength</short>
+                <long>Gaussian strength (0,00-1,00)</long>
+            </locale>
+            <locale name="fr">
+                <short>Gaussian Strength</short>
+                <long>Gaussian strength (0,00-1,00)</long>
+            </locale>
+            <locale name="hu">
+                <short>Gaussian Strength</short>
+                <long>Gaussian strength (0,00-1,00)</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/screen0/options/mipmap_lod</key>
+            <applyto>/apps/compiz/plugins/blur/screen0/options/mipmap_lod</applyto>
+            <owner>compiz</owner>
+            <type>float</type>
+            <default>2.500000</default>
+            <locale name="C">
+                <short>Mipmap LOD</short>
+                <long>Mipmap level-of-detail (0.0-5.0)</long>
+            </locale>
+            <locale name="de">
+                <short>Mipmap LOD</short>
+                <long>Mipmap level-of-detail (0,0-5,0)</long>
+            </locale>
+            <locale name="es">
+                <short>Mipmap LOD</short>
+                <long>Mipmap level-of-detail (0,0-5,0)</long>
+            </locale>
+            <locale name="fr">
+                <short>Mipmap LOD</short>
+                <long>Mipmap level-of-detail (0,0-5,0)</long>
+            </locale>
+            <locale name="hu">
+                <short>Mipmap LOD</short>
+                <long>Mipmap level-of-detail (0,0-5,0)</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/blur/screen0/options/saturation</key>
+            <applyto>/apps/compiz/plugins/blur/screen0/options/saturation</applyto>
+            <owner>compiz</owner>
+            <type>int</type>
+            <default>100</default>
+            <locale name="C">
+                <short>Blur Saturation</short>
+                <long>Blur saturation (0-100)</long>
+            </locale>
+        </schema>
+
+        <!-- regex options -->
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/regex/info</key>
+            <applyto>/apps/compiz/plugins/regex/info</applyto>
+            <owner>compiz</owner>
+            <type>string</type>
+            <default></default>
+            <locale name="C">
+                <short>Regex Matching</short>
+                <long>Regex window matching</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/regex/load_before</key>
+            <applyto>/apps/compiz/plugins/regex/load_before</applyto>
+            <owner>compiz</owner>
+            <type>list</type>
+            <list_type>string</list_type>
+            <default>[]</default>
+            <locale name="C">
+                <short>Plugins that this must load before</short>
+                <long>Do not modify</long>
+            </locale>
+            <locale name="cs">
+                <short>Moduly, které musí být tímto předem načteny</short>
+                <long>Neměnit</long>
+            </locale>
+            <locale name="de">
+                <short>Plugins, die zuvor geladen werden müssen</short>
+                <long>Nicht ändern</long>
+            </locale>
+            <locale name="es">
+                <short>Complementos que esto debe cargar antes</short>
+                <long>No modificar</long>
+            </locale>
+            <locale name="fi">
+                <short>Etukäteen tätä varten ladattavat liitännäiset</short>
+                <long>Älä muuta</long>
+            </locale>
+            <locale name="fr">
+                <short>Plug-ins à charger avant</short>
+                <long>Ne pas modifier</long>
+            </locale>
+            <locale name="hu">
+                <short>Kötelezően betöltendő beépülő modulok </short>
+                <long>Nem módosít</long>
+            </locale>
+            <locale name="it">
+                <short>Plug-in da caricare per primi</short>
+                <long>Non modificare</long>
+            </locale>
+            <locale name="ja">
+                <short>これを前にロードする必要のあるプラグイン</short>
+                <long>変更しないでください</long>
+            </locale>
+            <locale name="pl">
+                <short>Wtyczki, które muszą zostać załadowane przed</short>
+                <long>Bez zmian</long>
+            </locale>
+            <locale name="pt_BR">
+                <short>Plug-ins que devem ser carregados antes de</short>
+                <long>Não modificar</long>
+            </locale>
+            <locale name="sv">
+                <short>Insticksmoduler som måste läsas in före</short>
+                <long>Ändra inte</long>
+            </locale>
+            <locale name="zh_CN">
+                <short>必须先装载的插件</short>
+                <long>不修改</long>
+            </locale>
+            <locale name="zh_TW">
+                <short>在此之前必須先載入的外掛程式</short>
+                <long>不要修改</long>
+            </locale>
+        </schema>
+
+        <schema>
+            <key>/schemas/apps/compiz/plugins/regex/requires</key>
+            <applyto>/apps/compiz/plugins/regex/requires</applyto>
             <owner>compiz</owner>
             <type>list</type>
             <list_type>string</list_type>
