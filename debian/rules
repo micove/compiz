@@ -100,7 +100,7 @@ binary-arch: build install
 	dh_compress
 	dh_fixperms
 	dh_makeshlibs
-	dh_shlibdeps -L libdecoration0 -l debian/libdecoration0/usr/lib
+	dh_shlibdeps
 	dh_installdeb
 	dh_gencontrol
 	dh_md5sums
