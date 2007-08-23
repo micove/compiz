@@ -39,6 +39,8 @@
 #include <compiz.h>
 #include <decoration.h>
 
+static CompMetadata decorMetadata;
+
 typedef struct _Vector {
     int	dx;
     int	dy;
@@ -84,29 +86,6 @@ typedef struct _WindowDecoration {
     int	       nQuad;
 } WindowDecoration;
 
-#define DECOR_SHADOW_RADIUS_DEFAULT    8.0f
-#define DECOR_SHADOW_RADIUS_MIN        0.0f
-#define DECOR_SHADOW_RADIUS_MAX       48.0f
-#define DECOR_SHADOW_RADIUS_PRECISION  0.1f
-
-#define DECOR_SHADOW_OPACITY_DEFAULT   0.5f
-#define DECOR_SHADOW_OPACITY_MIN       0.01f
-#define DECOR_SHADOW_OPACITY_MAX       6.0f
-#define DECOR_SHADOW_OPACITY_PRECISION 0.01f
-
-#define DECOR_SHADOW_COLOR_RED_DEFAULT   0x0000
-#define DECOR_SHADOW_COLOR_GREEN_DEFAULT 0x0000
-#define DECOR_SHADOW_COLOR_BLUE_DEFAULT  0x0000
-
-#define DECOR_SHADOW_OFFSET_DEFAULT   1
-#define DECOR_SHADOW_OFFSET_MIN     -16
-#define DECOR_SHADOW_OFFSET_MAX      16
-
-#define DECOR_MIPMAP_DEFAULT FALSE
-
-#define DECOR_DECOR_MATCH_DEFAULT  "any"
-#define DECOR_SHADOW_MATCH_DEFAULT "any"
-
 #define DECOR_DISPLAY_OPTION_SHADOW_RADIUS   0
 #define DECOR_DISPLAY_OPTION_SHADOW_OPACITY  1
 #define DECOR_DISPLAY_OPTION_SHADOW_COLOR    2
@@ -143,6 +122,7 @@ typedef struct _DecorScreen {
     DamageWindowRectProc	  damageWindowRect;
     GetOutputExtentsForWindowProc getOutputExtentsForWindow;
 
+    WindowAddNotifyProc    windowAddNotify;
     WindowMoveNotifyProc   windowMoveNotify;
     WindowResizeNotifyProc windowResizeNotify;
 
@@ -424,10 +404,10 @@ decorCreateDecoration (CompScreen *screen,
 
     if (decor_property_get_version (prop) != decor_version ())
     {
-	fprintf (stderr, "%s: decoration: property ignored because "
-		 "version is %d and decoration plugin version is %d\n",
-		 programName, decor_property_get_version (prop),
-		 decor_version ());
+	compLogMessage (screen->display, "decoration", CompLogLevelWarn,
+			"Property ignored because "
+			"version is %d and decoration plugin version is %d\n",
+			decor_property_get_version (prop), decor_version ());
 
 	XFree (data);
 	return NULL;
@@ -681,14 +661,51 @@ decorCheckSize (CompWindow *w,
     return (decor->minWidth <= w->width && decor->minHeight <= w->height);
 }
 
+static int
+decorWindowShiftX (CompWindow *w)
+{
+    switch (w->sizeHints.win_gravity) {
+    case WestGravity:
+    case NorthWestGravity:
+    case SouthWestGravity:
+	return w->input.left;
+    case EastGravity:
+    case NorthEastGravity:
+    case SouthEastGravity:
+	return -w->input.right;
+    }
+
+    return 0;
+}
+
+static int
+decorWindowShiftY (CompWindow *w)
+{
+    switch (w->sizeHints.win_gravity) {
+    case NorthGravity:
+    case NorthWestGravity:
+    case NorthEastGravity:
+	return w->input.top;
+    case SouthGravity:
+    case SouthWestGravity:
+    case SouthEastGravity:
+	return -w->input.bottom;
+    }
+
+    return 0;
+}
+
 static Bool
 decorWindowUpdate (CompWindow *w,
-		   Bool	      move)
+		   Bool	      allowDecoration)
 {
     WindowDecoration *wd;
     Decoration	     *old, *decor = NULL;
     Bool	     decorate = FALSE;
     CompMatch	     *match;
+    int		     moveDx, moveDy;
+    int		     oldShiftX = 0;
+    int		     oldShiftY  = 0;
 
     DECOR_DISPLAY (w->screen->display);
     DECOR_SCREEN (w->screen);
@@ -752,7 +769,7 @@ decorWindowUpdate (CompWindow *w,
 	}
     }
 
-    if (!ds->dmWin)
+    if (!ds->dmWin || !allowDecoration)
 	decor = NULL;
 
     if (decor == old)
@@ -761,7 +778,12 @@ decorWindowUpdate (CompWindow *w,
     damageWindowOutputExtents (w);
 
     if (old)
+    {
+	oldShiftX = decorWindowShiftX (w);
+	oldShiftY = decorWindowShiftY (w);
+
 	destroyWindowDecoration (w->screen, wd);
+    }
 
     if (decor)
     {
@@ -774,6 +796,9 @@ decorWindowUpdate (CompWindow *w,
 	else
 	    setWindowFrameExtents (w, &decor->input);
 
+	moveDx = decorWindowShiftX (w) - oldShiftX;
+	moveDy = decorWindowShiftY (w) - oldShiftY;
+
 	updateWindowOutputExtents (w);
 	damageWindowOutputExtents (w);
 	updateWindowDecorationScale (w);
@@ -781,6 +806,30 @@ decorWindowUpdate (CompWindow *w,
     else
     {
 	dw->wd = NULL;
+
+	moveDx = -oldShiftX;
+	moveDy = -oldShiftY;
+    }
+
+    if (!w->attrib.override_redirect && (moveDx || moveDy))
+    {
+	XWindowChanges xwc;
+	unsigned int   mask = CWX | CWY;
+
+	xwc.x = w->serverX + moveDx;
+	xwc.y = w->serverY + moveDy;
+
+	if (w->state & CompWindowStateFullscreenMask)
+	    mask &= ~(CWX | CWY);
+
+	if (w->state & CompWindowStateMaximizedHorzMask)
+	    mask &= ~CWX;
+
+	if (w->state & CompWindowStateMaximizedVertMask)
+	    mask &= ~CWY;
+
+	if (mask)
+	    configureXWindow (w, mask, &xwc);
     }
 
     return TRUE;
@@ -883,6 +932,12 @@ decorHandleEvent (CompDisplay *d,
 	    if (w->id == ds->dmWin)
 		decorCheckForDmOnScreen (w->screen, TRUE);
 	}
+	break;
+    case MapRequest:
+	w = findWindowAtDisplay (d, event->xmaprequest.window);
+	if (w)
+	    decorWindowUpdate (w, TRUE);
+	break;
     default:
 	if (event->type == d->damageEvent + XDamageNotify)
 	{
@@ -929,11 +984,11 @@ decorHandleEvent (CompDisplay *d,
     {
 	w = findWindowAtDisplay (d, activeWindow);
 	if (w)
-	    decorWindowUpdate (w, FALSE);
+	    decorWindowUpdate (w, TRUE);
 
 	w = findWindowAtDisplay (d, d->activeWindow);
 	if (w)
-	    decorWindowUpdate (w, FALSE);
+	    decorWindowUpdate (w, TRUE);
     }
 
     switch (event->type) {
@@ -989,11 +1044,6 @@ decorHandleEvent (CompDisplay *d,
 	    }
 	}
 	break;
-    case MapRequest:
-	w = findWindowAtDisplay (d, event->xmaprequest.window);
-	if (w)
-	    decorWindowUpdate (w, TRUE);
-	break;
     default:
 	if (d->shapeExtension && event->type == d->shapeEvent + ShapeNotify)
 	{
@@ -1015,7 +1065,7 @@ decorDamageWindowRect (CompWindow *w,
     DECOR_SCREEN (w->screen);
 
     if (initial)
-	decorWindowUpdate (w, FALSE);
+	decorWindowUpdate (w, TRUE);
 
     UNWRAP (ds, w->screen, damageWindowRect);
     status = (*w->screen->damageWindowRect) (w, initial, rect);
@@ -1052,7 +1102,8 @@ decorGetOutputExtentsForWindow (CompWindow	  *w,
 }
 
 static CompOption *
-decorGetDisplayOptions (CompDisplay *display,
+decorGetDisplayOptions (CompPlugin  *plugin,
+			CompDisplay *display,
 			int	    *count)
 {
     DECOR_DISPLAY (display);
@@ -1062,7 +1113,8 @@ decorGetDisplayOptions (CompDisplay *display,
 }
 
 static Bool
-decorSetDisplayOption (CompDisplay     *display,
+decorSetDisplayOption (CompPlugin      *plugin,
+		       CompDisplay     *display,
 		       char	       *name,
 		       CompOptionValue *value)
 {
@@ -1076,20 +1128,6 @@ decorSetDisplayOption (CompDisplay     *display,
 	return FALSE;
 
     switch (index) {
-    case DECOR_DISPLAY_OPTION_SHADOW_RADIUS:
-    case DECOR_DISPLAY_OPTION_SHADOW_OPACITY:
-	if (compSetFloatOption (o, value))
-	    return TRUE;
-	break;
-    case DECOR_DISPLAY_OPTION_SHADOW_COLOR:
-	if (compSetColorOption (o, value))
-	    return TRUE;
-	break;
-    case DECOR_DISPLAY_OPTION_SHADOW_OFFSET_X:
-    case DECOR_DISPLAY_OPTION_SHADOW_OFFSET_Y:
-	if (compSetIntOption (o, value))
-	    return TRUE;
-	break;
     case DECOR_DISPLAY_OPTION_COMMAND:
 	if (compSetStringOption (o, value))
 	{
@@ -1113,10 +1151,6 @@ decorSetDisplayOption (CompDisplay     *display,
 	    return TRUE;
 	}
 	break;
-    case DECOR_DISPLAY_OPTION_MIPMAP:
-	if (compSetBoolOption (o, value))
-	    return TRUE;
-	break;
     case DECOR_DISPLAY_OPTION_DECOR_MATCH:
     case DECOR_DISPLAY_OPTION_SHADOW_MATCH:
 	if (compSetMatchOption (o, value))
@@ -1128,100 +1162,14 @@ decorSetDisplayOption (CompDisplay     *display,
 		for (w = s->windows; w; w = w->next)
 		    decorWindowUpdate (w, TRUE);
 	}
+	break;
     default:
+	if (compSetOption (o, value))
+	    return TRUE;
 	break;
     }
 
     return FALSE;
-}
-
-static void
-decorDisplayInitOptions (DecorDisplay *dd)
-{
-    CompOption *o;
-
-    o = &dd->opt[DECOR_DISPLAY_OPTION_SHADOW_RADIUS];
-    o->name		= "shadow_radius";
-    o->shortDesc	= N_("Shadow Radius");
-    o->longDesc		= N_("Drop shadow radius");
-    o->type		= CompOptionTypeFloat;
-    o->value.f		= DECOR_SHADOW_RADIUS_DEFAULT;
-    o->rest.f.min	= DECOR_SHADOW_RADIUS_MIN;
-    o->rest.f.max	= DECOR_SHADOW_RADIUS_MAX;
-    o->rest.f.precision = DECOR_SHADOW_RADIUS_PRECISION;
-
-    o = &dd->opt[DECOR_DISPLAY_OPTION_SHADOW_OPACITY];
-    o->name		= "shadow_opacity";
-    o->shortDesc	= N_("Shadow Opacity");
-    o->longDesc		= N_("Drop shadow opacity");
-    o->type		= CompOptionTypeFloat;
-    o->value.f		= DECOR_SHADOW_OPACITY_DEFAULT;
-    o->rest.f.min	= DECOR_SHADOW_OPACITY_MIN;
-    o->rest.f.max	= DECOR_SHADOW_OPACITY_MAX;
-    o->rest.f.precision = DECOR_SHADOW_OPACITY_PRECISION;
-
-    o = &dd->opt[DECOR_DISPLAY_OPTION_SHADOW_COLOR];
-    o->name		= "shadow_color";
-    o->shortDesc	= "Shadow Color";
-    o->longDesc		= "Drop shadow color";
-    o->type		= CompOptionTypeColor;
-    o->value.c[0]	= DECOR_SHADOW_COLOR_RED_DEFAULT;
-    o->value.c[1]	= DECOR_SHADOW_COLOR_GREEN_DEFAULT;
-    o->value.c[2]	= DECOR_SHADOW_COLOR_BLUE_DEFAULT;
-    o->value.c[3]	= 0xffff;
-
-    o = &dd->opt[DECOR_DISPLAY_OPTION_SHADOW_OFFSET_X];
-    o->name		= "shadow_offset_x";
-    o->shortDesc	= N_("Shadow Offset X");
-    o->longDesc		= N_("Drop shadow X offset");
-    o->type		= CompOptionTypeInt;
-    o->value.i		= DECOR_SHADOW_OFFSET_DEFAULT;
-    o->rest.i.min	= DECOR_SHADOW_OFFSET_MIN;
-    o->rest.i.max	= DECOR_SHADOW_OFFSET_MAX;
-
-    o = &dd->opt[DECOR_DISPLAY_OPTION_SHADOW_OFFSET_Y];
-    o->name		= "shadow_offset_y";
-    o->shortDesc	= N_("Shadow Offset Y");
-    o->longDesc		= N_("Drop shadow Y offset");
-    o->type		= CompOptionTypeInt;
-    o->value.i		= DECOR_SHADOW_OFFSET_DEFAULT;
-    o->rest.i.min	= DECOR_SHADOW_OFFSET_MIN;
-    o->rest.i.max	= DECOR_SHADOW_OFFSET_MAX;
-
-    o = &dd->opt[DECOR_DISPLAY_OPTION_COMMAND];
-    o->name		= "command";
-    o->shortDesc	= N_("Command");
-    o->longDesc		= N_("Decorator command line that is executed if no "
-			     "decorator is already running");
-    o->type		= CompOptionTypeString;
-    o->value.s		= strdup ("");
-    o->rest.s.string	= NULL;
-    o->rest.s.nString	= 0;
-
-    o = &dd->opt[DECOR_DISPLAY_OPTION_MIPMAP];
-    o->name	 = "mipmap";
-    o->shortDesc = N_("Mipmap");
-    o->longDesc	 = ("Allow mipmaps to be generated for decoration textures");
-    o->type	 = CompOptionTypeBool;
-    o->value.b   = DECOR_MIPMAP_DEFAULT;
-
-    o = &dd->opt[DECOR_DISPLAY_OPTION_DECOR_MATCH];
-    o->name	 = "decoration_match";
-    o->shortDesc = N_("Decoration windows");
-    o->longDesc	 = N_("Windows that should be decorated");
-    o->type	 = CompOptionTypeMatch;
-
-    matchInit (&o->value.match);
-    matchAddFromString (&o->value.match, DECOR_DECOR_MATCH_DEFAULT);
-
-    o = &dd->opt[DECOR_DISPLAY_OPTION_SHADOW_MATCH];
-    o->name	 = "shadow_match";
-    o->shortDesc = N_("Shadow windows");
-    o->longDesc	 = N_("Windows that should be have a shadow");
-    o->type	 = CompOptionTypeMatch;
-
-    matchInit (&o->value.match);
-    matchAddFromString (&o->value.match, DECOR_SHADOW_MATCH_DEFAULT);
 }
 
 static void
@@ -1263,7 +1211,7 @@ decorWindowResizeNotify (CompWindow *w,
 {
     DECOR_SCREEN (w->screen);
 
-    if (!decorWindowUpdate (w, FALSE))
+    if (!decorWindowUpdate (w, TRUE))
 	updateWindowDecorationScale (w);
 
     UNWRAP (ds, w->screen, windowResizeNotify);
@@ -1277,7 +1225,7 @@ decorWindowStateChangeNotify (CompWindow *w)
     DECOR_SCREEN (w->screen);
     DECOR_WINDOW (w);
 
-    if (!decorWindowUpdate (w, FALSE))
+    if (!decorWindowUpdate (w, TRUE))
     {
 	if (dw->decor)
 	{
@@ -1299,12 +1247,37 @@ decorMatchPropertyChanged (CompDisplay *d,
 {
     DECOR_DISPLAY (d);
 
-    decorWindowUpdate (w, FALSE);
+    decorWindowUpdate (w, TRUE);
 
     UNWRAP (dd, d, matchPropertyChanged);
     (*d->matchPropertyChanged) (d, w);
     WRAP (dd, d, matchPropertyChanged, decorMatchPropertyChanged);
 }
+
+static void
+decorWindowAddNotify (CompWindow *w)
+{
+    DECOR_SCREEN (w->screen);
+
+    if (w->shaded || w->attrib.map_state == IsViewable)
+	decorWindowUpdate (w, TRUE);
+
+    UNWRAP (ds, w->screen, windowAddNotify);
+    (*w->screen->windowAddNotify) (w);
+    WRAP (ds, w->screen, windowAddNotify, decorWindowAddNotify);
+}
+
+static const CompMetadataOptionInfo decorDisplayOptionInfo[] = {
+    { "shadow_radius", "float", "<min>0.0</min><max>48.0</max>", 0, 0 },
+    { "shadow_opacity", "float", "<min>0.0</min>", 0, 0 },
+    { "shadow_color", "color", 0, 0, 0 },
+    { "shadow_x_offset", "int", "<min>-16</min><max>16</max>", 0, 0 },
+    { "shadow_y_offset", "int", "<min>-16</min><max>16</max>", 0, 0 },
+    { "command", "string", 0, 0, 0 },
+    { "mipmap", "bool", 0, 0, 0 },
+    { "decoration_match", "match", 0, 0, 0 },
+    { "shadow_match", "match", 0, 0, 0 }
+};
 
 static Bool
 decorInitDisplay (CompPlugin  *p,
@@ -1316,9 +1289,20 @@ decorInitDisplay (CompPlugin  *p,
     if (!dd)
 	return FALSE;
 
+    if (!compInitDisplayOptionsFromMetadata (d,
+					     &decorMetadata,
+					     decorDisplayOptionInfo,
+					     dd->opt,
+					     DECOR_DISPLAY_OPTION_NUM))
+    {
+	free (dd);
+	return FALSE;
+    }
+
     dd->screenPrivateIndex = allocateScreenPrivateIndex (d);
     if (dd->screenPrivateIndex < 0)
     {
+	compFiniDisplayOptions (d, dd->opt, DECOR_DISPLAY_OPTION_NUM);
 	free (dd);
 	return FALSE;
     }
@@ -1335,11 +1319,6 @@ decorInitDisplay (CompPlugin  *p,
     dd->decorAtom[DECOR_ACTIVE] =
 	XInternAtom (d->display, "_NET_WINDOW_DECOR_ACTIVE", 0);
 
-    decorDisplayInitOptions (dd);
-
-    matchUpdate (d, &dd->opt[DECOR_DISPLAY_OPTION_DECOR_MATCH].value.match);
-    matchUpdate (d, &dd->opt[DECOR_DISPLAY_OPTION_SHADOW_MATCH].value.match);
-
     WRAP (dd, d, handleEvent, decorHandleEvent);
     WRAP (dd, d, matchPropertyChanged, decorMatchPropertyChanged);
 
@@ -1354,13 +1333,12 @@ decorFiniDisplay (CompPlugin  *p,
 {
     DECOR_DISPLAY (d);
 
-    matchFini (&dd->opt[DECOR_DISPLAY_OPTION_DECOR_MATCH].value.match);
-    matchFini (&dd->opt[DECOR_DISPLAY_OPTION_SHADOW_MATCH].value.match);
-
     freeScreenPrivateIndex (d, dd->screenPrivateIndex);
 
     UNWRAP (dd, d, handleEvent);
     UNWRAP (dd, d, matchPropertyChanged);
+
+    compFiniDisplayOptions (d, dd->opt, DECOR_DISPLAY_OPTION_NUM);
 
     free (dd);
 }
@@ -1391,6 +1369,7 @@ decorInitScreen (CompPlugin *p,
     WRAP (ds, s, drawWindow, decorDrawWindow);
     WRAP (ds, s, damageWindowRect, decorDamageWindowRect);
     WRAP (ds, s, getOutputExtentsForWindow, decorGetOutputExtentsForWindow);
+    WRAP (ds, s, windowAddNotify, decorWindowAddNotify);
     WRAP (ds, s, windowMoveNotify, decorWindowMoveNotify);
     WRAP (ds, s, windowResizeNotify, decorWindowResizeNotify);
     WRAP (ds, s, windowStateChangeNotify, decorWindowStateChangeNotify);
@@ -1417,6 +1396,7 @@ decorFiniScreen (CompPlugin *p,
     UNWRAP (ds, s, drawWindow);
     UNWRAP (ds, s, damageWindowRect);
     UNWRAP (ds, s, getOutputExtentsForWindow);
+    UNWRAP (ds, s, windowAddNotify);
     UNWRAP (ds, s, windowMoveNotify);
     UNWRAP (ds, s, windowResizeNotify);
     UNWRAP (ds, s, windowStateChangeNotify);
@@ -1444,8 +1424,8 @@ decorInitWindow (CompPlugin *p,
     if (!w->attrib.override_redirect)
 	decorWindowUpdateDecoration (w);
 
-    if (w->shaded || w->attrib.map_state == IsViewable)
-	decorWindowUpdate (w, FALSE);
+    if (w->added && (w->shaded || w->attrib.map_state == IsViewable))
+	decorWindowUpdate (w, TRUE);
 
     return TRUE;
 }
@@ -1455,6 +1435,9 @@ decorFiniWindow (CompPlugin *p,
 		 CompWindow *w)
 {
     DECOR_WINDOW (w);
+
+    if (!w->destroyed)
+	decorWindowUpdate (w, FALSE);
 
     if (dw->wd)
 	destroyWindowDecoration (w->screen, dw->wd);
@@ -1468,9 +1451,21 @@ decorFiniWindow (CompPlugin *p,
 static Bool
 decorInit (CompPlugin *p)
 {
+    if (!compInitPluginMetadataFromInfo (&decorMetadata,
+					 p->vTable->name,
+					 decorDisplayOptionInfo,
+					 DECOR_DISPLAY_OPTION_NUM,
+					 0, 0))
+	return FALSE;
+
     displayPrivateIndex = allocateDisplayPrivateIndex ();
     if (displayPrivateIndex < 0)
+    {
+	compFiniMetadata (&decorMetadata);
 	return FALSE;
+    }
+
+    compAddMetadataFromFile (&decorMetadata, p->vTable->name);
 
     return TRUE;
 }
@@ -1478,8 +1473,8 @@ decorInit (CompPlugin *p)
 static void
 decorFini (CompPlugin *p)
 {
-    if (displayPrivateIndex >= 0)
-	freeDisplayPrivateIndex (displayPrivateIndex);
+    freeDisplayPrivateIndex (displayPrivateIndex);
+    compFiniMetadata (&decorMetadata);
 }
 
 static int
@@ -1489,22 +1484,16 @@ decorGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
-CompPluginDep decorDeps[] = {
-    { CompPluginRuleBefore, "wobbly" },
-    { CompPluginRuleBefore, "fade" },
-    { CompPluginRuleBefore, "cube" },
-    { CompPluginRuleBefore, "scale" }
-};
-
-CompPluginFeature decorFeatures[] = {
-    { "decorations" }
-};
+static CompMetadata *
+decorGetMetadata (CompPlugin *plugin)
+{
+    return &decorMetadata;
+}
 
 static CompPluginVTable decorVTable = {
     "decoration",
-    N_("Window Decoration"),
-    N_("Window decorations"),
     decorGetVersion,
+    decorGetMetadata,
     decorInit,
     decorFini,
     decorInitDisplay,
@@ -1516,11 +1505,7 @@ static CompPluginVTable decorVTable = {
     decorGetDisplayOptions,
     decorSetDisplayOption,
     0, /* GetScreenOptions */
-    0, /* SetScreenOption */
-    decorDeps,
-    sizeof (decorDeps) / sizeof (decorDeps[0]),
-    decorFeatures,
-    sizeof (decorFeatures) / sizeof (decorFeatures[0])
+    0  /* SetScreenOption */
 };
 
 CompPluginVTable *

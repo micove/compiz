@@ -64,6 +64,40 @@ static char *edgeName[] = {
     "BottomRight"
 };
 
+static void
+finiOptionValue (CompOptionValue *v,
+		 CompOptionType  type)
+{
+    int i;
+
+    switch (type) {
+    case CompOptionTypeString:
+	if (v->s)
+	    free (v->s);
+	break;
+    case CompOptionTypeMatch:
+	matchFini (&v->match);
+	break;
+    case CompOptionTypeList:
+	for (i = 0; i < v->list.nValue; i++)
+	    finiOptionValue (&v->list.value[i], v->list.type);
+    default:
+	break;
+    }
+}
+
+void
+compInitOption (CompOption *o)
+{
+    memset (o, 0, sizeof (CompOption));
+}
+
+void
+compFiniOption (CompOption *o)
+{
+    finiOptionValue (&o->value, o->type);
+}
+
 CompOption *
 compFindOption (CompOption *option,
 		int	    nOption,
@@ -121,13 +155,17 @@ compSetFloatOption (CompOption	    *option,
 		    CompOptionValue *value)
 {
     float v, p;
+    
+    /* Workaround for float rounding errors */
+    static float equalRange = 1e-5;
+
     int sign = (value->f < 0 ? -1 : 1);
 
     p = 1.0f / option->rest.f.precision;
     v = ((int) (value->f * p + sign * 0.5f)) / p;
 
-    if (v < option->rest.f.min ||
-	v > option->rest.f.max ||
+    if (v < option->rest.f.min - equalRange ||
+	v > option->rest.f.max + equalRange ||
 	v == option->value.f)
 	return FALSE;
 
@@ -145,20 +183,6 @@ compSetStringOption (CompOption	     *option,
     s = value->s;
     if (!s)
 	s = "";
-
-    if (option->rest.s.nString)
-    {
-	int i;
-
-	for (i = 0; i < option->rest.s.nString; i++)
-	{
-	    if (strcmp (option->rest.s.string[i], s) == 0)
-		break;
-	}
-
-	if (i == option->rest.s.nString)
-	    s = option->rest.s.string[0];
-    }
 
     if (option->value.s == s)
 	return FALSE;
@@ -334,6 +358,32 @@ compSetOptionList (CompOption      *option,
     }
 
     return status;
+}
+
+Bool
+compSetOption (CompOption      *option,
+	       CompOptionValue *value)
+{
+    switch (option->type) {
+    case CompOptionTypeBool:
+	return compSetBoolOption (option, value);
+    case CompOptionTypeInt:
+	return compSetIntOption (option, value);
+    case CompOptionTypeFloat:
+	return compSetFloatOption (option, value);
+    case CompOptionTypeString:
+	return compSetStringOption (option, value);
+    case CompOptionTypeColor:
+	return compSetColorOption (option, value);
+    case CompOptionTypeMatch:
+	return compSetMatchOption (option, value);
+    case CompOptionTypeAction:
+	return compSetActionOption (option, value);
+    case CompOptionTypeList:
+	return compSetOptionList (option, value);
+    }
+
+    return FALSE;
 }
 
 unsigned int
@@ -583,6 +633,19 @@ stringToKeyBinding (CompDisplay    *d,
 
     while (*binding && !isalnum (*binding))
 	binding++;
+
+    if (!*binding)
+    {
+	if (mods)
+	{
+	    key->keycode   = 0;
+	    key->modifiers = mods;
+
+	    return TRUE;
+	}
+
+	return FALSE;
+    }
 
     keysym = XStringToKeysym (binding);
     if (keysym != NoSymbol)

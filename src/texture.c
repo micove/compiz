@@ -60,6 +60,7 @@ finiTexture (CompScreen  *screen,
 {
     if (texture->name)
     {
+	makeScreenCurrent (screen);
 	releasePixmapFromTexture (screen, texture);
 	glDeleteTextures (1, &texture->name);
     }
@@ -113,6 +114,7 @@ imageToTexture (CompScreen   *screen,
 		&image[(height - i - 1) * width * 4],
 		width * 4);
 
+    makeScreenCurrent (screen);
     releasePixmapFromTexture (screen, texture);
 
     if (screen->textureNonPowerOfTwo ||
@@ -136,7 +138,7 @@ imageToTexture (CompScreen   *screen,
 
     glBindTexture (texture->target, texture->name);
 
-    glTexImage2D (texture->target, 0, GL_RGBA, width, height, 0, 
+    glTexImage2D (texture->target, 0, GL_RGBA, width, height, 0,
 		  format, type, data);
 
     texture->filter = GL_NEAREST;
@@ -166,10 +168,10 @@ imageBufferToTexture (CompScreen   *screen,
 {
 #if IMAGE_BYTE_ORDER == MSBFirst
     return imageToTexture (screen, texture, image, width, height,
-			   GL_BGRA, GL_UNSIGNED_BYTE);
+			   GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV);
 #else
     return imageToTexture (screen, texture, image, width, height,
-			   GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV);
+			   GL_BGRA, GL_UNSIGNED_BYTE);
 #endif
 }
 
@@ -182,7 +184,7 @@ imageDataToTexture (CompScreen   *screen,
 		    GLenum       format,
 		    GLenum       type)
 {
-    return imageToTexture (screen, texture, image, width, height, format, type);    
+    return imageToTexture (screen, texture, image, width, height, format, type);
 }
 
 
@@ -231,38 +233,61 @@ bindPixmapToTexture (CompScreen  *screen,
 		     int	 height,
 		     int	 depth)
 {
-    unsigned int target;
+    unsigned int target = 0;
     CompFBConfig *config = &screen->glxPixmapFBConfigs[depth];
-    int          attribs[] = {
-	GLX_TEXTURE_FORMAT_EXT, config->textureFormat,
-	GLX_MIPMAP_TEXTURE_EXT, config->mipmap,
-	None
-    };
+    int          attribs[7], i = 0;
 
     if (!config->fbConfig)
     {
-	fprintf (stderr, "%s: No GLXFBConfig for depth %d\n",
-		 programName, depth);
+	compLogMessage (NULL, "core", CompLogLevelWarn,
+			"No GLXFBConfig for depth %d",
+			depth);
 
 	return FALSE;
     }
 
+    attribs[i++] = GLX_TEXTURE_FORMAT_EXT;
+    attribs[i++] = config->textureFormat;
+    attribs[i++] = GLX_MIPMAP_TEXTURE_EXT;
+    attribs[i++] = config->mipmap;
+
+    /* If only one two-dimensional texture target is supported,
+       then use that target and avoid a possible round trip in
+       glXQueryDrawable. Allow the server to choose texture target
+       when it supports more than one for this fbconfig. */
+    if (!(config->textureTargets & GLX_TEXTURE_2D_BIT_EXT))
+	target = GLX_TEXTURE_RECTANGLE_EXT;
+    else if (!(config->textureTargets & GLX_TEXTURE_RECTANGLE_BIT_EXT))
+	target = GLX_TEXTURE_2D_EXT;
+
+    if (target)
+    {
+	attribs[i++] = GLX_TEXTURE_TARGET_EXT;
+	attribs[i++] = target;
+    }
+
+    attribs[i++] = None;
+
+    makeScreenCurrent (screen);
     texture->pixmap = (*screen->createPixmap) (screen->display->display,
 					       config->fbConfig, pixmap,
 					       attribs);
     if (!texture->pixmap)
     {
-	fprintf (stderr, "%s: glXCreatePixmap failed\n", programName);
+	compLogMessage (NULL, "core", CompLogLevelWarn,
+			"glXCreatePixmap failed");
 
 	return FALSE;
     }
 
     texture->mipmap = config->mipmap;
 
-    (*screen->queryDrawable) (screen->display->display,
-			      texture->pixmap,
-			      GLX_TEXTURE_TARGET_EXT,
-			      &target);
+    if (!target)
+	(*screen->queryDrawable) (screen->display->display,
+				  texture->pixmap,
+				  GLX_TEXTURE_TARGET_EXT,
+				  &target);
+
     switch (target) {
     case GLX_TEXTURE_2D_EXT:
 	texture->target = GL_TEXTURE_2D;
@@ -295,8 +320,9 @@ bindPixmapToTexture (CompScreen  *screen,
 	}
 	break;
     default:
-	fprintf (stderr, "%s: pixmap 0x%x can't be bound to texture\n",
-		 programName, (int) pixmap);
+	compLogMessage (NULL, "core", CompLogLevelWarn,
+			"pixmap 0x%x can't be bound to texture",
+			(int) pixmap);
 
 	glXDestroyGLXPixmap (screen->display->display, texture->pixmap);
 	texture->pixmap = None;
@@ -338,6 +364,7 @@ releasePixmapFromTexture (CompScreen  *screen,
 {
     if (texture->pixmap)
     {
+	makeScreenCurrent (screen);
 	glEnable (texture->target);
 	if (!strictBinding)
 	{
@@ -362,10 +389,11 @@ enableTexture (CompScreen	 *screen,
 	       CompTexture	 *texture,
 	       CompTextureFilter filter)
 {
+    makeScreenCurrent (screen);
     glEnable (texture->target);
     glBindTexture (texture->target, texture->name);
 
-    if (strictBinding)
+    if (strictBinding && texture->pixmap)
     {
 	(*screen->bindTexImage) (screen->display->display,
 				 texture->pixmap,
@@ -443,7 +471,8 @@ void
 disableTexture (CompScreen  *screen,
 		CompTexture *texture)
 {
-    if (strictBinding)
+    makeScreenCurrent (screen);
+    if (strictBinding && texture->pixmap)
     {
 	glBindTexture (texture->target, texture->name);
 

@@ -1,2 +1,2 @@
-usr/share/gconf/schemas/compiz.schemas
+usr/share/gconf/schemas/compiz-*.schemas
 usr/lib/compiz/lib*.so

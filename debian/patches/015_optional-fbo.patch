@@ -1,8 +1,8 @@
-Index: compiz.git/include/compiz.h
+Index: compiz/include/compiz.h
 ===================================================================
---- compiz.git.orig/include/compiz.h	2007-04-05 10:13:01.000000000 +0200
-+++ compiz.git/include/compiz.h	2007-04-05 10:13:49.000000000 +0200
-@@ -219,6 +219,7 @@
+--- compiz.orig/include/compiz.h	2007-08-18 21:41:20.000000000 -0700
++++ compiz/include/compiz.h	2007-08-18 23:31:37.000000000 -0700
+@@ -222,6 +222,7 @@
  extern Bool       noDetection;
  extern Bool	  useDesktopHints;
  extern Bool       onlyCurrentScreen;
@@ -10,11 +10,11 @@ Index: compiz.git/include/compiz.h
  
  extern int  defaultRefreshRate;
  extern char *defaultTextureFilter;
-Index: compiz.git/src/main.c
+Index: compiz/src/main.c
 ===================================================================
---- compiz.git.orig/src/main.c	2007-04-05 10:13:01.000000000 +0200
-+++ compiz.git/src/main.c	2007-04-05 10:13:49.000000000 +0200
-@@ -84,6 +84,7 @@
+--- compiz.orig/src/main.c	2007-08-18 21:41:20.000000000 -0700
++++ compiz/src/main.c	2007-08-18 23:31:37.000000000 -0700
+@@ -62,6 +62,7 @@
  Bool noDetection = FALSE;
  Bool useDesktopHints = TRUE;
  Bool onlyCurrentScreen = FALSE;
@@ -22,7 +22,7 @@ Index: compiz.git/src/main.c
  
  #ifdef USE_COW
  Bool useCow = TRUE;
-@@ -103,6 +104,7 @@
+@@ -83,6 +84,7 @@
  	    "[--sm-disable] "
  	    "[--sm-client-id ID] "
  	    "[--no-detection]\n       "
@@ -30,7 +30,7 @@ Index: compiz.git/src/main.c
  	    "[--ignore-desktop-hints] "
  	    "[--only-current-screen]"
  
-@@ -217,6 +219,10 @@
+@@ -336,6 +338,10 @@
  	{
  	    onlyCurrentScreen = TRUE;
  	}
@@ -41,11 +41,11 @@ Index: compiz.git/src/main.c
  
  #ifdef USE_COW
  	else if (!strcmp (argv[i], "--use-root-window"))
-Index: compiz.git/src/screen.c
+Index: compiz/src/screen.c
 ===================================================================
---- compiz.git.orig/src/screen.c	2007-04-05 10:13:01.000000000 +0200
-+++ compiz.git/src/screen.c	2007-04-05 10:13:49.000000000 +0200
-@@ -1971,7 +1971,7 @@
+--- compiz.orig/src/screen.c	2007-08-18 21:41:20.000000000 -0700
++++ compiz/src/screen.c	2007-08-18 23:31:37.000000000 -0700
+@@ -1855,7 +1855,7 @@
      }
  
      s->fbo = 0;

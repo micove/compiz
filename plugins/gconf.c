@@ -35,21 +35,20 @@
 #include <glib/gprintf.h>
 #include <gconf/gconf-client.h>
 
+static CompMetadata gconfMetadata;
+
 #define APP_NAME "/apps/compiz"
 
 /* From gconf-internal.h. Bleah. */
 int gconf_value_compare (const GConfValue *value_a,
 			 const GConfValue *value_b);
 
-#define KEY_CHANGE_TIMEOUT 250
-
 static int displayPrivateIndex;
 
 typedef struct _GConfDisplay {
     int screenPrivateIndex;
 
-    GConfClient       *client;
-    CompTimeoutHandle timeoutHandle;
+    GConfClient *client;
 
     InitPluginForDisplayProc      initPluginForDisplay;
     SetDisplayOptionProc	  setDisplayOption;
@@ -478,12 +477,12 @@ gconfGetOptionValue (CompDisplay *d,
 	    if (s)
 	    {
 		if (p->vTable->getScreenOptions)
-		    option = (*p->vTable->getScreenOptions) (s, &nOption);
+		    option = (*p->vTable->getScreenOptions) (p, s, &nOption);
 	    }
 	    else
 	    {
 		if (p->vTable->getDisplayOptions)
-		    option = (*p->vTable->getDisplayOptions) (d, &nOption);
+		    option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
 	    }
 	}
     }
@@ -864,7 +863,7 @@ gconfSetDisplayOptionForPlugin (CompDisplay     *d,
 	    CompOption *option;
 	    int	       nOption;
 
-	    option = (*p->vTable->getDisplayOptions) (d, &nOption);
+	    option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
 	    gconfSetOption (d, compFindOption (option, nOption, name, 0),
 			    "allscreens", plugin);
 	}
@@ -931,7 +930,7 @@ gconfSetScreenOptionForPlugin (CompScreen      *s,
 
 	    screen = g_strdup_printf ("screen%d", s->screenNum);
 
-	    option = (*p->vTable->getScreenOptions) (s, &nOption);
+	    option = (*p->vTable->getScreenOptions) (p, s, &nOption);
 	    gconfSetOption (s->display,
 			    compFindOption (option, nOption, name, 0),
 			    screen, plugin);
@@ -960,7 +959,7 @@ gconfInitPluginForDisplay (CompPlugin  *p,
 	CompOption *option;
 	int	   nOption;
 
-	option = (*p->vTable->getDisplayOptions) (d, &nOption);
+	option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
 	while (nOption--)
 	    gconfInitOption (d, option++, "allscreens", p->vTable->name);
     }
@@ -988,7 +987,7 @@ gconfInitPluginForScreen (CompPlugin *p,
 
 	screen = g_strdup_printf ("screen%d", s->screenNum);
 
-	option = (*p->vTable->getScreenOptions) (s, &nOption);
+	option = (*p->vTable->getScreenOptions) (p, s, &nOption);
 	while (nOption--)
 	    gconfInitOption (s->display, option++, screen, p->vTable->name);
 
@@ -1023,12 +1022,26 @@ gconfKeyChanged (GConfClient *client,
 	g_free (key);
 }
 
-static Bool
-gconfTimeout (void *closure)
+static void
+gconfSendGLibNotify (CompDisplay *d)
 {
-    while (g_main_pending ()) g_main_iteration (FALSE);
+    Display *dpy = d->display;
+    XEvent  xev;
 
-    return TRUE;
+    xev.xclient.type    = ClientMessage;
+    xev.xclient.display = dpy;
+    xev.xclient.format  = 32;
+
+    xev.xclient.message_type = XInternAtom (dpy, "_COMPIZ_GLIB_NOTIFY", 0);
+    xev.xclient.window	     = d->screens->root;
+
+    memset (xev.xclient.data.l, 0, sizeof (xev.xclient.data.l));
+
+    XSendEvent (dpy,
+		d->screens->root,
+		FALSE,
+		SubstructureRedirectMask | SubstructureNotifyMask,
+		&xev);
 }
 
 static Bool
@@ -1070,7 +1083,7 @@ gconfInitDisplay (CompPlugin  *p,
     gconf_client_notify_add (gd->client, APP_NAME, gconfKeyChanged, d,
 			     NULL, NULL);
 
-    gd->timeoutHandle = compAddTimeout (KEY_CHANGE_TIMEOUT, gconfTimeout, 0);
+    gconfSendGLibNotify (d);
 
     return TRUE;
 }
@@ -1080,8 +1093,6 @@ gconfFiniDisplay (CompPlugin  *p,
 		  CompDisplay *d)
 {
     GCONF_DISPLAY (d);
-
-    compRemoveTimeout (gd->timeoutHandle);
 
     g_object_unref (gd->client);
 
@@ -1142,9 +1153,18 @@ gconfFiniScreen (CompPlugin *p,
 static Bool
 gconfInit (CompPlugin *p)
 {
+    if (!compInitPluginMetadataFromInfo (&gconfMetadata, p->vTable->name,
+					 0, 0, 0, 0))
+	return FALSE;
+
     displayPrivateIndex = allocateDisplayPrivateIndex ();
     if (displayPrivateIndex < 0)
+    {
+	compFiniMetadata (&gconfMetadata);
 	return FALSE;
+    }
+
+    compAddMetadataFromFile (&gconfMetadata, p->vTable->name);
 
     return TRUE;
 }
@@ -1152,8 +1172,8 @@ gconfInit (CompPlugin *p)
 static void
 gconfFini (CompPlugin *p)
 {
-    if (displayPrivateIndex >= 0)
-	freeDisplayPrivateIndex (displayPrivateIndex);
+    freeDisplayPrivateIndex (displayPrivateIndex);
+    compFiniMetadata (&gconfMetadata);
 }
 
 static int
@@ -1163,19 +1183,16 @@ gconfGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
-CompPluginDep gconfDeps[] = {
-    { CompPluginRuleBefore, "decoration" },
-    { CompPluginRuleBefore, "wobbly" },
-    { CompPluginRuleBefore, "fade" },
-    { CompPluginRuleBefore, "cube" },
-    { CompPluginRuleBefore, "scale" }
-};
+static CompMetadata *
+gconfGetMetadata (CompPlugin *plugin)
+{
+    return &gconfMetadata;
+}
 
 CompPluginVTable gconfVTable = {
     "gconf",
-    "GConf",
-    "GConf Control Backend",
     gconfGetVersion,
+    gconfGetMetadata,
     gconfInit,
     gconfFini,
     gconfInitDisplay,
@@ -1187,11 +1204,7 @@ CompPluginVTable gconfVTable = {
     0, /* GetDisplayOptions */
     0, /* SetDisplayOption */
     0, /* GetScreenOptions */
-    0, /* SetScreenOption */
-    gconfDeps,
-    sizeof (gconfDeps) / sizeof (gconfDeps[0]),
-    0, /* Features */
-    0  /* nFeatures */
+    0  /* SetScreenOption */
 };
 
 CompPluginVTable *

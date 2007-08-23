@@ -45,6 +45,7 @@ build-stamp:
 	dh_testdir
 	
 	mkdir obj-$(DEB_BUILD_GNU_TYPE)
+	chmod +x ./configure
 	cd obj-$(DEB_BUILD_GNU_TYPE) && \
 	../configure --prefix=/usr --sysconfdir=\$${prefix}/share $(confflags) \
 	             CFLAGS="$(CFLAGS)" QTDIR=/usr

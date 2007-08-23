@@ -1,14 +1,29 @@
 AC_PREREQ(2.57)
 
-AC_INIT([compiz], [0.5.0], [davidr@novell.com])
+dnl compiz package version number
+dnl An odd micro number indicates in-progress development.
+dnl An even micro number indicates a released version.
+m4_define(compiz_version_major, 0)
+m4_define(compiz_version_minor, 5)
+m4_define(compiz_version_micro, 2)
 
-AC_CONFIG_AUX_DIR(config)
+AC_INIT([compiz],
+	[compiz_version_major().compiz_version_minor().compiz_version_micro()],
+	[davidr@novell.com])
 
-AM_INIT_AUTOMAKE([dist-bzip2])
+COMPIZ_VERSION_MAJOR=compiz_version_major()
+COMPIZ_VERSION_MINOR=compiz_version_minor()
+COMPIZ_VERSION_MICRO=compiz_version_micro()
+AC_SUBST(COMPIZ_VERSION_MAJOR)
+AC_SUBST(COMPIZ_VERSION_MINOR)
+AC_SUBST(COMPIZ_VERSION_MICRO)
+
+AM_INIT_AUTOMAKE([1.7])
 AC_CONFIG_HEADER([config.h])
+AC_PROG_INTLTOOL([0.23])
 AM_MAINTAINER_MODE
 
-/* decorator interface version */
+dnl decorator interface version
 AC_DEFINE(DECOR_INTERFACE_VERSION, 20070319, [Decorator interface version])
 
 AC_ISC_POSIX
@@ -58,8 +73,8 @@ if test "x$GCC" = "xyes"; then
   esac
 
   case " $CFLAGS " in
-  *[[\ \	]]-fno-strict-aliasing[[\ \	]]*) ;;
-  *) CFLAGS="$CFLAGS -fno-strict-aliasing" ;;
+  *[[\ \	]]-D_FORTIFY_SOURCE=2[[\ \	]]*) ;;
+  *) CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=2" ;;
   esac
 
   if test "x$enable_ansi" = "xyes"; then
@@ -75,6 +90,18 @@ if test "x$GCC" = "xyes"; then
   fi
 fi
 
+if test "x$GCC" = "xyes"; then
+  case " $CXXFLAGS " in
+  *[[\ \	]]-Wall[[\ \	]]*) ;;
+  *) CXXFLAGS="$CXXFLAGS -Wall" ;;
+  esac
+
+  case " $CXXFLAGS " in
+  *[[\ \	]]-D_FORTIFY_SOURCE=2[[\ \	]]*) ;;
+  *) CXXFLAGS="$CXXFLAGS -D_FORTIFY_SOURCE=2" ;;
+  esac
+fi
+
 AC_C_BIGENDIAN
 
 plugindir=$libdir/compiz
@@ -83,14 +110,18 @@ AC_SUBST(plugindir)
 imagedir=$datadir/compiz
 AC_SUBST(imagedir)
 
-COMPIZ_REQUIRES="libpng	    \
-		 xcomposite \
+metadatadir=$datadir/compiz
+AC_SUBST(metadatadir)
+
+COMPIZ_REQUIRES="xcomposite \
 		 xfixes	    \
 		 xdamage    \
 		 xrandr	    \
 		 xinerama   \
 		 ice	    \
 		 sm	    \
+		 libxml-2.0 \
+		 libxslt    \
 		 libstartup-notification-1.0 >= 0.7"
 
 PKG_CHECK_MODULES(COMPIZ, $COMPIZ_REQUIRES)
@@ -124,6 +155,26 @@ AC_MSG_RESULT($GL_LIBS)
 AC_SUBST(GL_CFLAGS)
 AC_SUBST(GL_LIBS)
 
+AC_CHECK_PROGS(XSLTPROC, xsltproc)
+if test -z "$XSLTPROC"; then
+  AC_MSG_ERROR([Couldn't find xsltproc])
+fi
+
+PKG_CHECK_MODULES(LIBPNG, libpng)
+
+AC_ARG_ENABLE(glib,
+  [  --disable-glib          Disable glib plugin],
+  [use_glib=$enableval], [use_glib=yes])
+
+if test "x$use_glib" = "xyes"; then
+  PKG_CHECK_MODULES(GLIB, glib-2.0)
+fi
+
+AM_CONDITIONAL(USE_GLIB, test "x$use_glib" = "xyes")
+if test "$use_glib" = yes; then
+  AC_DEFINE(USE_GLIB, 1, [Build glib plugin])
+fi
+
 AC_ARG_ENABLE(gconf,
   [  --disable-gconf         Disable gconf plugin],
   [use_gconf=$enableval], [use_gconf=yes])
@@ -144,14 +195,8 @@ if test "$use_gconf" = yes; then
   AC_DEFINE(USE_GCONF, 1, [Build gconf plugin])
 fi
 
-AC_ARG_ENABLE(gconf-dump,
-  [  --enable-gconf-dump     Enable gconf-dump plugin (for developers)],
-  [use_gconf_dump=$enableval], [use_gconf_dump=no])
-
-AM_CONDITIONAL(GCONF_DUMP_PLUGIN, test "x$use_gconf_dump" = "xyes")
-if test "$use_gconf_dump" = yes; then
-  AC_DEFINE(USE_GCONF_DUMP, 1, [Build gconf-dump plugin])
-fi
+stylesheetdir=$datadir/compiz
+AC_SUBST(stylesheetdir)
 
 AC_ARG_ENABLE(place,
   [  --disable-place         Disable window placement plugin],
@@ -171,7 +216,7 @@ AC_ARG_ENABLE(dbus,
   [use_dbus=$enableval], [use_dbus=yes])
 
 if test "x$use_dbus" = "xyes"; then
-  PKG_CHECK_MODULES(DBUS, dbus-1, [use_dbus=yes], [use_dbus=no])
+  PKG_CHECK_MODULES(DBUS, dbus-1 libxml-2.0, [use_dbus=yes], [use_dbus=no])
 fi
 
 AM_CONDITIONAL(DBUS_PLUGIN, test "x$use_dbus" = "xyes")
@@ -231,8 +276,8 @@ if test "$use_annotate" = yes; then
 fi
 
 AC_ARG_ENABLE(librsvg,
-  [  --enable-librsvg        Enable svg support],
-  [use_librsvg=$enableval], [use_librsvg=no])
+  [  --disable-librsvg       Disable svg support],
+  [use_librsvg=$enableval], [use_librsvg=yes])
 
 if test "x$use_librsvg" = "xyes"; then
   PKG_CHECK_MODULES(LIBRSVG, [cairo >= 1.0 librsvg-2.0 >= 2.14.0], [use_librsvg=yes], [use_librsvg=no])
@@ -242,28 +287,6 @@ AM_CONDITIONAL(USE_LIBRSVG, test "x$use_librsvg" = "xyes")
 if test "$use_librsvg" = yes; then
   AC_DEFINE(USE_LIBRSVG, 1, [librsvg for SVG support])
 fi
-
-AC_ARG_WITH(scale-corner,
-  [  --with-scale-corner     Set default scale plugin activation corner],
-  [case $withval in
-   no) SCALE_CORNER="" ;;
-   TopLeft|TopRight|BottomLeft|BottomRight) SCALE_CORNER="$withval" ;;
-   *) AC_MSG_ERROR([Unrecognized scale corner "$withval"]) ;;
-   esac], [SCALE_CORNER="TopRight"])
-if test -n "$SCALE_CORNER"; then
-  AC_DEFINE_UNQUOTED(SCALE_CORNER, "$SCALE_CORNER", [Default scale plugin activation corner])
-fi
-AC_SUBST(SCALE_CORNER)
-
-AC_ARG_WITH(default-plugins,
-  [  --with-default-plugins  Set default plugins],
-  [DEFAULT_PLUGINS="$withval"],
-  [DEFAULT_PLUGINS="png,decoration,fade,minimize,move,resize,switcher"])
-
-if test -n "$DEFAULT_PLUGINS"; then
-  AC_DEFINE_UNQUOTED(DEFAULT_PLUGINS, "$DEFAULT_PLUGINS", [Default plugins])
-fi
-AC_SUBST(DEFAULT_PLUGINS)
 
 AC_ARG_ENABLE(gtk,
   [  --disable-gtk           Disable gtk window decorator],
@@ -276,6 +299,10 @@ AC_ARG_ENABLE(metacity,
 AC_ARG_ENABLE(gnome,
   [  --disable-gnome         Disable gnome settings module],
   [use_gnome=$enableval], [use_gnome=yes])
+
+AC_ARG_ENABLE(gnome-keybindings,
+  [  --disable-gnome-keybindings Disable gnome keybindings],
+  [use_gnome_keybindings=$enableval], [use_gnome_keybindings=yes])
 
 if test "x$use_gtk" = "xyes"; then
   PKG_CHECK_MODULES(GTK_WINDOW_DECORATOR,
@@ -293,6 +320,12 @@ if test "x$use_gtk" = "xyes"; then
     CFLAGS="$save_CFLAGS"
     LIBS="$save_LIBS"
 
+    PKG_CHECK_EXISTS(libwnck-1.0 >= 2.18.1,
+		     [have_libwnck_2_18_1=yes], [have_libwnck_2_18_1=no])
+
+	PKG_CHECK_EXISTS(libwnck-1.0 >= 2.19.4,
+		     [have_libwnck_2_19_4=yes], [have_libwnck_2_19_4=no])
+
     if test "x$use_metacity" = "xyes"; then
       PKG_CHECK_MODULES(METACITY, libmetacity-private,
 			[use_metacity=yes], [use_metacity=no])
@@ -308,20 +341,38 @@ if test "x$use_gtk" = "xyes"; then
 			[use_gnome=yes], [use_gnome=no])
     fi
 
+    if test "x$use_gnome_keybindings" = "xyes"; then
+      PKG_CHECK_MODULES(GNOME_KEY_BINDINGS,
+			gnome-keybindings,
+			[use_gnome_keybindings=yes], [use_gnome_keybindings=no])
+    fi
+
     windowsettingsdatadir=`pkg-config --variable=prefix gnome-window-settings-2.0`/share
-    windowsettingslibdir=`pkg-config --variable=libdir gnome-window-settings-2.0`
+    windowsettingslibdir=`pkg-config --variable=libdir gnome-window-settings-2.0`    keybindingsdir=`pkg-config --variable=keysdir gnome-keybindings`
   else
     use_metacity="no"
     use_gnome="no"
   fi
+else
+  use_metacity="no"
+  use_gnome="no"
 fi
 
 AC_SUBST(windowsettingsdatadir)
 AC_SUBST(windowsettingslibdir)
+AC_SUBST(keybindingsdir)
 
 AM_CONDITIONAL(USE_GTK, test "x$use_gtk" = "xyes")
 if test "$use_gtk" = yes; then
   AC_DEFINE(USE_GTK, 1, [Build gtk window decorator])
+  if test "$have_libwnck_2_18_1" = yes; then
+    AC_DEFINE(HAVE_LIBWNCK_2_18_1, 1,
+	      [Define to 1 if libwnck version >= 2_18_1])
+  fi
+  if test "$have_libwnck_2_19_4" = yes; then
+    AC_DEFINE(HAVE_LIBWNCK_2_19_4, 1,
+	      [Define to 1 if libwnck version >= 2_19_4])
+  fi
 fi
 
 AM_CONDITIONAL(USE_METACITY, test "x$use_metacity" = "xyes")
@@ -340,6 +391,11 @@ fi
 AM_CONDITIONAL(USE_GNOME, test "x$use_gnome" = "xyes")
 if test "$use_gnome" = yes; then
   AC_DEFINE(USE_GNOME, 1, [Build gnome settings module])
+fi
+
+AM_CONDITIONAL(USE_GNOME_KEYBINDINGS, test "x$use_gnome_keybindings" = "xyes")
+if test "$use_gnome_keybindings" = yes; then
+  AC_DEFINE(USE_GNOME_KEYBINDINGS, 1, [Install custom keybindings])
 fi
 
 AC_ARG_ENABLE(kde,
@@ -433,26 +489,28 @@ fi
 
 AC_OUTPUT([
 compiz.pc
+compiz-cube.pc
+compiz-scale.pc
+compiz-gconf.pc
 Makefile
 src/Makefile
 libdecoration/Makefile
 libdecoration/libdecoration.pc
 include/Makefile
 plugins/Makefile
-plugins/compiz.schemas
 images/Makefile
 gtk/Makefile
 gtk/window-decorator/Makefile
-gtk/window-decorator/gwd.schemas
 gtk/gnome/Makefile
-gtk/gnome/compiz.desktop
 kde/Makefile
 kde/window-decorator/Makefile
 po/Makefile.in
+metadata/Makefile
 ])
 
 echo ""
 echo "the following optional plugins will be compiled:"
+echo "  glib:     $use_glib"
 echo "  gconf:    $use_gconf"
 echo "  place:    $use_place"
 echo "  dbus:     $use_dbus"
@@ -462,7 +520,6 @@ echo "  inotify:  $use_inotify"
 echo "  fuse:     $use_fuse"
 echo ""
 echo "and the following optional features will be compiled:"
-echo "  svg:      $use_librsvg"
 echo "  gtk:      $use_gtk"
 echo "  metacity: $use_metacity"
 echo "  gnome:    $use_gnome"

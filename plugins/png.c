@@ -31,6 +31,8 @@
 
 #include <compiz.h>
 
+static CompMetadata pngMetadata;
+
 #define PNG_SIG_SIZE 8
 
 static int displayPrivateIndex;
@@ -473,7 +475,7 @@ pngInitDisplay (CompPlugin  *p,
 
     d->privates[displayPrivateIndex].ptr = pd;
 
-    for (s = d->screens; s; s = s->next) 
+    for (s = d->screens; s; s = s->next)
 	updateDefaultIcon (s);
 
     return TRUE;
@@ -490,7 +492,7 @@ pngFiniDisplay (CompPlugin  *p,
     UNWRAP (pd, d, fileToImage);
     UNWRAP (pd, d, imageToFile);
 
-    for (s = d->screens; s; s = s->next) 
+    for (s = d->screens; s; s = s->next)
 	updateDefaultIcon (s);
 
     free (pd);
@@ -499,9 +501,18 @@ pngFiniDisplay (CompPlugin  *p,
 static Bool
 pngInit (CompPlugin *p)
 {
+    if (!compInitPluginMetadataFromInfo (&pngMetadata, p->vTable->name,
+					 0, 0, 0, 0))
+	return FALSE;
+
     displayPrivateIndex = allocateDisplayPrivateIndex ();
     if (displayPrivateIndex < 0)
+    {
+	compFiniMetadata (&pngMetadata);
 	return FALSE;
+    }
+
+    compAddMetadataFromFile (&pngMetadata, p->vTable->name);
 
     return TRUE;
 }
@@ -509,8 +520,8 @@ pngInit (CompPlugin *p)
 static void
 pngFini (CompPlugin *p)
 {
-    if (displayPrivateIndex >= 0)
-	freeDisplayPrivateIndex (displayPrivateIndex);
+    freeDisplayPrivateIndex (displayPrivateIndex);
+    compFiniMetadata (&pngMetadata);
 }
 
 static int
@@ -520,11 +531,16 @@ pngGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
+static CompMetadata *
+pngGetMetadata (CompPlugin *plugin)
+{
+    return &pngMetadata;
+}
+
 CompPluginVTable pngVTable = {
     "png",
-    "Png",
-    "Png image loader",
     pngGetVersion,
+    pngGetMetadata,
     pngInit,
     pngFini,
     pngInitDisplay,
@@ -536,11 +552,7 @@ CompPluginVTable pngVTable = {
     0, /* GetDisplayOptions */
     0, /* SetDisplayOption */
     0, /* GetScreenOptions */
-    0, /* SetScreenOption */
-    0, /* Deps */
-    0, /* nDeps */
-    0, /* Features */
-    0  /* nFeatures */
+    0  /* SetScreenOption */
 };
 
 CompPluginVTable *

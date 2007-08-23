@@ -34,7 +34,7 @@
 
 #include <compiz.h>
 
-#define FUSE_MOUNT_POINT_DEFAULT "compiz"
+static CompMetadata fuseMetadata;
 
 #define FUSE_INODE_TYPE_ROOT        (1 << 0)
 #define FUSE_INODE_TYPE_CORE        (1 << 1)
@@ -42,24 +42,20 @@
 #define FUSE_INODE_TYPE_SCREEN      (1 << 3)
 #define FUSE_INODE_TYPE_DISPLAY     (1 << 4)
 #define FUSE_INODE_TYPE_OPTION      (1 << 5)
-#define FUSE_INODE_TYPE_SHORT_DESC  (1 << 6)
-#define FUSE_INODE_TYPE_LONG_DESC   (1 << 7)
-#define FUSE_INODE_TYPE_TYPE        (1 << 8)
-#define FUSE_INODE_TYPE_VALUE       (1 << 9)
-#define FUSE_INODE_TYPE_ITEM_COUNT  (1 << 10)
-#define FUSE_INODE_TYPE_ITEM_TYPE   (1 << 11)
-#define FUSE_INODE_TYPE_ITEMS       (1 << 12)
-#define FUSE_INODE_TYPE_ITEM_VALUE  (1 << 13)
-#define FUSE_INODE_TYPE_KEY         (1 << 14)
-#define FUSE_INODE_TYPE_BUTTON      (1 << 15)
-#define FUSE_INODE_TYPE_EDGE        (1 << 16)
-#define FUSE_INODE_TYPE_EDGE_BUTTON (1 << 17)
-#define FUSE_INODE_TYPE_BELL        (1 << 18)
-#define FUSE_INODE_TYPE_MIN         (1 << 19)
-#define FUSE_INODE_TYPE_MAX         (1 << 20)
-#define FUSE_INODE_TYPE_PRECISION   (1 << 21)
-#define FUSE_INODE_TYPE_SELECTION   (1 << 22)
-#define FUSE_INODE_TYPE_ALTERNATIVE (1 << 23)
+#define FUSE_INODE_TYPE_TYPE        (1 << 6)
+#define FUSE_INODE_TYPE_VALUE       (1 << 7)
+#define FUSE_INODE_TYPE_ITEM_COUNT  (1 << 8)
+#define FUSE_INODE_TYPE_ITEM_TYPE   (1 << 9)
+#define FUSE_INODE_TYPE_ITEMS       (1 << 10)
+#define FUSE_INODE_TYPE_ITEM_VALUE  (1 << 11)
+#define FUSE_INODE_TYPE_KEY         (1 << 12)
+#define FUSE_INODE_TYPE_BUTTON      (1 << 13)
+#define FUSE_INODE_TYPE_EDGE        (1 << 14)
+#define FUSE_INODE_TYPE_EDGE_BUTTON (1 << 15)
+#define FUSE_INODE_TYPE_BELL        (1 << 16)
+#define FUSE_INODE_TYPE_MIN         (1 << 17)
+#define FUSE_INODE_TYPE_MAX         (1 << 18)
+#define FUSE_INODE_TYPE_PRECISION   (1 << 19)
 
 #define DIR_MASK (FUSE_INODE_TYPE_ROOT    | \
 		  FUSE_INODE_TYPE_CORE    | \
@@ -67,15 +63,13 @@
 		  FUSE_INODE_TYPE_SCREEN  | \
 		  FUSE_INODE_TYPE_DISPLAY | \
 		  FUSE_INODE_TYPE_OPTION  | \
-		  FUSE_INODE_TYPE_ITEMS   | \
-		  FUSE_INODE_TYPE_SELECTION)
+		  FUSE_INODE_TYPE_ITEMS)
 
 #define CONST_DIR_MASK (FUSE_INODE_TYPE_CORE    | \
 			FUSE_INODE_TYPE_PLUGIN  | \
 			FUSE_INODE_TYPE_SCREEN  | \
 			FUSE_INODE_TYPE_DISPLAY | \
-			FUSE_INODE_TYPE_OPTION  | \
-			FUSE_INODE_TYPE_SELECTION)
+			FUSE_INODE_TYPE_OPTION)
 
 #define ACTION_MASK (FUSE_INODE_TYPE_KEY	 | \
 		     FUSE_INODE_TYPE_BUTTON	 | \
@@ -202,13 +196,10 @@ fuseRemoveInode (FuseInode *parent,
 	    parent->child = NULL;
     }
 
-    if (inode)
-    {
-	if (inode->name)
-	    free (inode->name);
+    if (inode->name)
+	free (inode->name);
 
-	free (inode);
-    }
+    free (inode);
 }
 
 static FuseInode *
@@ -267,7 +258,7 @@ fuseGetDisplayOptionsFromInode (CompDisplay *d,
 
 	p = findActivePlugin (inode->name);
 	if (p && p->vTable->getDisplayOptions)
-	    option = (*p->vTable->getDisplayOptions) (d, nOption);
+	    option = (*p->vTable->getDisplayOptions) (p, d, nOption);
     }
 
     return option;
@@ -290,7 +281,7 @@ fuseGetScreenOptionsFromInode (CompScreen *s,
 
 	p = findActivePlugin (inode->name);
 	if (p && p->vTable->getScreenOptions)
-	    option = (*p->vTable->getScreenOptions) (s, nOption);
+	    option = (*p->vTable->getScreenOptions) (p, s, nOption);
     }
 
     return option;
@@ -330,13 +321,12 @@ fuseGetOptionFromInode (CompDisplay *d,
 			FuseInode   *inode)
 {
     if (inode->type & (FUSE_INODE_TYPE_OPTION |
-		       FUSE_INODE_TYPE_ITEMS  |
-		       FUSE_INODE_TYPE_SELECTION))
+		       FUSE_INODE_TYPE_ITEMS))
     {
 	CompOption *option;
 	int	   nOption;
 
-	if (inode->type & (FUSE_INODE_TYPE_ITEMS | FUSE_INODE_TYPE_SELECTION))
+	if (inode->type & FUSE_INODE_TYPE_ITEMS)
 	    inode = inode->parent;
 
 	option = fuseGetOptionsFromInode (d, inode->parent, &nOption);
@@ -375,14 +365,6 @@ fuseGetStringFromInode (CompDisplay *d,
     if (inode->type & FUSE_INODE_TYPE_TYPE)
     {
 	return strdup (optionTypeToString (option->type));
-    }
-    else if (inode->type & FUSE_INODE_TYPE_SHORT_DESC)
-    {
-	return strdup (option->shortDesc);
-    }
-    else if (inode->type & FUSE_INODE_TYPE_LONG_DESC)
-    {
-	return strdup (option->longDesc);
     }
     else if (inode->type & (FUSE_INODE_TYPE_VALUE | FUSE_INODE_TYPE_ITEM_VALUE))
     {
@@ -507,16 +489,6 @@ fuseGetStringFromInode (CompDisplay *d,
     {
 	return strdup (option->value.action.bell ? "true" : "false");
     }
-    else if (inode->type & FUSE_INODE_TYPE_ALTERNATIVE)
-    {
-	int i;
-
-	if (sscanf (inode->name, "alternative%d", &i))
-	{
-	    if (i < option->rest.s.nString)
-		return strdup (option->rest.s.string[i]);
-	}
-    }
 
     return NULL;
 }
@@ -589,10 +561,6 @@ fuseUpdateInode (CompDisplay *d,
 	{
 	    int i;
 
-	    fuseAddInode (inode, FUSE_INODE_TYPE_SHORT_DESC,
-			  "short_description");
-	    fuseAddInode (inode, FUSE_INODE_TYPE_LONG_DESC,
-			  "long_description");
 	    fuseAddInode (inode, FUSE_INODE_TYPE_TYPE, "type");
 
 	    switch (option->type) {
@@ -610,9 +578,6 @@ fuseUpdateInode (CompDisplay *d,
 		break;
 	    case CompOptionTypeString:
 		fuseAddInode (inode, FUSE_INODE_TYPE_VALUE, "value");
-		if (option->rest.s.nString)
-		    fuseAddInode (inode, FUSE_INODE_TYPE_SELECTION,
-				  "selection");
 		break;
 	    case CompOptionTypeAction:
 		fuseAddInode (inode, FUSE_INODE_TYPE_KEY, "key");
@@ -630,13 +595,6 @@ fuseUpdateInode (CompDisplay *d,
 		fuseAddInode (inode, FUSE_INODE_TYPE_ITEM_COUNT,
 			      "number_of_items");
 		fuseAddInode (inode, FUSE_INODE_TYPE_ITEM_TYPE, "item_type");
-
-		if (option->value.list.type == CompOptionTypeString)
-		{
-		    if (option->rest.s.nString)
-			fuseAddInode (inode, FUSE_INODE_TYPE_SELECTION,
-				      "selection");
-		}
 	    default:
 		break;
 	    }
@@ -663,20 +621,6 @@ fuseUpdateInode (CompDisplay *d,
 
 		if (sscanf (c->name, "value%d", &i) == 0 || i >= nValue)
 		    fuseRemoveInode (inode, c);
-	    }
-	}
-    }
-    else if (inode->type & FUSE_INODE_TYPE_SELECTION)
-    {
-	option = fuseGetOptionFromInode (d, inode->parent);
-	if (option)
-	{
-	    int i;
-
-	    for (i = 0; i < option->rest.s.nString; i++)
-	    {
-		sprintf (str, "alternative%d", i);
-		fuseAddInode (inode, FUSE_INODE_TYPE_ALTERNATIVE, str);
 	    }
 	}
     }
@@ -1438,7 +1382,8 @@ fuseMount (CompDisplay *d)
 }
 
 static CompOption *
-fuseGetDisplayOptions (CompDisplay *display,
+fuseGetDisplayOptions (CompPlugin  *plugin,
+		       CompDisplay *display,
 		       int	   *count)
 {
     FUSE_DISPLAY (display);
@@ -1448,7 +1393,8 @@ fuseGetDisplayOptions (CompDisplay *display,
 }
 
 static Bool
-fuseSetDisplayOption (CompDisplay     *display,
+fuseSetDisplayOption (CompPlugin      *plugin,
+		      CompDisplay     *display,
 		      char	      *name,
 		      CompOptionValue *value)
 {
@@ -1476,20 +1422,9 @@ fuseSetDisplayOption (CompDisplay     *display,
     return FALSE;
 }
 
-static void
-fuseDisplayInitOptions (FuseDisplay *fd)
-{
-    CompOption *o;
-
-    o = &fd->opt[FUSE_DISPLAY_OPTION_MOUNT_POINT];
-    o->name	      = "mount_point";
-    o->shortDesc      = N_("Mount Point");
-    o->longDesc	      = N_("Mount point");
-    o->type	      = CompOptionTypeString;
-    o->value.s	      = strdup (FUSE_MOUNT_POINT_DEFAULT);
-    o->rest.s.string  = NULL;
-    o->rest.s.nString = 0;
-}
+static const CompMetadataOptionInfo fuseDisplayOptionInfo[] = {
+    { "mount_point", "string", 0, 0, 0 }
+};
 
 static Bool
 fuseInitDisplay (CompPlugin  *p,
@@ -1511,13 +1446,22 @@ fuseInitDisplay (CompPlugin  *p,
     if (!fd)
 	return FALSE;
 
-    fuseDisplayInitOptions (fd);
+    if (!compInitDisplayOptionsFromMetadata (d,
+					     &fuseMetadata,
+					     fuseDisplayOptionInfo,
+					     fd->opt,
+					     FUSE_DISPLAY_OPTION_NUM))
+    {
+	free (fd);
+	return FALSE;
+    }
 
     fd->session = fuse_lowlevel_new (NULL,
 				     &compiz_ll_oper, sizeof (compiz_ll_oper),
 				     (void *) d);
     if (!fd->session)
     {
+	compFiniDisplayOptions (d, fd->opt, FUSE_DISPLAY_OPTION_NUM);
 	free (fd);
 	return FALSE;
     }
@@ -1544,23 +1488,37 @@ fuseFiniDisplay (CompPlugin  *p,
 
     fuse_session_destroy (fd->session);
 
-    free (fd->opt[FUSE_DISPLAY_OPTION_MOUNT_POINT].value.s);
+    compFiniDisplayOptions (d, fd->opt, FUSE_DISPLAY_OPTION_NUM);
+
     free (fd);
 }
 
 static Bool
 fuseInit (CompPlugin *p)
 {
+    if (!compInitPluginMetadataFromInfo (&fuseMetadata,
+					 p->vTable->name,
+					 fuseDisplayOptionInfo,
+					 FUSE_DISPLAY_OPTION_NUM,
+					 0, 0))
+	return FALSE;
+
     inodes = fuseAddInode (NULL, FUSE_INODE_TYPE_ROOT, ".");
     if (!inodes)
+    {
+	compFiniMetadata (&fuseMetadata);
 	return FALSE;
+    }
 
     displayPrivateIndex = allocateDisplayPrivateIndex ();
     if (displayPrivateIndex < 0)
     {
 	fuseRemoveInode (NULL, inodes);
+	compFiniMetadata (&fuseMetadata);
 	return FALSE;
     }
+
+    compAddMetadataFromFile (&fuseMetadata, p->vTable->name);
 
     return TRUE;
 }
@@ -1568,10 +1526,9 @@ fuseInit (CompPlugin *p)
 static void
 fuseFini (CompPlugin *p)
 {
-    if (displayPrivateIndex >= 0)
-	freeDisplayPrivateIndex (displayPrivateIndex);
-
     fuseRemoveInode (NULL, inodes);
+    freeDisplayPrivateIndex (displayPrivateIndex);
+    compFiniMetadata (&fuseMetadata);
 }
 
 static int
@@ -1581,11 +1538,16 @@ fuseGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
+static CompMetadata *
+fuseGetMetadata (CompPlugin *plugin)
+{
+    return &fuseMetadata;
+}
+
 CompPluginVTable fuseVTable = {
     "fs",
-    N_("Userspace File System"),
-    N_("Userspace file system"),
     fuseGetVersion,
+    fuseGetMetadata,
     fuseInit,
     fuseFini,
     fuseInitDisplay,
@@ -1597,11 +1559,7 @@ CompPluginVTable fuseVTable = {
     fuseGetDisplayOptions,
     fuseSetDisplayOption,
     0, /* GetScreenOptions */
-    0, /* SetScreenOption */
-    0, /* Deps */
-    0, /* nDeps */
-    0, /* Features */
-    0  /* nFeatures */
+    0  /* SetScreenOption */
 };
 
 CompPluginVTable *

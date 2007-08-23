@@ -28,26 +28,14 @@
 
 #include <glib.h>
 
-#define PLACE_WORKAROUND_DEFAULT TRUE
+static CompMetadata placeMetadata;
 
-typedef enum {
-    PlaceModeCascade  = 0,
-    PlaceModeCentered = 1,
-    PlaceModeSmart    = 2,
-    PlaceModeMaximize = 3,
-    PlaceModeRandom   = 4
-} PlaceMode;
-
-static char *modeString[] = {
-    N_("Cascade"),
-    N_("Centered"),
-    N_("Smart"),
-    N_("Maximize"),
-    N_("Random")
-};
-static int nModeString = sizeof (modeString) / sizeof (modeString[0]);
-
-#define PLACE_MODE_DEFAULT (modeString[0])
+#define PLACE_MODE_CASCADE  0
+#define PLACE_MODE_CENTERED 1
+#define PLACE_MODE_SMART    2
+#define PLACE_MODE_MAXIMIZE 3
+#define PLACE_MODE_RANDOM   4
+#define PLACE_MODE_LAST     PLACE_MODE_RANDOM
 
 /* overlap types */
 #define NONE    0
@@ -58,7 +46,6 @@ static int displayPrivateIndex;
 
 typedef struct _PlaceDisplay {
     int		    screenPrivateIndex;
-    HandleEventProc handleEvent;
 } PlaceDisplay;
 
 #define PLACE_SCREEN_OPTION_WORKAROUND        0
@@ -74,9 +61,8 @@ typedef struct _PlaceDisplay {
 typedef struct _PlaceScreen {
     CompOption opt[PLACE_SCREEN_OPTION_NUM];
 
-    DamageWindowRectProc damageWindowRect;
+    PlaceWindowProc placeWindow;
 
-    PlaceMode placeMode;
 } PlaceScreen;
 
 #define GET_PLACE_DISPLAY(d)				      \
@@ -153,28 +139,9 @@ placeMatchViewport (CompWindow *w,
 			      y);
 }
 
-static void
-placeUpdateMode (CompScreen *screen)
-{
-    char *mode;
-    int  i;
-
-    PLACE_SCREEN (screen);
-
-    mode = ps->opt[PLACE_SCREEN_OPTION_MODE].value.s;
-
-    for (i = 0; i < sizeof (modeString) / sizeof (modeString[0]); i++)
-    {
-	if (strcmp (modeString[i], mode) == 0)
-	{
-	    ps->placeMode = i;
-	    break;
-	}
-    }
-}
-
 static CompOption *
-placeGetScreenOptions (CompScreen *screen,
+placeGetScreenOptions (CompPlugin *plugin,
+		       CompScreen *screen,
 		       int	  *count)
 {
     PLACE_SCREEN (screen);
@@ -184,7 +151,8 @@ placeGetScreenOptions (CompScreen *screen,
 }
 
 static Bool
-placeSetScreenOption (CompScreen      *screen,
+placeSetScreenOption (CompPlugin      *plugin,
+		      CompScreen      *screen,
 		      char	      *name,
 		      CompOptionValue *value)
 {
@@ -198,16 +166,9 @@ placeSetScreenOption (CompScreen      *screen,
 	return FALSE;
 
     switch (index) {
-    case PLACE_SCREEN_OPTION_WORKAROUND:
-	if (compSetBoolOption (o, value))
-	    return TRUE;
-	break;
     case PLACE_SCREEN_OPTION_MODE:
-	if (compSetStringOption (o, value))
-	{
-	    placeUpdateMode (screen);
+	if (compSetIntOption (o, value))
 	    return TRUE;
-	}
 	break;
     case PLACE_SCREEN_OPTION_POSITION_MATCHES:
     case PLACE_SCREEN_OPTION_VIEWPORT_MATCHES:
@@ -219,108 +180,15 @@ placeSetScreenOption (CompScreen      *screen,
 		matchUpdate (screen->display, &o->value.list.value[i].match);
 
 	    return TRUE;
-	}
-	break;
-    case PLACE_SCREEN_OPTION_POSITION_X_VALUES:
-    case PLACE_SCREEN_OPTION_POSITION_Y_VALUES:
-    case PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES:
-    case PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES:
-	if (compSetOptionList (o, value))
-	    return TRUE;
+       }
+       break;
     default:
+	if (compSetOption (o, value))
+	    return TRUE;
 	break;
     }
 
     return FALSE;
-}
-
-static void
-placeScreenInitOptions (PlaceScreen *ps)
-{
-    CompOption *o;
-
-    o = &ps->opt[PLACE_SCREEN_OPTION_WORKAROUND];
-    o->name	 = "workarounds";
-    o->shortDesc = N_("Workarounds");
-    o->longDesc	 = N_("Window placement workarounds");
-    o->type	 = CompOptionTypeBool;
-    o->value.b	 = PLACE_WORKAROUND_DEFAULT;
-
-    o = &ps->opt[PLACE_SCREEN_OPTION_MODE];
-    o->name	      = "mode";
-    o->shortDesc      = N_("Placement Mode");
-    o->longDesc	      = N_("Algorithm to use for window placement");
-    o->type	      = CompOptionTypeString;
-    o->value.s	      = strdup (PLACE_MODE_DEFAULT);
-    o->rest.s.string  = modeString;
-    o->rest.s.nString = nModeString;
-
-    o = &ps->opt[PLACE_SCREEN_OPTION_POSITION_MATCHES];
-    o->name	         = "position_matches";
-    o->shortDesc         = N_("Positioned windows");
-    o->longDesc	         = N_("Windows that should be positioned by default");
-    o->type	         = CompOptionTypeList;
-    o->value.list.type   = CompOptionTypeMatch;
-    o->value.list.nValue = 0;
-    o->value.list.value  = NULL;
-    o->rest.s.string     = NULL;
-    o->rest.s.nString    = 0;
-
-    o = &ps->opt[PLACE_SCREEN_OPTION_POSITION_X_VALUES];
-    o->name	         = "position_x_values";
-    o->shortDesc         = N_("X Positions");
-    o->longDesc	         = N_("X position values");
-    o->type	         = CompOptionTypeList;
-    o->value.list.type   = CompOptionTypeInt;
-    o->value.list.nValue = 0;
-    o->value.list.value  = NULL;
-    o->rest.i.min	 = MINSHORT;
-    o->rest.i.max	 = MAXSHORT;
-
-    o = &ps->opt[PLACE_SCREEN_OPTION_POSITION_Y_VALUES];
-    o->name	         = "position_y_values";
-    o->shortDesc         = N_("Y Positions");
-    o->longDesc	         = N_("Y position values");
-    o->type	         = CompOptionTypeList;
-    o->value.list.type   = CompOptionTypeInt;
-    o->value.list.nValue = 0;
-    o->value.list.value  = NULL;
-    o->rest.i.min	 = MINSHORT;
-    o->rest.i.max	 = MAXSHORT;
-
-    o = &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_MATCHES];
-    o->name	         = "viewport_matches";
-    o->shortDesc         = N_("Viewport positioned windows");
-    o->longDesc	         = N_("Windows that should positioned in specific "
-			      "viewports by default");
-    o->type	         = CompOptionTypeList;
-    o->value.list.type   = CompOptionTypeMatch;
-    o->value.list.nValue = 0;
-    o->value.list.value  = NULL;
-    o->rest.s.string     = NULL;
-    o->rest.s.nString    = 0;
-
-    o = &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES];
-    o->name	         = "viewport_x_values";
-    o->shortDesc         = N_("X Viewport Positions");
-    o->longDesc	         = N_("Horizontal viewport positions");
-    o->type	         = CompOptionTypeList;
-    o->value.list.type   = CompOptionTypeInt;
-    o->value.list.nValue = 0;
-    o->value.list.value  = NULL;
-    o->rest.i.min	 = 0;
-    o->rest.i.max	 = 32;
-
-    o = &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES];
-    o->name	         = "viewport_y_values";
-    o->shortDesc         = N_("Y Viewport Positions");
-    o->longDesc	         = N_("Vertical viewport positions");
-    o->type	         = CompOptionTypeList;
-    o->value.list.type   = CompOptionTypeInt;
-    o->value.list.nValue = 0;
-    o->value.list.value  = NULL;
-    o->rest.i.min	 = 0;
-    o->rest.i.max	 = 32;
 }
 
 typedef enum {
@@ -413,6 +281,16 @@ static int
 get_window_height (CompWindow *window)
 {
     return window->serverHeight + window->serverBorderWidth * 2;
+}
+
+static void
+get_outer_rect_of_window (CompWindow *w,
+			  XRectangle *r)
+{
+    r->x      = w->serverX - w->input.left;
+    r->y      = w->serverY - w->input.top;
+    r->width  = get_window_width (w)  + w->input.left + w->input.right;
+    r->height = get_window_height (w) + w->input.top  + w->input.bottom;
 }
 
 static void
@@ -563,8 +441,8 @@ find_most_freespace (CompWindow *window,
 
     get_workarea_of_current_output_device (window->screen, &work_area);
 
-    getOuterRectOfWindow (focus_window, &avoid);
-    getOuterRectOfWindow (window, &outer);
+    get_outer_rect_of_window (focus_window, &avoid);
+    get_outer_rect_of_window (window, &outer);
 
     /* Find the areas of choosing the various sides of the focus window */
     max_width  = MIN (avoid.width, outer.width);
@@ -705,7 +583,7 @@ rectangle_overlaps_some_window (XRectangle *rect,
 	case CompWindowTypeUtilMask:
 	case CompWindowTypeToolbarMask:
 	case CompWindowTypeMenuMask:
-	    getOuterRectOfWindow (other, &other_rect);
+	    get_outer_rect_of_window (other, &other_rect);
 
 	    if (rectangleIntersect (rect, &other_rect, &dest))
 		return TRUE;
@@ -826,7 +704,7 @@ find_first_fit (CompWindow *window,
     right_sorted = g_list_sort (right_sorted, topmost_cmp);
     right_sorted = g_list_sort (right_sorted, leftmost_cmp);
 
-    getOuterRectOfWindow (window, &rect);
+    get_outer_rect_of_window (window, &rect);
 
     get_workarea_of_current_output_device (window->screen, &work_area);
 
@@ -855,7 +733,7 @@ find_first_fit (CompWindow *window,
 	CompWindow *w = tmp->data;
 	XRectangle outer_rect;
 
-	getOuterRectOfWindow (w, &outer_rect);
+	get_outer_rect_of_window (w, &outer_rect);
 
 	rect.x = outer_rect.x;
 	rect.y = outer_rect.y + outer_rect.height;
@@ -881,7 +759,7 @@ find_first_fit (CompWindow *window,
 	CompWindow *w = tmp->data;
 	XRectangle outer_rect;
 
-	getOuterRectOfWindow (w, &outer_rect);
+	get_outer_rect_of_window (w, &outer_rect);
 
 	rect.x = outer_rect.x + outer_rect.width;
 	rect.y = outer_rect.y;
@@ -964,8 +842,10 @@ placeSmart (CompWindow *window,
     xOptimal = xTmp; yOptimal = yTmp;
 
     /* client gabarit */
-    int ch = get_window_height (window) - 1;
-    int cw = get_window_width (window) - 1;
+    int ch = get_window_height (window) + window->input.left +
+	     window->input.right - 1;
+    int cw = get_window_width (window) + window->input.top +
+	     window->input.bottom - 1;
 
     /* loop over possible positions */
     do
@@ -993,12 +873,12 @@ placeSmart (CompWindow *window,
 				    CompWindowTypeDesktopMask)))
 		{
 
-		    xl = wi->attrib.x;
-		    yt = wi->attrib.y;
+		    xl = wi->attrib.x - wi->input.left;
+		    yt = wi->attrib.y - wi->input.top;
 		    xr = xl + get_window_width (wi) + window->input.left
-			+ window->input.right;
+			+ wi->input.right;
 		    yb = yt + get_window_height (wi) + window->input.top
-			+ window->input.bottom;
+			+ wi->input.bottom;
 
 		    /* if windows overlap, calc the overall overlapping */
 		    if ((cxl < xr) && (cxr > xl) &&
@@ -1041,7 +921,7 @@ placeSmart (CompWindow *window,
 	/* really need to loop? test if there's any overlap */
 	if (overlap > NONE)
 	{
-	    possible = workarea->width;
+	    possible = workarea->x + workarea->width;
 
 	    if (possible - cw > xTmp) possible -= cw;
 
@@ -1055,12 +935,12 @@ placeSmart (CompWindow *window,
 				    CompWindowTypeDesktopMask)))
 		{
 
-		    xl = wi->attrib.x;
-		    yt = wi->attrib.y;
-		    xr = xl + get_window_width (wi) + window->input.left
-			+ window->input.right;
-		    yb = yt + get_window_height (wi) + window->input.top
-			+ window->input.bottom;
+		    xl = wi->attrib.x - wi->input.left;
+		    yt = wi->attrib.y - wi->input.top;
+		    xr = xl + get_window_width (wi) + wi->input.left
+			+ wi->input.right;
+		    yb = yt + get_window_height (wi) + wi->input.top
+			+ wi->input.bottom;
 
 		    /* if not enough room above or under the current
 		     * client determine the first non-overlapped x position
@@ -1094,12 +974,12 @@ placeSmart (CompWindow *window,
 		    !(wi->wmType & (CompWindowTypeDockMask |
 				    CompWindowTypeDesktopMask)))
 		{
-		    xl = wi->attrib.x;
-		    yt = wi->attrib.y;
-		    xr = xl + get_window_width (wi) + window->input.left
-			+ window->input.right;
-		    yb = yt + get_window_height (wi) + window->input.top
-			+ window->input.bottom;
+		    xl = wi->attrib.x - wi->input.left;
+		    yt = wi->attrib.y - wi->input.top;
+		    xr = xl + get_window_width (wi) + wi->input.left
+			+ wi->input.right;
+		    yb = yt + get_window_height (wi) + wi->input.top
+			+ wi->input.bottom;
 
 		    /* if not enough room to the left or right of the current
 		     * client determine the first non-overlapped y position
@@ -1121,16 +1001,16 @@ placeSmart (CompWindow *window,
     if (ch >= workarea->height)
 	yOptimal = workarea->y;
 
-    *x = xOptimal;
-    *y = yOptimal;
+    *x = xOptimal + window->input.left;
+    *y = yOptimal + window->input.top;
 }
 
 static void
-placeWindow (CompWindow *window,
-	     int        x,
-	     int        y,
-	     int        *new_x,
-	     int        *new_y)
+placeWin (CompWindow *window,
+     	  int        x,
+	  int        y,
+	  int        *new_x,
+	  int        *new_y)
 {
     CompWindow *wi;
     GList      *windows;
@@ -1352,8 +1232,8 @@ placeWindow (CompWindow *window,
 
     if (!placeMatchPosition (window, &x, &y))
     {
-	switch (ps->placeMode) {
-	case PlaceModeCascade:
+	switch (ps->opt[PLACE_SCREEN_OPTION_MODE].value.i) {
+	case PLACE_MODE_CASCADE:
 	    if (find_first_fit (window, windows, x, y, &x, &y))
 		goto done_check_denied_focus;
 
@@ -1362,17 +1242,19 @@ placeWindow (CompWindow *window,
 	     */
 	    find_next_cascade (window, windows, x, y, &x, &y);
 	    break;
-	case PlaceModeCentered:
+	case PLACE_MODE_CENTERED:
 	    placeCentered (window, &work_area, &x, &y);
 	    break;
-	case PlaceModeRandom:
+	case PLACE_MODE_RANDOM:
 	    placeRandom (window, &work_area, &x, &y);
 	    break;
-	case PlaceModeSmart:
+	case PLACE_MODE_SMART:
 	    placeSmart (window, &work_area, &x, &y);
 	    break;
-	case PlaceModeMaximize:
+	case PLACE_MODE_MAXIMIZE:
 	    maximizeWindow (window, MAXIMIZE_STATE);
+	    break;
+	default:
 	    break;
 	}
     }
@@ -1387,7 +1269,7 @@ placeWindow (CompWindow *window,
     {
 	XRectangle outer;
 
-	getOuterRectOfWindow (window, &outer);
+	get_outer_rect_of_window (window, &outer);
 
 	if (outer.width >= work_area.width && outer.height >= work_area.height)
 	    maximizeWindow (window, MAXIMIZE_STATE);
@@ -1411,8 +1293,8 @@ done_check_denied_focus:
 	{
 	    XRectangle wr, fwr, overlap;
 
-	    getOuterRectOfWindow (window, &wr);
-	    getOuterRectOfWindow (focus_window, &fwr);
+	    get_outer_rect_of_window (window, &wr);
+	    get_outer_rect_of_window (focus_window, &fwr);
 
 	    /* No need to do anything if the window doesn't overlap at all */
 	    found_fit = !rectangleIntersect (&wr, &fwr, &overlap);
@@ -1468,44 +1350,37 @@ done_no_constraints:
 }
 
 static Bool
-placeDamageWindowRect (CompWindow *w,
-		       Bool	  initial,
-		       BoxPtr     rect)
+placePlaceWindow (CompWindow *w,
+		  int        x,
+		  int        y,
+		  int        *newX,
+		  int        *newY)
 {
     Bool status;
 
     PLACE_SCREEN (w->screen);
 
-    UNWRAP (ps, w->screen, damageWindowRect);
-    status = (*w->screen->damageWindowRect) (w, initial, rect);
-    WRAP (ps, w->screen, damageWindowRect, placeDamageWindowRect);
+    UNWRAP (ps, w->screen, placeWindow);
+    status = (*w->screen->placeWindow) (w, x, y, newX, newY);
+    WRAP (ps, w->screen, placeWindow, placePlaceWindow);
 
-    if (initial && !w->attrib.override_redirect && !w->placed)
+    if (!status)
     {
 	int viewportX, viewportY;
-	int newX, newY;
 
-	placeWindow (w, w->serverX, w->serverY, &newX, &newY);
+	placeWin (w, x, y, newX, newY);
 
 	if (placeMatchViewport (w, &viewportX, &viewportY))
 	{
 	    viewportX = MAX (MIN (viewportX, w->screen->hsize), 0);
 	    viewportY = MAX (MIN (viewportY, w->screen->vsize), 0);
 
-	    newX += (viewportX - w->screen->x) * w->screen->width;
-	    newY += (viewportY - w->screen->y) * w->screen->height;
-	}
-
-	w->placed = TRUE;
-
-	if (newX != w->serverX || newY != w->serverY)
-	{
-	    moveWindow (w, newX - w->attrib.x, newY - w->attrib.y, FALSE, TRUE);
-	    syncWindowPosition (w);
+	    *newX += (viewportX - w->screen->x) * w->screen->width;
+	    *newY += (viewportY - w->screen->y) * w->screen->height;
 	}
     }
 
-    return status;
+    return TRUE;
 }
 
 static Bool
@@ -1541,6 +1416,17 @@ placeFiniDisplay (CompPlugin  *p,
     free (pd);
 }
 
+static const CompMetadataOptionInfo placeScreenOptionInfo[] = {
+    { "workarounds", "bool", 0, 0, 0 },
+    { "mode", "int", RESTOSTRING (0, PLACE_MODE_LAST), 0, 0 },
+    { "position_matches", "list", "<type>match</type>", 0, 0 },
+    { "position_x_values", "list", "<type>int</type>", 0, 0 },
+    { "position_y_values", "list", "<type>int</type>", 0, 0 },
+    { "viewport_matches", "list", "<type>match</type>", 0, 0 },
+    { "viewport_x_values", "list", "<type>int</type>", 0, 0 },
+    { "viewport_y_values", "list", "<type>int</type>", 0, 0 }
+};
+
 static Bool
 placeInitScreen (CompPlugin *p,
 		 CompScreen *s)
@@ -1553,13 +1439,19 @@ placeInitScreen (CompPlugin *p,
     if (!ps)
 	return FALSE;
 
-    placeScreenInitOptions (ps);
-
-    WRAP (ps, s, damageWindowRect, placeDamageWindowRect);
+    if (!compInitScreenOptionsFromMetadata (s,
+					    &placeMetadata,
+					    placeScreenOptionInfo,
+					    ps->opt,
+					    PLACE_SCREEN_OPTION_NUM))
+    {
+	free (ps);
+	return FALSE;
+    }
 
     s->privates[pd->screenPrivateIndex].ptr = ps;
 
-    placeUpdateMode (s);
+    WRAP (ps, s, placeWindow, placePlaceWindow);
 
     return TRUE;
 }
@@ -1570,7 +1462,9 @@ placeFiniScreen (CompPlugin *p,
 {
     PLACE_SCREEN (s);
 
-    UNWRAP (ps, s, damageWindowRect);
+    UNWRAP (ps, s, placeWindow);
+
+    compFiniScreenOptions (s, ps->opt, PLACE_SCREEN_OPTION_NUM);
 
     free (ps);
 }
@@ -1578,9 +1472,20 @@ placeFiniScreen (CompPlugin *p,
 static Bool
 placeInit (CompPlugin *p)
 {
+    if (!compInitPluginMetadataFromInfo (&placeMetadata,
+					 p->vTable->name, 0, 0,
+					 placeScreenOptionInfo,
+					 PLACE_SCREEN_OPTION_NUM))
+	return FALSE;
+
     displayPrivateIndex = allocateDisplayPrivateIndex ();
     if (displayPrivateIndex < 0)
+    {
+	compFiniMetadata (&placeMetadata);
 	return FALSE;
+    }
+
+    compAddMetadataFromFile (&placeMetadata, p->vTable->name);
 
     return TRUE;
 }
@@ -1588,8 +1493,8 @@ placeInit (CompPlugin *p)
 static void
 placeFini (CompPlugin *p)
 {
-    if (displayPrivateIndex >= 0)
-	freeDisplayPrivateIndex (displayPrivateIndex);
+    freeDisplayPrivateIndex (displayPrivateIndex);
+    compFiniMetadata (&placeMetadata);
 }
 
 static int
@@ -1599,11 +1504,16 @@ placeGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
+static CompMetadata *
+placeGetMetadata (CompPlugin *plugin)
+{
+    return &placeMetadata;
+}
+
 static CompPluginVTable placeVTable = {
     "place",
-    N_("Place Windows"),
-    N_("Place windows at appropriate positions when mapped"),
     placeGetVersion,
+    placeGetMetadata,
     placeInit,
     placeFini,
     placeInitDisplay,
@@ -1615,11 +1525,7 @@ static CompPluginVTable placeVTable = {
     0, /* GetDisplayOptions */
     0, /* SetDisplayOption */
     placeGetScreenOptions,
-    placeSetScreenOption,
-    0, /* Deps */
-    0, /* nDeps */
-    0, /* Features */
-    0  /* nFeatures */
+    placeSetScreenOption
 };
 
 CompPluginVTable *

@@ -11,7 +11,18 @@ libcompiz_module     = libcompiz.la
 desktopfilesdir	      = $(DESTDIR)$(windowsettingsdatadir)/gnome/wm-properties
 desktopfiles_in_files = compiz.desktop.in
 desktopfiles_files    = $(desktopfiles_in_files:.desktop.in=.desktop)
-noinst_DATA           = $(desktopfiles_files)
+
+@INTLTOOL_DESKTOP_RULE@
+
+if USE_GNOME_KEYBINDINGS
+
+xmldir       = $(DESTDIR)$(keybindingsdir)
+xml_in_files = 50-compiz-desktop-key.xml.in 50-compiz-key.xml.in
+xml_files    = $(xml_in_files:.xml.in=.xml)
+
+@INTLTOOL_XML_NOMERGE_RULE@
+
+endif
 
 install-exec-local:
 	if mkdir -p $(moduledir) && test -w $(moduledir); then ( \
@@ -26,6 +37,13 @@ install-data-local:
 		$(desktopfilesdir) \
 		); \
 	fi
+if USE_GNOME_KEYBINDINGS
+	if mkdir -p $(xmldir) && test -w $(xmldir); then ( \
+		$(INSTALL) -m 644 $(xml_files) \
+		$(xmldir) \
+		); \
+	fi
+endif
 
 uninstall-local:
 	if test -w $(moduledir); then ( \
@@ -36,7 +54,12 @@ uninstall-local:
 		rm -f $(desktopfilesdir)/compiz.desktop \
 		); \
 	fi
-
+if USE_GNOME_KEYBINDINGS
+	if test -w $(xmldir); then ( \
+		rm -f $(xmldir)/50-compiz*key.xml \
+		); \
+	fi
+endif
 endif
 
 INCLUDES = @GNOME_WINDOW_SETTINGS_CFLAGS@			   \
@@ -44,3 +67,16 @@ INCLUDES = @GNOME_WINDOW_SETTINGS_CFLAGS@			   \
 
 noinst_LTLIBRARIES = \
 	$(libcompiz_module)
+
+noinst_DATA =		      \
+	$(desktopfiles_files) \
+	$(xml_files)
+
+EXTRA_DIST =			 \
+	$(desktopfiles_files) 	 \
+	$(desktopfiles_in_files) \
+	$(xml_files)		 \
+	$(xml_in_files)
+
+DISTCLEANFILES = \
+	$(noinst_DATA)

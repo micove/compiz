@@ -31,8 +31,7 @@
 
 #include <compiz.h>
 
-#define CLONE_INITIATE_BUTTON_DEFAULT           Button1
-#define CLONE_INITIATE_BUTTON_MODIFIERS_DEFAULT (CompSuperMask | ShiftMask)
+static CompMetadata cloneMetadata;
 
 static int displayPrivateIndex;
 
@@ -56,7 +55,7 @@ typedef struct _CloneClone {
 typedef struct _CloneScreen {
     PreparePaintScreenProc preparePaintScreen;
     DonePaintScreenProc	   donePaintScreen;
-    PaintScreenProc	   paintScreen;
+    PaintOutputProc	   paintOutput;
     PaintWindowProc	   paintWindow;
     OutputChangeNotifyProc outputChangeNotify;
 
@@ -285,17 +284,19 @@ cloneDonePaintScreen (CompScreen *s)
 }
 
 static Bool
-clonePaintScreen (CompScreen		  *s,
+clonePaintOutput (CompScreen		  *s,
 		  const ScreenPaintAttrib *sAttrib,
 		  const CompTransform	  *transform,
 		  Region		  region,
-		  int			  output,
+		  CompOutput		  *outputPtr,
 		  unsigned int		  mask)
 {
     Bool status;
-    int  i, dst = output;
+    int  i, dst, output = 0;
 
     CLONE_SCREEN (s);
+
+    dst = output = (outputPtr->id != ~0) ? outputPtr->id : 0;
 
     if (!cs->grab || cs->grabbedOutput != output)
     {
@@ -317,9 +318,14 @@ clonePaintScreen (CompScreen		  *s,
 	}
     }
 
-    UNWRAP (cs, s, paintScreen);
-    status = (*s->paintScreen) (s, sAttrib, transform, region, dst, mask);
-    WRAP (cs, s, paintScreen, clonePaintScreen);
+    UNWRAP (cs, s, paintOutput);
+    if (outputPtr->id != ~0)
+	status = (*s->paintOutput) (s, sAttrib, transform, region,
+				    &s->outputDev[dst], mask);
+    else
+	status = (*s->paintOutput) (s, sAttrib, transform, region,
+				    outputPtr, mask);
+    WRAP (cs, s, paintOutput, clonePaintOutput);
 
     if (cs->grab)
     {
@@ -376,11 +382,11 @@ clonePaintScreen (CompScreen		  *s,
 	zoomY = zoom1 * (1.0f - cs->offset) + zoom2y * cs->offset;
 
 	matrixTranslate (&sTransform, -0.5f, -0.5f, -DEFAULT_Z_CAMERA);
-	matrixScale (&sTransform, 
+	matrixScale (&sTransform,
 		     1.0f  / s->outputDev[output].width,
 		     -1.0f / s->outputDev[output].height,
 		     1.0f);
-	matrixTranslate (&sTransform, 
+	matrixTranslate (&sTransform,
 			 dx - s->outputDev[output].region.extents.x1,
 			 dy - s->outputDev[output].region.extents.y2,
 			 0.0f);
@@ -680,7 +686,8 @@ cloneOutputChangeNotify (CompScreen *s)
 }
 
 static CompOption *
-cloneGetDisplayOptions (CompDisplay *display,
+cloneGetDisplayOptions (CompPlugin  *plugin,
+			CompDisplay *display,
 			int	    *count)
 {
     CLONE_DISPLAY (display);
@@ -690,49 +697,26 @@ cloneGetDisplayOptions (CompDisplay *display,
 }
 
 static Bool
-cloneSetDisplayOption (CompDisplay     *display,
+cloneSetDisplayOption (CompPlugin      *plugin,
+		       CompDisplay     *display,
 		       char	       *name,
 		       CompOptionValue *value)
 {
     CompOption *o;
-    int	       index;
 
     CLONE_DISPLAY (display);
 
-    o = compFindOption (cd->opt, NUM_OPTIONS (cd), name, &index);
+    o = compFindOption (cd->opt, NUM_OPTIONS (cd), name, NULL);
     if (!o)
 	return FALSE;
 
-    switch (index) {
-    case CLONE_DISPLAY_OPTION_INITIATE:
-	if (setDisplayAction (display, o, value))
-	    return TRUE;
-    default:
-	break;
-    }
-
-    return FALSE;
+    return compSetDisplayOption (display, o, value);
 }
 
-static void
-cloneDisplayInitOptions (CloneDisplay *cd)
-{
-    CompOption *o;
-
-    o = &cd->opt[CLONE_DISPLAY_OPTION_INITIATE];
-    o->name			     = "initiate";
-    o->shortDesc		     = N_("Initiate");
-    o->longDesc			     = N_("Initiate clone selection");
-    o->type			     = CompOptionTypeAction;
-    o->value.action.initiate	     = cloneInitiate;
-    o->value.action.terminate	     = cloneTerminate;
-    o->value.action.bell	     = FALSE;
-    o->value.action.edgeMask	     = 0;
-    o->value.action.state	     = CompActionStateInitButton;
-    o->value.action.type	     = CompBindingTypeButton;
-    o->value.action.button.modifiers = CLONE_INITIATE_BUTTON_MODIFIERS_DEFAULT;
-    o->value.action.button.button    = CLONE_INITIATE_BUTTON_DEFAULT;
-}
+static const CompMetadataOptionInfo cloneDisplayOptionInfo[] = {
+    { "initiate", "action", "<allowed button=\"true\"/>", cloneInitiate,
+      cloneTerminate }
+};
 
 static Bool
 cloneInitDisplay (CompPlugin  *p,
@@ -744,14 +728,23 @@ cloneInitDisplay (CompPlugin  *p,
     if (!cd)
 	return FALSE;
 
-    cd->screenPrivateIndex = allocateScreenPrivateIndex (d);
-    if (cd->screenPrivateIndex < 0)
+    if (!compInitDisplayOptionsFromMetadata (d,
+					     &cloneMetadata,
+					     cloneDisplayOptionInfo,
+					     cd->opt,
+					     CLONE_DISPLAY_OPTION_NUM))
     {
 	free (cd);
 	return FALSE;
     }
 
-    cloneDisplayInitOptions (cd);
+    cd->screenPrivateIndex = allocateScreenPrivateIndex (d);
+    if (cd->screenPrivateIndex < 0)
+    {
+	compFiniDisplayOptions (d, cd->opt, CLONE_DISPLAY_OPTION_NUM);
+	free (cd);
+	return FALSE;
+    }
 
     WRAP (cd, d, handleEvent, cloneHandleEvent);
 
@@ -769,6 +762,8 @@ cloneFiniDisplay (CompPlugin  *p,
     freeScreenPrivateIndex (d, cd->screenPrivateIndex);
 
     UNWRAP (cd, d, handleEvent);
+
+    compFiniDisplayOptions (d, cd->opt, CLONE_DISPLAY_OPTION_NUM);
 
     free (cd);
 }
@@ -797,11 +792,9 @@ cloneInitScreen (CompPlugin *p,
 
     cs->src = 0;
 
-    addScreenAction (s, &cd->opt[CLONE_DISPLAY_OPTION_INITIATE].value.action);
-
     WRAP (cs, s, preparePaintScreen, clonePreparePaintScreen);
     WRAP (cs, s, donePaintScreen, cloneDonePaintScreen);
-    WRAP (cs, s, paintScreen, clonePaintScreen);
+    WRAP (cs, s, paintOutput, clonePaintOutput);
     WRAP (cs, s, paintWindow, clonePaintWindow);
     WRAP (cs, s, outputChangeNotify, cloneOutputChangeNotify);
 
@@ -815,14 +808,10 @@ cloneFiniScreen (CompPlugin *p,
 		 CompScreen *s)
 {
     CLONE_SCREEN (s);
-    CLONE_DISPLAY (s->display);
-    
-    removeScreenAction (s, 
-			&cd->opt[CLONE_DISPLAY_OPTION_INITIATE].value.action);
 
     UNWRAP (cs, s, preparePaintScreen);
     UNWRAP (cs, s, donePaintScreen);
-    UNWRAP (cs, s, paintScreen);
+    UNWRAP (cs, s, paintOutput);
     UNWRAP (cs, s, paintWindow);
     UNWRAP (cs, s, outputChangeNotify);
 
@@ -832,9 +821,21 @@ cloneFiniScreen (CompPlugin *p,
 static Bool
 cloneInit (CompPlugin *p)
 {
+    if (!compInitPluginMetadataFromInfo (&cloneMetadata,
+					 p->vTable->name,
+					 cloneDisplayOptionInfo,
+					 CLONE_DISPLAY_OPTION_NUM,
+					 0, 0))
+	return FALSE;
+
     displayPrivateIndex = allocateDisplayPrivateIndex ();
     if (displayPrivateIndex < 0)
+    {
+	compFiniMetadata (&cloneMetadata);
 	return FALSE;
+    }
+
+    compAddMetadataFromFile (&cloneMetadata, p->vTable->name);
 
     return TRUE;
 }
@@ -842,8 +843,8 @@ cloneInit (CompPlugin *p)
 static void
 cloneFini (CompPlugin *p)
 {
-    if (displayPrivateIndex >= 0)
-	freeDisplayPrivateIndex (displayPrivateIndex);
+    freeDisplayPrivateIndex (displayPrivateIndex);
+    compFiniMetadata (&cloneMetadata);
 }
 
 static int
@@ -853,11 +854,16 @@ cloneGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
+static CompMetadata *
+cloneGetMetadata (CompPlugin *plugin)
+{
+    return &cloneMetadata;
+}
+
 CompPluginVTable cloneVTable = {
     "clone",
-    N_("Clone Output"),
-    N_("Output clone handler"),
     cloneGetVersion,
+    cloneGetMetadata,
     cloneInit,
     cloneFini,
     cloneInitDisplay,
@@ -869,11 +875,7 @@ CompPluginVTable cloneVTable = {
     cloneGetDisplayOptions,
     cloneSetDisplayOption,
     0, /* GetScreenOptions */
-    0, /* SetScreenOption */
-    0, /* Deps */
-    0, /* nDeps */
-    0, /* Features */
-    0  /* nFeatures */
+    0  /* SetScreenOption */
 };
 
 CompPluginVTable *

@@ -1,4 +1,3 @@
-0001_upstream-fix-byteorder-check.patch
-011_snap-by-default.patch
+012_snap-by-default.patch
 014_fix-no-border-window-shadow.patch
 015_optional-fbo.patch

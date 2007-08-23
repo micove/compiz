@@ -28,16 +28,7 @@
 
 #include <compiz.h>
 
-#define FADE_SPEED_DEFAULT    5.0f
-#define FADE_SPEED_MIN        0.1f
-#define FADE_SPEED_MAX       25.0f
-#define FADE_SPEED_PRECISION  0.1f
-
-#define FADE_WINDOW_MATCH_DEFAULT "any"
-
-#define FADE_VISUAL_BELL_DEFAULT FALSE
-
-#define FADE_FULLSCREEN_VISUAL_BELL_DEFAULT FALSE
+static CompMetadata fadeMetadata;
 
 static int displayPrivateIndex;
 
@@ -52,7 +43,8 @@ typedef struct _FadeDisplay {
 #define FADE_SCREEN_OPTION_WINDOW_MATCH		  1
 #define FADE_SCREEN_OPTION_VISUAL_BELL		  2
 #define FADE_SCREEN_OPTION_FULLSCREEN_VISUAL_BELL 3
-#define FADE_SCREEN_OPTION_NUM			  4
+#define FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE	  4
+#define FADE_SCREEN_OPTION_NUM			  5
 
 typedef struct _FadeScreen {
     int			   windowPrivateIndex;
@@ -120,7 +112,8 @@ fadeUpdateWindowFadeMatch (CompDisplay     *display,
 }
 
 static CompOption *
-fadeGetScreenOptions (CompScreen *screen,
+fadeGetScreenOptions (CompPlugin *plugin,
+		      CompScreen *screen,
 		      int	 *count)
 {
     FADE_SCREEN (screen);
@@ -130,7 +123,8 @@ fadeGetScreenOptions (CompScreen *screen,
 }
 
 static Bool
-fadeSetScreenOption (CompScreen      *screen,
+fadeSetScreenOption (CompPlugin      *plugin,
+		     CompScreen      *screen,
 		     char	     *name,
 		     CompOptionValue *value)
 {
@@ -158,54 +152,13 @@ fadeSetScreenOption (CompScreen      *screen,
 	    return TRUE;
 	}
 	break;
-    case FADE_SCREEN_OPTION_VISUAL_BELL:
-    case FADE_SCREEN_OPTION_FULLSCREEN_VISUAL_BELL:
-	if (compSetBoolOption (o, value))
-	    return TRUE;
     default:
+	if (compSetOption (o, value))
+	    return TRUE;
 	break;
     }
 
     return FALSE;
-}
-
-static void
-fadeScreenInitOptions (FadeScreen *fs)
-{
-    CompOption *o;
-
-    o = &fs->opt[FADE_SCREEN_OPTION_FADE_SPEED];
-    o->name		= "fade_speed";
-    o->shortDesc	= N_("Fade Speed");
-    o->longDesc		= N_("Window fade speed");
-    o->type		= CompOptionTypeFloat;
-    o->value.f		= FADE_SPEED_DEFAULT;
-    o->rest.f.min	= FADE_SPEED_MIN;
-    o->rest.f.max	= FADE_SPEED_MAX;
-    o->rest.f.precision = FADE_SPEED_PRECISION;
-
-    o = &fs->opt[FADE_SCREEN_OPTION_WINDOW_MATCH];
-    o->name	         = "window_match";
-    o->shortDesc         = N_("Fade windows");
-    o->longDesc	         = N_("Windows that should be fading");
-    o->type	         = CompOptionTypeMatch;
-
-    matchInit (&o->value.match);
-    matchAddFromString (&o->value.match, FADE_WINDOW_MATCH_DEFAULT);
-
-    o = &fs->opt[FADE_SCREEN_OPTION_VISUAL_BELL];
-    o->name	  = "visual_bell";
-    o->shortDesc  = N_("Visual Bell");
-    o->longDesc	  = N_("Fade effect on system beep");
-    o->type	  = CompOptionTypeBool;
-    o->value.b    = FADE_VISUAL_BELL_DEFAULT;
-
-    o = &fs->opt[FADE_SCREEN_OPTION_FULLSCREEN_VISUAL_BELL];
-    o->name	  = "fullscreen_visual_bell";
-    o->shortDesc  = N_("Fullscreen Visual Bell");
-    o->longDesc	  = N_("Fullscreen fade effect on system beep");
-    o->type	  = CompOptionTypeBool;
-    o->value.b    = FADE_FULLSCREEN_VISUAL_BELL_DEFAULT;
 }
 
 static void
@@ -456,6 +409,9 @@ fadeHandleEvent (CompDisplay *d,
 	{
 	    FADE_SCREEN (w->screen);
 
+	    if (!fs->opt[FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE].value.b)
+		break;
+
 	    if (w->texture->pixmap && matchEval (&fs->match, w))
 	    {
 		FADE_WINDOW (w);
@@ -483,6 +439,9 @@ fadeHandleEvent (CompDisplay *d,
 
 	    fw->shaded = w->shaded;
 
+	    if (!fs->opt[FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE].value.b)
+		break;
+
 	    if (!fw->shaded && w->texture->pixmap && matchEval (&fs->match, w))
 	    {
 		if (fw->opacity == 0xffff)
@@ -503,6 +462,11 @@ fadeHandleEvent (CompDisplay *d,
 	w = findWindowAtDisplay (d, event->xmap.window);
 	if (w)
 	{
+	    FADE_SCREEN(w->screen);
+
+	    if (!fs->opt[FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE].value.b)
+		break;
+
 	    fadeWindowStop (w);
 
 	    if (w->state & CompWindowStateDisplayModalMask)
@@ -611,7 +575,10 @@ fadeDamageWindowRect (CompWindow *w,
 	}
 	else if (matchEval (&fs->match, w))
 	{
-	    fw->opacity = 0;
+	    if (fs->opt[FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE].value.b)
+	    {
+		fw->opacity = 0;
+	    }
 	}
     }
 
@@ -713,6 +680,14 @@ fadeFiniDisplay (CompPlugin *p,
     free (fd);
 }
 
+static const CompMetadataOptionInfo fadeScreenOptionInfo[] = {
+    { "fade_speed", "float", "<min>0.1</min>", 0, 0 },
+    { "window_match", "match", "<helper>true</helper>", 0, 0 },
+    { "visual_bell", "bool", 0, 0, 0 },
+    { "fullscreen_visual_bell", "bool", 0, 0, 0 },
+    { "minimize_open_close", "bool", 0, 0, 0 }
+};
+
 static Bool
 fadeInitScreen (CompPlugin *p,
 		CompScreen *s)
@@ -725,16 +700,25 @@ fadeInitScreen (CompPlugin *p,
     if (!fs)
 	return FALSE;
 
-    fs->windowPrivateIndex = allocateWindowPrivateIndex (s);
-    if (fs->windowPrivateIndex < 0)
+    if (!compInitScreenOptionsFromMetadata (s,
+					    &fadeMetadata,
+					    fadeScreenOptionInfo,
+					    fs->opt,
+					    FADE_SCREEN_OPTION_NUM))
     {
 	free (fs);
 	return FALSE;
     }
 
-    fs->fadeTime = 1000.0f / FADE_SPEED_DEFAULT;
+    fs->windowPrivateIndex = allocateWindowPrivateIndex (s);
+    if (fs->windowPrivateIndex < 0)
+    {
+	compFiniScreenOptions (s, fs->opt, FADE_SCREEN_OPTION_NUM);
+	free (fs);
+	return FALSE;
+    }
 
-    fadeScreenInitOptions (fs);
+    fs->fadeTime = 1000.0f / fs->opt[FADE_SCREEN_OPTION_FADE_SPEED].value.f;
 
     matchInit (&fs->match);
 
@@ -759,7 +743,6 @@ fadeFiniScreen (CompPlugin *p,
 {
     FADE_SCREEN (s);
 
-    matchFini (&fs->opt[FADE_SCREEN_OPTION_WINDOW_MATCH].value.match);
     matchFini (&fs->match);
 
     freeWindowPrivateIndex (s, fs->windowPrivateIndex);
@@ -769,6 +752,8 @@ fadeFiniScreen (CompPlugin *p,
     UNWRAP (fs, s, damageWindowRect);
     UNWRAP (fs, s, focusWindow);
     UNWRAP (fs, s, windowResizeNotify);
+
+    compFiniScreenOptions (s, fs->opt, FADE_SCREEN_OPTION_NUM);
 
     free (fs);
 }
@@ -826,9 +811,19 @@ fadeFiniWindow (CompPlugin *p,
 static Bool
 fadeInit (CompPlugin *p)
 {
+    if (!compInitPluginMetadataFromInfo (&fadeMetadata, p->vTable->name, 0, 0,
+					 fadeScreenOptionInfo,
+					 FADE_SCREEN_OPTION_NUM))
+	return FALSE;
+
     displayPrivateIndex = allocateDisplayPrivateIndex ();
     if (displayPrivateIndex < 0)
+    {
+	compFiniMetadata (&fadeMetadata);
 	return FALSE;
+    }
+
+    compAddMetadataFromFile (&fadeMetadata, p->vTable->name);
 
     return TRUE;
 }
@@ -836,8 +831,8 @@ fadeInit (CompPlugin *p)
 static void
 fadeFini (CompPlugin *p)
 {
-    if (displayPrivateIndex >= 0)
-	freeDisplayPrivateIndex (displayPrivateIndex);
+    freeDisplayPrivateIndex (displayPrivateIndex);
+    compFiniMetadata (&fadeMetadata);
 }
 
 static int
@@ -847,16 +842,16 @@ fadeGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
-CompPluginDep fadeDeps[] = {
-    { CompPluginRuleBefore, "cube" },
-    { CompPluginRuleBefore, "scale" }
-};
+static CompMetadata *
+fadeGetMetadata (CompPlugin *plugin)
+{
+    return &fadeMetadata;
+}
 
 static CompPluginVTable fadeVTable = {
     "fade",
-    N_("Fading Windows"),
-    N_("Fade in windows when mapped and fade out windows when unmapped"),
     fadeGetVersion,
+    fadeGetMetadata,
     fadeInit,
     fadeFini,
     fadeInitDisplay,
@@ -868,11 +863,7 @@ static CompPluginVTable fadeVTable = {
     0, /* GetDisplayOptions */
     0, /* SetDisplayOption */
     fadeGetScreenOptions,
-    fadeSetScreenOption,
-    fadeDeps,
-    sizeof (fadeDeps) / sizeof (fadeDeps[0]),
-    0, /* Features */
-    0  /* nFeatures */
+    fadeSetScreenOption
 };
 
 CompPluginVTable *

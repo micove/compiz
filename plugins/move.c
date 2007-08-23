@@ -31,19 +31,7 @@
 
 #include <compiz.h>
 
-#define MOVE_INITIATE_BUTTON_DEFAULT	       Button1
-#define MOVE_INITIATE_BUTTON_MODIFIERS_DEFAULT CompAltMask
-
-#define MOVE_INITIATE_KEY_DEFAULT	    "F7"
-#define MOVE_INITIATE_KEY_MODIFIERS_DEFAULT CompAltMask
-
-#define MOVE_OPACITY_DEFAULT 100
-#define MOVE_OPACITY_MIN     1
-#define MOVE_OPACITY_MAX     100
-
-#define MOVE_CONSTRAIN_Y_DEFAULT TRUE
-
-#define MOVE_SNAPOFF_MAXIMIZED_DEFAULT TRUE
+static CompMetadata moveMetadata;
 
 struct _MoveKeys {
     char *name;
@@ -69,7 +57,8 @@ static int displayPrivateIndex;
 #define MOVE_DISPLAY_OPTION_OPACITY	      1
 #define MOVE_DISPLAY_OPTION_CONSTRAIN_Y	      2
 #define MOVE_DISPLAY_OPTION_SNAPOFF_MAXIMIZED 3
-#define MOVE_DISPLAY_OPTION_NUM		      4
+#define MOVE_DISPLAY_OPTION_LAZY_POSITIONING  4
+#define MOVE_DISPLAY_OPTION_NUM		      5
 
 typedef struct _MoveDisplay {
     int		    screenPrivateIndex;
@@ -207,7 +196,7 @@ moveInitiate (CompDisplay     *d,
 		xRoot = w->attrib.x + (w->width  / 2);
 		yRoot = w->attrib.y + (w->height / 2);
 
-		warpPointer (d, xRoot - pointerX, yRoot - pointerY);
+		warpPointer (w->screen, xRoot - pointerX, yRoot - pointerY);
 	    }
 
 	    if (md->moveOpacity != OPAQUE)
@@ -231,8 +220,6 @@ moveTerminate (CompDisplay     *d,
     {
 	MOVE_SCREEN (md->w->screen);
 
-	(md->w->screen->windowUngrabNotify) (md->w);
-
 	if (state & CompActionStateCancel)
 	    moveWindow (md->w,
 			md->savedX - md->w->attrib.x,
@@ -240,6 +227,13 @@ moveTerminate (CompDisplay     *d,
 			TRUE, FALSE);
 
 	syncWindowPosition (md->w);
+
+	/* update window attributes as window constraints may have
+	   changed - needed e.g. if a maximized window was moved
+	   to another output device */
+	updateWindowAttributes (md->w, CompStackingUpdateModeNone);
+
+	(md->w->screen->windowUngrabNotify) (md->w);
 
 	if (ms->grabIndex)
 	{
@@ -266,6 +260,9 @@ moveGetYConstrainRegion (CompScreen *s)
     CompWindow *w;
     Region     region;
     REGION     r;
+    XRectangle workArea;
+    BoxRec     extents;
+    int	       i;
 
     region = XCreateRegion ();
     if (!region)
@@ -276,33 +273,70 @@ moveGetYConstrainRegion (CompScreen *s)
 
     r.extents.x1 = MINSHORT;
     r.extents.y1 = 0;
-    r.extents.x2 = MAXSHORT;
+    r.extents.x2 = 0;
     r.extents.y2 = s->height;
 
     XUnionRegion (&r, region, region);
 
-    for (w = s->windows; w; w = w->next)
+    r.extents.x1 = s->width;
+    r.extents.x2 = MAXSHORT;
+
+    XUnionRegion (&r, region, region);
+
+    for (i = 0; i < s->nOutputDev; i++)
     {
-	if (!w->mapNum)
-	    continue;
+	XUnionRegion (&s->outputDev[i].region, region, region);
 
-	if (w->struts)
+	getWorkareaForOutput (s, i, &workArea);
+	extents = s->outputDev[i].region.extents;
+
+	for (w = s->windows; w; w = w->next)
 	{
-	    r.extents.x1 = w->struts->top.x;
-	    r.extents.y1 = w->struts->top.y;
-	    r.extents.x2 = r.extents.x1 + w->struts->top.width;
-	    r.extents.y2 = r.extents.y1 + w->struts->top.height;
+	    if (!w->mapNum)
+		continue;
 
-	    if (r.extents.y2 <= s->workArea.y)
-		XSubtractRegion (region, &r, region);
+	    if (w->struts)
+	    {
+		r.extents.x1 = w->struts->top.x;
+		r.extents.y1 = w->struts->top.y;
+		r.extents.x2 = r.extents.x1 + w->struts->top.width;
+		r.extents.y2 = r.extents.y1 + w->struts->top.height;
 
-	    r.extents.x1 = w->struts->bottom.x;
-	    r.extents.y1 = w->struts->bottom.y;
-	    r.extents.x2 = r.extents.x1 + w->struts->bottom.width;
-	    r.extents.y2 = r.extents.y1 + w->struts->bottom.height;
+		if (r.extents.x1 < extents.x1)
+		    r.extents.x1 = extents.x1;
+		if (r.extents.x2 > extents.x2)
+		    r.extents.x2 = extents.x2;
+		if (r.extents.y1 < extents.y1)
+		    r.extents.y1 = extents.y1;
+		if (r.extents.y2 > extents.y2)
+		    r.extents.y2 = extents.y2;
 
-	    if (r.extents.y1 >= (s->workArea.y + s->workArea.height))
-		XSubtractRegion (region, &r, region);
+		if (r.extents.x1 < r.extents.x2 && r.extents.y1 < r.extents.y2)
+		{
+		    if (r.extents.y2 <= workArea.y)
+			XSubtractRegion (region, &r, region);
+		}
+
+		r.extents.x1 = w->struts->bottom.x;
+		r.extents.y1 = w->struts->bottom.y;
+		r.extents.x2 = r.extents.x1 + w->struts->bottom.width;
+		r.extents.y2 = r.extents.y1 + w->struts->bottom.height;
+
+		if (r.extents.x1 < extents.x1)
+		    r.extents.x1 = extents.x1;
+		if (r.extents.x2 > extents.x2)
+		    r.extents.x2 = extents.x2;
+		if (r.extents.y1 < extents.y1)
+		    r.extents.y1 = extents.y1;
+		if (r.extents.y2 > extents.y2)
+		    r.extents.y2 = extents.y2;
+
+		if (r.extents.x1 < r.extents.x2 && r.extents.y1 < r.extents.y2)
+		{
+		    if (r.extents.y1 >= (workArea.y + workArea.height))
+			XSubtractRegion (region, &r, region);
+		}
+	    }
 	}
     }
 
@@ -320,10 +354,17 @@ moveHandleMotionEvent (CompScreen *s,
     {
 	CompWindow *w;
 	int	   dx, dy;
+	int	   wX, wY;
+	int	   wWidth, wHeight;
 
 	MOVE_DISPLAY (s->display);
 
 	w = md->w;
+
+	wX      = w->serverX;
+	wY      = w->serverY;
+	wWidth  = w->serverWidth  + w->serverBorderWidth * 2;
+	wHeight = w->serverHeight + w->serverBorderWidth * 2;
 
 	md->x += xRoot - lastPointerX;
 	md->y += yRoot - lastPointerY;
@@ -357,9 +398,9 @@ moveHandleMotionEvent (CompScreen *s,
 		    int x, y, width, height;
 		    int status;
 
-		    x	   = w->attrib.x + dx - w->input.left;
-		    y	   = w->attrib.y + dy - w->input.top;
-		    width  = w->width + w->input.left + w->input.right;
+		    x	   = wX + dx - w->input.left;
+		    y	   = wY + dy - w->input.top;
+		    width  = wWidth + w->input.left + w->input.right;
 		    height = w->input.top ? w->input.top : 1;
 
 		    status = XRectInRegion (md->region, x, y, width, height);
@@ -378,7 +419,7 @@ moveHandleMotionEvent (CompScreen *s,
 			    if (xStatus != RectangleIn)
 				dx += (dx < 0) ? 1 : -1;
 
-			    x = w->attrib.x + dx - w->input.left;
+			    x = wX + dx - w->input.left;
 			}
 
 			while (dy && status != RectangleIn)
@@ -390,7 +431,7 @@ moveHandleMotionEvent (CompScreen *s,
 			    if (status != RectangleIn)
 				dy += (dy < 0) ? 1 : -1;
 
-			    y = w->attrib.y + dy - w->input.top;
+			    y = wY + dy - w->input.top;
 			}
 		    }
 		    else
@@ -406,23 +447,26 @@ moveHandleMotionEvent (CompScreen *s,
 		{
 		    if ((yRoot - workArea.y) - ms->snapOffY >= SNAP_OFF)
 		    {
-			int width = w->serverWidth;
+			if (!otherScreenGrabExist (s, "move", 0))
+			{
+			    int width = w->serverWidth;
 
-			w->saveMask |= CWX | CWY;
+			    w->saveMask |= CWX | CWY;
 
-			if (w->saveMask & CWWidth)
-			    width = w->saveWc.width;
+			    if (w->saveMask & CWWidth)
+				width = w->saveWc.width;
 
-			w->saveWc.x = xRoot - (width >> 1);
-			w->saveWc.y = yRoot + (w->input.top >> 1);
+			    w->saveWc.x = xRoot - (width >> 1);
+			    w->saveWc.y = yRoot + (w->input.top >> 1);
 
-			md->x = md->y = 0;
+			    md->x = md->y = 0;
 
-			maximizeWindow (w, 0);
+			    maximizeWindow (w, 0);
 
-			ms->snapOffY = ms->snapBackY;
+			    ms->snapOffY = ms->snapBackY;
 
-			return;
+			    return;
+			}
 		    }
 		}
 		else if (ms->origState & CompWindowStateMaximizedVertMask)
@@ -443,7 +487,7 @@ moveHandleMotionEvent (CompScreen *s,
 			    wy  = workArea.y + (w->input.top >> 1);
 			    wy += w->sizeHints.height_inc >> 1;
 
-			    warpPointer (s->display, 0, wy - pointerY);
+			    warpPointer (s, 0, wy - pointerY);
 
 			    return;
 			}
@@ -454,40 +498,55 @@ moveHandleMotionEvent (CompScreen *s,
 	    if (w->state & CompWindowStateMaximizedVertMask)
 	    {
 		min = workArea.y + w->input.top;
-		max = workArea.y + workArea.height -
-		    w->input.bottom - w->serverHeight -
-		    w->serverBorderWidth * 2;
+		max = workArea.y + workArea.height - w->input.bottom - wHeight;
 
-		if (w->attrib.y + dy < min)
-		    dy = min - w->attrib.y;
-		else if (w->attrib.y + dy > max)
-		    dy = max - w->attrib.y;
+		if (wY + dy < min)
+		    dy = min - wY;
+		else if (wY + dy > max)
+		    dy = max - wY;
 	    }
 
 	    if (w->state & CompWindowStateMaximizedHorzMask)
 	    {
-		if (w->attrib.x > s->width || w->attrib.x + w->width < 0)
+		if (wX > s->width || wX + w->width < 0)
 		    return;
 
-		if (w->attrib.x + w->serverWidth + w->serverBorderWidth < 0)
+		if (wX + wWidth < 0)
 		    return;
 
 		min = workArea.x + w->input.left;
-		max = workArea.x + workArea.width -
-		    w->input.right - w->serverWidth -
-		    w->serverBorderWidth * 2;
+		max = workArea.x + workArea.width - w->input.right - wWidth;
 
-		if (w->attrib.x + dx < min)
-		    dx = min - w->attrib.x;
-		else if (w->attrib.x + dx > max)
-		    dx = max - w->attrib.x;
+		if (wX + dx < min)
+		    dx = min - wX;
+		else if (wX + dx > max)
+		    dx = max - wX;
 	    }
 	}
 
-	moveWindow (md->w, dx, dy, TRUE, FALSE);
+	if (dx || dy)
+	{
+	    moveWindow (w,
+			wX + dx - w->attrib.x,
+			wY + dy - w->attrib.y,
+			TRUE, FALSE);
 
-	md->x -= dx;
-	md->y -= dy;
+	    if (md->opt[MOVE_DISPLAY_OPTION_LAZY_POSITIONING].value.b)
+	    {
+		/* FIXME: This form of lazy positioning is broken and should
+		   be replaced asap. Current code exists just to avoid a
+		   major performance regression in the 0.5.2 release. */
+		w->serverX = w->attrib.x;
+		w->serverY = w->attrib.y;
+	    }
+	    else
+	    {
+		syncWindowPosition (w);
+	    }
+
+	    md->x -= dx;
+	    md->y -= dy;
+	}
     }
 }
 
@@ -666,58 +725,9 @@ movePaintWindow (CompWindow		 *w,
     return status;
 }
 
-static void
-moveDisplayInitOptions (MoveDisplay *md,
-			Display     *display)
-{
-    CompOption *o;
-
-    o = &md->opt[MOVE_DISPLAY_OPTION_INITIATE];
-    o->name			     = "initiate";
-    o->shortDesc		     = N_("Initiate Window Move");
-    o->longDesc			     = N_("Start moving window");
-    o->type			     = CompOptionTypeAction;
-    o->value.action.initiate	     = moveInitiate;
-    o->value.action.terminate	     = moveTerminate;
-    o->value.action.bell	     = FALSE;
-    o->value.action.edgeMask	     = 0;
-    o->value.action.type	     = CompBindingTypeButton;
-    o->value.action.state	     = CompActionStateInitButton;
-    o->value.action.button.modifiers = MOVE_INITIATE_BUTTON_MODIFIERS_DEFAULT;
-    o->value.action.button.button    = MOVE_INITIATE_BUTTON_DEFAULT;
-    o->value.action.type	    |= CompBindingTypeKey;
-    o->value.action.state	    |= CompActionStateInitKey;
-    o->value.action.key.modifiers    = MOVE_INITIATE_KEY_MODIFIERS_DEFAULT;
-    o->value.action.key.keycode      =
-	XKeysymToKeycode (display, XStringToKeysym (MOVE_INITIATE_KEY_DEFAULT));
-
-    o = &md->opt[MOVE_DISPLAY_OPTION_OPACITY];
-    o->name	  = "opacity";
-    o->shortDesc  = N_("Opacity");
-    o->longDesc	  = N_("Opacity level of moving windows");
-    o->type	  = CompOptionTypeInt;
-    o->value.i	  = MOVE_OPACITY_DEFAULT;
-    o->rest.i.min = MOVE_OPACITY_MIN;
-    o->rest.i.max = MOVE_OPACITY_MAX;
-
-    o = &md->opt[MOVE_DISPLAY_OPTION_CONSTRAIN_Y];
-    o->name	  = "constrain_y";
-    o->shortDesc  = N_("Constrain Y");
-    o->longDesc	  = N_("Constrain Y coordinate to workspace area");
-    o->type	  = CompOptionTypeBool;
-    o->value.b    = MOVE_CONSTRAIN_Y_DEFAULT;
-
-    o = &md->opt[MOVE_DISPLAY_OPTION_SNAPOFF_MAXIMIZED];
-    o->name      = "snapoff_maximized";
-    o->shortDesc = N_("Snapoff maximized windows");
-    o->longDesc  = N_("Snapoff and auto unmaximized maximized windows "
-		      "when dragging");
-    o->type      = CompOptionTypeBool;
-    o->value.b   = MOVE_SNAPOFF_MAXIMIZED_DEFAULT;
-}
-
 static CompOption *
-moveGetDisplayOptions (CompDisplay *display,
+moveGetDisplayOptions (CompPlugin  *plugin,
+		       CompDisplay *display,
 		       int	   *count)
 {
     MOVE_DISPLAY (display);
@@ -727,8 +737,9 @@ moveGetDisplayOptions (CompDisplay *display,
 }
 
 static Bool
-moveSetDisplayOption (CompDisplay    *display,
-		      char	     *name,
+moveSetDisplayOption (CompPlugin      *plugin,
+		      CompDisplay     *display,
+		      char	      *name,
 		      CompOptionValue *value)
 {
     CompOption *o;
@@ -741,10 +752,6 @@ moveSetDisplayOption (CompDisplay    *display,
 	return FALSE;
 
     switch (index) {
-    case MOVE_DISPLAY_OPTION_INITIATE:
-	if (setDisplayAction (display, o, value))
-	    return TRUE;
-	break;
     case MOVE_DISPLAY_OPTION_OPACITY:
 	if (compSetIntOption (o, value))
 	{
@@ -752,19 +759,20 @@ moveSetDisplayOption (CompDisplay    *display,
 	    return TRUE;
 	}
 	break;
-    case MOVE_DISPLAY_OPTION_CONSTRAIN_Y:
-	if (compSetBoolOption (o, value))
-	    return TRUE;
-	break;
-    case MOVE_DISPLAY_OPTION_SNAPOFF_MAXIMIZED:
-	if (compSetBoolOption (o, value))
-	    return TRUE;
     default:
-	break;
+	return compSetDisplayOption (display, o, value);
     }
 
     return FALSE;
 }
+
+static const CompMetadataOptionInfo moveDisplayOptionInfo[] = {
+    { "initiate", "action", 0, moveInitiate, moveTerminate },
+    { "opacity", "int", "<min>0</min><max>100</max>", 0, 0 },
+    { "constrain_y", "bool", 0, 0, 0 },
+    { "snapoff_maximized", "bool", 0, 0, 0 },
+    { "lazy_positioning", "bool", 0, 0, 0 }
+};
 
 static Bool
 moveInitDisplay (CompPlugin  *p,
@@ -777,16 +785,26 @@ moveInitDisplay (CompPlugin  *p,
     if (!md)
 	return FALSE;
 
-    md->screenPrivateIndex = allocateScreenPrivateIndex (d);
-    if (md->screenPrivateIndex < 0)
+    if (!compInitDisplayOptionsFromMetadata (d,
+					     &moveMetadata,
+					     moveDisplayOptionInfo,
+					     md->opt,
+					     MOVE_DISPLAY_OPTION_NUM))
     {
 	free (md);
 	return FALSE;
     }
 
-    md->moveOpacity = (MOVE_OPACITY_DEFAULT * OPAQUE) / 100;
+    md->screenPrivateIndex = allocateScreenPrivateIndex (d);
+    if (md->screenPrivateIndex < 0)
+    {
+	compFiniDisplayOptions (d, md->opt, MOVE_DISPLAY_OPTION_NUM);
+	free (md);
+	return FALSE;
+    }
 
-    moveDisplayInitOptions (md, d->display);
+    md->moveOpacity =
+	(md->opt[MOVE_DISPLAY_OPTION_OPACITY].value.i * OPAQUE) / 100;
 
     md->w      = 0;
     md->region = NULL;
@@ -813,6 +831,8 @@ moveFiniDisplay (CompPlugin  *p,
 
     UNWRAP (md, d, handleEvent);
 
+    compFiniDisplayOptions (d, md->opt, MOVE_DISPLAY_OPTION_NUM);
+
     free (md);
 }
 
@@ -830,9 +850,7 @@ moveInitScreen (CompPlugin *p,
 
     ms->grabIndex = 0;
 
-    ms->moveCursor = XCreateFontCursor (s->display->display, XC_plus);
-
-    addScreenAction (s, &md->opt[MOVE_DISPLAY_OPTION_INITIATE].value.action);
+    ms->moveCursor = XCreateFontCursor (s->display->display, XC_fleur);
 
     WRAP (ms, s, paintWindow, movePaintWindow);
 
@@ -846,10 +864,6 @@ moveFiniScreen (CompPlugin *p,
 		CompScreen *s)
 {
     MOVE_SCREEN (s);
-    MOVE_DISPLAY (s->display);
-
-    removeScreenAction (s, 
-			&md->opt[MOVE_DISPLAY_OPTION_INITIATE].value.action);
 
     UNWRAP (ms, s, paintWindow);
 
@@ -862,9 +876,21 @@ moveFiniScreen (CompPlugin *p,
 static Bool
 moveInit (CompPlugin *p)
 {
+    if (!compInitPluginMetadataFromInfo (&moveMetadata,
+					 p->vTable->name,
+					 moveDisplayOptionInfo,
+					 MOVE_DISPLAY_OPTION_NUM,
+					 0, 0))
+	return FALSE;
+
     displayPrivateIndex = allocateDisplayPrivateIndex ();
     if (displayPrivateIndex < 0)
+    {
+	compFiniMetadata (&moveMetadata);
 	return FALSE;
+    }
+
+    compAddMetadataFromFile (&moveMetadata, p->vTable->name);
 
     return TRUE;
 }
@@ -872,8 +898,8 @@ moveInit (CompPlugin *p)
 static void
 moveFini (CompPlugin *p)
 {
-    if (displayPrivateIndex >= 0)
-	freeDisplayPrivateIndex (displayPrivateIndex);
+    freeDisplayPrivateIndex (displayPrivateIndex);
+    compFiniMetadata (&moveMetadata);
 }
 
 static int
@@ -883,11 +909,16 @@ moveGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
+static CompMetadata *
+moveGetMetadata (CompPlugin *plugin)
+{
+    return &moveMetadata;
+}
+
 CompPluginVTable moveVTable = {
     "move",
-    N_("Move Window"),
-    N_("Move window"),
     moveGetVersion,
+    moveGetMetadata,
     moveInit,
     moveFini,
     moveInitDisplay,
@@ -899,11 +930,7 @@ CompPluginVTable moveVTable = {
     moveGetDisplayOptions,
     moveSetDisplayOption,
     0, /* GetScreenOptions */
-    0, /* SetScreenOption */
-    0, /* Deps */
-    0, /* nDeps */
-    0, /* Features */
-    0  /* nFeatures */
+    0  /* SetScreenOption */
 };
 
 CompPluginVTable *

@@ -587,9 +587,9 @@ buildFragmentProgram (CompScreen     *s,
 
     if (!mask)
     {
-	fprintf (stderr, "%s: fragment functions can't be linked together "
-		 "because a common type doesn't exist\n",
-		 programName);
+	compLogMessage (NULL, "core", CompLogLevelWarn,
+			"fragment functions can't be linked together "
+			"because a common type doesn't exist");
     }
 
     if (!mask || nFunctionList == 1)
@@ -639,7 +639,8 @@ buildFragmentProgram (CompScreen     *s,
     glGetIntegerv (GL_PROGRAM_ERROR_POSITION_ARB, &errorPos);
     if (glGetError () != GL_NO_ERROR || errorPos != -1)
     {
-	fprintf (stderr, "%s: failed to load fragment program\n", programName);
+	compLogMessage (NULL, "core", CompLogLevelError,
+			"failed to load fragment program");
 
 	(*s->deletePrograms) (1, &program->name);
 
@@ -932,7 +933,8 @@ addHeaderOpToFunctionData (CompFunctionData *data,
     {
 	if (strncmp (name, reserved[i], strlen (reserved[i])) == 0)
 	{
-	    fprintf (stderr, "%s: %s is a reserved word\n", programName, name);
+	    compLogMessage (NULL, "core", CompLogLevelWarn,
+			    "%s is a reserved word", name);
 	    return FALSE;
 	}
     }
@@ -1029,30 +1031,108 @@ addColorOpToFunctionData (CompFunctionData *data,
 
 Bool
 addDataOpToFunctionData (CompFunctionData *data,
-			 char		  *str)
+			 char		  *str,
+			 ...)
 {
-    int index = data->nBody;
+    int     index = data->nBody;
+    int     size  = strlen (str) + 1;
+    int     n;
+    char    *fStr;
+    char    *tmp;
+    va_list ap;
 
     if (!allocBodyOpInFunctionData (data))
 	return FALSE;
 
+    fStr = malloc (size);
+    if (!fStr)
+	return FALSE;
+
+    while (1)
+    {
+	/* Try to print in the allocated space. */
+	va_start (ap, str);
+	n = vsnprintf (fStr, size, str, ap);
+	va_end (ap);
+
+	/* If that worked, leave the loop. */
+	if (n > -1 && n < size)
+	    break;
+
+	/* Else try again with more space. */
+	if (n > -1)       /* glibc 2.1 */
+	    size = n + 1; /* precisely what is needed */
+	else              /* glibc 2.0 */
+	    size++;       /* one more than the old size */
+
+	tmp = realloc (fStr, size);
+	if (!tmp)
+	{
+	    free (fStr);
+	    return FALSE;
+	}
+	else
+	{
+	    fStr = tmp;
+	}
+    }
+
     data->body[index].type	= CompOpTypeData;
-    data->body[index].data.data = strdup (str);
+    data->body[index].data.data = fStr;
 
     return TRUE;
 }
 
 Bool
 addBlendOpToFunctionData (CompFunctionData *data,
-			  char		   *str)
+			  char		   *str,
+			  ...)
 {
-    int index = data->nBody;
+    int     index = data->nBody;
+    int     size  = strlen (str) + 1;
+    int     n;
+    char    *fStr;
+    char    *tmp;
+    va_list ap;
 
     if (!allocBodyOpInFunctionData (data))
 	return FALSE;
 
+    fStr = malloc (size);
+    if (!fStr)
+	return FALSE;
+
+    while (1)
+    {
+	/* Try to print in the allocated space. */
+	va_start (ap, str);
+	n = vsnprintf (fStr, size, str, ap);
+	va_end (ap);
+
+	/* If that worked, leave the loop. */
+	if (n > -1 && n < size)
+	    break;
+
+	/* Else try again with more space. */
+	if (n > -1)       /* glibc 2.1 */
+	    size = n + 1; /* precisely what is needed */
+	else              /* glibc 2.0 */
+	    size++;       /* one more than the old size */
+
+	tmp = realloc (fStr, size);
+	if (!tmp)
+	{
+	    free (fStr);
+	    return FALSE;
+	}
+	else
+	{
+	    fStr = tmp;
+	}
+    }
+
     data->body[index].type	= CompOpTypeDataBlend;
-    data->body[index].data.data = strdup (str);
+    data->body[index].data.data = fStr;
 
     return TRUE;
 }

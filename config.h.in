@@ -3,9 +3,6 @@
 /* Decorator interface version */
 #undef DECOR_INTERFACE_VERSION
 
-/* Default plugins */
-#undef DEFAULT_PLUGINS
-
 /* always defined to indicate that i18n is enabled */
 #undef ENABLE_NLS
 
@@ -29,6 +26,12 @@
 
 /* Define if your <locale.h> file defines LC_MESSAGES. */
 #undef HAVE_LC_MESSAGES
+
+/* Define to 1 if libwnck version >= 2_18_1 */
+#undef HAVE_LIBWNCK_2_18_1
+
+/* Define to 1 if libwnck version >= 2_19_4 */
+#undef HAVE_LIBWNCK_2_19_4
 
 /* Define to 1 if you have the <locale.h> header file. */
 #undef HAVE_LOCALE_H
@@ -96,9 +99,6 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
-/* Default scale plugin activation corner */
-#undef SCALE_CORNER
-
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
@@ -117,11 +117,14 @@
 /* Build gconf plugin */
 #undef USE_GCONF
 
-/* Build gconf-dump plugin */
-#undef USE_GCONF_DUMP
+/* Build glib plugin */
+#undef USE_GLIB
 
 /* Build gnome settings module */
 #undef USE_GNOME
+
+/* Install custom keybindings */
+#undef USE_GNOME_KEYBINDINGS
 
 /* Build gtk window decorator */
 #undef USE_GTK

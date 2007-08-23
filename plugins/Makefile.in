@@ -14,7 +14,6 @@
 
 @SET_MAKE@
 
-
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
 VPATH = @srcdir@
@@ -38,22 +37,21 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 subdir = plugins
-DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/compiz.schemas.in
+DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-mkinstalldirs = $(SHELL) $(top_srcdir)/config/mkinstalldirs
+mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
-CONFIG_CLEAN_FILES = compiz.schemas
+CONFIG_CLEAN_FILES =
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
     *) f=$$p;; \
   esac;
 am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
-am__installdirs = "$(DESTDIR)$(moduledir)" "$(DESTDIR)$(schemadir)"
+am__installdirs = "$(DESTDIR)$(moduledir)"
 moduleLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(module_LTLIBRARIES)
 libannotate_la_DEPENDENCIES =
@@ -66,7 +64,7 @@ libblur_la_OBJECTS = $(am_libblur_la_OBJECTS)
 libclone_la_LIBADD =
 am_libclone_la_OBJECTS = clone.lo
 libclone_la_OBJECTS = $(am_libclone_la_OBJECTS)
-libcube_la_DEPENDENCIES =
+libcube_la_LIBADD =
 am_libcube_la_OBJECTS = cube.lo
 libcube_la_OBJECTS = $(am_libcube_la_OBJECTS)
 libdbus_la_DEPENDENCIES =
@@ -84,18 +82,16 @@ am__libfs_la_SOURCES_DIST = fuse.c
 @FUSE_PLUGIN_TRUE@am_libfs_la_OBJECTS = fuse.lo
 libfs_la_OBJECTS = $(am_libfs_la_OBJECTS)
 @FUSE_PLUGIN_TRUE@am_libfs_la_rpath = -rpath $(moduledir)
-libgconf_dump_la_DEPENDENCIES =
-am__libgconf_dump_la_SOURCES_DIST = gconf-dump.c
-@GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@am_libgconf_dump_la_OBJECTS =  \
-@GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@	gconf-dump.lo
-libgconf_dump_la_OBJECTS = $(am_libgconf_dump_la_OBJECTS)
-@GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@am_libgconf_dump_la_rpath =  \
-@GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@	-rpath $(moduledir)
 libgconf_la_DEPENDENCIES =
 am__libgconf_la_SOURCES_DIST = gconf.c
 @USE_GCONF_TRUE@am_libgconf_la_OBJECTS = gconf.lo
 libgconf_la_OBJECTS = $(am_libgconf_la_OBJECTS)
 @USE_GCONF_TRUE@am_libgconf_la_rpath = -rpath $(moduledir)
+libglib_la_DEPENDENCIES =
+am__libglib_la_SOURCES_DIST = glib.c
+@USE_GLIB_TRUE@am_libglib_la_OBJECTS = glib.lo
+libglib_la_OBJECTS = $(am_libglib_la_OBJECTS)
+@USE_GLIB_TRUE@am_libglib_la_rpath = -rpath $(moduledir)
 libini_la_LIBADD =
 am_libini_la_OBJECTS = ini.lo
 libini_la_OBJECTS = $(am_libini_la_OBJECTS)
@@ -118,7 +114,7 @@ libplace_la_OBJECTS = $(am_libplace_la_OBJECTS)
 libplane_la_LIBADD =
 am_libplane_la_OBJECTS = plane.lo
 libplane_la_OBJECTS = $(am_libplane_la_OBJECTS)
-libpng_la_LIBADD =
+libpng_la_DEPENDENCIES =
 am_libpng_la_OBJECTS = png.lo
 libpng_la_OBJECTS = $(am_libpng_la_OBJECTS)
 libregex_la_LIBADD =
@@ -136,7 +132,6 @@ libscale_la_OBJECTS = $(am_libscale_la_OBJECTS)
 libscreenshot_la_LIBADD =
 am_libscreenshot_la_OBJECTS = screenshot.lo
 libscreenshot_la_OBJECTS = $(am_libscreenshot_la_OBJECTS)
-libsvg_la_DEPENDENCIES =
 am__libsvg_la_SOURCES_DIST = svg.c
 @USE_LIBRSVG_TRUE@am_libsvg_la_OBJECTS = svg.lo
 libsvg_la_OBJECTS = $(am_libsvg_la_OBJECTS)
@@ -156,7 +151,7 @@ libzoom_la_LIBADD =
 am_libzoom_la_OBJECTS = zoom.lo
 libzoom_la_OBJECTS = $(am_libzoom_la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
-depcomp = $(SHELL) $(top_srcdir)/config/depcomp
+depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -170,7 +165,7 @@ SOURCES = $(libannotate_la_SOURCES) $(libblur_la_SOURCES) \
 	$(libclone_la_SOURCES) $(libcube_la_SOURCES) \
 	$(libdbus_la_SOURCES) $(libdecoration_la_SOURCES) \
 	$(libfade_la_SOURCES) $(libfs_la_SOURCES) \
-	$(libgconf_dump_la_SOURCES) $(libgconf_la_SOURCES) \
+	$(libgconf_la_SOURCES) $(libglib_la_SOURCES) \
 	$(libini_la_SOURCES) $(libinotify_la_SOURCES) \
 	$(libminimize_la_SOURCES) $(libmove_la_SOURCES) \
 	$(libplace_la_SOURCES) $(libplane_la_SOURCES) \
@@ -184,9 +179,8 @@ DIST_SOURCES = $(am__libannotate_la_SOURCES_DIST) \
 	$(libblur_la_SOURCES) $(libclone_la_SOURCES) \
 	$(libcube_la_SOURCES) $(am__libdbus_la_SOURCES_DIST) \
 	$(libdecoration_la_SOURCES) $(libfade_la_SOURCES) \
-	$(am__libfs_la_SOURCES_DIST) \
-	$(am__libgconf_dump_la_SOURCES_DIST) \
-	$(am__libgconf_la_SOURCES_DIST) $(libini_la_SOURCES) \
+	$(am__libfs_la_SOURCES_DIST) $(am__libgconf_la_SOURCES_DIST) \
+	$(am__libglib_la_SOURCES_DIST) $(libini_la_SOURCES) \
 	$(am__libinotify_la_SOURCES_DIST) $(libminimize_la_SOURCES) \
 	$(libmove_la_SOURCES) $(am__libplace_la_SOURCES_DIST) \
 	$(libplane_la_SOURCES) $(libpng_la_SOURCES) \
@@ -196,8 +190,6 @@ DIST_SOURCES = $(am__libannotate_la_SOURCES_DIST) \
 	$(libswitcher_la_SOURCES) $(libvideo_la_SOURCES) \
 	$(libwater_la_SOURCES) $(libwobbly_la_SOURCES) \
 	$(libzoom_la_SOURCES)
-schemaDATA_INSTALL = $(INSTALL_DATA)
-DATA = $(schema_DATA)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -223,6 +215,9 @@ CFLAGS = @CFLAGS@
 COMPIZ_CFLAGS = @COMPIZ_CFLAGS@
 COMPIZ_LIBS = @COMPIZ_LIBS@
 COMPIZ_REQUIRES = @COMPIZ_REQUIRES@
+COMPIZ_VERSION_MAJOR = @COMPIZ_VERSION_MAJOR@
+COMPIZ_VERSION_MICRO = @COMPIZ_VERSION_MICRO@
+COMPIZ_VERSION_MINOR = @COMPIZ_VERSION_MINOR@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
@@ -242,7 +237,6 @@ DCOPIDL2CPP = @DCOPIDL2CPP@
 DECORATION_CFLAGS = @DECORATION_CFLAGS@
 DECORATION_LIBS = @DECORATION_LIBS@
 DECORATION_REQUIRES = @DECORATION_REQUIRES@
-DEFAULT_PLUGINS = @DEFAULT_PLUGINS@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 ECHO = @ECHO@
@@ -259,18 +253,20 @@ FUSE_PLUGIN_FALSE = @FUSE_PLUGIN_FALSE@
 FUSE_PLUGIN_TRUE = @FUSE_PLUGIN_TRUE@
 GCONFTOOL = @GCONFTOOL@
 GCONF_CFLAGS = @GCONF_CFLAGS@
-GCONF_DUMP_PLUGIN_FALSE = @GCONF_DUMP_PLUGIN_FALSE@
-GCONF_DUMP_PLUGIN_TRUE = @GCONF_DUMP_PLUGIN_TRUE@
 GCONF_LIBS = @GCONF_LIBS@
 GCONF_SCHEMAS_INSTALL_FALSE = @GCONF_SCHEMAS_INSTALL_FALSE@
 GCONF_SCHEMAS_INSTALL_TRUE = @GCONF_SCHEMAS_INSTALL_TRUE@
 GCONF_SCHEMA_CONFIG_SOURCE = @GCONF_SCHEMA_CONFIG_SOURCE@
 GCONF_SCHEMA_FILE_DIR = @GCONF_SCHEMA_FILE_DIR@
 GETTEXT_PACKAGE = @GETTEXT_PACKAGE@
+GLIB_CFLAGS = @GLIB_CFLAGS@
+GLIB_LIBS = @GLIB_LIBS@
 GL_CFLAGS = @GL_CFLAGS@
 GL_LIBS = @GL_LIBS@
 GMOFILES = @GMOFILES@
 GMSGFMT = @GMSGFMT@
+GNOME_KEY_BINDINGS_CFLAGS = @GNOME_KEY_BINDINGS_CFLAGS@
+GNOME_KEY_BINDINGS_LIBS = @GNOME_KEY_BINDINGS_LIBS@
 GNOME_WINDOW_SETTINGS_CFLAGS = @GNOME_WINDOW_SETTINGS_CFLAGS@
 GNOME_WINDOW_SETTINGS_LIBS = @GNOME_WINDOW_SETTINGS_LIBS@
 GREP = @GREP@
@@ -284,12 +280,37 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 INSTOBJEXT = @INSTOBJEXT@
 INTLLIBS = @INTLLIBS@
+INTLTOOL_CAVES_RULE = @INTLTOOL_CAVES_RULE@
+INTLTOOL_DESKTOP_RULE = @INTLTOOL_DESKTOP_RULE@
+INTLTOOL_DIRECTORY_RULE = @INTLTOOL_DIRECTORY_RULE@
+INTLTOOL_EXTRACT = @INTLTOOL_EXTRACT@
+INTLTOOL_KBD_RULE = @INTLTOOL_KBD_RULE@
+INTLTOOL_KEYS_RULE = @INTLTOOL_KEYS_RULE@
+INTLTOOL_MERGE = @INTLTOOL_MERGE@
+INTLTOOL_OAF_RULE = @INTLTOOL_OAF_RULE@
+INTLTOOL_PERL = @INTLTOOL_PERL@
+INTLTOOL_POLICY_RULE = @INTLTOOL_POLICY_RULE@
+INTLTOOL_PONG_RULE = @INTLTOOL_PONG_RULE@
+INTLTOOL_PROP_RULE = @INTLTOOL_PROP_RULE@
+INTLTOOL_SCHEMAS_RULE = @INTLTOOL_SCHEMAS_RULE@
+INTLTOOL_SERVER_RULE = @INTLTOOL_SERVER_RULE@
+INTLTOOL_SERVICE_RULE = @INTLTOOL_SERVICE_RULE@
+INTLTOOL_SHEET_RULE = @INTLTOOL_SHEET_RULE@
+INTLTOOL_SOUNDLIST_RULE = @INTLTOOL_SOUNDLIST_RULE@
+INTLTOOL_THEME_RULE = @INTLTOOL_THEME_RULE@
+INTLTOOL_UI_RULE = @INTLTOOL_UI_RULE@
+INTLTOOL_UPDATE = @INTLTOOL_UPDATE@
+INTLTOOL_XAM_RULE = @INTLTOOL_XAM_RULE@
+INTLTOOL_XML_NOMERGE_RULE = @INTLTOOL_XML_NOMERGE_RULE@
+INTLTOOL_XML_RULE = @INTLTOOL_XML_RULE@
 KDE_CFLAGS = @KDE_CFLAGS@
 KDE_LIBS = @KDE_LIBS@
 KDE_WINDOW_DECORATOR_CFLAGS = @KDE_WINDOW_DECORATOR_CFLAGS@
 KDE_WINDOW_DECORATOR_LIBS = @KDE_WINDOW_DECORATOR_LIBS@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
+LIBPNG_CFLAGS = @LIBPNG_CFLAGS@
+LIBPNG_LIBS = @LIBPNG_LIBS@
 LIBRSVG_CFLAGS = @LIBRSVG_CFLAGS@
 LIBRSVG_LIBS = @LIBRSVG_LIBS@
 LIBS = @LIBS@
@@ -304,6 +325,7 @@ METACITY_CFLAGS = @METACITY_CFLAGS@
 METACITY_LIBS = @METACITY_LIBS@
 MKINSTALLDIRS = @MKINSTALLDIRS@
 MSGFMT = @MSGFMT@
+MSGFMT_OPTS = @MSGFMT_OPTS@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -323,13 +345,17 @@ PO_IN_DATADIR_FALSE = @PO_IN_DATADIR_FALSE@
 PO_IN_DATADIR_TRUE = @PO_IN_DATADIR_TRUE@
 QT_MOC = @QT_MOC@
 RANLIB = @RANLIB@
-SCALE_CORNER = @SCALE_CORNER@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
 USE_GCONF_FALSE = @USE_GCONF_FALSE@
 USE_GCONF_TRUE = @USE_GCONF_TRUE@
+USE_GLIB_FALSE = @USE_GLIB_FALSE@
+USE_GLIB_TRUE = @USE_GLIB_TRUE@
 USE_GNOME_FALSE = @USE_GNOME_FALSE@
+USE_GNOME_KEYBINDINGS_FALSE = @USE_GNOME_KEYBINDINGS_FALSE@
+USE_GNOME_KEYBINDINGS_TRUE = @USE_GNOME_KEYBINDINGS_TRUE@
 USE_GNOME_TRUE = @USE_GNOME_TRUE@
 USE_GTK_FALSE = @USE_GTK_FALSE@
 USE_GTK_TRUE = @USE_GTK_TRUE@
@@ -342,6 +368,7 @@ USE_METACITY_TRUE = @USE_METACITY_TRUE@
 USE_NLS = @USE_NLS@
 VERSION = @VERSION@
 XGETTEXT = @XGETTEXT@
+XSLTPROC = @XSLTPROC@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_F77 = @ac_ct_F77@
@@ -375,11 +402,13 @@ imagedir = @imagedir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
+keybindingsdir = @keybindingsdir@
 libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
+metadatadir = @metadatadir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
@@ -389,6 +418,7 @@ program_transform_name = @program_transform_name@
 psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
+stylesheetdir = @stylesheetdir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 windowsettingsdatadir = @windowsettingsdatadir@
@@ -396,7 +426,6 @@ windowsettingslibdir = @windowsettingslibdir@
 libfade_la_LDFLAGS = -module -avoid-version -no-undefined
 libfade_la_SOURCES = fade.c
 libcube_la_LDFLAGS = -module -avoid-version -no-undefined
-libcube_la_LIBADD = @LIBRSVG_LIBS@
 libcube_la_SOURCES = cube.c
 librotate_la_LDFLAGS = -module -avoid-version -no-undefined
 librotate_la_SOURCES = rotate.c
@@ -427,6 +456,7 @@ libplane_la_SOURCES = plane.c
 libclone_la_LDFLAGS = -module -avoid-version -no-undefined
 libclone_la_SOURCES = clone.c
 libpng_la_LDFLAGS = -module -avoid-version -no-undefined
+libpng_la_LIBADD = @LIBPNG_LIBS@
 libpng_la_SOURCES = png.c
 libblur_la_DEPENDENCIES = $(top_builddir)/libdecoration/libdecoration.la
 libblur_la_LDFLAGS = -module -avoid-version -no-undefined
@@ -440,26 +470,26 @@ libvideo_la_LIBADD = $(top_builddir)/libdecoration/libdecoration.la
 libvideo_la_SOURCES = video.c
 libini_la_LDFLAGS = -module -avoid-version -no-undefined
 libini_la_SOURCES = ini.c
+@USE_LIBRSVG_TRUE@libsvg_la_DEPENDENCIES = $(top_builddir)/libdecoration/libdecoration.la
 @USE_LIBRSVG_TRUE@libsvg_la_LDFLAGS = -module -avoid-version -no-undefined
-@USE_LIBRSVG_TRUE@libsvg_la_LIBADD = @LIBRSVG_LIBS@
+@USE_LIBRSVG_TRUE@libsvg_la_LIBADD = \
+@USE_LIBRSVG_TRUE@	$(top_builddir)/libdecoration/libdecoration.la \
+@USE_LIBRSVG_TRUE@	@LIBRSVG_LIBS@
+
 @USE_LIBRSVG_TRUE@libsvg_la_SOURCES = svg.c
 @USE_LIBRSVG_TRUE@libsvg_module = libsvg.la
 @ANNOTATE_PLUGIN_TRUE@libannotate_la_LDFLAGS = -module -avoid-version -no-undefined
 @ANNOTATE_PLUGIN_TRUE@libannotate_la_LIBADD = @ANNOTATE_LIBS@
 @ANNOTATE_PLUGIN_TRUE@libannotate_la_SOURCES = annotate.c
 @ANNOTATE_PLUGIN_TRUE@libannotate_module = libannotate.la
+@USE_GLIB_TRUE@libglib_la_LDFLAGS = -module -avoid-version -no-undefined
+@USE_GLIB_TRUE@libglib_la_LIBADD = @GLIB_LIBS@
+@USE_GLIB_TRUE@libglib_la_SOURCES = glib.c
+@USE_GLIB_TRUE@libglib_module = libglib.la
 @USE_GCONF_TRUE@libgconf_la_LDFLAGS = -module -avoid-version -no-undefined
 @USE_GCONF_TRUE@libgconf_la_LIBADD = @GCONF_LIBS@
 @USE_GCONF_TRUE@libgconf_la_SOURCES = gconf.c
 @USE_GCONF_TRUE@libgconf_module = libgconf.la
-@GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@libgconf_dump_la_LDFLAGS = -module -avoid-version -no-undefined
-@GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@libgconf_dump_la_LIBADD = @GCONF_LIBS@
-@GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@libgconf_dump_la_SOURCES = gconf-dump.c
-@GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@libgconf_dump_module = libgconf-dump.la
-@USE_GCONF_TRUE@schemadir = $(GCONF_SCHEMA_FILE_DIR)
-@USE_GCONF_TRUE@schema_in_files = compiz.schemas.in
-@USE_GCONF_TRUE@schema_DATA = $(schema_in_files:.schemas.in=.schemas)
-@USE_GCONF_TRUE@schema_modules = $(patsubst gconf%,,$(subst ini,,$(subst minimize,,$(subst rotate,,$(subst zoom,,$(subst lib,,$(subst .la,,$(module_LTLIBRARIES))))))))
 @PLACE_PLUGIN_TRUE@libplace_la_LDFLAGS = -module -avoid-version -no-undefined
 @PLACE_PLUGIN_TRUE@libplace_la_LIBADD = @PLACE_LIBS@
 @PLACE_PLUGIN_TRUE@libplace_la_SOURCES = place.c
@@ -477,6 +507,7 @@ libini_la_SOURCES = ini.c
 @FUSE_PLUGIN_TRUE@libfs_module = libfs.la
 INCLUDES = \
 	@COMPIZ_CFLAGS@				\
+	@LIBPNG_CFLAGS@				\
 	@LIBRSVG_CFLAGS@			\
 	@ANNOTATE_CFLAGS@			\
 	@GCONF_CFLAGS@				\
@@ -488,10 +519,12 @@ INCLUDES = \
 	-DLOCALEDIR="\"@datadir@/locale\""	\
 	-DPLUGINDIR=\"$(plugindir)\"		\
 	-DIMAGEDIR=\"$(imagedir)\"		\
-	-I$(top_srcdir)/include
+	-I$(top_srcdir)/include                 \
+	-DMETADATADIR=\"$(metadatadir)\"
 
 moduledir = $(plugindir)
 module_LTLIBRARIES = \
+	$(libglib_module)	\
 	$(libgconf_module)	\
 	libdecoration.la	\
 	libwobbly.la		\
@@ -517,11 +550,9 @@ module_LTLIBRARIES = \
 	libini.la		\
 	$(libsvg_module)	\
 	$(libannotate_module)	\
-	$(libgconf_dump_module) \
 	$(libinotify_module)	\
 	$(libfs_module)
 
-EXTRA_DIST = $(schema_in_files)
 all: all-am
 
 .SUFFIXES:
@@ -555,8 +586,6 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
-compiz.schemas: $(top_builddir)/config.status $(srcdir)/compiz.schemas.in
-	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 install-moduleLTLIBRARIES: $(module_LTLIBRARIES)
 	@$(NORMAL_INSTALL)
 	test -z "$(moduledir)" || $(mkdir_p) "$(DESTDIR)$(moduledir)"
@@ -600,10 +629,10 @@ libfade.la: $(libfade_la_OBJECTS) $(libfade_la_DEPENDENCIES)
 	$(LINK) -rpath $(moduledir) $(libfade_la_LDFLAGS) $(libfade_la_OBJECTS) $(libfade_la_LIBADD) $(LIBS)
 libfs.la: $(libfs_la_OBJECTS) $(libfs_la_DEPENDENCIES) 
 	$(LINK) $(am_libfs_la_rpath) $(libfs_la_LDFLAGS) $(libfs_la_OBJECTS) $(libfs_la_LIBADD) $(LIBS)
-libgconf-dump.la: $(libgconf_dump_la_OBJECTS) $(libgconf_dump_la_DEPENDENCIES) 
-	$(LINK) $(am_libgconf_dump_la_rpath) $(libgconf_dump_la_LDFLAGS) $(libgconf_dump_la_OBJECTS) $(libgconf_dump_la_LIBADD) $(LIBS)
 libgconf.la: $(libgconf_la_OBJECTS) $(libgconf_la_DEPENDENCIES) 
 	$(LINK) $(am_libgconf_la_rpath) $(libgconf_la_LDFLAGS) $(libgconf_la_OBJECTS) $(libgconf_la_LIBADD) $(LIBS)
+libglib.la: $(libglib_la_OBJECTS) $(libglib_la_DEPENDENCIES) 
+	$(LINK) $(am_libglib_la_rpath) $(libglib_la_LDFLAGS) $(libglib_la_OBJECTS) $(libglib_la_LIBADD) $(LIBS)
 libini.la: $(libini_la_OBJECTS) $(libini_la_DEPENDENCIES) 
 	$(LINK) -rpath $(moduledir) $(libini_la_LDFLAGS) $(libini_la_OBJECTS) $(libini_la_LIBADD) $(LIBS)
 libinotify.la: $(libinotify_la_OBJECTS) $(libinotify_la_DEPENDENCIES) 
@@ -655,8 +684,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/decoration.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fade.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fuse.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gconf-dump.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gconf.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/glib.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ini.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inotify.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/minimize.Plo@am__quote@
@@ -706,23 +735,6 @@ clean-libtool:
 distclean-libtool:
 	-rm -f libtool
 uninstall-info-am:
-install-schemaDATA: $(schema_DATA)
-	@$(NORMAL_INSTALL)
-	test -z "$(schemadir)" || $(mkdir_p) "$(DESTDIR)$(schemadir)"
-	@list='$(schema_DATA)'; for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  f=$(am__strip_dir) \
-	  echo " $(schemaDATA_INSTALL) '$$d$$p' '$(DESTDIR)$(schemadir)/$$f'"; \
-	  $(schemaDATA_INSTALL) "$$d$$p" "$(DESTDIR)$(schemadir)/$$f"; \
-	done
-
-uninstall-schemaDATA:
-	@$(NORMAL_UNINSTALL)
-	@list='$(schema_DATA)'; for p in $$list; do \
-	  f=$(am__strip_dir) \
-	  echo " rm -f '$(DESTDIR)$(schemadir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(schemadir)/$$f"; \
-	done
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -801,9 +813,9 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(LTLIBRARIES) $(DATA)
+all-am: Makefile $(LTLIBRARIES)
 installdirs:
-	for dir in "$(DESTDIR)$(moduledir)" "$(DESTDIR)$(schemadir)"; do \
+	for dir in "$(DESTDIR)$(moduledir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
 	done
 install: install-am
@@ -830,8 +842,6 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-@GCONF_SCHEMAS_INSTALL_FALSE@install-data-local:
-@USE_GCONF_FALSE@install-data-local:
 clean: clean-am
 
 clean-am: clean-generic clean-libtool clean-moduleLTLIBRARIES \
@@ -853,8 +863,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-data-local install-moduleLTLIBRARIES \
-	install-schemaDATA
+install-data-am: install-moduleLTLIBRARIES
 
 install-exec-am:
 
@@ -882,43 +891,21 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-info-am uninstall-moduleLTLIBRARIES \
-	uninstall-schemaDATA
+uninstall-am: uninstall-info-am uninstall-moduleLTLIBRARIES
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
 	clean-libtool clean-moduleLTLIBRARIES ctags distclean \
 	distclean-compile distclean-generic distclean-libtool \
 	distclean-tags distdir dvi dvi-am html html-am info info-am \
-	install install-am install-data install-data-am \
-	install-data-local install-exec install-exec-am install-info \
-	install-info-am install-man install-moduleLTLIBRARIES \
-	install-schemaDATA install-strip installcheck installcheck-am \
-	installdirs maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-compile mostlyclean-generic \
-	mostlyclean-libtool pdf pdf-am ps ps-am tags uninstall \
-	uninstall-am uninstall-info-am uninstall-moduleLTLIBRARIES \
-	uninstall-schemaDATA
+	install install-am install-data install-data-am install-exec \
+	install-exec-am install-info install-info-am install-man \
+	install-moduleLTLIBRARIES install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags uninstall uninstall-am uninstall-info-am \
+	uninstall-moduleLTLIBRARIES
 
-
-@USE_GCONF_TRUE@compiz.schemas.in:
-@USE_GCONF_TRUE@	rm -f compiz.schemas.dump;
-@USE_GCONF_TRUE@	echo -e "<gconfschemafile>\n    <schemalist>" >> compiz.schemas.dump;
-@USE_GCONF_TRUE@	COMPIZ_SCHEMA_GENERAL=1 compiz --replace --no-detection --sm-disable gconf-dump;
-@USE_GCONF_TRUE@	for module in $(schema_modules) ; do \
-@USE_GCONF_TRUE@		COMPIZ_SCHEMA_PLUGINS="$$module" \
-@USE_GCONF_TRUE@		compiz --replace --no-detection --sm-disable "$$module" gconf-dump; \
-@USE_GCONF_TRUE@	done;
-@USE_GCONF_TRUE@	COMPIZ_SCHEMA_PLUGINS="minimize" compiz --replace --no-detection --sm-disable minimize gconf-dump;
-@USE_GCONF_TRUE@	COMPIZ_SCHEMA_PLUGINS="rotate" compiz --replace --no-detection --sm-disable cube rotate gconf-dump;
-@USE_GCONF_TRUE@	COMPIZ_SCHEMA_PLUGINS="zoom" compiz --replace --no-detection --sm-disable cube zoom gconf-dump;
-@USE_GCONF_TRUE@	echo -e "    </schemalist>\n</gconfschemafile>" >> compiz.schemas.dump;
-@USE_GCONF_TRUE@	sed -e 's/\[TopRight\]/[\@SCALE_CORNER\@\]/' -e 's/\[gconf\]/\[gconf,\@DEFAULT_PLUGINS\@\]/' < compiz.schemas.dump > compiz.schemas.in;
-@USE_GCONF_TRUE@	rm -f compiz.schemas.dump
-
-@GCONF_SCHEMAS_INSTALL_TRUE@@USE_GCONF_TRUE@install-data-local:
-@GCONF_SCHEMAS_INSTALL_TRUE@@USE_GCONF_TRUE@	if test -z "$(DESTDIR)" ; then \
-@GCONF_SCHEMAS_INSTALL_TRUE@@USE_GCONF_TRUE@		GCONF_CONFIG_SOURCE=$(GCONF_SCHEMA_CONFIG_SOURCE) $(GCONFTOOL) --makefile-install-rule $(schema_DATA); \
-@GCONF_SCHEMAS_INSTALL_TRUE@@USE_GCONF_TRUE@        fi
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

@@ -50,28 +50,6 @@ Window   currentRoot = 0;
 int  defaultRefreshRate = 50;
 char *defaultTextureFilter = "Good";
 
-char *windowTypeString[] = {
-    N_("Desktop"),
-    N_("Dock"),
-    N_("Toolbar"),
-    N_("Menu"),
-    N_("Utility"),
-    N_("Splash"),
-    N_("Dialog"),
-    N_("Normal"),
-    N_("DropdownMenu"),
-    N_("PopupMenu"),
-    N_("Tooltip"),
-    N_("Notification"),
-    N_("Combo"),
-    N_("Dnd"),
-    N_("ModalDialog"),
-    N_("Fullscreen"),
-    N_("Unknown")
-};
-int  nWindowTypeString =
-    sizeof (windowTypeString) / sizeof (windowTypeString[0]);
-
 Bool shutDown = FALSE;
 Bool restartSignal = FALSE;
 
@@ -88,6 +66,8 @@ Bool onlyCurrentScreen = FALSE;
 #ifdef USE_COW
 Bool useCow = TRUE;
 #endif
+
+CompMetadata coreMetadata;
 
 static void
 usage (void)
@@ -118,6 +98,65 @@ usage (void)
 	    programName);
 }
 
+void
+compLogMessage (CompDisplay *d,
+		char	     *componentName,
+		CompLogLevel level,
+		char	     *format,
+		...)
+{
+    va_list args;
+    char    message[2048];
+
+    va_start (args, format);
+
+    vsnprintf (message, 2048, format, args);
+
+    if (d)
+	(*d->logMessage) (d, componentName, level, message);
+    else
+	logMessage (d, componentName, level, message);
+
+    va_end (args);
+}
+
+void
+logMessage (CompDisplay	 *d,
+	    char	 *componentName,
+	    CompLogLevel level,
+	    char	 *message)
+{
+    char defaultMessage[2048];
+
+    snprintf (defaultMessage, 2048, "%s (%s) - %s: %s",
+	      programName, componentName,
+	      logLevelToString (level), message);
+
+    fprintf (stderr, defaultMessage);
+    fprintf (stderr, "\n");
+}
+
+const char *
+logLevelToString (CompLogLevel level)
+{
+    switch (level) {
+    case CompLogLevelFatal:
+	return "Fatal";
+    case CompLogLevelError:
+	return "Error";
+    case CompLogLevelWarn:
+	return "Warn";
+    case CompLogLevelInfo:
+	return "Info";
+    case CompLogLevelDebug:
+	return "Debug";
+    default:
+	break;
+    }
+
+    return "Unknown";
+}
+
 static void
 signalHandler (int sig)
 {
@@ -138,18 +177,94 @@ signalHandler (int sig)
     }
 }
 
+typedef struct _CompIOCtx {
+    int	 offset;
+    char *pluginData;
+    char *textureFilterData;
+    char *refreshRateData;
+} CompIOCtx;
+
+static int
+readCoreXmlCallback (void *context,
+		     char *buffer,
+		     int  length)
+{
+    CompIOCtx *ctx = (CompIOCtx *) context;
+    int	      offset = ctx->offset;
+    int	      i, j;
+
+    i = compReadXmlChunk ("<compiz><core><display>", &offset, buffer, length);
+
+    for (j = 0; j < COMP_DISPLAY_OPTION_NUM; j++)
+    {
+	CompMetadataOptionInfo info = coreDisplayOptionInfo[j];
+
+	switch (j) {
+	case COMP_DISPLAY_OPTION_ACTIVE_PLUGINS:
+	    if (ctx->pluginData)
+		info.data = ctx->pluginData;
+	    break;
+	case COMP_DISPLAY_OPTION_TEXTURE_FILTER:
+	    if (ctx->textureFilterData)
+		info.data = ctx->textureFilterData;
+	default:
+	    break;
+	}
+
+	i += compReadXmlChunkFromMetadataOptionInfo (&info,
+						     &offset,
+						     buffer + i,
+						     length - i);
+    }
+
+    i += compReadXmlChunk ("</display><screen>", &offset,
+			   buffer + i, length - 1);
+
+    for (j = 0; j < COMP_SCREEN_OPTION_NUM; j++)
+    {
+	CompMetadataOptionInfo info = coreScreenOptionInfo[j];
+
+	switch (j) {
+	case COMP_SCREEN_OPTION_REFRESH_RATE:
+	    if (ctx->refreshRateData)
+		info.data = ctx->refreshRateData;
+	default:
+	    break;
+	}
+
+	i += compReadXmlChunkFromMetadataOptionInfo (&info,
+						     &offset,
+						     buffer + i,
+						     length - i);
+    }
+
+    i += compReadXmlChunk ("</screen></core></compiz>", &offset, buffer + i,
+			   length - i);
+
+    if (!offset && length > i)
+	buffer[i++] = '\0';
+
+    ctx->offset += i;
+
+    return i;
+}
+
 int
 main (int argc, char **argv)
 {
-    char *displayName = 0;
-    char *plugin[256];
-    int  i, nPlugin = 0;
-    Bool disableSm = FALSE;
-    char *clientId = NULL;
+    CompIOCtx ctx;
+    char      *displayName = 0;
+    char      *plugin[256];
+    int	      i, nPlugin = 0;
+    Bool      disableSm = FALSE;
+    char      *clientId = NULL;
+    char      *refreshRateArg = NULL;
 
     programName = argv[0];
     programArgc = argc;
     programArgv = argv;
+
+    compDisplays = NULL;
 
     signal (SIGHUP, signalHandler);
     signal (SIGCHLD, signalHandler);
@@ -170,6 +285,8 @@ main (int argc, char **argv)
     infiniteRegion.extents.y1 = MINSHORT;
     infiniteRegion.extents.x2 = MAXSHORT;
     infiniteRegion.extents.y2 = MAXSHORT;
+
+    memset (&ctx, 0, sizeof (ctx));
 
     for (i = 1; i < argc; i++)
     {
@@ -192,13 +309,15 @@ main (int argc, char **argv)
 	{
 	    if (i + 1 < argc)
 	    {
-		defaultRefreshRate = atoi (programArgv[++i]);
+		refreshRateArg = programArgv[++i];
+		defaultRefreshRate = atoi (refreshRateArg);
 		defaultRefreshRate = RESTRICT_VALUE (defaultRefreshRate,
 						     1, 1000);
 	    }
 	}
 	else if (!strcmp (argv[i], "--fast-filter"))
 	{
+	    ctx.textureFilterData = "<default>Fast</default>";
 	    defaultTextureFilter = "Fast";
 	}
 	else if (!strcmp (argv[i], "--indirect-rendering"))
@@ -249,7 +368,8 @@ main (int argc, char **argv)
 	}
 	else if (*argv[i] == '-')
 	{
-	    fprintf (stderr, "%s: Unknown option '%s'\n", programName, argv[i]);
+	    compLogMessage (NULL, "core", CompLogLevelWarn,
+			    "Unknown option '%s'\n", argv[i]);
 	}
 	else
 	{
@@ -258,16 +378,72 @@ main (int argc, char **argv)
 	}
     }
 
+    if (refreshRateArg)
+    {
+	ctx.refreshRateData = malloc (strlen (refreshRateArg) + 256);
+	if (ctx.refreshRateData)
+	    sprintf (ctx.refreshRateData,
+		     "<min>1</min><default>%s</default>",
+		     refreshRateArg);
+    }
+
+    if (nPlugin)
+    {
+	int size = 256;
+
+	for (i = 0; i < nPlugin; i++)
+	    size += strlen (plugin[i]) + 16;
+
+	ctx.pluginData = malloc (size);
+	if (ctx.pluginData)
+	{
+	    char *ptr = ctx.pluginData;
+
+	    ptr += sprintf (ptr, "<type>string</type><default>");
+
+	    for (i = 0; i < nPlugin; i++)
+		ptr += sprintf (ptr, "<value>%s</value>", plugin[i]);
+
+	    ptr += sprintf (ptr, "</default>");
+	}
+    }
+
+    xmlInitParser ();
+
+    LIBXML_TEST_VERSION;
+
+    if (!compInitMetadata (&coreMetadata))
+    {
+	compLogMessage (NULL, "core", CompLogLevelFatal,
+			"Couldn't initialize core metadata");
+	return 1;
+    }
+
+    if (!compAddMetadataFromIO (&coreMetadata,
+				readCoreXmlCallback, NULL,
+				&ctx))
+	return 1;
+
+    if (ctx.refreshRateData)
+	free (ctx.refreshRateData);
+
+    if (ctx.pluginData)
+	free (ctx.pluginData);
+
+    compAddMetadataFromFile (&coreMetadata, "core");
+
     if (!disableSm)
 	initSession (clientId);
 
-    if (!addDisplay (displayName, plugin, nPlugin))
+    if (!addDisplay (displayName))
 	return 1;
 
     eventLoop ();
 
     if (!disableSm)
 	closeSession ();
+
+    xmlCleanupParser ();
 
     if (restartSignal)
     {

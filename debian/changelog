@@ -1,3 +1,23 @@
+compiz (0.5.2-1) unstable; urgency=low
+
+  * New upstream release.
+  * updated/massaged various quilt patches
+  * make sure configure is executable at build time.  seems that this
+    causes problems in a pbuilder environment
+  * new build-dependencies on libxml-parser-perl and xsltproc
+  * modify compiz-dev.install to install all the extra .h/.pc files
+    being generated in this new version.
+
+ -- sean finney <seanius@debian.org>  Wed, 22 Aug 2007 22:58:09 -0700
+
+compiz (0.5.0.dfsg-3) UNRELEASED; urgency=low
+
+  * Restore all ${misc:Depends} in debian/control so that for instance
+    compiz-gtk and compiz-plugins gets the required dependency on gconf2
+    (for gconf-schemas in postinst), closes: #436432.
+
+ -- Brice Goglin <bgoglin@debian.org>  Tue, 07 Aug 2007 15:10:49 +0200
+
 compiz (0.5.0.dfsg-2) unstable; urgency=low
 
   * Drop the now obsolete Source-Version in favour of binary:Version in

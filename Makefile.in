@@ -37,11 +37,12 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in $(srcdir)/compiz.pc.in \
-	$(srcdir)/config.h.in $(top_srcdir)/configure AUTHORS COPYING \
-	ChangeLog INSTALL NEWS TODO config/config.guess \
-	config/config.sub config/depcomp config/install-sh \
-	config/ltmain.sh config/missing config/mkinstalldirs
+	$(srcdir)/Makefile.in $(srcdir)/compiz-cube.pc.in \
+	$(srcdir)/compiz-gconf.pc.in $(srcdir)/compiz-scale.pc.in \
+	$(srcdir)/compiz.pc.in $(srcdir)/config.h.in \
+	$(top_srcdir)/configure AUTHORS COPYING ChangeLog INSTALL NEWS \
+	TODO config.guess config.sub depcomp install-sh ltmain.sh \
+	missing
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -49,9 +50,10 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno configure.status.lineno
-mkinstalldirs = $(SHELL) $(top_srcdir)/config/mkinstalldirs
+mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
-CONFIG_CLEAN_FILES = compiz.pc
+CONFIG_CLEAN_FILES = compiz.pc compiz-cube.pc compiz-scale.pc \
+	compiz-gconf.pc
 SOURCES =
 DIST_SOURCES =
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
@@ -79,7 +81,7 @@ am__remove_distdir = \
   { test ! -d $(distdir) \
     || { find $(distdir) -type d ! -perm -200 -exec chmod u+w {} ';' \
          && rm -fr $(distdir); }; }
-DIST_ARCHIVES = $(distdir).tar.gz $(distdir).tar.bz2
+DIST_ARCHIVES = $(distdir).tar.gz
 GZIP_ENV = --best
 distuninstallcheck_listfiles = find . -type f -print
 distcleancheck_listfiles = find . -type f -print
@@ -105,6 +107,9 @@ CFLAGS = @CFLAGS@
 COMPIZ_CFLAGS = @COMPIZ_CFLAGS@
 COMPIZ_LIBS = @COMPIZ_LIBS@
 COMPIZ_REQUIRES = @COMPIZ_REQUIRES@
+COMPIZ_VERSION_MAJOR = @COMPIZ_VERSION_MAJOR@
+COMPIZ_VERSION_MICRO = @COMPIZ_VERSION_MICRO@
+COMPIZ_VERSION_MINOR = @COMPIZ_VERSION_MINOR@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CXX = @CXX@
@@ -124,7 +129,6 @@ DCOPIDL2CPP = @DCOPIDL2CPP@
 DECORATION_CFLAGS = @DECORATION_CFLAGS@
 DECORATION_LIBS = @DECORATION_LIBS@
 DECORATION_REQUIRES = @DECORATION_REQUIRES@
-DEFAULT_PLUGINS = @DEFAULT_PLUGINS@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 ECHO = @ECHO@
@@ -141,18 +145,20 @@ FUSE_PLUGIN_FALSE = @FUSE_PLUGIN_FALSE@
 FUSE_PLUGIN_TRUE = @FUSE_PLUGIN_TRUE@
 GCONFTOOL = @GCONFTOOL@
 GCONF_CFLAGS = @GCONF_CFLAGS@
-GCONF_DUMP_PLUGIN_FALSE = @GCONF_DUMP_PLUGIN_FALSE@
-GCONF_DUMP_PLUGIN_TRUE = @GCONF_DUMP_PLUGIN_TRUE@
 GCONF_LIBS = @GCONF_LIBS@
 GCONF_SCHEMAS_INSTALL_FALSE = @GCONF_SCHEMAS_INSTALL_FALSE@
 GCONF_SCHEMAS_INSTALL_TRUE = @GCONF_SCHEMAS_INSTALL_TRUE@
 GCONF_SCHEMA_CONFIG_SOURCE = @GCONF_SCHEMA_CONFIG_SOURCE@
 GCONF_SCHEMA_FILE_DIR = @GCONF_SCHEMA_FILE_DIR@
 GETTEXT_PACKAGE = @GETTEXT_PACKAGE@
+GLIB_CFLAGS = @GLIB_CFLAGS@
+GLIB_LIBS = @GLIB_LIBS@
 GL_CFLAGS = @GL_CFLAGS@
 GL_LIBS = @GL_LIBS@
 GMOFILES = @GMOFILES@
 GMSGFMT = @GMSGFMT@
+GNOME_KEY_BINDINGS_CFLAGS = @GNOME_KEY_BINDINGS_CFLAGS@
+GNOME_KEY_BINDINGS_LIBS = @GNOME_KEY_BINDINGS_LIBS@
 GNOME_WINDOW_SETTINGS_CFLAGS = @GNOME_WINDOW_SETTINGS_CFLAGS@
 GNOME_WINDOW_SETTINGS_LIBS = @GNOME_WINDOW_SETTINGS_LIBS@
 GREP = @GREP@
@@ -166,12 +172,37 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 INSTOBJEXT = @INSTOBJEXT@
 INTLLIBS = @INTLLIBS@
+INTLTOOL_CAVES_RULE = @INTLTOOL_CAVES_RULE@
+INTLTOOL_DESKTOP_RULE = @INTLTOOL_DESKTOP_RULE@
+INTLTOOL_DIRECTORY_RULE = @INTLTOOL_DIRECTORY_RULE@
+INTLTOOL_EXTRACT = @INTLTOOL_EXTRACT@
+INTLTOOL_KBD_RULE = @INTLTOOL_KBD_RULE@
+INTLTOOL_KEYS_RULE = @INTLTOOL_KEYS_RULE@
+INTLTOOL_MERGE = @INTLTOOL_MERGE@
+INTLTOOL_OAF_RULE = @INTLTOOL_OAF_RULE@
+INTLTOOL_PERL = @INTLTOOL_PERL@
+INTLTOOL_POLICY_RULE = @INTLTOOL_POLICY_RULE@
+INTLTOOL_PONG_RULE = @INTLTOOL_PONG_RULE@
+INTLTOOL_PROP_RULE = @INTLTOOL_PROP_RULE@
+INTLTOOL_SCHEMAS_RULE = @INTLTOOL_SCHEMAS_RULE@
+INTLTOOL_SERVER_RULE = @INTLTOOL_SERVER_RULE@
+INTLTOOL_SERVICE_RULE = @INTLTOOL_SERVICE_RULE@
+INTLTOOL_SHEET_RULE = @INTLTOOL_SHEET_RULE@
+INTLTOOL_SOUNDLIST_RULE = @INTLTOOL_SOUNDLIST_RULE@
+INTLTOOL_THEME_RULE = @INTLTOOL_THEME_RULE@
+INTLTOOL_UI_RULE = @INTLTOOL_UI_RULE@
+INTLTOOL_UPDATE = @INTLTOOL_UPDATE@
+INTLTOOL_XAM_RULE = @INTLTOOL_XAM_RULE@
+INTLTOOL_XML_NOMERGE_RULE = @INTLTOOL_XML_NOMERGE_RULE@
+INTLTOOL_XML_RULE = @INTLTOOL_XML_RULE@
 KDE_CFLAGS = @KDE_CFLAGS@
 KDE_LIBS = @KDE_LIBS@
 KDE_WINDOW_DECORATOR_CFLAGS = @KDE_WINDOW_DECORATOR_CFLAGS@
 KDE_WINDOW_DECORATOR_LIBS = @KDE_WINDOW_DECORATOR_LIBS@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
+LIBPNG_CFLAGS = @LIBPNG_CFLAGS@
+LIBPNG_LIBS = @LIBPNG_LIBS@
 LIBRSVG_CFLAGS = @LIBRSVG_CFLAGS@
 LIBRSVG_LIBS = @LIBRSVG_LIBS@
 LIBS = @LIBS@
@@ -186,6 +217,7 @@ METACITY_CFLAGS = @METACITY_CFLAGS@
 METACITY_LIBS = @METACITY_LIBS@
 MKINSTALLDIRS = @MKINSTALLDIRS@
 MSGFMT = @MSGFMT@
+MSGFMT_OPTS = @MSGFMT_OPTS@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -205,13 +237,17 @@ PO_IN_DATADIR_FALSE = @PO_IN_DATADIR_FALSE@
 PO_IN_DATADIR_TRUE = @PO_IN_DATADIR_TRUE@
 QT_MOC = @QT_MOC@
 RANLIB = @RANLIB@
-SCALE_CORNER = @SCALE_CORNER@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
 USE_GCONF_FALSE = @USE_GCONF_FALSE@
 USE_GCONF_TRUE = @USE_GCONF_TRUE@
+USE_GLIB_FALSE = @USE_GLIB_FALSE@
+USE_GLIB_TRUE = @USE_GLIB_TRUE@
 USE_GNOME_FALSE = @USE_GNOME_FALSE@
+USE_GNOME_KEYBINDINGS_FALSE = @USE_GNOME_KEYBINDINGS_FALSE@
+USE_GNOME_KEYBINDINGS_TRUE = @USE_GNOME_KEYBINDINGS_TRUE@
 USE_GNOME_TRUE = @USE_GNOME_TRUE@
 USE_GTK_FALSE = @USE_GTK_FALSE@
 USE_GTK_TRUE = @USE_GTK_TRUE@
@@ -224,6 +260,7 @@ USE_METACITY_TRUE = @USE_METACITY_TRUE@
 USE_NLS = @USE_NLS@
 VERSION = @VERSION@
 XGETTEXT = @XGETTEXT@
+XSLTPROC = @XSLTPROC@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_F77 = @ac_ct_F77@
@@ -257,11 +294,13 @@ imagedir = @imagedir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
+keybindingsdir = @keybindingsdir@
 libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
+metadatadir = @metadatadir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
@@ -271,20 +310,51 @@ program_transform_name = @program_transform_name@
 psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
+stylesheetdir = @stylesheetdir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 windowsettingsdatadir = @windowsettingsdatadir@
 windowsettingslibdir = @windowsettingslibdir@
-SUBDIRS = include src libdecoration plugins images gtk kde po
+SUBDIRS = include src libdecoration plugins images gtk kde po metadata
 EXTRA_DIST = \
-	COPYING	     \
-	COPYING.GPL  \
-	COPYING.LGPL \
-	COPYING.MIT  \
-	compiz.pc.in
+	COPYING		    \
+	COPYING.GPL	    \
+	COPYING.LGPL	    \
+	COPYING.MIT	    \
+	compiz.pc.in	    \
+	compiz-cube.pc.in   \
+	compiz-scale.pc.in  \
+	compiz-gconf.pc.in  \
+	intltool-extract.in \
+	intltool-merge.in   \
+	intltool-update.in  \
+	intltool-extract    \
+	intltool-merge	    \
+	intltool-update
 
+DISTCLEANFILES = \
+	intltool-extract \
+	intltool-merge   \
+	intltool-update	 \
+	po/stamp-it	 \
+	po/.intltool-merge-cache
+
+@USE_GCONF_TRUE@gconfdata = compiz-gconf.pc
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = compiz.pc
+pkgconfig_DATA = compiz.pc compiz-cube.pc compiz-scale.pc $(gconfdata)
+
+# Some custom targets to make it easier to release things.
+# Use either:
+#		make release-check
+# or		make release-publish
+RELEASE_UPLOAD_HOST = xorg.freedesktop.org
+RELEASE_UPLOAD_BASE = /srv/xorg.freedesktop.org/archive/individual/app
+RELEASE_UPLOAD_DIR = $(RELEASE_UPLOAD_BASE)
+RELEASE_URL_BASE = http://xorg.freedesktop.org/archive/individual/app
+RELEASE_ANNOUNCE_LIST = compiz@list.freedesktop.org
+tar_file = $(PACKAGE)-$(VERSION).tar.gz
+sha1_file = $(tar_file).sha1
+gpg_file = $(sha1_file).asc
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -340,6 +410,12 @@ $(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 distclean-hdr:
 	-rm -f config.h stamp-h1
 compiz.pc: $(top_builddir)/config.status $(srcdir)/compiz.pc.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
+compiz-cube.pc: $(top_builddir)/config.status $(srcdir)/compiz-cube.pc.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
+compiz-scale.pc: $(top_builddir)/config.status $(srcdir)/compiz-scale.pc.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
+compiz-gconf.pc: $(top_builddir)/config.status $(srcdir)/compiz-gconf.pc.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 
 mostlyclean-libtool:
@@ -504,7 +580,7 @@ distclean-tags:
 distdir: $(DISTFILES)
 	$(am__remove_distdir)
 	mkdir $(distdir)
-	$(mkdir_p) $(distdir)/. $(distdir)/config $(distdir)/gtk/gnome $(distdir)/gtk/window-decorator $(distdir)/libdecoration $(distdir)/plugins $(distdir)/po
+	$(mkdir_p) $(distdir)/. $(distdir)/libdecoration $(distdir)/po
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \
@@ -554,6 +630,7 @@ distdir: $(DISTFILES)
 dist-gzip: distdir
 	tardir=$(distdir) && $(am__tar) | GZIP=$(GZIP_ENV) gzip -c >$(distdir).tar.gz
 	$(am__remove_distdir)
+
 dist-bzip2: distdir
 	tardir=$(distdir) && $(am__tar) | bzip2 -9 -c >$(distdir).tar.bz2
 	$(am__remove_distdir)
@@ -573,7 +650,6 @@ dist-zip: distdir
 
 dist dist-all: distdir
 	tardir=$(distdir) && $(am__tar) | GZIP=$(GZIP_ENV) gzip -c >$(distdir).tar.gz
-	tardir=$(distdir) && $(am__tar) | bzip2 -9 -c >$(distdir).tar.bz2
 	$(am__remove_distdir)
 
 # This target untars the dist file and tries a VPATH configuration.  Then
@@ -671,6 +747,7 @@ clean-generic:
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
+	-test -z "$(DISTCLEANFILES)" || rm -f $(DISTCLEANFILES)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -744,6 +821,80 @@ uninstall-info: uninstall-info-recursive
 	uninstall uninstall-am uninstall-info-am \
 	uninstall-pkgconfigDATA
 
+
+$(sha1_file): $(tar_file)
+	sha1sum $^ > $@
+
+$(gpg_file): $(sha1_file)
+	@echo "Please enter your GPG password to sign the checksum."
+	gpg --armor --sign $^
+
+release-verify-even-micro:
+	@echo -n "Checking that $(VERSION) has an even micro component..."
+	@test "$(COMPIZ_VERSION_MICRO)" = "`echo $(COMPIZ_VERSION_MICRO)/2*2 | bc`" \
+		|| (echo "Ouch." && echo "The version micro component '$(COMPIZ_VERSION_MICRO)' is not an even number." \
+		&& echo "The version in configure.in must be incremented before a new release." \
+		&& false)
+	@echo "Good."
+
+release-verify-newer:
+	@echo -n "Checking that no $(VERSION) release already exists..."
+	@ssh $(RELEASE_UPLOAD_HOST) test ! -e $(RELEASE_UPLOAD_DIR)/$(tar_file) \
+		|| (echo "Ouch." && echo "Found: $(RELEASE_UPLOAD_HOST):$(RELEASE_UPLOAD_DIR)/$(tar_file)" \
+		&& echo "Are you sure you have an updated checkout?" \
+		&& echo "This should never happen." \
+		&& false)
+	@echo "Good."
+
+release-remove-old:
+	$(RM) $(tar_file) $(sha1_file) $(gpg_file)
+
+release-check: release-verify-even-micro release-verify-newer release-remove-old distcheck
+
+release-upload: release-check $(tar_file) $(sha1_file) $(gpg_file)
+	mkdir -p releases
+	scp $(tar_file) $(sha1_file) $(gpg_file) $(RELEASE_UPLOAD_HOST):$(RELEASE_UPLOAD_DIR)
+	mv $(tar_file) $(sha1_file) $(gpg_file) releases
+	git-tag -s -m "compiz $(COMPIZ_VERSION_MAJOR).$(COMPIZ_VERSION_MINOR).$(COMPIZ_VERSION_MICRO) release" compiz-$(COMPIZ_VERSION_MAJOR).$(COMPIZ_VERSION_MINOR).$(COMPIZ_VERSION_MICRO)
+
+release-publish-message: releases/$(sha1_file)
+	@echo "Please follow the instructions in RELEASING to push stuff out and"
+	@echo "send out the announcement mails.  Here is the excerpt you need:"
+	@echo ""
+	@echo "Subject: [ANNOUNCE] $(PACKAGE)-$(VERSION)"
+	@echo ""
+	@echo "============================== CUT HERE =============================="
+	@echo "A new $(PACKAGE) release $(VERSION) is now available from:"
+	@echo ""
+	@echo "	$(RELEASE_URL_BASE)/$(tar_file)"
+	@echo ""
+	@echo "    which can be verified with:"
+	@echo ""
+	@echo "	$(RELEASE_URL_BASE)/$(sha1_file)"
+	@echo -n "	"
+	@cat releases/$(sha1_file)
+	@echo ""
+	@echo "	$(RELEASE_URL_BASE)/$(gpg_file)"
+	@echo "	(signed by `getent passwd "$$USER" | cut -d: -f 5 | cut -d, -f 1`)"
+	@echo ""
+	@echo "  Additionally, a git clone of the source tree:"
+	@echo ""
+	@echo "	git clone git://git.freedesktop.org/git/xorg/app/compiz"
+	@echo ""
+	@echo "    will include a signed $(VERSION) tag which points to a commit named:"
+	@echo "	`git cat-file tag compiz-$(VERSION) | grep ^object | sed -e 's,object ,,'`"
+	@echo ""
+	@echo "    which can be verified with:"
+	@echo "	git verify-tag compiz-$(VERSION)"
+	@echo ""
+	@echo "    and can be checked out with a command such as:"
+	@echo "	git checkout -b build compiz-$(VERSION)"
+	@echo ""
+	@echo "============================== CUT HERE =============================="
+
+release-publish: release-upload release-publish-message
+
+.PHONY: release-verify-even-micro release-verify-newer release-remove-old release-check release-upload release-publish docs-publish
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
