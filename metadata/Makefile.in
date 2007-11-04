@@ -256,6 +256,7 @@ build_os = @build_os@
 build_vendor = @build_vendor@
 datadir = @datadir@
 datarootdir = @datarootdir@
+default_plugins = @default_plugins@
 docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@
@@ -565,7 +566,8 @@ uninstall-am: uninstall-info-am uninstall-schemaDATA uninstall-xmlDATA \
 @INTLTOOL_XML_RULE@
 
 @USE_GCONF_TRUE@%.schemas: $(xml_files)
-@USE_GCONF_TRUE@	xsltproc -o $@ $(srcdir)/schemas.xslt $(subst compiz-,,$*).xml;
+@USE_GCONF_TRUE@	xsltproc -o $@ --param defaultPlugins "'$(default_plugins)'" \
+@USE_GCONF_TRUE@		$(srcdir)/schemas.xslt $(subst compiz-,,$*).xml
 
 @GCONF_SCHEMAS_INSTALL_TRUE@@USE_GCONF_TRUE@install-data-local:
 @GCONF_SCHEMAS_INSTALL_TRUE@@USE_GCONF_TRUE@	if test -z "$(DESTDIR)" ; then \

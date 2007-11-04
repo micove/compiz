@@ -141,6 +141,10 @@
           <owner>compiz</owner>
           <type><xsl:call-template name="printType"/></type>
           <xsl:choose>
+            <xsl:when test="@name = 'active_plugins'">
+              <list_type>string</list_type>
+              <default>[<xsl:value-of select="$defaultPlugins"/>]</default>
+	    </xsl:when>
             <!-- for most option types we can use the default value directly -->
             <xsl:when test="contains('bool,int,float,string,match', @type)">
               <default>
@@ -172,13 +176,13 @@
             <xsl:when test="@type = 'color'">
               <default>
                 <xsl:choose>
-                  <xsl:when test="default/red/text() or default/green/text() or default/blue/text() or default/alpha/text()">
+                  <xsl:when test="default">
                     <xsl:for-each select="default[1]">
                       <xsl:call-template name="printColor"/>
                     </xsl:for-each>
                   </xsl:when>
                   <xsl:otherwise>
-                    <xsl:text>#00000000</xsl:text>
+                    <xsl:text>#000000ff</xsl:text>
                   </xsl:otherwise>
                 </xsl:choose>
               </default>
@@ -409,9 +413,16 @@
       </xsl:call-template>
     </xsl:variable>
     <xsl:variable name="alpha">
-      <xsl:call-template name="getHexNum">
-        <xsl:with-param name="value" select="alpha/text()"/>
-      </xsl:call-template>
+      <xsl:choose>
+        <xsl:when test="alpha/text()">
+	  <xsl:call-template name="getHexNum">
+            <xsl:with-param name="value" select="alpha/text()"/>
+	  </xsl:call-template>
+        </xsl:when>
+	<xsl:otherwise>
+          <xsl:text>ff</xsl:text>
+	</xsl:otherwise>
+      </xsl:choose>
     </xsl:variable>
     <xsl:value-of select="concat('#',concat($red,concat($green,concat($blue,$alpha))))"/>
   </xsl:template>

@@ -2169,8 +2169,6 @@ wobblyHandleEvent (CompDisplay *d,
 
 		if (ww->state & MAXIMIZE_STATE)
 		{
-		    WOBBLY_WINDOW (ws->grabWindow);
-
 		    if (ww->model && ww->grabbed)
 		    {
 			int dx, dy;
@@ -2325,6 +2323,10 @@ wobblyWindowResizeNotify (CompWindow *w,
 
     if (ws->opt[WOBBLY_SCREEN_OPTION_MAXIMIZE_EFFECT].value.b &&
 	isWobblyWin (w)					      &&
+	/* prevent wobbling when shading maximized windows - assuming that
+	   the height difference shaded - non-shaded will hardly be -1 and
+	   a lack of wobbly animation in that corner case is tolerable */
+	(dheight != -1)                                       &&
 	((w->state | ww->state) & MAXIMIZE_STATE))
     {
 	ww->state &= ~MAXIMIZE_STATE;
@@ -2463,7 +2465,7 @@ wobblyWindowGrabNotify (CompWindow   *w,
 
     if (!ws->grabWindow)
     {
-    	ws->grabMask   = mask;
+	ws->grabMask   = mask;
 	ws->grabWindow = w;
     }
     ws->moveWindow = FALSE;
@@ -2560,7 +2562,7 @@ wobblyWindowUngrabNotify (CompWindow *w)
 
     if (w == ws->grabWindow)
     {
-    	ws->grabMask   = 0;
+	ws->grabMask   = 0;
 	ws->grabWindow = NULL;
     }
 
@@ -2827,6 +2829,13 @@ wobblyFiniWindow (CompPlugin *p,
 		  CompWindow *w)
 {
     WOBBLY_WINDOW (w);
+    WOBBLY_SCREEN (w->screen);
+
+    if (ws->grabWindow == w)
+    {
+	ws->grabWindow = NULL;
+	ws->grabMask   = 0;
+    }
 
     if (ww->model)
     {

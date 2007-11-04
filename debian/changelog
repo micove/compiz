@@ -1,3 +1,17 @@
+compiz (0.6.3~git20071104.c9009efd-1) unstable; urgency=low
+
+  [Sean Finney]
+  * New upstream (git snapshot) release.
+  * Disable the (unused?) fuse plugin, explicitly enable the gconf plugin
+  * lintian: update FSF address
+
+  [Brice Goglin]
+  * Make compiz dependencies on compiz-* packages versioned,
+    closes: #440494.
+  * Make the build-dependency on libfuse-dev require >= 2.7.0.
+
+ -- Sean Finney <seanius@debian.org>  Sun, 04 Nov 2007 21:20:17 +0100
+
 compiz (0.5.2-2) unstable; urgency=low
 
   * oops, shipping copies of a few .h and .pc files in both compiz-dev

@@ -32,11 +32,6 @@
 		<_long>Fullscreen fade effect on system beep</_long>
 		<default>false</default>
 	    </option>
-	    <option name="minimize_open_close" type="bool">
-		<_short>Fade On Minimize/Open/Close</_short>
-		<_long>Fade effect on minimize/open/close window events</_long>
-		<default>true</default>
-	    </option>
 	</screen>
     </plugin>
 </compiz>

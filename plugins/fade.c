@@ -37,14 +37,14 @@ typedef struct _FadeDisplay {
     HandleEventProc	       handleEvent;
     MatchExpHandlerChangedProc matchExpHandlerChanged;
     int			       displayModals;
+    Bool		       suppressMinimizeOpenClose;
 } FadeDisplay;
 
 #define FADE_SCREEN_OPTION_FADE_SPEED		  0
 #define FADE_SCREEN_OPTION_WINDOW_MATCH		  1
 #define FADE_SCREEN_OPTION_VISUAL_BELL		  2
 #define FADE_SCREEN_OPTION_FULLSCREEN_VISUAL_BELL 3
-#define FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE	  4
-#define FADE_SCREEN_OPTION_NUM			  5
+#define FADE_SCREEN_OPTION_NUM			  4
 
 typedef struct _FadeScreen {
     int			   windowPrivateIndex;
@@ -409,7 +409,7 @@ fadeHandleEvent (CompDisplay *d,
 	{
 	    FADE_SCREEN (w->screen);
 
-	    if (!fs->opt[FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE].value.b)
+	    if (fd->suppressMinimizeOpenClose)
 		break;
 
 	    if (w->texture->pixmap && matchEval (&fs->match, w))
@@ -439,7 +439,7 @@ fadeHandleEvent (CompDisplay *d,
 
 	    fw->shaded = w->shaded;
 
-	    if (!fs->opt[FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE].value.b)
+	    if (fd->suppressMinimizeOpenClose)
 		break;
 
 	    if (!fw->shaded && w->texture->pixmap && matchEval (&fs->match, w))
@@ -462,9 +462,7 @@ fadeHandleEvent (CompDisplay *d,
 	w = findWindowAtDisplay (d, event->xmap.window);
 	if (w)
 	{
-	    FADE_SCREEN(w->screen);
-
-	    if (!fs->opt[FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE].value.b)
+	    if (fd->suppressMinimizeOpenClose)
 		break;
 
 	    fadeWindowStop (w);
@@ -575,7 +573,9 @@ fadeDamageWindowRect (CompWindow *w,
 	}
 	else if (matchEval (&fs->match, w))
 	{
-	    if (fs->opt[FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE].value.b)
+	    FADE_DISPLAY (w->screen->display);
+
+	    if (!fd->suppressMinimizeOpenClose)
 	    {
 		fw->opacity = 0;
 	    }
@@ -658,6 +658,14 @@ fadeInitDisplay (CompPlugin  *p,
 
     fd->displayModals = 0;
 
+    /* FIXME: workaround for conflict between fade and animation plugins.
+       If anybody has enabled the animation plugin, he most likely doesn't
+       want to have fade's map and unmap effects. A better solution for that
+       is having a generic animation framework, that's why this workaround
+       shouldn't be merged into the master branch. */
+    fd->suppressMinimizeOpenClose =
+	(findActivePlugin ("animation") != NULL);
+
     WRAP (fd, d, handleEvent, fadeHandleEvent);
     WRAP (fd, d, matchExpHandlerChanged, fadeMatchExpHandlerChanged);
 
@@ -684,8 +692,7 @@ static const CompMetadataOptionInfo fadeScreenOptionInfo[] = {
     { "fade_speed", "float", "<min>0.1</min>", 0, 0 },
     { "window_match", "match", "<helper>true</helper>", 0, 0 },
     { "visual_bell", "bool", 0, 0, 0 },
-    { "fullscreen_visual_bell", "bool", 0, 0, 0 },
-    { "minimize_open_close", "bool", 0, 0, 0 }
+    { "fullscreen_visual_bell", "bool", 0, 0, 0 }
 };
 
 static Bool

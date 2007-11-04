@@ -54,7 +54,7 @@ class Window:public QWidget, public KDecorationBridge {
 	};
 
     public:
-	Window (QWidget *parent, WId clientId, WId frame, Type type,
+	Window (WId parentId, WId clientId, WId frame, Type type,
 		int x = 0, int y = 0, int w = 1, int h = 1);
 	~Window (void);
 
@@ -166,6 +166,10 @@ class Window:public QWidget, public KDecorationBridge {
 	{
 	    return mShadow;
 	}
+	decor_extents_t *border (void)
+	{
+	    return &mBorder;
+	}
 	QRect clientGeometry (void);
 	void showKillProcessDialog (Time timestamp);
 	void hideKillProcessDialog (void);
@@ -195,6 +199,7 @@ class Window:public QWidget, public KDecorationBridge {
 
     private:
 	Type mType;
+	WId mParentId;
 	WId mFrame;
 	WId mClientId;
 	WId mSelectedId;

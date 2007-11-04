@@ -801,9 +801,18 @@ placeRandom (CompWindow *window,
 	     int	*x,
 	     int	*y)
 {
-    *x = workarea->x + rand () % (workarea->width - get_window_width (window));
-    *y = workarea->y + rand () % (workarea->height -
-				  get_window_height (window));
+    int remainX, remainY;
+
+    *x = workarea->x;
+    *y = workarea->y;
+
+    remainX = workarea->width - get_window_width (window);
+    if (remainX > 0)
+	*x += rand () % remainX;
+
+    remainY = workarea->height - get_window_height (window);
+    if (remainY > 0)
+	*y += rand () % remainY;
 }
 
 static void
@@ -1158,12 +1167,16 @@ placeWin (CompWindow *window,
 	    y += window->input.top;
 
 	    /* clip to screen if parent is visible in current viewport */
-	    if (parent->serverX < parent->screen->width &&
-		parent->serverX + parent->screen->width > 0)
+	    if (parent->serverX < parent->screen->width   &&
+		parent->serverX + parent->serverWidth > 0 &&
+		parent->serverY < parent->screen->height  &&
+		parent->serverY + parent->serverHeight > 0)
 	    {
 		XRectangle area;
+		int        output;
 
-		get_workarea_of_current_output_device (window->screen, &area);
+		output = outputDeviceForWindow (parent);
+		getWorkareaForOutput (window->screen, output, &area);
 
 		if (x + window_width > area.x + area.width)
 		    x = area.x + area.width - window_width;
@@ -1175,7 +1188,7 @@ placeWin (CompWindow *window,
 
 	    avoid_being_obscured_as_second_modal_dialog (window, &x, &y);
 
-	    goto done_no_x_constraints;
+	    goto done_no_constraints;
 	}
     }
 
@@ -1335,7 +1348,6 @@ done:
     if (x - window->input.left < work_area.x)
 	x = work_area.x + window->input.left;
 
-done_no_x_constraints:
     if (y + window_height + window->input.bottom >
 	work_area.y + work_area.height)
 	y = work_area.y + work_area.height

@@ -4,8 +4,8 @@ dnl compiz package version number
 dnl An odd micro number indicates in-progress development.
 dnl An even micro number indicates a released version.
 m4_define(compiz_version_major, 0)
-m4_define(compiz_version_minor, 5)
-m4_define(compiz_version_micro, 2)
+m4_define(compiz_version_minor, 6)
+m4_define(compiz_version_micro, 3)
 
 AC_INIT([compiz],
 	[compiz_version_major().compiz_version_minor().compiz_version_micro()],
@@ -106,6 +106,11 @@ AC_C_BIGENDIAN
 
 plugindir=$libdir/compiz
 AC_SUBST(plugindir)
+
+AC_ARG_WITH(default-plugins, [  --with-default-plugins=PLUGINS ],
+		       [default_plugins="$withval"],
+		       [default_plugins=""])
+AC_SUBST(default_plugins)
 
 imagedir=$datadir/compiz
 AC_SUBST(imagedir)

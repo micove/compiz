@@ -256,6 +256,7 @@ build_os = @build_os@
 build_vendor = @build_vendor@
 datadir = @datadir@
 datarootdir = @datarootdir@
+default_plugins = @default_plugins@
 docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@

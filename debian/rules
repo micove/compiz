@@ -37,7 +37,9 @@ endif
 INSTALL = /usr/bin/install
 
 confflags += --disable-static \
+             --disable-fuse \
              --enable-librsvg \
+             --enable-gconf \
              --enable-gconf-dump
 
 build: patch build-stamp

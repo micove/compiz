@@ -64,6 +64,7 @@ bool   activeDecorationOpacityShade = false;
 int    blurType = BLUR_TYPE_NONE;
 
 decor_context_t KWD::Decorator::mDefaultContext;
+decor_extents_t KWD::Decorator::mDefaultBorder;
 decor_shadow_t *KWD::Decorator::mNoBorderShadow = 0;
 decor_shadow_t *KWD::Decorator::mDefaultShadow  = 0;
 KWD::PluginManager *KWD::Decorator::mPlugins = 0;
@@ -194,8 +195,9 @@ KWD::Decorator::Decorator (void) : DCOPObject ("KWinInterface"),
     mDBusQtConnection (this),
     mCompositeWindow (0)
 {
-    DCOPClient *client;
-    int	       i, j;
+    XSetWindowAttributes attr;
+    DCOPClient		 *client;
+    int			 i, j;
 
     mRootInfo = new NETRootInfo (qt_xdisplay (), 0);
 
@@ -231,15 +233,19 @@ KWD::Decorator::Decorator (void) : DCOPObject ("KWinInterface"),
     mShadowOptions.shadow_color[1] = SHADOW_COLOR_GREEN;
     mShadowOptions.shadow_color[2] = SHADOW_COLOR_BLUE;
 
-    mCompositeWindow = new QWidget (0, "KWDCompositeWidget",
-				    Qt::WType_TopLevel | Qt::WStyle_NoBorder |
-				    Qt::WX11BypassWM);
+    attr.override_redirect = True;
 
-    mCompositeWindow->setGeometry (QRect (-ROOT_OFF_X, -ROOT_OFF_Y, 1, 1));
-    mCompositeWindow->show ();
+    mCompositeWindow = XCreateWindow (qt_xdisplay (), qt_xrootwin (),
+				      -ROOT_OFF_X, -ROOT_OFF_Y, 1, 1, 0,
+				      CopyFromParent,
+				      CopyFromParent,
+				      CopyFromParent,
+				      CWOverrideRedirect, &attr);
 
-    XCompositeRedirectSubwindows (qt_xdisplay (), mCompositeWindow->winId (),
+    XCompositeRedirectSubwindows (qt_xdisplay (), mCompositeWindow,
 				  CompositeRedirectManual);
+
+    XMapWindow (qt_xdisplay (), mCompositeWindow);
 }
 
 KWD::Decorator::~Decorator (void)
@@ -255,8 +261,7 @@ KWD::Decorator::~Decorator (void)
     if (mDecorActive)
 	delete mDecorActive;
 
-    /* XXX: mCompositeWindow is not deleted, some plugins seem to rely on
-       it not being deleted... not sure what to do about this. */
+    XDestroyWindow (qt_xdisplay (), mCompositeWindow);
 
     delete mOptions;
     delete mPlugins;
@@ -350,6 +355,7 @@ KWD::Decorator::updateDefaultShadow (KWD::Window *w)
 	return;
 
     mDefaultContext = *w->context ();
+    mDefaultBorder  = *w->border ();
     mDefaultShadow  = w->shadow ();
 
     if (mDefaultShadow)
@@ -1018,6 +1024,8 @@ KWD::Decorator::handleWindowChanged (WId		 id,
     client = mClients[id];
 
     if (properties[0] & NET::WMName)
+	client->updateName ();
+    if (properties[0] & NET::WMVisibleName)
 	client->updateName ();
     if (properties[0] & NET::WMState)
 	client->updateState ();

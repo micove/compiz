@@ -800,6 +800,17 @@ reshape (CompScreen *s,
 	XMoveResizeWindow (s->display->display, s->overlay, 0, 0, w, h);
 #endif
 
+    if (s->display->xineramaExtension)
+    {
+	CompDisplay *d = s->display;
+
+	if (d->screenInfo)
+	    XFree (d->screenInfo);
+
+	d->nScreenInfo = 0;
+	d->screenInfo = XineramaQueryScreens (d->display, &d->nScreenInfo);
+    }
+
     glMatrixMode (GL_PROJECTION);
     glLoadIdentity ();
     glMatrixMode (GL_MODELVIEW);
@@ -1306,7 +1317,7 @@ enterShowDesktopMode (CompScreen *s)
 
     for (w = s->windows; w; w = w->next)
     {
-	if ((s->showingDesktopMask & w->type) &&
+	if ((s->showingDesktopMask & w->wmType) &&
 	    (!(w->state & CompWindowStateSkipTaskbarMask) || st->value.b))
 	{
 	    if (!w->inShowDesktopMode && (*s->focusWindow) (w))
@@ -1642,6 +1653,7 @@ addScreen (CompDisplay *display,
     {
 	compLogMessage (display, "core", CompLogLevelFatal,
 			"Couldn't allocate color");
+	XFree (visinfo);
 	return FALSE;
     }
 
@@ -1650,6 +1662,7 @@ addScreen (CompDisplay *display,
     {
 	compLogMessage (display, "core", CompLogLevelFatal,
 			"Couldn't create bitmap");
+	XFree (visinfo);
 	return FALSE;
     }
 
@@ -1659,6 +1672,7 @@ addScreen (CompDisplay *display,
     {
 	compLogMessage (display, "core", CompLogLevelFatal,
 			"Couldn't create invisible cursor");
+	XFree (visinfo);
 	return FALSE;
     }
 
@@ -1670,6 +1684,7 @@ addScreen (CompDisplay *display,
     {
 	compLogMessage (display, "core", CompLogLevelFatal,
 			"Root visual is not a GL visual");
+	XFree (visinfo);
 	return FALSE;
     }
 
@@ -1678,6 +1693,7 @@ addScreen (CompDisplay *display,
     {
 	compLogMessage (display, "core", CompLogLevelFatal,
 			"Root visual is not a double buffered GL visual");
+	XFree (visinfo);
 	return FALSE;
     }
 
@@ -1769,6 +1785,12 @@ addScreen (CompDisplay *display,
     currentRoot = s->root;
 
     glExtensions = (const char *) glGetString (GL_EXTENSIONS);
+    if (!glExtensions)
+    {
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"No valid GL extensions string found.");
+	return FALSE;
+    }
 
     s->textureNonPowerOfTwo = 0;
     if (strstr (glExtensions, "GL_ARB_texture_non_power_of_two"))
@@ -2206,38 +2228,19 @@ findWindowAtScreen (CompScreen *s,
 
 CompWindow *
 findTopLevelWindowAtScreen (CompScreen *s,
-			    Window      id)
+			    Window     id)
 {
-    CompWindow *found = NULL;
+    CompWindow *w;
 
-    if (lastFoundWindow && lastFoundWindow->id == id)
-    {
-	found = lastFoundWindow;
-    }
-    else
-    {
-	CompWindow *w;
-
-	for (w = s->windows; w; w = w->next)
-	{
-	    if (w->id == id)
-	    {
-		found = (lastFoundWindow = w);
-		break;
-	    }
-	}
-    }
-
-    if (!found)
+    w = findWindowAtScreen (s, id);
+    if (!w)
 	return NULL;
 
-    if (found->attrib.override_redirect)
+    if (w->attrib.override_redirect)
     {
 	/* likely a frame window */
-	if (found->attrib.class == InputOnly)
+	if (w->attrib.class == InputOnly)
 	{
-	    CompWindow *w;
-
 	    for (w = s->windows; w; w = w->next)
 		if (w->frame == id)
 		    return w;
@@ -2246,7 +2249,7 @@ findTopLevelWindowAtScreen (CompScreen *s,
 	return NULL;
     }
 
-    return found;
+    return w;
 }
 
 void
@@ -3121,8 +3124,42 @@ runCommand (CompScreen *s,
 
     if (fork () == 0)
     {
+	/* build a display string that uses the right screen number */
+	/* 5 extra chars should be enough for pretty much every situation */
+	int  stringLen = strlen (s->display->displayString) + 5;
+	char screenString[stringLen];
+	char *pos, *delimiter, *colon;
+	
 	setsid ();
-	putenv (s->display->displayString);
+
+	if (screenString)
+	{
+	    strcpy (screenString, s->display->displayString);
+	    delimiter = strrchr (screenString, ':');
+	    if (delimiter)
+	    {
+		colon = "";
+		delimiter = strchr (delimiter, '.');
+		if (delimiter)
+		    *delimiter = '\0';
+	    }
+	    else
+	    {
+		/* insert :0 to keep the syntax correct */
+		colon = ":0";
+	    }
+	    pos = screenString + strlen (screenString);
+
+	    snprintf (pos, stringLen - (pos - screenString),
+		      "%s.%d", colon, s->screenNum);
+
+	    putenv (screenString);
+	}
+	else
+	{
+	    putenv (s->display->displayString);
+	}
+
 	execl ("/bin/sh", "/bin/sh", "-c", command, NULL);
 	exit (0);
     }
