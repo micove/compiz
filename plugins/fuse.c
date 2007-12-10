@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 #include <sys/mount.h>
@@ -1289,8 +1290,8 @@ fuseUnmount (CompDisplay *d)
 
     if (fd->mountPoint)
     {
-	/* unmount will destroy the channel */
-	fuse_unmount (fd->mountPoint, fd->channel);
+	fuse_chan_destroy (fd->channel);
+	fuse_unmount (fd->mountPoint);
 	free (fd->mountPoint);
 	fd->mountPoint = NULL;
 	fd->channel = NULL;
@@ -1365,7 +1366,8 @@ fuseMount (CompDisplay *d)
     fd->buffer = malloc (fuse_chan_bufsize (fd->channel));
     if (!fd->buffer)
     {
-	fuse_unmount (mountPoint, fd->channel);
+	fuse_chan_destroy (fd->channel);
+	fuse_unmount (mountPoint);
 	free (mountPoint);
 	fd->channel = NULL;
 	return;

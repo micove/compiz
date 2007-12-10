@@ -1,3 +1,19 @@
+compiz (0.5.2-2~bpo40+1) etch-backports; urgency=low
+
+  * etch backport.
+    - debian/shlibs.local: Remove libmetacity0 override (see #455515).
+    - plugins/fuse.c: Support building with older libfuse (using
+      simplified version of the patch in #455516).
+
+ -- Robert Millan <rmh@aybabtu.com>  Mon, 10 Dec 2007 17:17:07 +0100
+
+compiz (0.5.2-2) unstable; urgency=low
+
+  * oops, shipping copies of a few .h and .pc files in both compiz-dev
+    and libdecoration0-dev.  fixed.
+
+ -- sean finney <seanius@debian.org>  Wed, 29 Aug 2007 21:06:29 +0200
+
 compiz (0.5.2-1) unstable; urgency=low
 
   * New upstream release.

@@ -1,2 +1,2 @@
-usr/include/compiz/*.h
-usr/lib/pkgconfig/*.pc
+usr/include/compiz/{compiz,cube,scale}.h
+usr/lib/pkgconfig/compiz*.pc
