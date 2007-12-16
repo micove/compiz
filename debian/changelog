@@ -1,3 +1,19 @@
+compiz (0.6.3~git20071208.25941d14-1) unstable; urgency=low
+
+  [Sean Finney]
+  * New upstream (git snapshot) release.
+  * Remove autofoo generated content and create/remove it as part of the
+    standard build process instead.
+  * Similarly, add Build-Deps on autoconf and similar stuff.
+  * Remove the old/buggy compiz.wrapper script and now use Kristian Lyngstol's
+    compiz-manager script as a drop-in replacement for it.  This should fix
+    numerous problems with plugin settings and window decorators not behaving
+    properly.  specifically, it closes: #449389, #390929, #400583, #440095.
+    it also closes: #446901, #447345 closes: #393501, #445026.  
+  * Update copyright file accordingly.
+
+ -- Sean Finney <seanius@debian.org>  Sun, 16 Dec 2007 17:29:03 +0100
+
 compiz (0.6.3~git20071104.c9009efd-1) unstable; urgency=low
 
   [Sean Finney]

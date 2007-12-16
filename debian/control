@@ -3,7 +3,16 @@ Section: x11
 Priority: optional
 Maintainer: Debian X Strike Force <debian-x@lists.debian.org>
 Uploaders: Thierry Reding <thierry@gilfi.de>, David Nusinow <dnusinow@debian.org>, Sean Finney <seanius@debian.org>
-Build-Depends: debhelper (>= 5), quilt (>= 0.40), libglib2.0-dev, libgconf2-dev, libpng12-dev | libpng-dev, libxcomposite-dev (>= 1:0.3-2), libxfixes-dev (>= 1:4.0.1), libxdamage-dev (>=1:1.0.3), libxrandr-dev (>= 2:1.1.0.2), libxrender-dev (>= 1:0.9.1), libice-dev (>= 1:1.0.1), libsm-dev (>= 1:1.0.1), libgl1-mesa-dev (>= 6.5.1) | libgl-dev, libcairo-dev, librsvg2-dev, libgnome-desktop-dev, libgnome-window-settings-dev, libdbus-glib-1-dev, libwnck-dev, libgtk2.0-dev, libpango1.0-dev, x11proto-gl-dev (>= 1.4.8-1), libxinerama-dev, libxml-parser-perl, libmetacity-dev, kdebase-dev, libdbus-qt-1-dev, libfuse-dev (>= 2.7.0), xsltproc
+Build-Depends: autoconf, automake1.9, autotools-dev,
+ debhelper (>= 5), intltool, kdebase-dev, libcairo-dev, libdbus-qt-1-dev, 
+ libdbus-glib-1-dev, libfuse-dev (>= 2.7.0), libgconf2-dev, 
+ libgl1-mesa-dev (>= 6.5.1) | libgl-dev, libglib2.0-dev, libgnome-desktop-dev, 
+ libgnome-window-settings-dev, libgtk2.0-dev, libice-dev (>= 1:1.0.1), 
+ libmetacity-dev, libpango1.0-dev, libpng12-dev | libpng-dev, librsvg2-dev, 
+ libsm-dev (>= 1:1.0.1), libtool, libwnck-dev, libxcomposite-dev (>= 1:0.3-2), 
+ libxdamage-dev (>=1:1.0.3), libxfixes-dev (>= 1:4.0.1), libxinerama-dev, 
+ libxml-parser-perl, libxrandr-dev (>= 2:1.1.0.2), libxrender-dev (>= 1:0.9.1), 
+ quilt (>= 0.40), x11proto-gl-dev (>= 1.4.8-1), xsltproc
 Standards-Version: 3.7.2
 
 Package: compiz
