@@ -1,3 +1,4 @@
 012_snap-by-default.patch
 014_fix-no-border-window-shadow.patch
 015_optional-fbo.patch
+compiz-manager-posixly-correct.patch

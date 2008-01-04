@@ -720,6 +720,7 @@ decorWindowUpdate (CompWindow *w,
     case CompWindowTypeDialogMask:
     case CompWindowTypeModalDialogMask:
     case CompWindowTypeUtilMask:
+    case CompWindowTypeMenuMask:
     case CompWindowTypeNormalMask:
 	if (w->mwmDecor & (MwmDecorAll | MwmDecorTitle))
 	    decorate = TRUE;

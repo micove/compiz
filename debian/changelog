@@ -1,3 +1,21 @@
+compiz (0.6.3~git20071222.061ff159-1) unstable; urgency=low
+
+  * New upstream (git snapshot) release.  Refreshed quilt patches.
+  * Remove build-dependency on libfuse-dev, since we explicitly disable the
+    fuse plugin and it causes FTBFS on non-linux arches.  It should also make
+    backporting easier (closes: #451149, #455516).
+  * compiz-manager-posixly-correct.patch: fix from Brian Carlson to get
+    compiz-manager to run when POSIXLY_CORRECT is set (always pass
+    options before arguments closes: #456628).
+  * Remove libmetacity entry from shlibs override (closes: #455515) Thanks to
+    Rober Millan for noticing this.
+  * Remove outdated info in README.Debian for compiz-core (closes: #454340).
+  * lintian:
+    - Standards-Version to 3.7.3
+    - libdecoration0-dev to section libdevel
+
+ -- Sean Finney <seanius@debian.org>  Fri, 04 Jan 2008 08:02:55 +0100
+
 compiz (0.6.3~git20071208.25941d14-1) unstable; urgency=low
 
   [Sean Finney]

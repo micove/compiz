@@ -1,0 +1,15 @@
+debian bug: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=456628
+reported upstream: http://bugs.opencompositing.org/show_bug.cgi?id=708
+Index: compiz/debian/compiz-manager
+===================================================================
+--- compiz.orig/debian/compiz-manager	2007-12-22 11:18:59.000000000 +0100
++++ compiz/debian/compiz-manager	2007-12-22 11:19:29.000000000 +0100
+@@ -150,7 +150,7 @@
+ check_tfp()
+ {
+ 	verbose "Checking for texture_from_pixmap: "
+-	if [ $($GLXINFO 2>/dev/null | grep GLX_EXT_texture_from_pixmap -c) -gt 2 ] ; then
++	if [ $($GLXINFO 2>/dev/null | grep -c GLX_EXT_texture_from_pixmap) -gt 2 ] ; then
+ 		verbose "present. \n"
+ 		return 0;
+ 	else
