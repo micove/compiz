@@ -1,3 +1,16 @@
+compiz (0.6.3~git20080115.0ea58487-1) unstable; urgency=low
+
+  * New upstream (git snapshot) release.  Refreshed quilt patches.
+  * Contains upstream fix for kde-window-decorator problems with not properly
+    mapping/rendering titlebars.  closes: #458464, #460186.
+  * Remove timestamps from quilt patches (package maintainers, you 
+    should put QUILT_NO_DIFF_TIMESTAMPS=1 in your ~/.quiltrc).
+  * add compizconfig-settings-manager to Suggests field for compiz.
+  * don't blindly assume that the nvidia-settings program is present.
+    patch: compiz-manager-nvidia-settings-optional.patch.  closes: #463645.
+
+ -- sean finney <seanius@debian.org>  Tue, 26 Feb 2008 20:08:31 +0100
+
 compiz (0.6.3~git20071222.061ff159-1) unstable; urgency=low
 
   * New upstream (git snapshot) release.  Refreshed quilt patches.
@@ -14,7 +27,7 @@ compiz (0.6.3~git20071222.061ff159-1) unstable; urgency=low
     - Standards-Version to 3.7.3
     - libdecoration0-dev to section libdevel
 
- -- Sean Finney <seanius@debian.org>  Fri, 04 Jan 2008 08:02:55 +0100
+ -- Sean Finney <seanius@debian.org>  Sat, 22 Dec 2007 12:01:54 +0100
 
 compiz (0.6.3~git20071208.25941d14-1) unstable; urgency=low
 

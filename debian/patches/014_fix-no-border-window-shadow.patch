@@ -6,10 +6,10 @@ Subject: [PATCH] Fix no border window shadow
  libdecoration/decoration.c |    4 +++-
  1 files changed, 3 insertions(+), 1 deletions(-)
 
-Index: compiz.git/libdecoration/decoration.c
+Index: compiz/libdecoration/decoration.c
 ===================================================================
---- compiz.git.orig/libdecoration/decoration.c	2007-04-03 07:00:04.000000000 +0200
-+++ compiz.git/libdecoration/decoration.c	2007-04-05 10:12:47.000000000 +0200
+--- compiz.orig/libdecoration/decoration.c
++++ compiz/libdecoration/decoration.c
 @@ -1243,7 +1243,9 @@
      }
  

@@ -5,8 +5,8 @@ Not submitted to upstream.
 
 Index: compiz/metadata/wobbly.xml.in
 ===================================================================
---- compiz.orig/metadata/wobbly.xml.in	2007-08-18 23:30:00.000000000 -0700
-+++ compiz/metadata/wobbly.xml.in	2007-08-18 23:30:14.000000000 -0700
+--- compiz.orig/metadata/wobbly.xml.in
++++ compiz/metadata/wobbly.xml.in
 @@ -21,7 +21,7 @@
  	    <option name="snap_inverted" type="bool">
  		<_short>Snap Inverted</_short>

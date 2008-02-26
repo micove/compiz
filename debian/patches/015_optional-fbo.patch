@@ -1,7 +1,7 @@
 Index: compiz/include/compiz.h
 ===================================================================
---- compiz.orig/include/compiz.h	2007-12-22 11:13:38.000000000 +0100
-+++ compiz/include/compiz.h	2007-12-22 11:13:49.000000000 +0100
+--- compiz.orig/include/compiz.h
++++ compiz/include/compiz.h
 @@ -226,6 +226,7 @@
  extern Bool       noDetection;
  extern Bool	  useDesktopHints;
@@ -12,8 +12,8 @@ Index: compiz/include/compiz.h
  extern char *defaultTextureFilter;
 Index: compiz/src/main.c
 ===================================================================
---- compiz.orig/src/main.c	2007-12-22 11:13:38.000000000 +0100
-+++ compiz/src/main.c	2007-12-22 11:13:49.000000000 +0100
+--- compiz.orig/src/main.c
++++ compiz/src/main.c
 @@ -62,6 +62,7 @@
  Bool noDetection = FALSE;
  Bool useDesktopHints = TRUE;
@@ -43,8 +43,8 @@ Index: compiz/src/main.c
  	else if (!strcmp (argv[i], "--use-root-window"))
 Index: compiz/src/screen.c
 ===================================================================
---- compiz.orig/src/screen.c	2007-12-22 11:13:38.000000000 +0100
-+++ compiz/src/screen.c	2007-12-22 11:13:49.000000000 +0100
+--- compiz.orig/src/screen.c
++++ compiz/src/screen.c
 @@ -1877,7 +1877,7 @@
      }
  
