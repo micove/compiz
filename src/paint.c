@@ -27,9 +27,7 @@
 #include <string.h>
 #include <math.h>
 
-#include <compiz.h>
-
-#define DEG2RAD (M_PI / 180.0f)
+#include <compiz-core.h>
 
 ScreenPaintAttrib defaultScreenPaintAttrib = {
     0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, -DEFAULT_Z_CAMERA
@@ -41,10 +39,14 @@ WindowPaintAttrib defaultWindowPaintAttrib = {
 
 void
 preparePaintScreen (CompScreen *screen,
-		    int	       msSinceLastPaint) {}
+		    int	       msSinceLastPaint)
+{
+}
 
 void
-donePaintScreen (CompScreen *screen) {}
+donePaintScreen (CompScreen *screen)
+{
+}
 
 void
 applyScreenTransform (CompScreen	      *screen,
@@ -159,9 +161,13 @@ paintOutputRegion (CompScreen	       *screen,
     static Region tmpRegion = NULL;
     CompWindow    *w;
     CompCursor	  *c;
-    int		  count, windowMask, backgroundMask;
+    int		  count, windowMask, backgroundMask, odMask, i;
     CompWindow	  *fullscreenWindow = NULL;
     CompWalker    walk;
+    Bool          status;
+    Bool          withOffset = FALSE;
+    CompTransform vTransform;
+    int           offX, offY;
 
     if (!tmpRegion)
     {
@@ -202,24 +208,67 @@ paintOutputRegion (CompScreen	       *screen,
 	/* copy region */
 	XSubtractRegion (tmpRegion, &emptyRegion, w->clip);
 
-	if ((*screen->paintWindow) (w, &w->paint, transform, tmpRegion,
-				    PAINT_WINDOW_OCCLUSION_DETECTION_MASK))
+	odMask = PAINT_WINDOW_OCCLUSION_DETECTION_MASK;
+	
+	if ((screen->windowOffsetX != 0 || screen->windowOffsetY != 0) &&
+	    !windowOnAllViewports (w))
 	{
-	    XSubtractRegion (tmpRegion, w->region, tmpRegion);
+	    withOffset = TRUE;
+
+	    getWindowMovementForOffset (w, screen->windowOffsetX,
+					screen->windowOffsetY, &offX, &offY);
+
+	    vTransform = *transform;
+	    matrixTranslate (&vTransform, offX, offY, 0);
+ 
+	    XOffsetRegion (w->clip, -offX, -offY);
+
+	    odMask |= PAINT_WINDOW_WITH_OFFSET_MASK;
+	    status = (*screen->paintWindow) (w, &w->paint, &vTransform,
+					     tmpRegion, odMask);
+	}
+	else
+	{
+	    withOffset = FALSE;
+	    status = (*screen->paintWindow) (w, &w->paint, transform, tmpRegion,
+					     odMask);
+	}
+
+	if (status)
+	{
+	    if (withOffset)
+	    {
+		XOffsetRegion (w->region, offX, offY);
+		XSubtractRegion (tmpRegion, w->region, tmpRegion);
+		XOffsetRegion (w->region, -offX, -offY);
+	    }
+	    else
+		XSubtractRegion (tmpRegion, w->region, tmpRegion);
 
 	    /* unredirect top most fullscreen windows. */
-	    if (count == 0					      &&
-		!REGION_NOT_EMPTY (tmpRegion)			      &&
-		screen->opt[COMP_SCREEN_OPTION_UNREDIRECT_FS].value.b &&
-		XEqualRegion (w->region, &screen->region))
+	    if (count == 0 &&
+		screen->opt[COMP_SCREEN_OPTION_UNREDIRECT_FS].value.b)
 	    {
-		unredirectWindow (w);
-		fullscreenWindow = w;
+		if (XEqualRegion (w->region, &screen->region) &&
+		    !REGION_NOT_EMPTY (tmpRegion))
+		{
+		    fullscreenWindow = w;
+		}
+		else
+		{
+		    for (i = 0; i < screen->nOutputDev; i++)
+			if (XEqualRegion (w->region,
+					  &screen->outputDev[i].region))
+			    fullscreenWindow = w;
+		}
 	    }
 	}
 
 	count++;
     }
+
+    if (fullscreenWindow)
+	unredirectWindow (fullscreenWindow);
 
     (*screen->paintBackground) (screen, tmpRegion, backgroundMask);
 
@@ -238,7 +287,22 @@ paintOutputRegion (CompScreen	       *screen,
 		continue;
 	}
 
-	(*screen->paintWindow) (w, &w->paint, transform, w->clip, windowMask);
+	if ((screen->windowOffsetX != 0 || screen->windowOffsetY != 0) &&
+	    !windowOnAllViewports (w))
+	{
+	    getWindowMovementForOffset (w, screen->windowOffsetX,
+					screen->windowOffsetY, &offX, &offY);
+
+	    vTransform = *transform;
+	    matrixTranslate (&vTransform, offX, offY, 0);
+	    (*screen->paintWindow) (w, &w->paint, &vTransform, w->clip,
+				    windowMask | PAINT_WINDOW_WITH_OFFSET_MASK);
+	}
+	else
+	{
+	    (*screen->paintWindow) (w, &w->paint, transform, w->clip,
+				    windowMask);
+	}
     }
 
     if (walk.fini)
@@ -249,6 +313,52 @@ paintOutputRegion (CompScreen	       *screen,
 	(*screen->paintCursor) (c, transform, tmpRegion, 0);
 }
 
+void
+enableOutputClipping (CompScreen 	  *screen,
+		      const CompTransform *transform,
+		      Region		  region,
+		      CompOutput 	  *output)
+{
+    GLdouble h = screen->height;
+
+    GLdouble p1[2] = { region->extents.x1, h - region->extents.y2 };
+    GLdouble p2[2] = { region->extents.x2, h - region->extents.y1 };
+
+    GLdouble halfW = output->width / 2.0;
+    GLdouble halfH = output->height / 2.0;
+
+    GLdouble cx = output->region.extents.x1 + halfW;
+    GLdouble cy = (h - output->region.extents.y2) + halfH;
+
+    GLdouble top[4]    = { 0.0, halfH / (cy - p1[1]), 0.0, 0.5 };
+    GLdouble bottom[4] = { 0.0, halfH / (cy - p2[1]), 0.0, 0.5 };
+    GLdouble left[4]   = { halfW / (cx - p1[0]), 0.0, 0.0, 0.5 };
+    GLdouble right[4]  = { halfW / (cx - p2[0]), 0.0, 0.0, 0.5 };
+
+    glPushMatrix ();
+    glLoadMatrixf (transform->m);
+
+    glClipPlane (GL_CLIP_PLANE0, top);
+    glClipPlane (GL_CLIP_PLANE1, bottom);
+    glClipPlane (GL_CLIP_PLANE2, left);
+    glClipPlane (GL_CLIP_PLANE3, right);
+
+    glEnable (GL_CLIP_PLANE0);
+    glEnable (GL_CLIP_PLANE1);
+    glEnable (GL_CLIP_PLANE2);
+    glEnable (GL_CLIP_PLANE3);
+
+    glPopMatrix ();
+}
+
+void
+disableOutputClipping (CompScreen *screen)
+{
+    glDisable (GL_CLIP_PLANE0);
+    glDisable (GL_CLIP_PLANE1);
+    glDisable (GL_CLIP_PLANE2);
+    glDisable (GL_CLIP_PLANE3);
+}
 
 #define CLIP_PLANE_MASK (PAINT_SCREEN_TRANSFORMED_MASK | \
 			 PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS_MASK)
@@ -272,48 +382,19 @@ paintTransformedOutput (CompScreen		*screen,
 
     if ((mask & CLIP_PLANE_MASK) == CLIP_PLANE_MASK)
     {
-	GLdouble h = screen->height;
-
-	GLdouble p1[2] = { region->extents.x1, h - region->extents.y2 };
-	GLdouble p2[2] = { region->extents.x2, h - region->extents.y1 };
-
-	GLdouble halfW = output->width / 2.0;
-	GLdouble halfH = output->height / 2.0;
-
-	GLdouble cx = output->region.extents.x1 + halfW;
-	GLdouble cy = (h - output->region.extents.y2) + halfH;
-
-	GLdouble top[4]    = { 0.0, halfH / (cy - p1[1]), 0.0, 0.5 };
-	GLdouble bottom[4] = { 0.0, halfH / (cy - p2[1]), 0.0, 0.5 };
-	GLdouble left[4]   = { halfW / (cx - p1[0]), 0.0, 0.0, 0.5 };
-	GLdouble right[4]  = { halfW / (cx - p2[0]), 0.0, 0.0, 0.5 };
-
-	glPushMatrix ();
-	glLoadMatrixf (sTransform.m);
-
-	glClipPlane (GL_CLIP_PLANE0, top);
-	glClipPlane (GL_CLIP_PLANE1, bottom);
-	glClipPlane (GL_CLIP_PLANE2, left);
-	glClipPlane (GL_CLIP_PLANE3, right);
-
-	glEnable (GL_CLIP_PLANE0);
-	glEnable (GL_CLIP_PLANE1);
-	glEnable (GL_CLIP_PLANE2);
-	glEnable (GL_CLIP_PLANE3);
+	screen->enableOutputClipping (screen, &sTransform, region, output);
 
 	transformToScreenSpace (screen, output, -sAttrib->zTranslate,
 				&sTransform);
 
+	glPushMatrix ();
 	glLoadMatrixf (sTransform.m);
 
 	paintOutputRegion (screen, &sTransform, region, output, mask);
 
-	glDisable (GL_CLIP_PLANE0);
-	glDisable (GL_CLIP_PLANE1);
-	glDisable (GL_CLIP_PLANE2);
-	glDisable (GL_CLIP_PLANE3);
-
 	glPopMatrix ();
+
+	screen->disableOutputClipping (screen);
     }
     else
     {
@@ -392,6 +473,7 @@ paintOutput (CompScreen		     *screen,
     }						   \
     *(data)++ = (x1);				   \
     *(data)++ = (y2);				   \
+    *(data)++ = 0.0;				   \
     for (it = 0; it < n; it++)			   \
     {						   \
 	*(data)++ = COMP_TEX_COORD_X (&m[it], x2); \
@@ -399,6 +481,7 @@ paintOutput (CompScreen		     *screen,
     }						   \
     *(data)++ = (x2);				   \
     *(data)++ = (y2);				   \
+    *(data)++ = 0.0;				   \
     for (it = 0; it < n; it++)			   \
     {						   \
 	*(data)++ = COMP_TEX_COORD_X (&m[it], x2); \
@@ -406,13 +489,15 @@ paintOutput (CompScreen		     *screen,
     }						   \
     *(data)++ = (x2);				   \
     *(data)++ = (y1);				   \
+    *(data)++ = 0.0;				   \
     for (it = 0; it < n; it++)			   \
     {						   \
 	*(data)++ = COMP_TEX_COORD_X (&m[it], x1); \
 	*(data)++ = COMP_TEX_COORD_Y (&m[it], y1); \
     }						   \
     *(data)++ = (x1);				   \
-    *(data)++ = (y1)
+    *(data)++ = (y1);				   \
+    *(data)++ = 0.0
 
 #define ADD_QUAD(data, m, n, x1, y1, x2, y2)		\
     for (it = 0; it < n; it++)				\
@@ -422,6 +507,7 @@ paintOutput (CompScreen		     *screen,
     }							\
     *(data)++ = (x1);					\
     *(data)++ = (y2);					\
+    *(data)++ = 0.0;					\
     for (it = 0; it < n; it++)				\
     {							\
 	*(data)++ = COMP_TEX_COORD_XY (&m[it], x2, y2);	\
@@ -429,6 +515,7 @@ paintOutput (CompScreen		     *screen,
     }							\
     *(data)++ = (x2);					\
     *(data)++ = (y2);					\
+    *(data)++ = 0.0;					\
     for (it = 0; it < n; it++)				\
     {							\
 	*(data)++ = COMP_TEX_COORD_XY (&m[it], x2, y1);	\
@@ -436,13 +523,15 @@ paintOutput (CompScreen		     *screen,
     }							\
     *(data)++ = (x2);					\
     *(data)++ = (y1);					\
+    *(data)++ = 0.0;					\
     for (it = 0; it < n; it++)				\
     {							\
 	*(data)++ = COMP_TEX_COORD_XY (&m[it], x1, y1);	\
 	*(data)++ = COMP_TEX_COORD_YX (&m[it], x1, y1);	\
     }							\
     *(data)++ = (x1);					\
-    *(data)++ = (y1)
+    *(data)++ = (y1);					\
+    *(data)++ = 0.0;
 
 
 Bool
@@ -488,12 +577,12 @@ drawWindowGeometry (CompWindow *w)
 {
     int     texUnit = w->texUnits;
     int     currentTexUnit = 0;
-    int     stride = (1 + texUnit) * 2;
-    GLfloat *vertices = w->vertices + (stride - 2);
+    int     stride = w->vertexStride;
+    GLfloat *vertices = w->vertices + (stride - 3);
 
     stride *= sizeof (GLfloat);
 
-    glVertexPointer (2, GL_FLOAT, stride, vertices);
+    glVertexPointer (3, GL_FLOAT, stride, vertices);
 
     while (texUnit--)
     {
@@ -503,8 +592,8 @@ drawWindowGeometry (CompWindow *w)
 	    glEnableClientState (GL_TEXTURE_COORD_ARRAY);
 	    currentTexUnit = texUnit;
 	}
-	vertices -= 2;
-	glTexCoordPointer (2, GL_FLOAT, stride, vertices);
+	vertices -= w->texCoordSize;
+	glTexCoordPointer (w->texCoordSize, GL_FLOAT, stride, vertices);
     }
 
     glDrawArrays (GL_QUADS, 0, w->vCount);
@@ -568,7 +657,7 @@ addWindowGeometry (CompWindow *w,
 	pBox = region->rects;
 	nBox = region->numRects;
 
-	vSize = 2 + nMatrix * 2;
+	vSize = 3 + nMatrix * 2;
 
 	n = w->vCount / 4;
 
@@ -663,6 +752,8 @@ addWindowGeometry (CompWindow *w,
 	}
 
 	w->vCount	      = n * 4;
+	w->vertexStride       = vSize;
+	w->texCoordSize       = 2;
 	w->drawWindowGeometry = drawWindowGeometry;
     }
 }
@@ -1055,7 +1146,8 @@ paintWindow (CompWindow		     *w,
 
     initFragmentAttrib (&fragment, attrib);
 
-    if (mask & PAINT_WINDOW_TRANSFORMED_MASK)
+    if (mask & PAINT_WINDOW_TRANSFORMED_MASK ||
+        mask & PAINT_WINDOW_WITH_OFFSET_MASK)
     {
 	glPushMatrix ();
 	glLoadMatrixf (transform->m);
@@ -1063,7 +1155,8 @@ paintWindow (CompWindow		     *w,
 
     status = (*w->screen->drawWindow) (w, transform, &fragment, region, mask);
 
-    if (mask & PAINT_WINDOW_TRANSFORMED_MASK)
+    if (mask & PAINT_WINDOW_TRANSFORMED_MASK ||
+        mask & PAINT_WINDOW_WITH_OFFSET_MASK)
 	glPopMatrix ();
 
     return status;

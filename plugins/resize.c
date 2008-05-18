@@ -30,7 +30,7 @@
 #include <X11/Xatom.h>
 #include <X11/cursorfont.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 static CompMetadata resizeMetadata;
 
@@ -63,19 +63,20 @@ struct _ResizeKeys {
 #define MIN_KEY_WIDTH_INC  24
 #define MIN_KEY_HEIGHT_INC 24
 
-#define RESIZE_DISPLAY_OPTION_INITIATE_NORMAL    0
-#define RESIZE_DISPLAY_OPTION_INITIATE_OUTLINE   1
-#define RESIZE_DISPLAY_OPTION_INITIATE_RECTANGLE 2
-#define RESIZE_DISPLAY_OPTION_INITIATE_STRETCH   3
-#define RESIZE_DISPLAY_OPTION_INITIATE	         4
-#define RESIZE_DISPLAY_OPTION_MODE	         5
-#define RESIZE_DISPLAY_OPTION_BORDER_COLOR       6
-#define RESIZE_DISPLAY_OPTION_FILL_COLOR         7
-#define RESIZE_DISPLAY_OPTION_NORMAL_MATCH	 8
-#define RESIZE_DISPLAY_OPTION_OUTLINE_MATCH	 9
-#define RESIZE_DISPLAY_OPTION_RECTANGLE_MATCH	 10
-#define RESIZE_DISPLAY_OPTION_STRETCH_MATCH	 11
-#define RESIZE_DISPLAY_OPTION_NUM		 12
+#define RESIZE_DISPLAY_OPTION_INITIATE_NORMAL_KEY    0
+#define RESIZE_DISPLAY_OPTION_INITIATE_OUTLINE_KEY   1
+#define RESIZE_DISPLAY_OPTION_INITIATE_RECTANGLE_KEY 2
+#define RESIZE_DISPLAY_OPTION_INITIATE_STRETCH_KEY   3
+#define RESIZE_DISPLAY_OPTION_INITIATE_BUTTON	     4
+#define RESIZE_DISPLAY_OPTION_INITIATE_KEY	     5
+#define RESIZE_DISPLAY_OPTION_MODE	             6
+#define RESIZE_DISPLAY_OPTION_BORDER_COLOR           7
+#define RESIZE_DISPLAY_OPTION_FILL_COLOR             8
+#define RESIZE_DISPLAY_OPTION_NORMAL_MATCH	     9
+#define RESIZE_DISPLAY_OPTION_OUTLINE_MATCH	     10
+#define RESIZE_DISPLAY_OPTION_RECTANGLE_MATCH	     11
+#define RESIZE_DISPLAY_OPTION_STRETCH_MATCH	     12
+#define RESIZE_DISPLAY_OPTION_NUM		     13
 
 static int displayPrivateIndex;
 
@@ -120,14 +121,14 @@ typedef struct _ResizeScreen {
     Cursor cursor[NUM_KEYS];
 } ResizeScreen;
 
-#define GET_RESIZE_DISPLAY(d)				       \
-    ((ResizeDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_RESIZE_DISPLAY(d)					    \
+    ((ResizeDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define RESIZE_DISPLAY(d)		       \
     ResizeDisplay *rd = GET_RESIZE_DISPLAY (d)
 
-#define GET_RESIZE_SCREEN(s, rd)				   \
-    ((ResizeScreen *) (s)->privates[(rd)->screenPrivateIndex].ptr)
+#define GET_RESIZE_SCREEN(s, rd)					\
+    ((ResizeScreen *) (s)->base.privates[(rd)->screenPrivateIndex].ptr)
 
 #define RESIZE_SCREEN(s)						      \
     ResizeScreen *rs = GET_RESIZE_SCREEN (s, GET_RESIZE_DISPLAY (s->display))
@@ -708,12 +709,13 @@ resizeHandleMotionEvent (CompScreen *s,
 		CompAction *action;
 		int        pointerAdjustX = 0;
 		int        pointerAdjustY = 0;
+		int	   option = RESIZE_DISPLAY_OPTION_INITIATE_KEY;
 
 		RESIZE_SCREEN (s);
 
-		action = &rd->opt[RESIZE_DISPLAY_OPTION_INITIATE].value.action;
+		action = &rd->opt[option].value.action;
 		action->state |= CompActionStateTermButton;
-	
+
 		if (rd->mask & ResizeRightMask)
 			pointerAdjustX = w->serverX + w->serverWidth +
 					 w->input.right - xRoot;
@@ -735,7 +737,7 @@ resizeHandleMotionEvent (CompScreen *s,
 	else
 	{
 	    /* only accumulate pointer movement if a mask is
-	       already set as we don't have a use for the 
+	       already set as we don't have a use for the
 	       difference information otherwise */
 	    rd->pointerDx += xRoot - lastPointerX;
 	    rd->pointerDy += yRoot - lastPointerY;
@@ -811,26 +813,26 @@ resizeHandleEvent (CompDisplay *d,
 	if (s)
 	    resizeHandleKeyEvent (s, event->xkey.keycode);
 	break;
-    case KeyRelease:
-	break;
-    case ButtonRelease: {
-	CompAction *action =
-	    &rd->opt[RESIZE_DISPLAY_OPTION_INITIATE].value.action;
-
-	if (action->state & CompActionStateTermButton)
+    case ButtonRelease:
+	s = findScreenAtDisplay (d, event->xbutton.root);
+	if (s)
 	{
-	    if (event->type == ButtonRelease &&
-		(rd->releaseButton     == -1 ||
-		 event->xbutton.button == rd->releaseButton))
+	    RESIZE_SCREEN (s);
+
+	    if (rs->grabIndex)
 	    {
-		resizeTerminate (d,
-				 action,
-				 CompActionStateTermButton,
-				 NULL,
-				 0);
+		if (rd->releaseButton     == -1 ||
+		    event->xbutton.button == rd->releaseButton)
+		{
+		    int        opt = RESIZE_DISPLAY_OPTION_INITIATE_BUTTON;
+		    CompAction *action = &rd->opt[opt].value.action;
+
+		    resizeTerminate (d, action, CompActionStateTermButton,
+				     NULL, 0);
+		}
 	    }
 	}
-    } break;
+	break;
     case MotionNotify:
 	s = findScreenAtDisplay (d, event->xmotion.root);
 	if (s)
@@ -854,8 +856,7 @@ resizeHandleEvent (CompDisplay *d,
 		if (w)
 		{
 		    CompOption o[6];
-		    CompAction *action =
-			&rd->opt[RESIZE_DISPLAY_OPTION_INITIATE].value.action;
+		    int	       option;
 
 		    o[0].type    = CompOptionTypeInt;
 		    o[0].name    = "window";
@@ -863,11 +864,13 @@ resizeHandleEvent (CompDisplay *d,
 
 		    if (event->xclient.data.l[2] == WmMoveResizeSizeKeyboard)
 		    {
+			option = RESIZE_DISPLAY_OPTION_INITIATE_KEY;
+
 			o[1].type    = CompOptionTypeInt;
 			o[1].name    = "button";
 			o[1].value.i = 0;
 
-			resizeInitiate (d, action,
+			resizeInitiate (d, &rd->opt[option].value.action,
 					CompActionStateInitKey,
 					o, 2);
 		    }
@@ -886,6 +889,8 @@ resizeHandleEvent (CompDisplay *d,
 			unsigned int mods;
 			Window	     root, child;
 			int	     xRoot, yRoot, i;
+
+			option = RESIZE_DISPLAY_OPTION_INITIATE_BUTTON;
 
 			XQueryPointer (d->display, w->screen->root,
 				       &root, &child, &xRoot, &yRoot,
@@ -916,7 +921,7 @@ resizeHandleEvent (CompDisplay *d,
 				event->xclient.data.l[3] : -1;
 
 			    resizeInitiate (d,
-					    action,
+					    &rd->opt[option].value.action,
 					    CompActionStateInitButton,
 					    o, 6);
 
@@ -930,19 +935,23 @@ resizeHandleEvent (CompDisplay *d,
     case DestroyNotify:
 	if (rd->w && rd->w->id == event->xdestroywindow.window)
 	{
-	    CompAction *action =
-		&rd->opt[RESIZE_DISPLAY_OPTION_INITIATE].value.action;
+	    int option;
 
-	    resizeTerminate (d, action, 0, NULL, 0);
+	    option = RESIZE_DISPLAY_OPTION_INITIATE_BUTTON;
+	    resizeTerminate (d, &rd->opt[option].value.action, 0, NULL, 0);
+	    option = RESIZE_DISPLAY_OPTION_INITIATE_KEY;
+	    resizeTerminate (d, &rd->opt[option].value.action, 0, NULL, 0);
 	}
 	break;
     case UnmapNotify:
 	if (rd->w && rd->w->id == event->xunmap.window)
 	{
-	    CompAction *action =
-		&rd->opt[RESIZE_DISPLAY_OPTION_INITIATE].value.action;
+	    int option;
 
-	    resizeTerminate (d, action, 0, NULL, 0);
+	    option = RESIZE_DISPLAY_OPTION_INITIATE_BUTTON;
+	    resizeTerminate (d, &rd->opt[option].value.action, 0, NULL, 0);
+	    option = RESIZE_DISPLAY_OPTION_INITIATE_KEY;
+	    resizeTerminate (d, &rd->opt[option].value.action, 0, NULL, 0);
 	}
     default:
 	break;
@@ -1177,7 +1186,7 @@ resizeGetDisplayOptions (CompPlugin  *plugin,
 static Bool
 resizeSetDisplayOption (CompPlugin      *plugin,
 			CompDisplay     *display,
-			char	        *name,
+			const char	*name,
 			CompOptionValue *value)
 {
     CompOption *o;
@@ -1192,11 +1201,12 @@ resizeSetDisplayOption (CompPlugin      *plugin,
 }
 
 static const CompMetadataOptionInfo resizeDisplayOptionInfo[] = {
-    { "initiate_normal", "action", 0, resizeInitiate, resizeTerminate },
-    { "initiate_outline", "action", 0, resizeInitiate, resizeTerminate },
-    { "initiate_rectangle", "action", 0, resizeInitiate, resizeTerminate },
-    { "initiate_stretch", "action", 0, resizeInitiate, resizeTerminate },
-    { "initiate", "action", 0, resizeInitiate, resizeTerminate },
+    { "initiate_normal_key", "key", 0, resizeInitiate, resizeTerminate },
+    { "initiate_outline_key", "key", 0, resizeInitiate, resizeTerminate },
+    { "initiate_rectangle_key", "key", 0, resizeInitiate, resizeTerminate },
+    { "initiate_stretch_key", "key", 0, resizeInitiate, resizeTerminate },
+    { "initiate_button", "button", 0, resizeInitiate, resizeTerminate },
+    { "initiate_key", "key", 0, resizeInitiate, resizeTerminate },
     { "mode", "int", RESTOSTRING (0, RESIZE_MODE_LAST), 0, 0 },
     { "border_color", "color", 0, 0, 0 },
     { "fill_color", "color", 0, 0, 0 },
@@ -1212,6 +1222,9 @@ resizeInitDisplay (CompPlugin  *p,
 {
     ResizeDisplay *rd;
     int	          i;
+
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
 
     rd = malloc (sizeof (ResizeDisplay));
     if (!rd)
@@ -1250,7 +1263,7 @@ resizeInitDisplay (CompPlugin  *p,
 
     WRAP (rd, d, handleEvent, resizeHandleEvent);
 
-    d->privates[displayPrivateIndex].ptr = rd;
+    d->base.privates[displayPrivateIndex].ptr = rd;
 
     return TRUE;
 }
@@ -1310,7 +1323,7 @@ resizeInitScreen (CompPlugin *p,
     WRAP (rs, s, paintWindow, resizePaintWindow);
     WRAP (rs, s, damageWindowRect, resizeDamageWindowRect);
 
-    s->privates[rd->screenPrivateIndex].ptr = rs;
+    s->base.privates[rd->screenPrivateIndex].ptr = rs;
 
     return TRUE;
 }
@@ -1348,6 +1361,61 @@ resizeFiniScreen (CompPlugin *p,
     free (rs);
 }
 
+static CompBool
+resizeInitObject (CompPlugin *p,
+		  CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) resizeInitDisplay,
+	(InitPluginObjectProc) resizeInitScreen
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+resizeFiniObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) resizeFiniDisplay,
+	(FiniPluginObjectProc) resizeFiniScreen
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+resizeGetObjectOptions (CompPlugin *plugin,
+			CompObject *object,
+			int	   *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) resizeGetDisplayOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+resizeSetObjectOption (CompPlugin      *plugin,
+		       CompObject      *object,
+		       const char      *name,
+		       CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) resizeSetDisplayOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
+}
+
 static Bool
 resizeInit (CompPlugin *p)
 {
@@ -1377,13 +1445,6 @@ resizeFini (CompPlugin *p)
     compFiniMetadata (&resizeMetadata);
 }
 
-static int
-resizeGetVersion (CompPlugin *plugin,
-		  int	     version)
-{
-    return ABIVERSION;
-}
-
 static CompMetadata *
 resizeGetMetadata (CompPlugin *plugin)
 {
@@ -1392,24 +1453,17 @@ resizeGetMetadata (CompPlugin *plugin)
 
 CompPluginVTable resizeVTable = {
     "resize",
-    resizeGetVersion,
     resizeGetMetadata,
     resizeInit,
     resizeFini,
-    resizeInitDisplay,
-    resizeFiniDisplay,
-    resizeInitScreen,
-    resizeFiniScreen,
-    0, /* InitWindow */
-    0, /* FiniWindow */
-    resizeGetDisplayOptions,
-    resizeSetDisplayOption,
-    0, /* GetScreenOptions */
-    0  /* SetScreenOption */
+    resizeInitObject,
+    resizeFiniObject,
+    resizeGetObjectOptions,
+    resizeSetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &resizeVTable;
 }

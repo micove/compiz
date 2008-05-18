@@ -33,7 +33,7 @@
 #include <math.h>
 #include <unistd.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 #include <decoration.h>
 
 #include <X11/Xatom.h>
@@ -86,6 +86,13 @@ typedef struct _WindowDecoration {
     int	       nQuad;
 } WindowDecoration;
 
+static int corePrivateIndex;
+
+typedef struct _DecorCore {
+    ObjectAddProc    objectAdd;
+    ObjectRemoveProc objectRemove;
+} DecorCore;
+
 #define DECOR_DISPLAY_OPTION_SHADOW_RADIUS   0
 #define DECOR_DISPLAY_OPTION_SHADOW_OPACITY  1
 #define DECOR_DISPLAY_OPTION_SHADOW_COLOR    2
@@ -122,7 +129,6 @@ typedef struct _DecorScreen {
     DamageWindowRectProc	  damageWindowRect;
     GetOutputExtentsForWindowProc getOutputExtentsForWindow;
 
-    WindowAddNotifyProc    windowAddNotify;
     WindowMoveNotifyProc   windowMoveNotify;
     WindowResizeNotifyProc windowResizeNotify;
 
@@ -136,20 +142,26 @@ typedef struct _DecorWindow {
     CompTimeoutHandle resizeUpdateHandle;
 } DecorWindow;
 
-#define GET_DECOR_DISPLAY(d)				      \
-    ((DecorDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_DECOR_CORE(c)				     \
+    ((DecorCore *) (c)->base.privates[corePrivateIndex].ptr)
+
+#define DECOR_CORE(c)		       \
+    DecorCore *dc = GET_DECOR_CORE (c)
+
+#define GET_DECOR_DISPLAY(d)					   \
+    ((DecorDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define DECOR_DISPLAY(d)		     \
     DecorDisplay *dd = GET_DECOR_DISPLAY (d)
 
-#define GET_DECOR_SCREEN(s, dd)				          \
-    ((DecorScreen *) (s)->privates[(dd)->screenPrivateIndex].ptr)
+#define GET_DECOR_SCREEN(s, dd)					       \
+    ((DecorScreen *) (s)->base.privates[(dd)->screenPrivateIndex].ptr)
 
 #define DECOR_SCREEN(s)							   \
     DecorScreen *ds = GET_DECOR_SCREEN (s, GET_DECOR_DISPLAY (s->display))
 
-#define GET_DECOR_WINDOW(w, ds)					  \
-    ((DecorWindow *) (w)->privates[(ds)->windowPrivateIndex].ptr)
+#define GET_DECOR_WINDOW(w, ds)					       \
+    ((DecorWindow *) (w)->base.privates[(ds)->windowPrivateIndex].ptr)
 
 #define DECOR_WINDOW(w)					       \
     DecorWindow *dw = GET_DECOR_WINDOW  (w,		       \
@@ -808,6 +820,11 @@ decorWindowUpdate (CompWindow *w,
     }
     else
     {
+	CompWindowExtents emptyInput;
+
+	memset (&emptyInput, 0, sizeof (emptyInput));
+	setWindowFrameExtents (w, &emptyInput);
+
 	dw->wd = NULL;
 
 	moveDx = -oldShiftX;
@@ -830,6 +847,12 @@ decorWindowUpdate (CompWindow *w,
 
 	if (w->state & CompWindowStateMaximizedVertMask)
 	    mask &= ~CWY;
+
+	if (w->saveMask & CWX)
+	    w->saveWc.x += moveDx;
+
+	if (w->saveMask & CWY)
+	    w->saveWc.y += moveDy;
 
 	if (mask)
 	    configureXWindow (w, mask, &xwc);
@@ -1118,7 +1141,7 @@ decorGetDisplayOptions (CompPlugin  *plugin,
 static Bool
 decorSetDisplayOption (CompPlugin      *plugin,
 		       CompDisplay     *display,
-		       char	       *name,
+		       const char      *name,
 		       CompOptionValue *value)
 {
     CompOption *o;
@@ -1222,12 +1245,13 @@ decorWindowResizeNotify (CompWindow *w,
     DECOR_SCREEN (w->screen);
     DECOR_WINDOW (w);
 
-    /* FIXME: we should not need a timer for calling decorWindowUpdate, and only call
-       updateWindowDecorationScale if decorWindowUpdate returns FALSE. Unfortunately,
-       decorWindowUpdate may call updateWindowOutputExtents, which may call
-       WindowResizeNotify. As we never should call a wrapped function that's currently
-       processed, we need the timer for the moment. updateWindowOutputExtents should be
-       fixed so that it does not emit a resize notification. */
+    /* FIXME: we should not need a timer for calling decorWindowUpdate,
+       and only call updateWindowDecorationScale if decorWindowUpdate
+       returns FALSE. Unfortunately, decorWindowUpdate may call
+       updateWindowOutputExtents, which may call WindowResizeNotify. As
+       we never should call a wrapped function that's currently
+       processed, we need the timer for the moment. updateWindowOutputExtents
+       should be fixed so that it does not emit a resize notification. */
     dw->resizeUpdateHandle = compAddTimeout (0, decorResizeUpdateTimeout, w);
     updateWindowDecorationScale (w);
 
@@ -1245,12 +1269,12 @@ decorWindowStateChangeNotify (CompWindow   *w,
 
     if (!decorWindowUpdate (w, TRUE))
     {
-	if (dw->decor)
+	if (dw->wd && dw->wd->decor)
 	{
 	    if ((w->state & MAXIMIZE_STATE) == MAXIMIZE_STATE)
-		setWindowFrameExtents (w, &dw->decor->maxInput);
+		setWindowFrameExtents (w, &dw->wd->decor->maxInput);
 	    else
-		setWindowFrameExtents (w, &dw->decor->input);
+		setWindowFrameExtents (w, &dw->wd->decor->input);
 	}
     }
 
@@ -1273,16 +1297,101 @@ decorMatchPropertyChanged (CompDisplay *d,
 }
 
 static void
-decorWindowAddNotify (CompWindow *w)
+decorWindowAdd (CompScreen *s,
+		CompWindow *w)
 {
-    DECOR_SCREEN (w->screen);
-
     if (w->shaded || w->attrib.map_state == IsViewable)
 	decorWindowUpdate (w, TRUE);
+}
 
-    UNWRAP (ds, w->screen, windowAddNotify);
-    (*w->screen->windowAddNotify) (w);
-    WRAP (ds, w->screen, windowAddNotify, decorWindowAddNotify);
+static void
+decorWindowRemove (CompScreen *s,
+		   CompWindow *w)
+{
+    if (!w->destroyed)
+	decorWindowUpdate (w, FALSE);
+}
+
+static void
+decorObjectAdd (CompObject *parent,
+		CompObject *object)
+{
+    static ObjectAddProc dispTab[] = {
+	(ObjectAddProc) 0, /* CoreAdd */
+	(ObjectAddProc) 0, /* DisplayAdd */
+	(ObjectAddProc) 0, /* ScreenAdd */
+	(ObjectAddProc) decorWindowAdd
+    };
+
+    DECOR_CORE (&core);
+
+    UNWRAP (dc, &core, objectAdd);
+    (*core.objectAdd) (parent, object);
+    WRAP (dc, &core, objectAdd, decorObjectAdd);
+
+    DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), (parent, object));
+}
+
+static void
+decorObjectRemove (CompObject *parent,
+		   CompObject *object)
+{
+    static ObjectRemoveProc dispTab[] = {
+	(ObjectRemoveProc) 0, /* CoreRemove */
+	(ObjectRemoveProc) 0, /* DisplayRemove */
+	(ObjectRemoveProc) 0, /* ScreenRemove */
+	(ObjectRemoveProc) decorWindowRemove
+    };
+
+    DECOR_CORE (&core);
+
+    DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), (parent, object));
+
+    UNWRAP (dc, &core, objectRemove);
+    (*core.objectRemove) (parent, object);
+    WRAP (dc, &core, objectRemove, decorObjectRemove);
+}
+
+static Bool
+decorInitCore (CompPlugin *p,
+	       CompCore   *c)
+{
+    DecorCore *dc;
+
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
+
+    dc = malloc (sizeof (DecorCore));
+    if (!dc)
+	return FALSE;
+
+    displayPrivateIndex = allocateDisplayPrivateIndex ();
+    if (displayPrivateIndex < 0)
+    {
+	free (dc);
+	return FALSE;
+    }
+
+    WRAP (dc, c, objectAdd, decorObjectAdd);
+    WRAP (dc, c, objectRemove, decorObjectRemove);
+
+    c->base.privates[corePrivateIndex].ptr = dc;
+
+    return TRUE;
+}
+
+static void
+decorFiniCore (CompPlugin *p,
+	       CompCore   *c)
+{
+    DECOR_CORE (c);
+
+    freeDisplayPrivateIndex (displayPrivateIndex);
+
+    UNWRAP (dc, c, objectAdd);
+    UNWRAP (dc, c, objectRemove);
+
+    free (dc);
 }
 
 static const CompMetadataOptionInfo decorDisplayOptionInfo[] = {
@@ -1328,19 +1437,20 @@ decorInitDisplay (CompPlugin  *p,
     dd->textures = 0;
 
     dd->supportingDmCheckAtom =
-	XInternAtom (d->display, "_NET_SUPPORTING_DM_CHECK", 0);
-    dd->winDecorAtom = XInternAtom (d->display, "_NET_WINDOW_DECOR", 0);
+	XInternAtom (d->display, DECOR_SUPPORTING_DM_CHECK_ATOM_NAME, 0);
+    dd->winDecorAtom =
+	XInternAtom (d->display, DECOR_WINDOW_ATOM_NAME, 0);
     dd->decorAtom[DECOR_BARE] =
-	XInternAtom (d->display, "_NET_WINDOW_DECOR_BARE", 0);
+	XInternAtom (d->display, DECOR_BARE_ATOM_NAME, 0);
     dd->decorAtom[DECOR_NORMAL] =
-	XInternAtom (d->display, "_NET_WINDOW_DECOR_NORMAL", 0);
+	XInternAtom (d->display, DECOR_NORMAL_ATOM_NAME, 0);
     dd->decorAtom[DECOR_ACTIVE] =
-	XInternAtom (d->display, "_NET_WINDOW_DECOR_ACTIVE", 0);
+	XInternAtom (d->display, DECOR_ACTIVE_ATOM_NAME, 0);
 
     WRAP (dd, d, handleEvent, decorHandleEvent);
     WRAP (dd, d, matchPropertyChanged, decorMatchPropertyChanged);
 
-    d->privates[displayPrivateIndex].ptr = dd;
+    d->base.privates[displayPrivateIndex].ptr = dd;
 
     return TRUE;
 }
@@ -1387,14 +1497,16 @@ decorInitScreen (CompPlugin *p,
     WRAP (ds, s, drawWindow, decorDrawWindow);
     WRAP (ds, s, damageWindowRect, decorDamageWindowRect);
     WRAP (ds, s, getOutputExtentsForWindow, decorGetOutputExtentsForWindow);
-    WRAP (ds, s, windowAddNotify, decorWindowAddNotify);
     WRAP (ds, s, windowMoveNotify, decorWindowMoveNotify);
     WRAP (ds, s, windowResizeNotify, decorWindowResizeNotify);
     WRAP (ds, s, windowStateChangeNotify, decorWindowStateChangeNotify);
 
-    s->privates[dd->screenPrivateIndex].ptr = ds;
+    s->base.privates[dd->screenPrivateIndex].ptr = ds;
 
     decorCheckForDmOnScreen (s, FALSE);
+
+    if (!ds->dmWin)
+	runCommand (s, dd->opt[DECOR_DISPLAY_OPTION_COMMAND].value.s);
 
     return TRUE;
 }
@@ -1403,7 +1515,7 @@ static void
 decorFiniScreen (CompPlugin *p,
 		 CompScreen *s)
 {
-    int i;
+    int	i;
 
     DECOR_SCREEN (s);
 
@@ -1411,10 +1523,11 @@ decorFiniScreen (CompPlugin *p,
 	if (ds->decor[i])
 	    decorReleaseDecoration (s, ds->decor[i]);
 
+    freeWindowPrivateIndex (s, ds->windowPrivateIndex);
+
     UNWRAP (ds, s, drawWindow);
     UNWRAP (ds, s, damageWindowRect);
     UNWRAP (ds, s, getOutputExtentsForWindow);
-    UNWRAP (ds, s, windowAddNotify);
     UNWRAP (ds, s, windowMoveNotify);
     UNWRAP (ds, s, windowResizeNotify);
     UNWRAP (ds, s, windowStateChangeNotify);
@@ -1439,13 +1552,13 @@ decorInitWindow (CompPlugin *p,
 
     dw->resizeUpdateHandle = 0;
 
-    w->privates[ds->windowPrivateIndex].ptr = dw;
+    w->base.privates[ds->windowPrivateIndex].ptr = dw;
 
     if (!w->attrib.override_redirect)
 	decorWindowUpdateDecoration (w);
 
-    if (w->added && (w->shaded || w->attrib.map_state == IsViewable))
-	decorWindowUpdate (w, TRUE);
+    if (w->base.parent)
+	decorWindowAdd (w->screen, w);
 
     return TRUE;
 }
@@ -1456,11 +1569,11 @@ decorFiniWindow (CompPlugin *p,
 {
     DECOR_WINDOW (w);
 
-    if (!w->destroyed)
-	decorWindowUpdate (w, FALSE);
-
     if (dw->resizeUpdateHandle)
 	compRemoveTimeout (dw->resizeUpdateHandle);
+
+    if (w->base.parent)
+	decorWindowRemove (w->screen, w);
 
     if (dw->wd)
 	destroyWindowDecoration (w->screen, dw->wd);
@@ -1469,6 +1582,63 @@ decorFiniWindow (CompPlugin *p,
 	decorReleaseDecoration (w->screen, dw->decor);
 
     free (dw);
+}
+
+static CompBool
+decorInitObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) decorInitCore,
+	(InitPluginObjectProc) decorInitDisplay,
+	(InitPluginObjectProc) decorInitScreen,
+	(InitPluginObjectProc) decorInitWindow
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+decorFiniObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) decorFiniCore,
+	(FiniPluginObjectProc) decorFiniDisplay,
+	(FiniPluginObjectProc) decorFiniScreen,
+	(FiniPluginObjectProc) decorFiniWindow
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+decorGetObjectOptions (CompPlugin *plugin,
+		       CompObject *object,
+		       int	  *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) decorGetDisplayOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+decorSetObjectOption (CompPlugin      *plugin,
+		      CompObject      *object,
+		      const char      *name,
+		      CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) decorSetDisplayOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
 }
 
 static Bool
@@ -1481,8 +1651,8 @@ decorInit (CompPlugin *p)
 					 0, 0))
 	return FALSE;
 
-    displayPrivateIndex = allocateDisplayPrivateIndex ();
-    if (displayPrivateIndex < 0)
+    corePrivateIndex = allocateCorePrivateIndex ();
+    if (corePrivateIndex < 0)
     {
 	compFiniMetadata (&decorMetadata);
 	return FALSE;
@@ -1496,15 +1666,8 @@ decorInit (CompPlugin *p)
 static void
 decorFini (CompPlugin *p)
 {
-    freeDisplayPrivateIndex (displayPrivateIndex);
+    freeCorePrivateIndex (corePrivateIndex);
     compFiniMetadata (&decorMetadata);
-}
-
-static int
-decorGetVersion (CompPlugin *plugin,
-		 int	    version)
-{
-    return ABIVERSION;
 }
 
 static CompMetadata *
@@ -1515,24 +1678,17 @@ decorGetMetadata (CompPlugin *plugin)
 
 static CompPluginVTable decorVTable = {
     "decoration",
-    decorGetVersion,
     decorGetMetadata,
     decorInit,
     decorFini,
-    decorInitDisplay,
-    decorFiniDisplay,
-    decorInitScreen,
-    decorFiniScreen,
-    decorInitWindow,
-    decorFiniWindow,
-    decorGetDisplayOptions,
-    decorSetDisplayOption,
-    0, /* GetScreenOptions */
-    0  /* SetScreenOption */
+    decorInitObject,
+    decorFiniObject,
+    decorGetObjectOptions,
+    decorSetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &decorVTable;
 }

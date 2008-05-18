@@ -2,6 +2,7 @@ INCLUDES =			     \
 	@COMPIZ_CFLAGS@		     \
 	@GL_CFLAGS@		     \
 	-I$(top_srcdir)/include	     \
+	-I$(top_builddir)/include    \
 	-DPLUGINDIR=\"$(plugindir)\" \
 	-DIMAGEDIR=\"$(imagedir)\"   \
 	-DMETADATADIR=\"$(metadatadir)\"
@@ -13,6 +14,8 @@ compiz_LDFLAGS = -export-dynamic
 compiz_SOURCES =   \
 	main.c	   \
 	privates.c \
+	object.c   \
+	core.c	   \
 	texture.c  \
 	display.c  \
 	screen.c   \

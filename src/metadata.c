@@ -30,7 +30,7 @@
 #include <libxml/xpath.h>
 #include <libxml/xpathInternals.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 #define HOME_METADATADIR ".compiz/metadata"
 #define EXTENSION ".xml"
@@ -400,6 +400,10 @@ getOptionType (char *name)
 	{ "string", CompOptionTypeString },
 	{ "color",  CompOptionTypeColor  },
 	{ "action", CompOptionTypeAction },
+	{ "key",    CompOptionTypeKey    },
+	{ "button", CompOptionTypeButton },
+	{ "edge",   CompOptionTypeEdge   },
+	{ "bell",   CompOptionTypeBell   },
 	{ "match",  CompOptionTypeMatch  },
 	{ "list",   CompOptionTypeList   }
     };
@@ -557,96 +561,113 @@ initActionValue (CompDisplay	 *d,
 		 xmlDocPtr       doc,
 		 xmlNodePtr      node)
 {
+    memset (&v->action, 0, sizeof (v->action));
+
+    v->action.state = state;
+}
+
+static void
+initKeyValue (CompDisplay     *d,
+	      CompOptionValue *v,
+	      CompActionState state,
+	      xmlDocPtr       doc,
+	      xmlNodePtr      node)
+{
+    xmlChar *value;
+
+    memset (&v->action, 0, sizeof (v->action));
+
+    v->action.state = state | CompActionStateInitKey;
+
+    if (!doc)
+	return;
+
+    value = xmlNodeListGetString (doc, node->xmlChildrenNode, 1);
+    if (value)
+    {
+	char *binding = (char *) value;
+
+	if (strcasecmp (binding, "disabled") && *binding)
+	    stringToKeyAction (d, binding, &v->action);
+
+	xmlFree (value);
+    }
+
+    if (state & CompActionStateAutoGrab)
+    {
+	CompScreen *s;
+
+	for (s = d->screens; s; s = s->next)
+	    addScreenAction (s, &v->action);
+    }
+}
+
+static void
+initButtonValue (CompDisplay     *d,
+		 CompOptionValue *v,
+		 CompActionState state,
+		 xmlDocPtr       doc,
+		 xmlNodePtr      node)
+{
+    xmlChar *value;
+
+    memset (&v->action, 0, sizeof (v->action));
+
+    v->action.state = state | CompActionStateInitButton |
+	CompActionStateInitEdge;
+
+    if (!doc)
+	return;
+
+    value = xmlNodeListGetString (doc, node->xmlChildrenNode, 1);
+    if (value)
+    {
+	char *binding = (char *) value;
+
+	if (strcasecmp (binding, "disabled") && *binding)
+	    stringToButtonAction (d, binding, &v->action);
+
+	xmlFree (value);
+    }
+
+    if (state & CompActionStateAutoGrab)
+    {
+	CompScreen *s;
+
+	for (s = d->screens; s; s = s->next)
+	    addScreenAction (s, &v->action);
+    }
+}
+
+static void
+initEdgeValue (CompDisplay     *d,
+	       CompOptionValue *v,
+	       CompActionState state,
+	       xmlDocPtr       doc,
+	       xmlNodePtr      node)
+{
     xmlNodePtr child;
     xmlChar    *value;
 
     memset (&v->action, 0, sizeof (v->action));
 
-    v->action.state = state;
+    v->action.state = state | CompActionStateInitEdge;
 
     if (!doc)
 	return;
 
     for (child = node->xmlChildrenNode; child; child = child->next)
     {
-	if (!xmlStrcmp (child->name, BAD_CAST "key"))
+	value = xmlGetProp (child, BAD_CAST "name");
+	if (value)
 	{
-	    value = xmlNodeListGetString (child->doc,
-					  child->xmlChildrenNode, 1);
-	    if (value)
-	    {
-		char *binding = (char *) value;
-
-		if (strcasecmp (binding, "disabled") && *binding)
-		{
-		    if (stringToKeyBinding (d, binding, &v->action.key))
-			v->action.type |= CompBindingTypeKey;
-		}
-
-		xmlFree (value);
-	    }
-	}
-	else if (!xmlStrcmp (child->name, BAD_CAST "button"))
-	{
-	    value = xmlNodeListGetString (child->doc,
-					  child->xmlChildrenNode, 1);
-	    if (value)
-	    {
-		char *binding = (char *) value;
-
-		if (strcasecmp (binding, "disabled") && *binding)
-		{
-		    if (stringToButtonBinding (d, binding, &v->action.button))
-			v->action.type |= CompBindingTypeButton;
-		}
-
-		xmlFree (value);
-	    }
-	}
-	else if (!xmlStrcmp (child->name, BAD_CAST "edges"))
-	{
-	    static char *edge[] = {
-		"left",
-		"right",
-		"top",
-		"bottom",
-		"top_left",
-		"top_right",
-		"bottom_left",
-		"bottom_right"
-	    };
 	    int i;
 
-	    for (i = 0; i < sizeof (edge) / sizeof (edge[0]); i++)
-	    {
-		value = xmlGetProp (child, BAD_CAST edge[i]);
-		if (value)
-		{
-		    if (strcasecmp ((char *) value, "true") == 0)
-			v->action.edgeMask |= (1 << i);
+	    for (i = 0; i < SCREEN_EDGE_NUM; i++)
+		if (strcasecmp ((char *) value, edgeToString (i)) == 0)
+		    v->action.edgeMask |= (1 << i);
 
-		    xmlFree (value);
-		}
-	    }
-
-	    value = xmlGetProp (child, BAD_CAST "button");
-	    if (value)
-	    {
-		v->action.edgeButton = strtol ((char *) value, NULL, 0);
-		if (v->action.edgeButton > 0)
-		    v->action.type |= CompBindingTypeEdgeButton;
-		xmlFree (value);
-	    }
-	}
-	else if (!xmlStrcmp (child->name, (const xmlChar *) "bell"))
-	{
-	    value = xmlNodeListGetString (child->doc,
-					  child->xmlChildrenNode, 1);
-	    if (value)
-	    {
-		v->action.bell = !strcasecmp ((char *) value, "true");
-		xmlFree (value);
-	    }
+	    xmlFree (value);
 	}
     }
 
@@ -656,6 +677,32 @@ initActionValue (CompDisplay	 *d,
 
 	for (s = d->screens; s; s = s->next)
 	    addScreenAction (s, &v->action);
+    }
+}
+
+static void
+initBellValue (CompDisplay     *d,
+	       CompOptionValue *v,
+	       CompActionState state,
+	       xmlDocPtr       doc,
+	       xmlNodePtr      node)
+{
+    xmlChar *value;
+
+    memset (&v->action, 0, sizeof (v->action));
+
+    v->action.state = state | CompActionStateInitBell;
+
+    if (!doc)
+	return;
+
+    value = xmlNodeListGetString (doc, node->xmlChildrenNode, 1);
+    if (value)
+    {
+	if (strcasecmp ((char *) value, "true") == 0)
+	    v->action.bell = TRUE;
+
+	xmlFree (value);
     }
 }
 
@@ -730,6 +777,18 @@ initListValue (CompDisplay	     *d,
 		break;
 	    case CompOptionTypeAction:
 		initActionValue (d, &value[v->list.nValue], state, doc, child);
+		break;
+	    case CompOptionTypeKey:
+		initKeyValue (d, &value[v->list.nValue], state, doc, child);
+		break;
+	    case CompOptionTypeButton:
+		initButtonValue (d, &value[v->list.nValue], state, doc, child);
+		break;
+	    case CompOptionTypeEdge:
+		initEdgeValue (d, &value[v->list.nValue], state, doc, child);
+		break;
+	    case CompOptionTypeBell:
+		initBellValue (d, &value[v->list.nValue], state, doc, child);
 		break;
 	    case CompOptionTypeMatch:
 		initMatchValue (d, &value[v->list.nValue], helper, doc, child);
@@ -836,6 +895,7 @@ initFloatRestriction (CompMetadata	    *metadata,
 
 static void
 initActionState (CompMetadata    *metadata,
+		 CompOptionType  type,
 		 CompActionState *state,
 		 const char      *path)
 {
@@ -862,6 +922,20 @@ initActionState (CompMetadata    *metadata,
 	    *state = 0;
 
 	free (grab);
+    }
+
+    if (type == CompOptionTypeEdge)
+    {
+	char *noEdgeDelay;
+
+	noEdgeDelay = stringFromMetadataPathElement (metadata, path, "nodelay");
+	if (noEdgeDelay)
+	{
+	    if (strcmp (noEdgeDelay, "true") == 0)
+		*state |= CompActionStateNoEdgeDelay;
+
+	    free (noEdgeDelay);
+	}
     }
 
     if (!initXPathFromMetadataPathElement (&xPath, metadata, BAD_CAST path,
@@ -947,8 +1021,24 @@ initOptionFromMetadataPath (CompDisplay   *d,
 	initColorValue (&option->value, defaultDoc, defaultNode);
 	break;
     case CompOptionTypeAction:
-	initActionState (metadata, &state, (char *) path);
+	initActionState (metadata, option->type, &state, (char *) path);
 	initActionValue (d, &option->value, state, defaultDoc, defaultNode);
+	break;
+    case CompOptionTypeKey:
+	initActionState (metadata, option->type, &state, (char *) path);
+	initKeyValue (d, &option->value, state, defaultDoc, defaultNode);
+	break;
+    case CompOptionTypeButton:
+	initActionState (metadata, option->type, &state, (char *) path);
+	initButtonValue (d, &option->value, state, defaultDoc, defaultNode);
+	break;
+    case CompOptionTypeEdge:
+	initActionState (metadata, option->type, &state, (char *) path);
+	initEdgeValue (d, &option->value, state, defaultDoc, defaultNode);
+	break;
+    case CompOptionTypeBell:
+	initActionState (metadata, option->type, &state, (char *) path);
+	initBellValue (d, &option->value, state, defaultDoc, defaultNode);
 	break;
     case CompOptionTypeMatch:
 	helper = boolFromMetadataPathElement (metadata, (char *) path, "helper",
@@ -975,7 +1065,12 @@ initOptionFromMetadataPath (CompDisplay   *d,
 	    initFloatRestriction (metadata, &option->rest, (char *) path);
 	    break;
 	case CompOptionTypeAction:
-	    initActionState (metadata, &state, (char *) path);
+	case CompOptionTypeKey:
+	case CompOptionTypeButton:
+	case CompOptionTypeEdge:
+	case CompOptionTypeBell:
+	    initActionState (metadata, option->value.list.type,
+			     &state, (char *) path);
 	    break;
 	case CompOptionTypeMatch:
 	    helper = boolFromMetadataPathElement (metadata, (char *) path,
@@ -1019,6 +1114,10 @@ finiScreenOptionValue (CompScreen      *s,
 
     switch (type) {
     case CompOptionTypeAction:
+    case CompOptionTypeKey:
+    case CompOptionTypeButton:
+    case CompOptionTypeEdge:
+    case CompOptionTypeBell:
 	if (v->action.state & CompActionStateAutoGrab)
 	    removeScreenAction (s, &v->action);
 	break;
@@ -1036,6 +1135,7 @@ compFiniScreenOption (CompScreen *s,
 {
     finiScreenOptionValue (s, &o->value, o->type);
     compFiniOption (o);
+    free (o->name);
 }
 
 Bool
@@ -1110,6 +1210,10 @@ finiDisplayOptionValue (CompDisplay	*d,
 
     switch (type) {
     case CompOptionTypeAction:
+    case CompOptionTypeKey:
+    case CompOptionTypeButton:
+    case CompOptionTypeEdge:
+    case CompOptionTypeBell:
 	if (v->action.state & CompActionStateAutoGrab)
 	    for (s = d->screens; s; s = s->next)
 		removeScreenAction (s, &v->action);
@@ -1128,6 +1232,7 @@ compFiniDisplayOption (CompDisplay *d,
 {
     finiDisplayOptionValue (d, &o->value, o->type);
     compFiniOption (o);
+    free (o->name);
 }
 
 Bool
@@ -1173,7 +1278,7 @@ compSetDisplayOption (CompDisplay     *d,
 		      CompOption      *o,
 		      CompOptionValue *value)
 {
-    if (o->type == CompOptionTypeAction)
+    if (isActionOption (o))
     {
 	if (o->value.action.state & CompActionStateAutoGrab)
 	{

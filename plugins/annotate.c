@@ -28,7 +28,7 @@
 #include <string.h>
 #include <cairo-xlib-xrender.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 static CompMetadata annoMetadata;
 
@@ -37,15 +37,16 @@ static int displayPrivateIndex;
 static int annoLastPointerX = 0;
 static int annoLastPointerY = 0;
 
-#define ANNO_DISPLAY_OPTION_INITIATE     0
-#define ANNO_DISPLAY_OPTION_DRAW	 1
-#define ANNO_DISPLAY_OPTION_ERASE        2
-#define ANNO_DISPLAY_OPTION_CLEAR        3
-#define ANNO_DISPLAY_OPTION_FILL_COLOR   4
-#define ANNO_DISPLAY_OPTION_STROKE_COLOR 5
-#define ANNO_DISPLAY_OPTION_LINE_WIDTH   6
-#define ANNO_DISPLAY_OPTION_STROKE_WIDTH 7
-#define ANNO_DISPLAY_OPTION_NUM	         8
+#define ANNO_DISPLAY_OPTION_INITIATE_BUTTON 0
+#define ANNO_DISPLAY_OPTION_DRAW_BUTTON	    1
+#define ANNO_DISPLAY_OPTION_ERASE_BUTTON    2
+#define ANNO_DISPLAY_OPTION_CLEAR_KEY       3
+#define ANNO_DISPLAY_OPTION_CLEAR_BUTTON    4
+#define ANNO_DISPLAY_OPTION_FILL_COLOR      5
+#define ANNO_DISPLAY_OPTION_STROKE_COLOR    6
+#define ANNO_DISPLAY_OPTION_LINE_WIDTH      7
+#define ANNO_DISPLAY_OPTION_STROKE_WIDTH    8
+#define ANNO_DISPLAY_OPTION_NUM	            9
 
 typedef struct _AnnoDisplay {
     int		    screenPrivateIndex;
@@ -67,14 +68,14 @@ typedef struct _AnnoScreen {
     Bool eraseMode;
 } AnnoScreen;
 
-#define GET_ANNO_DISPLAY(d)				     \
-    ((AnnoDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_ANNO_DISPLAY(d)					  \
+    ((AnnoDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define ANNO_DISPLAY(d)			   \
     AnnoDisplay *ad = GET_ANNO_DISPLAY (d)
 
-#define GET_ANNO_SCREEN(s, ad)					 \
-    ((AnnoScreen *) (s)->privates[(ad)->screenPrivateIndex].ptr)
+#define GET_ANNO_SCREEN(s, ad)					      \
+    ((AnnoScreen *) (s)->base.privates[(ad)->screenPrivateIndex].ptr)
 
 #define ANNO_SCREEN(s)							\
     AnnoScreen *as = GET_ANNO_SCREEN (s, GET_ANNO_DISPLAY (s->display))
@@ -258,6 +259,7 @@ annoDrawLine (CompScreen     *s,
 	cairo_move_to (cr, x1, y1);
 	cairo_line_to (cr, x2, y2);
 	cairo_stroke_extents (cr, &ex1, &ey1, &ex2, &ey2);
+	cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
 	annoSetSourceColor (cr, color);
 	cairo_stroke (cr);
 
@@ -724,7 +726,7 @@ annoGetDisplayOptions (CompPlugin  *plugin,
 static Bool
 annoSetDisplayOption (CompPlugin      *plugin,
 		      CompDisplay     *display,
-		      char	      *name,
+		      const char      *name,
 		      CompOptionValue *value)
 {
     CompOption *o;
@@ -739,10 +741,11 @@ annoSetDisplayOption (CompPlugin      *plugin,
 }
 
 static const CompMetadataOptionInfo annoDisplayOptionInfo[] = {
-    { "initiate", "action", 0, annoInitiate, annoTerminate },
+    { "initiate_button", "button", 0, annoInitiate, annoTerminate },
     { "draw", "action", 0, annoDraw, 0 },
-    { "erase", "action", 0, annoEraseInitiate, 0 },
-    { "clear", "action", 0, annoClear, 0 },
+    { "erase_button", "button", 0, annoEraseInitiate, annoTerminate },
+    { "clear_key", "key", 0, annoClear, 0 },
+    { "clear_button", "button", 0, annoClear, 0 },
     { "fill_color", "color", 0, 0, 0 },
     { "stroke_color", "color", 0, 0, 0 },
     { "line_width", "float", 0, 0, 0 },
@@ -754,6 +757,9 @@ annoInitDisplay (CompPlugin  *p,
 		 CompDisplay *d)
 {
     AnnoDisplay *ad;
+
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
 
     ad = malloc (sizeof (AnnoDisplay));
     if (!ad)
@@ -779,7 +785,7 @@ annoInitDisplay (CompPlugin  *p,
 
     WRAP (ad, d, handleEvent, annoHandleEvent);
 
-    d->privates[displayPrivateIndex].ptr = ad;
+    d->base.privates[displayPrivateIndex].ptr = ad;
 
     return TRUE;
 }
@@ -821,7 +827,7 @@ annoInitScreen (CompPlugin *p,
 
     WRAP (as, s, paintOutput, annoPaintOutput);
 
-    s->privates[ad->screenPrivateIndex].ptr = as;
+    s->base.privates[ad->screenPrivateIndex].ptr = as;
 
     return TRUE;
 }
@@ -846,6 +852,61 @@ annoFiniScreen (CompPlugin *p,
     UNWRAP (as, s, paintOutput);
 
     free (as);
+}
+
+static CompBool
+annoInitObject (CompPlugin *p,
+		CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) annoInitDisplay,
+	(InitPluginObjectProc) annoInitScreen
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+annoFiniObject (CompPlugin *p,
+		CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) annoFiniDisplay,
+	(FiniPluginObjectProc) annoFiniScreen
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+annoGetObjectOptions (CompPlugin *plugin,
+		      CompObject *object,
+		      int	 *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) annoGetDisplayOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+annoSetObjectOption (CompPlugin      *plugin,
+		     CompObject      *object,
+		     const char      *name,
+		     CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) annoSetDisplayOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
 }
 
 static Bool
@@ -877,13 +938,6 @@ annoFini (CompPlugin *p)
     compFiniMetadata (&annoMetadata);
 }
 
-static int
-annoGetVersion (CompPlugin *plugin,
-		int	   version)
-{
-    return ABIVERSION;
-}
-
 static CompMetadata *
 annoGetMetadata (CompPlugin *plugin)
 {
@@ -892,24 +946,17 @@ annoGetMetadata (CompPlugin *plugin)
 
 static CompPluginVTable annoVTable = {
     "annotate",
-    annoGetVersion,
     annoGetMetadata,
     annoInit,
     annoFini,
-    annoInitDisplay,
-    annoFiniDisplay,
-    annoInitScreen,
-    annoFiniScreen,
-    0, /* InitWindow */
-    0, /* FiniWindow */
-    annoGetDisplayOptions,
-    annoSetDisplayOption,
-    0, /* GetScreenOptions */
-    0  /* SetScreenOption */
+    annoInitObject,
+    annoFiniObject,
+    annoGetObjectOptions,
+    annoSetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &annoVTable;
 }

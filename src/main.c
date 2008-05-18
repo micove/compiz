@@ -34,7 +34,7 @@
 #include <string.h>
 #include <sys/wait.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 char *programName;
 char **programArgv;
@@ -100,9 +100,9 @@ usage (void)
 
 void
 compLogMessage (CompDisplay *d,
-		char	     *componentName,
+		const char   *componentName,
 		CompLogLevel level,
-		char	     *format,
+		const char   *format,
 		...)
 {
     va_list args;
@@ -122,18 +122,13 @@ compLogMessage (CompDisplay *d,
 
 void
 logMessage (CompDisplay	 *d,
-	    char	 *componentName,
+	    const char	 *componentName,
 	    CompLogLevel level,
-	    char	 *message)
+	    const char	 *message)
 {
-    char defaultMessage[2048];
-
-    snprintf (defaultMessage, 2048, "%s (%s) - %s: %s",
+    fprintf (stderr, "%s (%s) - %s: %s\n",
 	      programName, componentName,
 	      logLevelToString (level), message);
-
-    fprintf (stderr, defaultMessage);
-    fprintf (stderr, "\n");
 }
 
 const char *
@@ -263,8 +258,6 @@ main (int argc, char **argv)
     programName = argv[0];
     programArgc = argc;
     programArgv = argv;
-
-    compDisplays = NULL;
 
     signal (SIGHUP, signalHandler);
     signal (SIGCHLD, signalHandler);
@@ -432,6 +425,9 @@ main (int argc, char **argv)
 
     compAddMetadataFromFile (&coreMetadata, "core");
 
+    if (!initCore ())
+	return 1;
+
     if (!disableSm)
 	initSession (clientId);
 
@@ -442,6 +438,8 @@ main (int argc, char **argv)
 
     if (!disableSm)
 	closeSession ();
+
+    finiCore ();
 
     xmlCleanupParser ();
 

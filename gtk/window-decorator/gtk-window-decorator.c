@@ -78,6 +78,10 @@
 #include <sys/types.h>
 #include <signal.h>
 
+#include <libintl.h>
+#define _(x)  gettext (x)
+#define N_(x) x
+
 #ifdef USE_METACITY
 #include <metacity-private/theme.h>
 #endif
@@ -181,6 +185,13 @@
 #define META_ACTIVE_OPACITY       1.0
 #define META_ACTIVE_SHADE_OPACITY TRUE
 
+#define CMDLINE_OPACITY              (1 << 0)
+#define CMDLINE_OPACITY_SHADE        (1 << 1)
+#define CMDLINE_ACTIVE_OPACITY       (1 << 2)
+#define CMDLINE_ACTIVE_OPACITY_SHADE (1 << 3)
+#define CMDLINE_BLUR                 (1 << 4)
+#define CMDLINE_THEME                (1 << 5)
+
 #define MWM_HINTS_DECORATIONS (1L << 1)
 
 #define MWM_DECOR_ALL      (1L << 0)
@@ -282,6 +293,8 @@ static gboolean meta_active_shade_opacity = META_ACTIVE_SHADE_OPACITY;
 static gboolean         meta_button_layout_set = FALSE;
 static MetaButtonLayout meta_button_layout;
 #endif
+
+static guint cmdline_options = 0;
 
 static decor_shadow_t *no_border_shadow = NULL;
 static decor_shadow_t *border_shadow = NULL;
@@ -2517,9 +2530,9 @@ update_default_decorations (GdkScreen *screen)
 
     xroot = RootWindowOfScreen (gdk_x11_screen_get_xscreen (screen));
 
-    bareAtom   = XInternAtom (xdisplay, "_NET_WINDOW_DECOR_BARE", FALSE);
-    normalAtom = XInternAtom (xdisplay, "_NET_WINDOW_DECOR_NORMAL", FALSE);
-    activeAtom = XInternAtom (xdisplay, "_NET_WINDOW_DECOR_ACTIVE", FALSE);
+    bareAtom   = XInternAtom (xdisplay, DECOR_BARE_ATOM_NAME, FALSE);
+    normalAtom = XInternAtom (xdisplay, DECOR_NORMAL_ATOM_NAME, FALSE);
+    activeAtom = XInternAtom (xdisplay, DECOR_ACTIVE_ATOM_NAME, FALSE);
 
     if (no_border_shadow)
     {
@@ -2904,6 +2917,12 @@ meta_get_button_position (decor_t *d,
 #else
     GdkRectangle      *space;
 #endif
+
+    if (!d->context)
+    {
+	/* undecorated windows implicitly have no buttons */
+	return FALSE;
+    }
 
     theme = meta_theme_get_current ();
 
@@ -4325,7 +4344,7 @@ close_button_event (WnckWindow *win,
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
     guint   state = d->button_states[BUTTON_CLOSE];
 
-    common_button_event (win, xevent, BUTTON_CLOSE, 1, "Close Window");
+    common_button_event (win, xevent, BUTTON_CLOSE, 1, _("Close Window"));
 
     switch (xevent->type) {
     case ButtonRelease:
@@ -4346,9 +4365,11 @@ max_button_event (WnckWindow *win,
     guint   state = d->button_states[BUTTON_MAX];
 
     if (wnck_window_is_maximized (win))
-	common_button_event (win, xevent, BUTTON_MAX, 3, "Unmaximize Window");
+	common_button_event (win, xevent, BUTTON_MAX,
+			     3, _("Unmaximize Window"));
     else
-	common_button_event (win, xevent, BUTTON_MAX, 3, "Maximize Window");
+	common_button_event (win, xevent, BUTTON_MAX,
+			     3, _("Maximize Window"));
 
     switch (xevent->type) {
     case ButtonRelease:
@@ -4390,7 +4411,7 @@ min_button_event (WnckWindow *win,
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
     guint   state = d->button_states[BUTTON_MIN];
 
-    common_button_event (win, xevent, BUTTON_MIN, 1, "Minimize Window");
+    common_button_event (win, xevent, BUTTON_MIN, 1, _("Minimize Window"));
 
     switch (xevent->type) {
     case ButtonRelease:
@@ -4401,38 +4422,6 @@ min_button_event (WnckWindow *win,
 	}
 	break;
     }
-}
-
-static void
-top_left_event (WnckWindow *win,
-		XEvent     *xevent)
-{
-    if (xevent->xbutton.button == 1)
-	move_resize_window (win, WM_MOVERESIZE_SIZE_TOPLEFT, xevent);
-}
-
-static void
-top_event (WnckWindow *win,
-	   XEvent     *xevent)
-{
-    if (xevent->xbutton.button == 1)
-	move_resize_window (win, WM_MOVERESIZE_SIZE_TOP, xevent);
-}
-
-static void
-top_right_event (WnckWindow *win,
-		 XEvent     *xevent)
-{
-    if (xevent->xbutton.button == 1)
-	move_resize_window (win, WM_MOVERESIZE_SIZE_TOPRIGHT, xevent);
-}
-
-static void
-left_event (WnckWindow *win,
-	    XEvent     *xevent)
-{
-    if (xevent->xbutton.button == 1)
-	move_resize_window (win, WM_MOVERESIZE_SIZE_LEFT, xevent);
 }
 
 static void
@@ -4539,7 +4528,7 @@ static void
 menu_button_event (WnckWindow *win,
 		   XEvent     *xevent)
 {
-    common_button_event (win, xevent, BUTTON_MENU, 1, "Window Menu");
+    common_button_event (win, xevent, BUTTON_MENU, 1, _("Window Menu"));
 
     switch (xevent->type) {
     case ButtonPress:
@@ -4558,7 +4547,7 @@ shade_button_event (WnckWindow *win,
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
     guint   state = d->button_states[BUTTON_SHADE];
 
-    common_button_event (win, xevent, BUTTON_SHADE, 1, "Shade");
+    common_button_event (win, xevent, BUTTON_SHADE, 1, _("Shade"));
 
     switch (xevent->type) {
     case ButtonRelease:
@@ -4578,7 +4567,7 @@ above_button_event (WnckWindow *win,
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
     guint   state = d->button_states[BUTTON_ABOVE];
 
-    common_button_event (win, xevent, BUTTON_ABOVE, 1, "Make Above");
+    common_button_event (win, xevent, BUTTON_ABOVE, 1, _("Make Above"));
 
     switch (xevent->type) {
     case ButtonRelease:
@@ -4604,7 +4593,7 @@ stick_button_event (WnckWindow *win,
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
     guint   state = d->button_states[BUTTON_STICK];
 
-    common_button_event (win, xevent, BUTTON_STICK, 1, "Stick");
+    common_button_event (win, xevent, BUTTON_STICK, 1, _("Stick"));
 
     switch (xevent->type) {
     case ButtonRelease:
@@ -4624,7 +4613,7 @@ unshade_button_event (WnckWindow *win,
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
     guint   state = d->button_states[BUTTON_UNSHADE];
 
-    common_button_event (win, xevent, BUTTON_UNSHADE, 1, "Unshade");
+    common_button_event (win, xevent, BUTTON_UNSHADE, 1, _("Unshade"));
 
     switch (xevent->type) {
     case ButtonRelease:
@@ -4644,7 +4633,7 @@ unabove_button_event (WnckWindow *win,
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
     guint   state = d->button_states[BUTTON_UNABOVE];
 
-    common_button_event (win, xevent, BUTTON_UNABOVE, 1, "Unmake Above");
+    common_button_event (win, xevent, BUTTON_UNABOVE, 1, _("Unmake Above"));
 
     switch (xevent->type) {
     case ButtonRelease:
@@ -4670,7 +4659,7 @@ unstick_button_event (WnckWindow *win,
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
     guint   state = d->button_states[BUTTON_UNSTICK];
 
-    common_button_event (win, xevent, BUTTON_UNSTICK, 1, "Unstick");
+    common_button_event (win, xevent, BUTTON_UNSTICK, 1, _("Unstick"));
 
     switch (xevent->type) {
     case ButtonRelease:
@@ -4813,35 +4802,83 @@ title_event (WnckWindow *win,
 }
 
 static void
+frame_common_event (WnckWindow *win,
+		    int        direction,
+		    XEvent     *xevent)
+{
+    if (xevent->type != ButtonPress)
+	return;
+
+    switch (xevent->xbutton.button) {
+    case 1:
+	move_resize_window (win, direction, xevent);
+	restack_window (win, Above);
+	break;
+    case 2:
+	handle_title_button_event (win, middle_click_action,
+				   &xevent->xbutton);
+	break;
+    case 3:
+	handle_title_button_event (win, right_click_action,
+				   &xevent->xbutton);
+	break;
+    }
+}
+
+static void
+top_left_event (WnckWindow *win,
+		XEvent     *xevent)
+{
+    frame_common_event (win, WM_MOVERESIZE_SIZE_TOPLEFT, xevent);
+}
+
+static void
+top_event (WnckWindow *win,
+	   XEvent     *xevent)
+{
+    frame_common_event (win, WM_MOVERESIZE_SIZE_TOP, xevent);
+}
+
+static void
+top_right_event (WnckWindow *win,
+		 XEvent     *xevent)
+{
+    frame_common_event (win, WM_MOVERESIZE_SIZE_TOPRIGHT, xevent);
+}
+
+static void
+left_event (WnckWindow *win,
+	    XEvent     *xevent)
+{
+    frame_common_event (win, WM_MOVERESIZE_SIZE_LEFT, xevent);
+}
+
+static void
 right_event (WnckWindow *win,
 	     XEvent     *xevent)
 {
-    if (xevent->xbutton.button == 1)
-	move_resize_window (win, WM_MOVERESIZE_SIZE_RIGHT, xevent);
+    frame_common_event (win, WM_MOVERESIZE_SIZE_RIGHT, xevent);
 }
 
 static void
 bottom_left_event (WnckWindow *win,
 		   XEvent     *xevent)
 {
-    if (xevent->xbutton.button == 1)
-	move_resize_window (win, WM_MOVERESIZE_SIZE_BOTTOMLEFT, xevent);
+    frame_common_event (win, WM_MOVERESIZE_SIZE_BOTTOMLEFT, xevent);
 }
 
 static void
 bottom_event (WnckWindow *win,
 	      XEvent     *xevent)
 {
-    if (xevent->xbutton.button == 1)
-	move_resize_window (win, WM_MOVERESIZE_SIZE_BOTTOM, xevent);
+    frame_common_event (win, WM_MOVERESIZE_SIZE_BOTTOM, xevent);
 }
 
 static void
 bottom_right_event (WnckWindow *win,
 		    XEvent     *xevent)
 {
-    if (xevent->xbutton.button == 1)
-	move_resize_window (win, WM_MOVERESIZE_SIZE_BOTTOMRIGHT, xevent);
+    frame_common_event (win, WM_MOVERESIZE_SIZE_BOTTOMRIGHT, xevent);
 }
 
 static void
@@ -4979,7 +5016,7 @@ show_force_quit_dialog (WnckWindow *win,
 	return;
 
     tmp = g_markup_escape_text (wnck_window_get_name (win), -1);
-    str = g_strdup_printf ("The window \"%s\" is not responding.", tmp);
+    str = g_strdup_printf (_("The window \"%s\" is not responding."), tmp);
 
     g_free (tmp);
 
@@ -4988,9 +5025,9 @@ show_force_quit_dialog (WnckWindow *win,
 				     GTK_BUTTONS_NONE,
 				     "<b>%s</b>\n\n%s",
 				     str,
-				     "Forcing this application to "
+				     _("Forcing this application to "
 				     "quit will cause you to lose any "
-				     "unsaved changes.");
+				     "unsaved changes."));
     g_free (str);
 
     gtk_window_set_icon_name (GTK_WINDOW (dialog), "force-quit");
@@ -5003,7 +5040,7 @@ show_force_quit_dialog (WnckWindow *win,
     gtk_dialog_add_buttons (GTK_DIALOG (dialog),
 			    GTK_STOCK_CANCEL,
 			    GTK_RESPONSE_REJECT,
-			    "_Force Quit",
+			    _("_Force Quit"),
 			    GTK_RESPONSE_ACCEPT,
 			    NULL);
 
@@ -5586,7 +5623,6 @@ update_shadow (void)
 					 _win_extents.top + titlebar_height,
 					 _win_extents.bottom,
 					 _win_extents.left -
-					 _win_extents.left -
 					 TRANSLUCENT_CORNER_SIZE,
 					 _win_extents.right -
 					 TRANSLUCENT_CORNER_SIZE,
@@ -5613,7 +5649,6 @@ update_shadow (void)
 			     _max_win_extents.right,
 			     _max_win_extents.top + max_titlebar_height,
 			     _max_win_extents.bottom,
-			     _max_win_extents.left -
 			     _max_win_extents.left - TRANSLUCENT_CORNER_SIZE,
 			     _max_win_extents.right - TRANSLUCENT_CORNER_SIZE,
 			     _max_win_extents.top + max_titlebar_height -
@@ -5681,33 +5716,6 @@ update_window_decoration (WnckWindow *win)
 
 	    update_switcher_window (win, select);
 	}
-    }
-}
-
-static void
-style_changed (GtkWidget *widget)
-{
-    GdkDisplay *gdkdisplay;
-    GdkScreen  *gdkscreen;
-    WnckScreen *screen;
-    GList      *windows;
-
-    gdkdisplay = gdk_display_get_default ();
-    gdkscreen  = gdk_display_get_default_screen (gdkdisplay);
-    screen     = wnck_screen_get_default ();
-
-    update_style (widget);
-
-    update_default_decorations (gdkscreen);
-
-    if (minimal)
-	return;
-
-    windows = wnck_screen_get_windows (screen);
-    while (windows != NULL)
-    {
-	update_window_decoration (WNCK_WINDOW (windows->data));
-	windows = windows->next;
     }
 }
 
@@ -6023,6 +6031,25 @@ decorations_changed (WnckScreen *screen)
     }
 }
 
+static void
+style_changed (GtkWidget *widget)
+{
+    GdkDisplay *gdkdisplay;
+    GdkScreen  *gdkscreen;
+    WnckScreen *screen;
+
+    gdkdisplay = gdk_display_get_default ();
+    gdkscreen  = gdk_display_get_default_screen (gdkdisplay);
+    screen     = wnck_screen_get_default ();
+
+    update_style (widget);
+
+    pango_cairo_context_set_resolution (pango_context,
+					gdk_screen_get_resolution (gdkscreen));
+
+    decorations_changed (screen);
+}
+
 #ifdef USE_GCONF
 static gboolean
 shadow_settings_changed (GConfClient *client)
@@ -6099,6 +6126,9 @@ blur_settings_changed (GConfClient *client)
     gchar *type;
     int   new_type = blur_type;
 
+    if (cmdline_options & CMDLINE_BLUR)
+	return FALSE;
+
     type = gconf_client_get_string (client,
 				    BLUR_TYPE_KEY,
 				    NULL);
@@ -6130,6 +6160,9 @@ theme_changed (GConfClient *client)
 
 #ifdef USE_METACITY
     gboolean use_meta_theme;
+
+    if (cmdline_options & CMDLINE_THEME)
+	return FALSE;
 
     use_meta_theme = gconf_client_get_bool (client,
 					    USE_META_THEME_KEY,
@@ -6199,7 +6232,8 @@ theme_opacity_changed (GConfClient *client)
 				      META_THEME_OPACITY_KEY,
 				      NULL);
 
-    if (opacity != meta_opacity)
+    if (!(cmdline_options & CMDLINE_OPACITY) &&
+	opacity != meta_opacity)
     {
 	meta_opacity = opacity;
 	changed = TRUE;
@@ -6211,7 +6245,8 @@ theme_opacity_changed (GConfClient *client)
 					       META_THEME_SHADE_OPACITY_KEY,
 					       NULL);
 
-	if (shade_opacity != meta_shade_opacity)
+	if (!(cmdline_options & CMDLINE_OPACITY_SHADE) &&
+	    shade_opacity != meta_shade_opacity)
 	{
 	    meta_shade_opacity = shade_opacity;
 	    changed = TRUE;
@@ -6222,7 +6257,8 @@ theme_opacity_changed (GConfClient *client)
 				      META_THEME_ACTIVE_OPACITY_KEY,
 				      NULL);
 
-    if (opacity != meta_active_opacity)
+    if (!(cmdline_options & CMDLINE_ACTIVE_OPACITY) &&
+	opacity != meta_active_opacity)
     {
 	meta_active_opacity = opacity;
 	changed = TRUE;
@@ -6235,7 +6271,8 @@ theme_opacity_changed (GConfClient *client)
 				   META_THEME_ACTIVE_SHADE_OPACITY_KEY,
 				   NULL);
 
-	if (shade_opacity != meta_active_shade_opacity)
+	if (!(cmdline_options & CMDLINE_ACTIVE_OPACITY_SHADE) &&
+	    shade_opacity != meta_active_shade_opacity)
 	{
 	    meta_active_shade_opacity = shade_opacity;
 	    changed = TRUE;
@@ -6700,6 +6737,10 @@ main (int argc, char *argv[])
 
     gtk_init (&argc, &argv);
 
+    bindtextdomain (GETTEXT_PACKAGE, LOCALEDIR);
+    bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
+    textdomain (GETTEXT_PACKAGE);
+
     for (i = 0; i < argc; i++)
     {
 	if (strcmp (argv[i], "--minimal") == 0)
@@ -6719,6 +6760,7 @@ main (int argc, char *argv[])
 		else if (strcmp (argv[i], "all") == 0)
 		    blur_type = BLUR_TYPE_ALL;
 	    }
+	    cmdline_options |= CMDLINE_BLUR;
 	}
 
 #ifdef USE_METACITY
@@ -6726,24 +6768,29 @@ main (int argc, char *argv[])
 	{
 	    if (argc > ++i)
 		meta_opacity = atof (argv[i]);
+	    cmdline_options |= CMDLINE_OPACITY;
 	}
 	else if (strcmp (argv[i], "--no-opacity-shade") == 0)
 	{
 	    meta_shade_opacity = FALSE;
+	    cmdline_options |= CMDLINE_OPACITY_SHADE;
 	}
 	else if (strcmp (argv[i], "--active-opacity") == 0)
 	{
 	    if (argc > ++i)
 		meta_active_opacity = atof (argv[i]);
+	    cmdline_options |= CMDLINE_ACTIVE_OPACITY;
 	}
 	else if (strcmp (argv[i], "--no-active-opacity-shade") == 0)
 	{
 	    meta_active_shade_opacity = FALSE;
+	    cmdline_options |= CMDLINE_ACTIVE_OPACITY_SHADE;
 	}
 	else if (strcmp (argv[i], "--metacity-theme") == 0)
 	{
 	    if (argc > ++i)
 		meta_theme = argv[i];
+	    cmdline_options |= CMDLINE_THEME;
 	}
 #endif
 
@@ -6795,12 +6842,11 @@ main (int argc, char *argv[])
     gdkscreen  = gdk_display_get_default_screen (gdkdisplay);
 
     frame_window_atom	= XInternAtom (xdisplay, "_NET_FRAME_WINDOW", FALSE);
-    win_decor_atom	= XInternAtom (xdisplay, "_NET_WINDOW_DECOR", FALSE);
-    win_blur_decor_atom	= XInternAtom (xdisplay, "_COMPIZ_WM_WINDOW_BLUR_DECOR",
-				       FALSE);
+    win_decor_atom	= XInternAtom (xdisplay, DECOR_WINDOW_ATOM_NAME, FALSE);
+    win_blur_decor_atom	= XInternAtom (xdisplay, DECOR_BLUR_ATOM_NAME, FALSE);
     wm_move_resize_atom = XInternAtom (xdisplay, "_NET_WM_MOVERESIZE", FALSE);
     restack_window_atom = XInternAtom (xdisplay, "_NET_RESTACK_WINDOW", FALSE);
-    select_window_atom	= XInternAtom (xdisplay, "_SWITCH_SELECT_WINDOW",
+    select_window_atom	= XInternAtom (xdisplay, DECOR_SWITCH_WINDOW_ATOM_NAME,
 				       FALSE);
     mwm_hints_atom	= XInternAtom (xdisplay, "_MOTIF_WM_HINTS", FALSE);
 

@@ -32,7 +32,7 @@
 #include <X11/Xatom.h>
 #include <X11/Xproto.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 static CompMetadata planeMetadata;
 
@@ -40,22 +40,22 @@ static int displayPrivateIndex;
 
 enum
 {
-    PLANE_DISPLAY_OPTION_LEFT,
-    PLANE_DISPLAY_OPTION_RIGHT,
-    PLANE_DISPLAY_OPTION_DOWN,
-    PLANE_DISPLAY_OPTION_UP,
-    PLANE_DISPLAY_OPTION_TO_1,
-    PLANE_DISPLAY_OPTION_TO_2,
-    PLANE_DISPLAY_OPTION_TO_3,
-    PLANE_DISPLAY_OPTION_TO_4,
-    PLANE_DISPLAY_OPTION_TO_5,
-    PLANE_DISPLAY_OPTION_TO_6,
-    PLANE_DISPLAY_OPTION_TO_7,
-    PLANE_DISPLAY_OPTION_TO_8,
-    PLANE_DISPLAY_OPTION_TO_9,
-    PLANE_DISPLAY_OPTION_TO_10,
-    PLANE_DISPLAY_OPTION_TO_11,
-    PLANE_DISPLAY_OPTION_TO_12,
+    PLANE_DISPLAY_OPTION_LEFT_KEY,
+    PLANE_DISPLAY_OPTION_RIGHT_KEY,
+    PLANE_DISPLAY_OPTION_DOWN_KEY,
+    PLANE_DISPLAY_OPTION_UP_KEY,
+    PLANE_DISPLAY_OPTION_TO_1_KEY,
+    PLANE_DISPLAY_OPTION_TO_2_KEY,
+    PLANE_DISPLAY_OPTION_TO_3_KEY,
+    PLANE_DISPLAY_OPTION_TO_4_KEY,
+    PLANE_DISPLAY_OPTION_TO_5_KEY,
+    PLANE_DISPLAY_OPTION_TO_6_KEY,
+    PLANE_DISPLAY_OPTION_TO_7_KEY,
+    PLANE_DISPLAY_OPTION_TO_8_KEY,
+    PLANE_DISPLAY_OPTION_TO_9_KEY,
+    PLANE_DISPLAY_OPTION_TO_10_KEY,
+    PLANE_DISPLAY_OPTION_TO_11_KEY,
+    PLANE_DISPLAY_OPTION_TO_12_KEY,
     PLANE_N_DISPLAY_OPTIONS
 };
 
@@ -71,9 +71,7 @@ typedef struct _PlaneScreen {
     PreparePaintScreenProc		preparePaintScreen;
     DonePaintScreenProc			donePaintScreen;
     PaintOutputProc			paintOutput;
-
-    WindowGrabNotifyProc		windowGrabNotify;
-    WindowUngrabNotifyProc		windowUngrabNotify;
+    ActivateWindowProc                  activateWindow;
 
     CompTimeoutHandle			timeoutHandle;
     int					timer;
@@ -84,14 +82,14 @@ typedef struct _PlaneScreen {
     double				dest_y;
 } PlaneScreen;
 
-#define GET_PLANE_DISPLAY(d)				       \
-    ((PlaneDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_PLANE_DISPLAY(d)					   \
+    ((PlaneDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define PLANE_DISPLAY(d)		       \
     PlaneDisplay *pd = GET_PLANE_DISPLAY (d)
 
-#define GET_PLANE_SCREEN(s, pd)				   \
-    ((PlaneScreen *) (s)->privates[(pd)->screenPrivateIndex].ptr)
+#define GET_PLANE_SCREEN(s, pd)					       \
+    ((PlaneScreen *) (s)->base.privates[(pd)->screenPrivateIndex].ptr)
 
 #define PLANE_SCREEN(s)						      \
     PlaneScreen *ps = GET_PLANE_SCREEN (s, GET_PLANE_DISPLAY (s->display))
@@ -105,7 +103,7 @@ endMove (void *data)
     PLANE_SCREEN (screen);
 
     moveScreenViewport (screen, -ps->dest_x, -ps->dest_y, TRUE);
-    focusDefaultWindow (screen->display);
+    focusDefaultWindow (screen);
 
     ps->dest_x = 0;
     ps->dest_y = 0;
@@ -228,30 +226,29 @@ planePaintTransformedOutput (CompScreen		     *screen,
 	while (dx > 1)
 	{
 	    dx -= 1.0;
-	    moveScreenViewport (screen, 1, 0, FALSE);
 	    vx++;
 	}
 
 	while (dx < -1)
 	{
 	    dx += 1.0;
-	    moveScreenViewport (screen, -1, 0, FALSE);
 	    vx--;
 	}
 
 	while (dy > 1)
 	{
 	    dy -= 1.0;
-	    moveScreenViewport (screen, 0, 1, FALSE);
 	    vy++;
 	}
 
 	while (dy < -1)
 	{
 	    dy += 1.0;
-	    moveScreenViewport (screen, 0, -1, FALSE);
 	    vy--;
 	}
+
+	setWindowPaintOffset (screen, vx * screen->width,
+			      vy * screen->height);
 
 	matrixTranslate (&sTransform, dx, -dy, 0.0);
 
@@ -261,55 +258,52 @@ planePaintTransformedOutput (CompScreen		     *screen,
 	if (dx > 0)
 	{
 	    matrixTranslate (&sTransform, -1.0, 0.0, 0.0);
-	    moveScreenViewport (screen, 1, 0, FALSE);
+	    vx++;
 	}
 	else
 	{
 	    matrixTranslate (&sTransform, 1.0, 0.0, 0.0);
-	    moveScreenViewport (screen, -1, 0, FALSE);
+	    vx--;
 	}
 
+	setWindowPaintOffset (screen, vx * screen->width,
+			      vy * screen->height);
 	(*screen->paintTransformedOutput) (screen, sAttrib, &sTransform,
 					   region, output, mask);
 
 	if (dy > 0)
 	{
 	    matrixTranslate (&sTransform, 0.0, 1.0, 0.0);
-	    moveScreenViewport (screen, 0, 1, FALSE);
+	    vy++;
 	}
 	else
 	{
 	    matrixTranslate (&sTransform, 0.0, -1.0, 0.0);
-	    moveScreenViewport (screen, 0, -1, FALSE);
+	    vy--;
 	}
 
+	setWindowPaintOffset (screen, vx * screen->width,
+			      vy * screen->height);
 	(*screen->paintTransformedOutput) (screen, sAttrib, &sTransform,
 					   region, output, mask);
 
 	if (dx > 0)
 	{
 	    matrixTranslate (&sTransform, 1.0, 0.0, 0.0);
-	    moveScreenViewport (screen, -1, 0, FALSE);
+	    vx--;
 	}
 	else
 	{
 	    matrixTranslate (&sTransform, -1.0, 0.0, 0.0);
-	    moveScreenViewport (screen, 1, 0, FALSE);
+	    vx++;
 	}
 
+	setWindowPaintOffset (screen, vx * screen->width,
+			      vy * screen->height);
 	(*screen->paintTransformedOutput) (screen, sAttrib, &sTransform,
 					   region, output, mask);
 
-	if (dy > 0)
-	{
-	    moveScreenViewport (screen, 0, -1, FALSE);
-	}
-	else
-	{
-	    moveScreenViewport (screen, 0, 1, FALSE);
-	}
-
-	moveScreenViewport (screen, -vx, -vy, FALSE);
+	setWindowPaintOffset (screen, 0, 0);
     }
     else
     {
@@ -370,32 +364,7 @@ planeHandleEvent (CompDisplay *d,
 
     switch (event->type) {
     case ClientMessage:
-	if (event->xclient.message_type == d->winActiveAtom)
-	{
-	    CompWindow *w;
-
-	    w = findWindowAtDisplay (d, event->xclient.window);
-	    if (w)
-	    {
-		int dx, dy;
-
-		s = w->screen;
-
-		/* window must be placed */
-		if (!w->placed)
-		    break;
-
-		if (otherScreenGrabExist (s, "plane", "switcher", "cube", 0))
-		    break;
-
-		defaultViewportForWindow (w, &dx, &dy);
-		dx -= s->x;
-		dy -= s->y;
-
-		moveViewport (s, dx, dy);
-	    }
-	}
-	else if (event->xclient.message_type == d->desktopViewportAtom)
+	if (event->xclient.message_type == d->desktopViewportAtom)
 	{
 	    int dx, dy;
 
@@ -426,27 +395,27 @@ planeHandleEvent (CompDisplay *d,
 }
 
 static void
-planeWindowGrabNotify (CompWindow   *w,
-		       int	    x,
-		       int	    y,
-		       unsigned int state,
-		       unsigned int mask)
+planeActivateWindow (CompWindow *w)
 {
-    PLANE_SCREEN (w->screen);
+    CompScreen *s = w->screen;
 
-    UNWRAP (ps, w->screen, windowGrabNotify);
-    (*w->screen->windowGrabNotify) (w, x, y, state, mask);
-    WRAP (ps, w->screen, windowGrabNotify, planeWindowGrabNotify);
-}
+    PLANE_SCREEN (s);
 
-static void
-planeWindowUngrabNotify (CompWindow *w)
-{
-    PLANE_SCREEN (w->screen);
+    if (w->placed &&
+	!otherScreenGrabExist (s, "plane", "switcher", "cube", 0))
+    {
+	int dx, dy;
 
-    UNWRAP (ps, w->screen, windowUngrabNotify);
-    (*w->screen->windowUngrabNotify) (w);
-    WRAP (ps, w->screen, windowUngrabNotify, planeWindowUngrabNotify);
+	defaultViewportForWindow (w, &dx, &dy);
+	dx -= s->x;
+	dy -= s->y;
+
+	moveViewport (s, dx, dy);
+    }
+
+    UNWRAP (ps, s, activateWindow);
+    (*s->activateWindow) (w);
+    WRAP (ps, s, activateWindow, planeActivateWindow);
 }
 
 static CompOption *
@@ -463,7 +432,7 @@ planeGetDisplayOptions (CompPlugin  *plugin,
 static Bool
 planeSetDisplayOption (CompPlugin      *plugin,
 		       CompDisplay     *display,
-		       char	       *name,
+		       const char      *name,
 		       CompOptionValue *value)
 {
     CompOption *o;
@@ -551,11 +520,13 @@ planeTo (CompDisplay     *d,
     PLANE_DISPLAY (d);
 
     new_x = new_y = -1;
-    for (i = PLANE_DISPLAY_OPTION_TO_1; i <= PLANE_DISPLAY_OPTION_TO_12; ++i)
+    for (i = PLANE_DISPLAY_OPTION_TO_1_KEY;
+	 i <= PLANE_DISPLAY_OPTION_TO_12_KEY;
+	 ++i)
     {
 	if (action == &pd->opt[i].value.action)
 	{
-	    int viewport_no = i - PLANE_DISPLAY_OPTION_TO_1;
+	    int viewport_no = i - PLANE_DISPLAY_OPTION_TO_1_KEY;
 
 	    new_x = viewport_no % screen->hsize;
 	    new_y = viewport_no / screen->hsize;
@@ -576,22 +547,22 @@ planeTo (CompDisplay     *d,
 }
 
 static const CompMetadataOptionInfo planeDisplayOptionInfo[] = {
-    { "plane_left", "action", 0, planeLeft, 0 },
-    { "plane_right", "action", 0, planeRight, 0 },
-    { "plane_down", "action", 0, planeDown, 0 },
-    { "plane_up", "action", 0, planeUp, 0 },
-    { "plane_to_1", "action", 0, planeTo, 0 },
-    { "plane_to_2", "action", 0, planeTo, 0 },
-    { "plane_to_3", "action", 0, planeTo, 0 },
-    { "plane_to_4", "action", 0, planeTo, 0 },
-    { "plane_to_5", "action", 0, planeTo, 0 },
-    { "plane_to_6", "action", 0, planeTo, 0 },
-    { "plane_to_7", "action", 0, planeTo, 0 },
-    { "plane_to_8", "action", 0, planeTo, 0 },
-    { "plane_to_9", "action", 0, planeTo, 0 },
-    { "plane_to_10", "action", 0, planeTo, 0 },
-    { "plane_to_11", "action", 0, planeTo, 0 },
-    { "plane_to_12", "action", 0, planeTo, 0 }
+    { "plane_left_key", "key", 0, planeLeft, 0 },
+    { "plane_right_key", "key", 0, planeRight, 0 },
+    { "plane_down_key", "key", 0, planeDown, 0 },
+    { "plane_up_key", "key", 0, planeUp, 0 },
+    { "plane_to_1_key", "key", 0, planeTo, 0 },
+    { "plane_to_2_key", "key", 0, planeTo, 0 },
+    { "plane_to_3_key", "key", 0, planeTo, 0 },
+    { "plane_to_4_key", "key", 0, planeTo, 0 },
+    { "plane_to_5_key", "key", 0, planeTo, 0 },
+    { "plane_to_6_key", "key", 0, planeTo, 0 },
+    { "plane_to_7_key", "key", 0, planeTo, 0 },
+    { "plane_to_8_key", "key", 0, planeTo, 0 },
+    { "plane_to_9_key", "key", 0, planeTo, 0 },
+    { "plane_to_10_key", "key", 0, planeTo, 0 },
+    { "plane_to_11_key", "key", 0, planeTo, 0 },
+    { "plane_to_12_key", "key", 0, planeTo, 0 }
 };
 
 static Bool
@@ -599,6 +570,9 @@ planeInitDisplay (CompPlugin  *p,
 		  CompDisplay *d)
 {
     PlaneDisplay *pd;
+
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
 
     pd = malloc (sizeof (PlaneDisplay));
     if (!pd)
@@ -624,7 +598,7 @@ planeInitDisplay (CompPlugin  *p,
 
     WRAP (pd, d, handleEvent, planeHandleEvent);
 
-    d->privates[displayPrivateIndex].ptr = pd;
+    d->base.privates[displayPrivateIndex].ptr = pd;
 
     return TRUE;
 }
@@ -662,10 +636,9 @@ planeInitScreen (CompPlugin *p,
     WRAP (ps, s, preparePaintScreen, planePreparePaintScreen);
     WRAP (ps, s, donePaintScreen, planeDonePaintScreen);
     WRAP (ps, s, paintOutput, planePaintOutput);
-    WRAP (ps, s, windowGrabNotify, planeWindowGrabNotify);
-    WRAP (ps, s, windowUngrabNotify, planeWindowUngrabNotify);
+    WRAP (ps, s, activateWindow, planeActivateWindow);
 
-    s->privates[pd->screenPrivateIndex].ptr = ps;
+    s->base.privates[pd->screenPrivateIndex].ptr = ps;
 
     return TRUE;
 }
@@ -680,10 +653,64 @@ planeFiniScreen (CompPlugin *p,
     UNWRAP (ps, s, preparePaintScreen);
     UNWRAP (ps, s, donePaintScreen);
     UNWRAP (ps, s, paintOutput);
-    UNWRAP (ps, s, windowGrabNotify);
-    UNWRAP (ps, s, windowUngrabNotify);
+    UNWRAP (ps, s, activateWindow);
 
     free (ps);
+}
+
+static CompBool
+planeInitObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) planeInitDisplay,
+	(InitPluginObjectProc) planeInitScreen
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+planeFiniObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) planeFiniDisplay,
+	(FiniPluginObjectProc) planeFiniScreen
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+planeGetObjectOptions (CompPlugin *plugin,
+		       CompObject *object,
+		       int	  *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) planeGetDisplayOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+planeSetObjectOption (CompPlugin      *plugin,
+		      CompObject      *object,
+		      const char      *name,
+		      CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) planeSetDisplayOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
 }
 
 static Bool
@@ -715,13 +742,6 @@ planeFini (CompPlugin *p)
     compFiniMetadata (&planeMetadata);
 }
 
-static int
-planeGetVersion (CompPlugin *plugin,
-		 int	    version)
-{
-    return ABIVERSION;
-}
-
 static CompMetadata *
 planeGetMetadata (CompPlugin *plugin)
 {
@@ -730,24 +750,17 @@ planeGetMetadata (CompPlugin *plugin)
 
 CompPluginVTable planeVTable = {
     "plane",
-    planeGetVersion,
     planeGetMetadata,
     planeInit,
     planeFini,
-    planeInitDisplay,
-    planeFiniDisplay,
-    planeInitScreen,
-    planeFiniScreen,
-    0, /* InitWindow */
-    0, /* FiniWindow */
-    planeGetDisplayOptions,
-    planeSetDisplayOption,
-    NULL, /* planeGetScreenOptions, */
-    NULL  /* planeSetScreenOption, */
+    planeInitObject,
+    planeFiniObject,
+    planeGetObjectOptions,
+    planeSetObjectOption,
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &planeVTable;
 }

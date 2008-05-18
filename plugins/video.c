@@ -29,7 +29,7 @@
 #include <math.h>
 #include <unistd.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 #include <decoration.h>
 
 #include <X11/Xatom.h>
@@ -150,20 +150,20 @@ typedef struct _VideoWindow {
     VideoContext *context;
 } VideoWindow;
 
-#define GET_VIDEO_DISPLAY(d)				      \
-    ((VideoDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_VIDEO_DISPLAY(d)					   \
+    ((VideoDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define VIDEO_DISPLAY(d)		     \
     VideoDisplay *vd = GET_VIDEO_DISPLAY (d)
 
-#define GET_VIDEO_SCREEN(s, vd)				          \
-    ((VideoScreen *) (s)->privates[(vd)->screenPrivateIndex].ptr)
+#define GET_VIDEO_SCREEN(s, vd)					       \
+    ((VideoScreen *) (s)->base.privates[(vd)->screenPrivateIndex].ptr)
 
 #define VIDEO_SCREEN(s)							   \
     VideoScreen *vs = GET_VIDEO_SCREEN (s, GET_VIDEO_DISPLAY (s->display))
 
-#define GET_VIDEO_WINDOW(w, vs)					  \
-    ((VideoWindow *) (w)->privates[(vs)->windowPrivateIndex].ptr)
+#define GET_VIDEO_WINDOW(w, vs)					       \
+    ((VideoWindow *) (w)->base.privates[(vs)->windowPrivateIndex].ptr)
 
 #define VIDEO_WINDOW(w)					       \
     VideoWindow *vw = GET_VIDEO_WINDOW  (w,		       \
@@ -207,9 +207,9 @@ videoGetDisplayOptions (CompPlugin  *plugin,
 }
 
 static Bool
-videoSetDisplayOption (CompPlugin  *plugin,
+videoSetDisplayOption (CompPlugin      *plugin,
 		       CompDisplay     *display,
-		       char	       *name,
+		       const char      *name,
 		       CompOptionValue *value)
 {
     CompOption *o;
@@ -1046,6 +1046,9 @@ videoInitDisplay (CompPlugin  *p,
 {
     VideoDisplay *vd;
 
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
+
     vd = malloc (sizeof (VideoDisplay));
     if (!vd)
 	return FALSE;
@@ -1082,7 +1085,7 @@ videoInitDisplay (CompPlugin  *p,
 
     WRAP (vd, d, handleEvent, videoHandleEvent);
 
-    d->privates[displayPrivateIndex].ptr = vd;
+    d->base.privates[displayPrivateIndex].ptr = vd;
 
     return TRUE;
 }
@@ -1146,7 +1149,7 @@ videoInitScreen (CompPlugin *p,
     WRAP (vs, s, windowMoveNotify, videoWindowMoveNotify);
     WRAP (vs, s, windowResizeNotify, videoWindowResizeNotify);
 
-    s->privates[vd->screenPrivateIndex].ptr = vs;
+    s->base.privates[vd->screenPrivateIndex].ptr = vs;
 
     videoSetSupportedHint (s);
 
@@ -1190,7 +1193,7 @@ videoInitWindow (CompPlugin *p,
     vw->source  = NULL;
     vw->context = NULL;
 
-    w->privates[vs->windowPrivateIndex].ptr = vw;
+    w->base.privates[vs->windowPrivateIndex].ptr = vw;
 
     if (w->shaded || w->attrib.map_state == IsViewable)
 	videoWindowUpdate (w);
@@ -1214,6 +1217,63 @@ videoFiniWindow (CompPlugin *p,
 	free (vw->context);
 
     free (vw);
+}
+
+static CompBool
+videoInitObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) videoInitDisplay,
+	(InitPluginObjectProc) videoInitScreen,
+	(InitPluginObjectProc) videoInitWindow
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+videoFiniObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) videoFiniDisplay,
+	(FiniPluginObjectProc) videoFiniScreen,
+	(FiniPluginObjectProc) videoFiniWindow
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+videoGetObjectOptions (CompPlugin *plugin,
+		       CompObject *object,
+		       int	  *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) videoGetDisplayOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+videoSetObjectOption (CompPlugin      *plugin,
+		      CompObject      *object,
+		      const char      *name,
+		      CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) videoSetDisplayOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
 }
 
 static Bool
@@ -1245,13 +1305,6 @@ videoFini (CompPlugin *p)
     compFiniMetadata (&videoMetadata);
 }
 
-static int
-videoGetVersion (CompPlugin *plugin,
-		 int	    version)
-{
-    return ABIVERSION;
-}
-
 static CompMetadata *
 videoGetMetadata (CompPlugin *plugin)
 {
@@ -1260,24 +1313,17 @@ videoGetMetadata (CompPlugin *plugin)
 
 static CompPluginVTable videoVTable = {
     "video",
-    videoGetVersion,
     videoGetMetadata,
     videoInit,
     videoFini,
-    videoInitDisplay,
-    videoFiniDisplay,
-    videoInitScreen,
-    videoFiniScreen,
-    videoInitWindow,
-    videoFiniWindow,
-    videoGetDisplayOptions,
-    videoSetDisplayOption,
-    0, /* GetScreenOptions */
-    0  /* SetScreenOption */
+    videoInitObject,
+    videoFiniObject,
+    videoGetObjectOptions,
+    videoSetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &videoVTable;
 }

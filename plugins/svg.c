@@ -33,7 +33,7 @@
 #include <X11/Xatom.h>
 #include <X11/extensions/shape.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 #include <decoration.h>
 
 static CompMetadata svgMetadata;
@@ -94,20 +94,20 @@ typedef struct _SvgWindow {
     SvgContext *context;
 } SvgWindow;
 
-#define GET_SVG_DISPLAY(d)				    \
-    ((SvgDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_SVG_DISPLAY(d)					 \
+    ((SvgDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define SVG_DISPLAY(d)			 \
     SvgDisplay *sd = GET_SVG_DISPLAY (d)
 
-#define GET_SVG_SCREEN(s, sd)					\
-    ((SvgScreen *) (s)->privates[(sd)->screenPrivateIndex].ptr)
+#define GET_SVG_SCREEN(s, sd)					     \
+    ((SvgScreen *) (s)->base.privates[(sd)->screenPrivateIndex].ptr)
 
 #define SVG_SCREEN(s)						     \
     SvgScreen *ss = GET_SVG_SCREEN (s, GET_SVG_DISPLAY (s->display))
 
-#define GET_SVG_WINDOW(w, ss)					\
-    ((SvgWindow *) (w)->privates[(ss)->windowPrivateIndex].ptr)
+#define GET_SVG_WINDOW(w, ss)					     \
+    ((SvgWindow *) (w)->base.privates[(ss)->windowPrivateIndex].ptr)
 
 #define SVG_WINDOW(w)					   \
     SvgWindow *sw = GET_SVG_WINDOW  (w,			   \
@@ -133,7 +133,7 @@ renderSvg (CompScreen *s,
     cairo_save (texture->cr);
 
     cairo_set_operator (texture->cr, CAIRO_OPERATOR_SOURCE);
-    cairo_set_source_rgb (texture->cr, 1.0, 1.0, 1.0);
+    cairo_set_source_rgba (texture->cr, 1.0, 1.0, 1.0, 0.0);
     cairo_paint (texture->cr);
     cairo_set_operator (texture->cr, CAIRO_OPERATOR_OVER);
 
@@ -153,13 +153,14 @@ renderSvg (CompScreen *s,
 }
 
 static Bool
-initSvgTexture (CompScreen *s,
+initSvgTexture (CompWindow *w,
 		SvgSource  *source,
 		SvgTexture *texture,
 		int	   width,
 		int	   height)
 {
     cairo_surface_t *surface;
+    CompScreen      *s = w->screen;
     Visual	    *visual;
     int		    depth;
 
@@ -173,7 +174,10 @@ initSvgTexture (CompScreen *s,
 
     if (width && height)
     {
-	depth = DefaultDepth (s->display->display, s->screenNum);
+	XWindowAttributes attr;
+	XGetWindowAttributes (s->display->display, w->id, &attr);
+
+	depth = attr.depth;
 	texture->pixmap = XCreatePixmap (s->display->display, s->root,
 					 width, height, depth);
 
@@ -190,8 +194,7 @@ initSvgTexture (CompScreen *s,
 	    return FALSE;
 	}
 
-	visual = DefaultVisual (s->display->display, s->screenNum);
-
+	visual = attr.visual;
 	surface = cairo_xlib_surface_create (s->display->display,
 					     texture->pixmap, visual,
 					     width, height);
@@ -351,7 +354,7 @@ svgDrawWindow (CompWindow	      *w,
 
 		    finiSvgTexture (w->screen, &sw->context->texture[1]);
 
-		    if (initSvgTexture (w->screen, sw->context->source,
+		    if (initSvgTexture (w, sw->context->source,
 					&sw->context->texture[1],
 					width, height))
 		    {
@@ -381,9 +384,7 @@ svgDrawWindow (CompWindow	      *w,
 	    else if (sw->context->texture[1].width)
 	    {
 		finiSvgTexture (w->screen, &sw->context->texture[1]);
-		initSvgTexture (w->screen, sw->source,
-				&sw->context->texture[1],
-				0, 0);
+		initSvgTexture (w, sw->source, &sw->context->texture[1], 0, 0);
 
 		memset (&sw->context->rect, 0, sizeof (BoxRec));
 
@@ -421,9 +422,7 @@ updateWindowSvgContext (CompWindow *w,
     sw->context->width  = 0;
     sw->context->height = 0;
 
-    initSvgTexture (w->screen, source,
-		    &sw->context->texture[1],
-		    0, 0);
+    initSvgTexture (w, source, &sw->context->texture[1], 0, 0);
 
     sw->context->source = source;
 
@@ -445,8 +444,7 @@ updateWindowSvgContext (CompWindow *w,
     x2 = MIN (x2, w->width);
     y2 = MIN (y2, w->height);
 
-    if (!initSvgTexture (w->screen, source,
-			 &sw->context->texture[0],
+    if (!initSvgTexture (w, source, &sw->context->texture[0],
 			 w->width, w->height))
     {
 	free (sw->context);
@@ -457,7 +455,7 @@ updateWindowSvgContext (CompWindow *w,
 	renderSvg (w->screen, source, &sw->context->texture[0],
 		   0.0f, 0.0f, 1.0f, 1.0f, w->width, w->height);
 
-	initSvgTexture (w->screen, source, &sw->context->texture[1], 0, 0);
+	initSvgTexture (w, source, &sw->context->texture[1], 0, 0);
 
 	sw->context->box.extents.x1 = x1;
 	sw->context->box.extents.y1 = y1;
@@ -604,8 +602,8 @@ svgWindowResizeNotify (CompWindow *w,
 
 static void
 svgHandleCompizEvent (CompDisplay *d,
-		      char	  *pluginName,
-		      char	  *eventName,
+		      const char  *pluginName,
+		      const char  *eventName,
 		      CompOption  *option,
 		      int	  nOption)
 {
@@ -772,7 +770,7 @@ svgGetDisplayOptions (CompPlugin  *plugin,
 static Bool
 svgSetDisplayOption (CompPlugin      *plugin,
 		     CompDisplay     *display,
-		     char	     *name,
+		     const char	     *name,
 		     CompOptionValue *value)
 {
     CompOption *o;
@@ -796,6 +794,9 @@ svgInitDisplay (CompPlugin  *p,
 {
     SvgDisplay *sd;
     CompScreen *s;
+
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
 
     sd = malloc (sizeof (SvgDisplay));
     if (!sd)
@@ -822,7 +823,7 @@ svgInitDisplay (CompPlugin  *p,
     WRAP (sd, d, handleCompizEvent, svgHandleCompizEvent);
     WRAP (sd, d, fileToImage, svgFileToImage);
 
-    d->privates[displayPrivateIndex].ptr = sd;
+    d->base.privates[displayPrivateIndex].ptr = sd;
 
     for (s = d->screens; s; s = s->next)
 	updateDefaultIcon (s);
@@ -876,7 +877,7 @@ svgInitScreen (CompPlugin *p,
     WRAP (ss, s, windowMoveNotify, svgWindowMoveNotify);
     WRAP (ss, s, windowResizeNotify, svgWindowResizeNotify);
 
-    s->privates[sd->screenPrivateIndex].ptr = ss;
+    s->base.privates[sd->screenPrivateIndex].ptr = ss;
 
     return TRUE;
 }
@@ -911,7 +912,7 @@ svgInitWindow (CompPlugin *p,
     sw->source  = NULL;
     sw->context = NULL;
 
-    w->privates[ss->windowPrivateIndex].ptr = sw;
+    w->base.privates[ss->windowPrivateIndex].ptr = sw;
 
     return TRUE;
 }
@@ -937,6 +938,63 @@ svgFiniWindow (CompPlugin *p,
     free (sw);
 }
 
+static CompBool
+svgInitObject (CompPlugin *p,
+	       CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) svgInitDisplay,
+	(InitPluginObjectProc) svgInitScreen,
+	(InitPluginObjectProc) svgInitWindow
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+svgFiniObject (CompPlugin *p,
+	       CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) svgFiniDisplay,
+	(FiniPluginObjectProc) svgFiniScreen,
+	(FiniPluginObjectProc) svgFiniWindow
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+svgGetObjectOptions (CompPlugin *plugin,
+		     CompObject *object,
+		     int	*count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) svgGetDisplayOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+svgSetObjectOption (CompPlugin      *plugin,
+		    CompObject      *object,
+		    const char      *name,
+		    CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) svgSetDisplayOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
+}
+
 static Bool
 svgInit (CompPlugin *p)
 {
@@ -954,6 +1012,8 @@ svgInit (CompPlugin *p)
 	return FALSE;
     }
 
+    rsvg_init ();
+
     compAddMetadataFromFile (&svgMetadata, p->vTable->name);
 
     return TRUE;
@@ -964,13 +1024,8 @@ svgFini (CompPlugin *p)
 {
     freeDisplayPrivateIndex (displayPrivateIndex);
     compFiniMetadata (&svgMetadata);
-}
 
-static int
-svgGetVersion (CompPlugin *plugin,
-	       int	  version)
-{
-    return ABIVERSION;
+    rsvg_term ();
 }
 
 static CompMetadata *
@@ -981,24 +1036,17 @@ svgGetMetadata (CompPlugin *plugin)
 
 CompPluginVTable svgVTable = {
     "svg",
-    svgGetVersion,
     svgGetMetadata,
     svgInit,
     svgFini,
-    svgInitDisplay,
-    svgFiniDisplay,
-    svgInitScreen,
-    svgFiniScreen,
-    svgInitWindow,
-    svgFiniWindow,
-    svgGetDisplayOptions,
-    svgSetDisplayOption,
-    0, /* GetScreenOptions */
-    0  /* SetScreenOption */
+    svgInitObject,
+    svgFiniObject,
+    svgGetObjectOptions,
+    svgSetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &svgVTable;
 }

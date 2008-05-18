@@ -7,12 +7,12 @@ Index: compiz/metadata/wobbly.xml.in
 ===================================================================
 --- compiz.orig/metadata/wobbly.xml.in
 +++ compiz/metadata/wobbly.xml.in
-@@ -21,7 +21,7 @@
+@@ -18,7 +18,7 @@
  	    <option name="snap_inverted" type="bool">
  		<_short>Snap Inverted</_short>
  		<_long>Inverted window snapping</_long>
 -		<default>false</default>
 +		<default>true</default>
  	    </option>
- 	    <option name="shiver" type="action">
+ 	    <option name="shiver" type="bell">
  		<_short>Shiver</_short>

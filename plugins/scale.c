@@ -32,7 +32,7 @@
 #include <X11/Xatom.h>
 #include <X11/cursorfont.h>
 
-#include <scale.h>
+#include <compiz-scale.h>
 
 #define EDGE_STATE (CompActionStateInitEdge)
 
@@ -48,7 +48,7 @@ static int scaleDisplayPrivateIndex;
 #define NUM_OPTIONS(s) (sizeof ((s)->opt) / sizeof (CompOption))
 
 static CompOption *
-scaleGetScreenOptions (CompPlugin  *plugin,
+scaleGetScreenOptions (CompPlugin *plugin,
 		       CompScreen *screen,
 		       int	  *count)
 {
@@ -61,7 +61,7 @@ scaleGetScreenOptions (CompPlugin  *plugin,
 static Bool
 scaleSetScreenOption (CompPlugin      *plugin,
 		      CompScreen      *screen,
-		      char	      *name,
+		      const char      *name,
 		      CompOptionValue *value)
 {
     CompOption *o;
@@ -509,7 +509,7 @@ getSlotAreas (CompScreen *s)
     if (!slotAreas)
     {
 	free (size);
-        return NULL;
+	return NULL;
     }
 
     left = ss->nWindows;
@@ -987,33 +987,6 @@ scaleCheckForWindowAt (CompScreen *s,
 }
 
 static void
-sendViewportMoveRequest (CompScreen *s,
-			 int	    x,
-			 int	    y)
-{
-    XEvent xev;
-
-    xev.xclient.type    = ClientMessage;
-    xev.xclient.display = s->display->display;
-    xev.xclient.format  = 32;
-
-    xev.xclient.message_type = s->display->desktopViewportAtom;
-    xev.xclient.window	     = s->root;
-
-    xev.xclient.data.l[0] = x;
-    xev.xclient.data.l[1] = y;
-    xev.xclient.data.l[2] = 0;
-    xev.xclient.data.l[3] = 0;
-    xev.xclient.data.l[4] = 0;
-
-    XSendEvent (s->display->display,
-		s->root,
-		FALSE,
-		SubstructureRedirectMask | SubstructureNotifyMask,
-		&xev);
-}
-
-static void
 sendDndStatusMessage (CompScreen *s,
 		      Window	 source)
 {
@@ -1086,22 +1059,20 @@ scaleTerminate (CompDisplay     *d,
 		    }
 		}
 
-		if (ss->state != SCALE_STATE_IN)
+		if (state & CompActionStateCancel)
 		{
-		    w = findWindowAtScreen (s, sd->lastActiveWindow);
-		    if (w)
+		    if (d->activeWindow != sd->previousActiveWindow)
 		    {
-			int x, y;
-
-			activateWindow (w);
-
-			defaultViewportForWindow (w, &x, &y);
-
-			if (x != s->x || y != s->y)
-			    sendViewportMoveRequest (s,
-						     x * s->width,
-						     y * s->height);
+			w = findWindowAtScreen (s, sd->previousActiveWindow);
+			if (w)
+			    moveInputFocusToWindow (w);
 		    }
+		}
+		else if (ss->state != SCALE_STATE_IN)
+		{
+		    w = findWindowAtScreen (s, sd->selectedWindow);
+		    if (w)
+			(*s->activateWindow) (w);
 		}
 
 		ss->state = SCALE_STATE_IN;
@@ -1112,6 +1083,8 @@ scaleTerminate (CompDisplay     *d,
 	    sd->lastActiveNum = 0;
 	}
     }
+
+    action->state &= ~(CompActionStateTermKey | CompActionStateTermButton);
 
     return FALSE;
 }
@@ -1198,8 +1171,10 @@ scaleInitiateCommon (CompScreen      *s,
 	if (!sd->lastActiveNum)
 	    sd->lastActiveNum = s->activeNum - 1;
 
-	sd->lastActiveWindow = s->display->activeWindow;
-	sd->selectedWindow   = s->display->activeWindow;
+	sd->previousActiveWindow = s->display->activeWindow;
+	sd->lastActiveWindow     = s->display->activeWindow;
+	sd->selectedWindow       = s->display->activeWindow;
+	sd->hoveredWindow        = None;
 
 	ss->state = SCALE_STATE_OUT;
 
@@ -1242,7 +1217,8 @@ scaleInitiate (CompDisplay     *d,
 	else if ((state & EDGE_STATE) && ss->state == SCALE_STATE_WAIT)
 	{
 	    if (ss->type == ScaleTypeNormal)
-		return scaleTerminate (s->display, action, 0, option, nOption);
+		return scaleTerminate (s->display, action,
+				       CompActionStateCancel, option, nOption);
 	}
     }
 
@@ -1274,7 +1250,8 @@ scaleInitiateAll (CompDisplay     *d,
 	else if ((state & EDGE_STATE) && ss->state == SCALE_STATE_WAIT)
 	{
 	    if (ss->type == ScaleTypeAll)
-		return scaleTerminate (s->display, action, 0, option, nOption);
+		return scaleTerminate (s->display, action,
+				       CompActionStateCancel, option, nOption);
 	}
     }
 
@@ -1315,7 +1292,8 @@ scaleInitiateGroup (CompDisplay     *d,
 	else if ((state & EDGE_STATE) && ss->state == SCALE_STATE_WAIT)
 	{
 	    if (ss->type == ScaleTypeGroup)
-		return scaleTerminate (s->display, action, 0, option, nOption);
+		return scaleTerminate (s->display, action,
+				       CompActionStateCancel, option, nOption);
 	}
     }
 
@@ -1347,40 +1325,9 @@ scaleInitiateOutput (CompDisplay     *d,
 	else if ((state & EDGE_STATE) && ss->state == SCALE_STATE_WAIT)
 	{
 	    if (ss->type == ScaleTypeOutput)
-		return scaleTerminate (s->display, action, 0, option, nOption);
+		return scaleTerminate (s->display, action,
+				       CompActionStateCancel, option, nOption);
 	}
-    }
-
-    return FALSE;
-}
-
-static Bool
-scaleRelayoutSlots (CompDisplay     *d,
-		    CompAction      *action,
-		    CompActionState state,
-		    CompOption      *option,
-		    int	            nOption)
-{
-    CompScreen *s;
-    Window     xid;
-
-    xid = getIntOptionNamed (option, nOption, "root", 0);
-
-    s = findScreenAtDisplay (d, xid);
-    if (s)
-    {
-	SCALE_SCREEN (s);
-
-	if (ss->state != SCALE_STATE_NONE && ss->state != SCALE_STATE_IN)
-	{
-	    if (layoutThumbs (s))
-	    {
-		ss->state = SCALE_STATE_OUT;
-		damageScreen (s);
-	    }
-	}
-
-	return TRUE;
     }
 
     return FALSE;
@@ -1423,7 +1370,9 @@ scaleSelectWindowAt (CompScreen *s,
     w = scaleCheckForWindowAt (s, x, y);
     if (w && isScaleWin (w))
     {
-	scaleSelectWindow (w);
+	SCALE_SCREEN (s);
+
+	(*ss->selectWindow) (w);
 
 	if (moveInputFocus)
 	{
@@ -1514,14 +1463,48 @@ scaleMoveFocusWindow (CompScreen *s,
     if (focus)
     {
 	SCALE_DISPLAY (s->display);
+	SCALE_SCREEN (s);
 
-	scaleSelectWindow (focus);
+	(*ss->selectWindow) (focus);
 
 	sd->lastActiveNum    = focus->activeNum;
 	sd->lastActiveWindow = focus->id;
 
 	moveInputFocusToWindow (focus);
     }
+}
+
+static Bool
+scaleRelayoutSlots (CompDisplay     *d,
+		    CompAction      *action,
+		    CompActionState state,
+		    CompOption      *option,
+		    int	            nOption)
+{
+    CompScreen *s;
+    Window     xid;
+
+    xid = getIntOptionNamed (option, nOption, "root", 0);
+
+    s = findScreenAtDisplay (d, xid);
+    if (s)
+    {
+	SCALE_SCREEN (s);
+
+	if (ss->state != SCALE_STATE_NONE && ss->state != SCALE_STATE_IN)
+	{
+	    if (layoutThumbs (s))
+	    {
+		ss->state = SCALE_STATE_OUT;
+		scaleMoveFocusWindow (s, 0, 0);
+		damageScreen (s);
+	    }
+	}
+
+	return TRUE;
+    }
+
+    return FALSE;
 }
 
 static void
@@ -1560,14 +1543,19 @@ scaleWindowRemove (CompDisplay *d,
 			/* terminate scale mode if the recently closed
 			 * window was the last scaled window */
 
-			opt = SCALE_DISPLAY_OPTION_INITIATE;
-			action = &sd->opt[opt].value.action;
-
 			o.type    = CompOptionTypeInt;
 			o.name    = "root";
 			o.value.i = w->screen->root;
-			
-			scaleTerminate (d, action, 0, &o, 1);
+
+			opt = SCALE_DISPLAY_OPTION_INITIATE_EDGE;
+			action = &sd->opt[opt].value.action;
+			scaleTerminate (d, action,
+					CompActionStateCancel, &o, 1);
+
+			opt = SCALE_DISPLAY_OPTION_INITIATE_KEY;
+			action = &sd->opt[opt].value.action;
+			scaleTerminate (d, action,
+					CompActionStateCancel, &o, 1);
 			break;
 		    }
 		}
@@ -1588,8 +1576,7 @@ scaleHoverTimeout (void *closure)
     {
 	CompWindow *w;
 	CompOption o;
-	CompAction *action =
-	    &sd->opt[SCALE_DISPLAY_OPTION_INITIATE].value.action;
+	int	   option;
 
 	w = findWindowAtDisplay (s->display, sd->selectedWindow);
 	if (w)
@@ -1604,7 +1591,10 @@ scaleHoverTimeout (void *closure)
 	o.name    = "root";
 	o.value.i = s->root;
 
-	scaleTerminate (s->display, action, 0, &o, 1);
+	option = SCALE_DISPLAY_OPTION_INITIATE_EDGE;
+	scaleTerminate (s->display, &sd->opt[option].value.action, 0, &o, 1);
+	option = SCALE_DISPLAY_OPTION_INITIATE_KEY;
+	scaleTerminate (s->display, &sd->opt[option].value.action, 0, &o, 1);
     }
 
     ss->hoverHandle = 0;
@@ -1646,8 +1636,7 @@ scaleHandleEvent (CompDisplay *d,
 	    s = findScreenAtDisplay (d, event->xbutton.root);
 	    if (s)
 	    {
-		CompAction *action =
-		    &sd->opt[SCALE_DISPLAY_OPTION_INITIATE].value.action;
+		int option;
 
 		SCALE_SCREEN (s);
 
@@ -1664,7 +1653,14 @@ scaleHandleEvent (CompDisplay *d,
 					     event->xbutton.y_root,
 					     TRUE))
 		    {
-			scaleTerminate (d, action, 0, &o, 1);
+			option = SCALE_DISPLAY_OPTION_INITIATE_EDGE;
+			scaleTerminate (s->display,
+					&sd->opt[option].value.action,
+					0, &o, 1);
+			option = SCALE_DISPLAY_OPTION_INITIATE_KEY;
+			scaleTerminate (s->display,
+					&sd->opt[option].value.action,
+					0, &o, 1);
 		    }
 		    else if (event->xbutton.x_root > s->workArea.x &&
 			     event->xbutton.x_root < (s->workArea.x +
@@ -1675,7 +1671,14 @@ scaleHandleEvent (CompDisplay *d,
 		    {
 			if (sd->opt[SCALE_DISPLAY_OPTION_SHOW_DESKTOP].value.b)
 			{
-			    scaleTerminate (d, action, 0, &o, 1);
+			    option = SCALE_DISPLAY_OPTION_INITIATE_EDGE;
+			    scaleTerminate (s->display,
+					    &sd->opt[option].value.action,
+					    0, &o, 1);
+			    option = SCALE_DISPLAY_OPTION_INITIATE_KEY;
+			    scaleTerminate (s->display,
+					    &sd->opt[option].value.action,
+					    0, &o, 1);
 			    (*s->enterShowDesktopMode) (s);
 			}
 		    }
@@ -1770,8 +1773,7 @@ scaleHandleEvent (CompDisplay *d,
 	    w = findWindowAtDisplay (d, event->xclient.window);
 	    if (w)
 	    {
-		CompAction *action =
-		    &sd->opt[SCALE_DISPLAY_OPTION_INITIATE].value.action;
+		int option;
 
 		SCALE_SCREEN (w->screen);
 
@@ -1785,7 +1787,12 @@ scaleHandleEvent (CompDisplay *d,
 		    o.name    = "root";
 		    o.value.i = w->screen->root;
 
-		    scaleTerminate (d, action, 0, &o, 1);
+		    option = SCALE_DISPLAY_OPTION_INITIATE_EDGE;
+		    scaleTerminate (d, &sd->opt[option].value.action,
+				    0, &o, 1);
+		    option = SCALE_DISPLAY_OPTION_INITIATE_KEY;
+		    scaleTerminate (d, &sd->opt[option].value.action,
+				    0, &o, 1);
 		}
 	    }
 	}
@@ -1864,9 +1871,9 @@ scaleGetDisplayOptions (CompPlugin  *plugin,
 }
 
 static Bool
-scaleSetDisplayOption (CompPlugin  *plugin,
+scaleSetDisplayOption (CompPlugin      *plugin,
 		       CompDisplay     *display,
-		       char	       *name,
+		       const char      *name,
 		       CompOptionValue *value)
 {
     CompOption *o;
@@ -1892,10 +1899,20 @@ scaleSetDisplayOption (CompPlugin  *plugin,
 static const CompMetadataOptionInfo scaleDisplayOptionInfo[] = {
     { "abi", "int", 0, 0, 0 },
     { "index", "int", 0, 0, 0 },
-    { "initiate", "action", 0, scaleInitiate, scaleTerminate },
-    { "initiate_all", "action", 0, scaleInitiateAll, scaleTerminate },
-    { "initiate_group", "action", 0, scaleInitiateGroup, scaleTerminate },
-    { "initiate_output", "action", 0, scaleInitiateOutput, scaleTerminate },
+    { "initiate_edge", "edge", 0, scaleInitiate, scaleTerminate },
+    { "initiate_button", "button", 0, scaleInitiate, scaleTerminate },
+    { "initiate_key", "key", 0, scaleInitiate, scaleTerminate },
+    { "initiate_all_edge", "edge", 0, scaleInitiateAll, scaleTerminate },
+    { "initiate_all_button", "button", 0, scaleInitiateAll, scaleTerminate },
+    { "initiate_all_key", "key", 0, scaleInitiateAll, scaleTerminate },
+    { "initiate_group_edge", "edge", 0, scaleInitiateGroup, scaleTerminate },
+    { "initiate_group_button", "button", 0,
+      scaleInitiateGroup, scaleTerminate },
+    { "initiate_group_key", "key", 0, scaleInitiateGroup, scaleTerminate },
+    { "initiate_output_edge", "edge", 0, scaleInitiateOutput, scaleTerminate },
+    { "initiate_output_button", "button", 0,
+      scaleInitiateOutput, scaleTerminate },
+    { "initiate_output_key", "key", 0, scaleInitiateOutput, scaleTerminate },
     { "show_desktop", "bool", 0, 0, 0 },
     { "relayout_slots", "action", 0, scaleRelayoutSlots, 0 }
 };
@@ -1905,6 +1922,9 @@ scaleInitDisplay (CompPlugin  *p,
 		  CompDisplay *d)
 {
     ScaleDisplay *sd;
+
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
 
     sd = malloc (sizeof (ScaleDisplay));
     if (!sd)
@@ -1942,7 +1962,7 @@ scaleInitDisplay (CompPlugin  *p,
 
     WRAP (sd, d, handleEvent, scaleHandleEvent);
 
-    d->privates[scaleDisplayPrivateIndex].ptr = sd;
+    d->base.privates[scaleDisplayPrivateIndex].ptr = sd;
 
     return TRUE;
 }
@@ -2027,6 +2047,7 @@ scaleInitScreen (CompPlugin *p,
     ss->layoutSlotsAndAssignWindows = layoutSlotsAndAssignWindows;
     ss->setScaledPaintAttributes    = setScaledPaintAttributes;
     ss->scalePaintDecoration	    = scalePaintDecoration;
+    ss->selectWindow                = scaleSelectWindow;
 
     WRAP (ss, s, preparePaintScreen, scalePreparePaintScreen);
     WRAP (ss, s, donePaintScreen, scaleDonePaintScreen);
@@ -2036,7 +2057,7 @@ scaleInitScreen (CompPlugin *p,
 
     ss->cursor = XCreateFontCursor (s->display->display, XC_left_ptr);
 
-    s->privates[sd->screenPrivateIndex].ptr = ss;
+    s->base.privates[sd->screenPrivateIndex].ptr = ss;
 
     return TRUE;
 }
@@ -2092,7 +2113,7 @@ scaleInitWindow (CompPlugin *p,
     sw->delta = 1.0f;
     sw->lastThumbOpacity = 0.0f;
 
-    w->privates[ss->windowPrivateIndex].ptr = sw;
+    w->base.privates[ss->windowPrivateIndex].ptr = sw;
 
     return TRUE;
 }
@@ -2104,6 +2125,65 @@ scaleFiniWindow (CompPlugin *p,
     SCALE_WINDOW (w);
 
     free (sw);
+}
+
+static CompBool
+scaleInitObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) scaleInitDisplay,
+	(InitPluginObjectProc) scaleInitScreen,
+	(InitPluginObjectProc) scaleInitWindow
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+scaleFiniObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) scaleFiniDisplay,
+	(FiniPluginObjectProc) scaleFiniScreen,
+	(FiniPluginObjectProc) scaleFiniWindow
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+scaleGetObjectOptions (CompPlugin *plugin,
+		       CompObject *object,
+		       int	  *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) scaleGetDisplayOptions,
+	(GetPluginObjectOptionsProc) scaleGetScreenOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+scaleSetObjectOption (CompPlugin      *plugin,
+		      CompObject      *object,
+		      const char      *name,
+		      CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) scaleSetDisplayOption,
+	(SetPluginObjectOptionProc) scaleSetScreenOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
 }
 
 static Bool
@@ -2136,13 +2216,6 @@ scaleFini (CompPlugin *p)
     compFiniMetadata (&scaleMetadata);
 }
 
-static int
-scaleGetVersion (CompPlugin *plugin,
-		 int	    version)
-{
-    return ABIVERSION;
-}
-
 static CompMetadata *
 scaleGetMetadata (CompPlugin *plugin)
 {
@@ -2151,24 +2224,17 @@ scaleGetMetadata (CompPlugin *plugin)
 
 CompPluginVTable scaleVTable = {
     "scale",
-    scaleGetVersion,
     scaleGetMetadata,
     scaleInit,
     scaleFini,
-    scaleInitDisplay,
-    scaleFiniDisplay,
-    scaleInitScreen,
-    scaleFiniScreen,
-    scaleInitWindow,
-    scaleFiniWindow,
-    scaleGetDisplayOptions,
-    scaleSetDisplayOption,
-    scaleGetScreenOptions,
-    scaleSetScreenOption
+    scaleInitObject,
+    scaleFiniObject,
+    scaleGetObjectOptions,
+    scaleSetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &scaleVTable;
 }

@@ -1,8 +1,8 @@
-Index: compiz/include/compiz.h
+Index: compiz/include/compiz-core.h
 ===================================================================
---- compiz.orig/include/compiz.h
-+++ compiz/include/compiz.h
-@@ -226,6 +226,7 @@
+--- compiz.orig/include/compiz-core.h
++++ compiz/include/compiz-core.h
+@@ -219,6 +219,7 @@ extern Bool       useCow;
  extern Bool       noDetection;
  extern Bool	  useDesktopHints;
  extern Bool       onlyCurrentScreen;
@@ -14,7 +14,7 @@ Index: compiz/src/main.c
 ===================================================================
 --- compiz.orig/src/main.c
 +++ compiz/src/main.c
-@@ -62,6 +62,7 @@
+@@ -62,6 +62,7 @@ Bool strictBinding = TRUE;
  Bool noDetection = FALSE;
  Bool useDesktopHints = TRUE;
  Bool onlyCurrentScreen = FALSE;
@@ -22,7 +22,7 @@ Index: compiz/src/main.c
  
  #ifdef USE_COW
  Bool useCow = TRUE;
-@@ -83,6 +84,7 @@
+@@ -83,6 +84,7 @@ usage (void)
  	    "[--sm-disable] "
  	    "[--sm-client-id ID] "
  	    "[--no-detection]\n       "
@@ -30,7 +30,7 @@ Index: compiz/src/main.c
  	    "[--ignore-desktop-hints] "
  	    "[--only-current-screen]"
  
-@@ -336,6 +338,10 @@
+@@ -329,6 +331,10 @@ main (int argc, char **argv)
  	{
  	    onlyCurrentScreen = TRUE;
  	}
@@ -45,7 +45,7 @@ Index: compiz/src/screen.c
 ===================================================================
 --- compiz.orig/src/screen.c
 +++ compiz/src/screen.c
-@@ -1877,7 +1877,7 @@
+@@ -2037,7 +2037,7 @@ addScreen (CompDisplay *display,
      }
  
      s->fbo = 0;

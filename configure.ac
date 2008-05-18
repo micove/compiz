@@ -4,8 +4,8 @@ dnl compiz package version number
 dnl An odd micro number indicates in-progress development.
 dnl An even micro number indicates a released version.
 m4_define(compiz_version_major, 0)
-m4_define(compiz_version_minor, 6)
-m4_define(compiz_version_micro, 3)
+m4_define(compiz_version_minor, 7)
+m4_define(compiz_version_micro, 4)
 
 AC_INIT([compiz],
 	[compiz_version_major().compiz_version_minor().compiz_version_micro()],
@@ -24,7 +24,7 @@ AC_PROG_INTLTOOL([0.23])
 AM_MAINTAINER_MODE
 
 dnl decorator interface version
-AC_DEFINE(DECOR_INTERFACE_VERSION, 20070319, [Decorator interface version])
+AC_DEFINE(DECOR_INTERFACE_VERSION, 20080131, [Decorator interface version])
 
 AC_ISC_POSIX
 AC_PROG_CC
@@ -34,7 +34,7 @@ AC_PROG_LIBTOOL
 AC_HEADER_STDC
 AC_CHECK_HEADERS([stdlib.h sys/time.h unistd.h])
 
-ALL_LINGUAS="cs de es fi fr hu it ja pl pt_BR sv zh_CN zh_TW af ar bg bn bs ca cy da el en_GB en_US et gl gu he hi hr id ka km ko lo lt mk mr nb nl pa pt ro ru sk sl sr ta tr uk vi xh zu"
+ALL_LINGUAS="af ar bg bn bn_IN bs ca cs cy da de el en_GB en_US es eu et fi fr gl gu he hi hr hu id it ja ka km ko lo lt mk mr nb nl or pa pl pt pt_BR ro ru sk sl sr sv ta tr uk vi xh zh_CN zh_TW zu"
 AC_SUBST(ALL_LINGUAS)
 AM_GLIB_GNU_GETTEXT
 GETTEXT_PACKAGE=compiz
@@ -118,7 +118,8 @@ AC_SUBST(imagedir)
 metadatadir=$datadir/compiz
 AC_SUBST(metadatadir)
 
-COMPIZ_REQUIRES="xcomposite \
+COMPIZ_REQUIRES="x11-xcb    \
+		 xcomposite \
 		 xfixes	    \
 		 xdamage    \
 		 xrandr	    \
@@ -455,7 +456,7 @@ if test "x$use_kde" = "xyes"; then
     kdedir=`kde-config --prefix --expandvars 2>/dev/null`
     kdelibs=`kde-config --install lib --expandvars 2>/dev/null`
     kdeincs=`kde-config --install include --expandvars 2>/dev/null`
-    if test -d $kdelibs; then
+    if test -d "$kdelibs"; then
       PKG_CHECK_MODULES(KDE_WINDOW_DECORATOR,
 			dbus-1 xdamage xcomposite,
 			[use_kde=yes], [use_kde=no])
@@ -483,6 +484,94 @@ AC_SUBST(QT_MOC)
 AC_SUBST(DCOPIDL)
 AC_SUBST(DCOPIDL2CPP)
 
+AC_ARG_ENABLE(kde4,
+  [  --disable-kde4          Disable kde4 window decorator],
+  [use_kde4=$enableval], [use_kde4=yes])
+
+if test "x$use_kde4" = "xyes"; then
+  
+  kde4dir=`kde4-config --prefix --expandvars 2>/dev/null`
+  kde4libs=`kde4-config --install lib --expandvars 2>/dev/null`
+  kde4incs=`kde4-config --install include --expandvars 2>/dev/null`
+
+  kde4_test_includes="kdecoration.h kcommondecoration.h kdecorationbridge.h"
+
+  dnl Check for KWin headers
+  AC_MSG_CHECKING([for KWin headers])
+
+  kde4_notfound=""
+  for file in $kde4_test_includes ; do
+    status=" $file"
+    for it in $kde4incs ; do
+      if test -r "$it/$file" ; then
+        status=""
+        break;
+      fi
+    done
+    kde4_notfound="$kde4_notfound$status"
+  done
+  if test -z "$kde4_notfound" ; then
+      kde4_notfound="yes"
+  else
+      kde4_notfound="$kde4_notfound not found"
+      kde4libs=""
+  fi
+
+  AC_MSG_RESULT([$kde4_notfound])
+
+  if test -d "$kde4libs"; then
+    PKG_CHECK_MODULES(KDE4_WINDOW_DECORATOR,
+		      dbus-1 xdamage xcomposite QtCore >= 4.0.0 QtGui QtDBus,
+			[use_kde4=yes], [use_kde4=no])
+
+    KDE4_CFLAGS="-I$kde4incs"
+    KDE4_LIBS="-L$kde4libs -lkdecore -lkdecorations -lplasma"
+
+    QT4_MOC=`pkg-config QtGui --variable=moc_location`
+    QDBUSXML2CPP=`pkg-config QtGui --variable=exec_prefix`"/bin/qdbusxml2cpp"
+  else
+    use_kde4=no;
+  fi
+fi
+
+AM_CONDITIONAL(USE_KDE4, test "x$use_kde4" = "xyes")
+if test "$use_kde4" = yes; then
+  AC_DEFINE(USE_KDE4, 1, [Build kde4 window decorator])
+fi
+
+AC_SUBST(KDE4_CFLAGS)
+AC_SUBST(KDE4_LIBS)
+AC_SUBST(QT4_MOC)
+AC_SUBST(QDBUSXML2CPP)
+
+AC_ARG_ENABLE(kconfig,
+  [  --disable-kconfig       Disable kconfig plugin],
+  [use_kconfig=$enableval], [use_kconfig=yes])
+
+if test "x$use_kde" != "xyes"; then
+  use_kconfig=no;
+fi
+
+if test "x$use_kconfig" = "xyes"; then
+  KCONFIG_CFLAGS=$KDE_CFLAGS
+  KCONFIG_LIBS=$KDE_LIBS
+  KDE_KCFG_DIR=`kde-config --install kcfg --expandvars 2>/dev/null`
+  KDE_KCONFIG_DIR=`kde-config --install config --expandvars 2>/dev/null`
+fi
+
+AM_CONDITIONAL(USE_KCONFIG, test "x$use_kconfig" = "xyes")
+if test "$use_kconfig" = yes; then
+  AC_DEFINE(USE_KCONFIG, 1, [Build kconfig plugin])
+fi
+
+AC_SUBST(KCONFIG_CFLAGS)
+AC_SUBST(KCONFIG_LIBS)
+AC_SUBST(KDE_KCFG_DIR)
+AC_SUBST(KDE_KCONFIG_DIR)
+
+kcfgdir=$KDE_KCFG_DIR
+AC_SUBST(kcfgdir)
+
 AC_ARG_WITH(max-desktops,
   [  --with-max-desktops     Max reasonable desktops],
   [MAX_DESKTOPS=$withval],
@@ -492,11 +581,50 @@ if test -n "$MAX_DESKTOPS"; then
   AC_DEFINE_UNQUOTED(MAX_DESKTOPS, $MAX_DESKTOPS, [Max reasonable desktops])
 fi
 
+AC_CONFIG_COMMANDS([include/compiz-common.h],
+[
+	commonfile=include/compiz-common.h
+	outfile=$commonfile.tmp
+	AC_MSG_NOTICE([creating $commonfile])
+	cat > $outfile <<_EOF
+#ifndef COMPIZ_COMMON_H
+#define COMPIZ_COMMON_H
+
+#ifdef  __cplusplus
+# define COMPIZ_BEGIN_DECLS  extern "C" {
+# define COMPIZ_END_DECLS    }
+#else
+# define COMPIZ_BEGIN_DECLS
+# define COMPIZ_END_DECLS
+#endif
+
+#define COMPIZ_VERSION_MAJOR $COMPIZ_VERSION_MAJOR
+#define COMPIZ_VERSION_MINOR $COMPIZ_VERSION_MINOR
+#define COMPIZ_VERSION_MICRO $COMPIZ_VERSION_MICRO
+
+#define COMPIZ_VERSION_STRING "$COMPIZ_VERSION_MAJOR.$COMPIZ_VERSION_MINOR.$COMPIZ_VERSION_MICRO"
+
+_EOF
+	echo '#endif' >> $outfile
+
+	if cmp -s $outfile $commonfile; then
+	  AC_MSG_NOTICE([$commonfile is unchanged])
+	  rm -f $outfile
+	else
+	  mv $outfile $commonfile
+	fi
+],[
+	COMPIZ_VERSION_MAJOR=$COMPIZ_VERSION_MAJOR
+	COMPIZ_VERSION_MINOR=$COMPIZ_VERSION_MINOR
+	COMPIZ_VERSION_MICRO=$COMPIZ_VERSION_MICRO
+])
+
 AC_OUTPUT([
 compiz.pc
 compiz-cube.pc
 compiz-scale.pc
 compiz-gconf.pc
+compiz-kconfig.pc
 Makefile
 src/Makefile
 libdecoration/Makefile
@@ -509,6 +637,7 @@ gtk/window-decorator/Makefile
 gtk/gnome/Makefile
 kde/Makefile
 kde/window-decorator/Makefile
+kde/window-decorator-kde4/Makefile
 po/Makefile.in
 metadata/Makefile
 ])
@@ -517,6 +646,7 @@ echo ""
 echo "the following optional plugins will be compiled:"
 echo "  glib:     $use_glib"
 echo "  gconf:    $use_gconf"
+echo "  kconfig:  $use_kconfig"
 echo "  place:    $use_place"
 echo "  dbus:     $use_dbus"
 echo "  annotate: $use_annotate"
@@ -529,4 +659,5 @@ echo "  gtk:      $use_gtk"
 echo "  metacity: $use_metacity"
 echo "  gnome:    $use_gnome"
 echo "  kde:      $use_kde"
+echo "  kde4:     $use_kde4"
 echo ""

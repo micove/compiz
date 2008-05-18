@@ -31,7 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 static CompMatrix _identity_matrix = {
     1.0f, 0.0f,
@@ -96,7 +96,7 @@ destroyTexture (CompScreen  *screen,
 static Bool
 imageToTexture (CompScreen   *screen,
 		CompTexture  *texture,
-		char	     *image,
+		const char   *image,
 		unsigned int width,
 		unsigned int height,
 		GLenum       format,
@@ -104,6 +104,7 @@ imageToTexture (CompScreen   *screen,
 {
     char *data;
     int	 i;
+    GLint internalFormat;
 
     data = malloc (4 * width * height);
     if (!data)
@@ -138,7 +139,12 @@ imageToTexture (CompScreen   *screen,
 
     glBindTexture (texture->target, texture->name);
 
-    glTexImage2D (texture->target, 0, GL_RGBA, width, height, 0,
+    internalFormat =
+	(screen->opt[COMP_SCREEN_OPTION_TEXTURE_COMPRESSION].value.b &&
+	 screen->textureCompression ?
+	 GL_COMPRESSED_RGBA_ARB : GL_RGBA);
+
+    glTexImage2D (texture->target, 0, internalFormat, width, height, 0,
 		  format, type, data);
 
     texture->filter = GL_NEAREST;
@@ -162,7 +168,7 @@ imageToTexture (CompScreen   *screen,
 Bool
 imageBufferToTexture (CompScreen   *screen,
 		      CompTexture  *texture,
-		      char	   *image,
+		      const char   *image,
 		      unsigned int width,
 		      unsigned int height)
 {
@@ -178,7 +184,7 @@ imageBufferToTexture (CompScreen   *screen,
 Bool
 imageDataToTexture (CompScreen   *screen,
 		    CompTexture  *texture,
-		    char	   *image,
+		    const char	   *image,
 		    unsigned int width,
 		    unsigned int height,
 		    GLenum       format,

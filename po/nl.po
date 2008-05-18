@@ -1,1716 +1,1838 @@
+# translation of compiz.po to Dutch
 # Dutch message file for YaST 2 (@memory@).
 # Copyright (C) 2005 SUSE Linux Products GmbH.
 # Copyright (C) 2002 SuSE Linux AG.
 # Copyright (C) 1999, 2000, 2001 SuSE GmbH.
+#
 # A.S. Kerkmeester <ask_murphy@bigfoot.com>, 1999, 2000, 2001.
 # FAX-Translations <all@fax-translations.com>, 2000.
 # Karl Eichwalder <ke@suse.de>, 1999, 2000.
 # Martin Lohner <ml@suse.de>, 2000.
 # peter@sybex.nl, 2000.
-#
+# Elve <elve@savage-elve.net>, 2008.
 msgid ""
 msgstr ""
-"Project-Id-Version: YaST (@memory@)\n"
+"Project-Id-Version: compiz\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2007-05-11 13:02-0400\n"
-"PO-Revision-Date: 2002-07-01 14:34+0200\n"
-"Last-Translator: A.S. Kerkmeester <ask_murphy@bigfoot.com>\n"
-"Language-Team: Dutch <i18n@suse.de>\n"
+"POT-Creation-Date: 2008-04-03 14:30+0530\n"
+"PO-Revision-Date: 2008-02-01 00:31+0100\n"
+"Last-Translator: Elve <elve@savage-elve.net>\n"
+"Language-Team: Dutch <nl@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Pootle 1.0.2\n"
 
-#: ../gtk/gnome/50-compiz-desktop-key.xml.in.h:1 ../src/main.c:54
-#, fuzzy
+#: ../gtk/gnome/50-compiz-desktop-key.xml.in.h:1
 msgid "Desktop"
-msgstr "Desktops"
+msgstr "Bureaublad"
 
 #: ../gtk/gnome/50-compiz-key.xml.in.h:1
-#, fuzzy
 msgid "Window Management"
-msgstr "Window manager"
+msgstr "Venster Beheer"
 
 #: ../gtk/gnome/compiz.desktop.in.h:1
 msgid "Compiz"
-msgstr ""
+msgstr "Compiz"
 
 #: ../gtk/window-decorator/gwd.schemas.in.h:1
-#, fuzzy
-msgid "Blur type"
-msgstr "Geselecteerd"
+msgid "Action to take when scrolling the mouse wheel on a window title bar."
+msgstr ""
+"Actie die ondernomen moet worden als de muis-wiel over venster titelbalk "
+"bladert"
 
 #: ../gtk/window-decorator/gwd.schemas.in.h:2
-#, fuzzy
-msgid "Metacity theme active window opacity"
-msgstr "Windows geheel verwij&deren"
+msgid "Blur type"
+msgstr "Vervaging type"
 
 #: ../gtk/window-decorator/gwd.schemas.in.h:3
-#, fuzzy
-msgid "Metacity theme active window opacity shade"
-msgstr "Windows geheel verwij&deren"
+msgid "Metacity theme active window opacity"
+msgstr "Metacity thema actief venster opaciteit"
 
 #: ../gtk/window-decorator/gwd.schemas.in.h:4
-msgid "Metacity theme opacity"
-msgstr ""
+msgid "Metacity theme active window opacity shade"
+msgstr "Metacity thema actief venster opaciteit schaduw"
 
 #: ../gtk/window-decorator/gwd.schemas.in.h:5
-msgid "Metacity theme opacity shade"
-msgstr ""
+msgid "Metacity theme opacity"
+msgstr "Metacity thema opaciteit"
 
 #: ../gtk/window-decorator/gwd.schemas.in.h:6
-msgid "Opacity to use for active windows with metacity theme decorations"
-msgstr ""
+msgid "Metacity theme opacity shade"
+msgstr "Metacity thema opaciteit schaduw"
 
 #: ../gtk/window-decorator/gwd.schemas.in.h:7
-msgid "Opacity to use for metacity theme decorations"
+msgid "Opacity to use for active windows with metacity theme decorations"
 msgstr ""
+"Opaciteit te gebruiken voor actieve vensters met metacity thema decoratie"
 
 #: ../gtk/window-decorator/gwd.schemas.in.h:8
+msgid "Opacity to use for metacity theme decorations"
+msgstr "Opaciteit te gebruiken voor metacity thema decoratie"
+
+#: ../gtk/window-decorator/gwd.schemas.in.h:9
 msgid ""
 "Shade active windows with metacity theme decorations from opaque to "
 "translucent"
 msgstr ""
+"Actieve vensters oprollen met metacity thema decoratie's van ondoorzichtig "
+"tot doorzichtig"
 
-#: ../gtk/window-decorator/gwd.schemas.in.h:9
+#: ../gtk/window-decorator/gwd.schemas.in.h:10
 msgid ""
 "Shade windows with metacity theme decorations from opaque to translucent"
 msgstr ""
-
-#: ../gtk/window-decorator/gwd.schemas.in.h:10
-msgid "Type of blur used for window decorations"
-msgstr ""
+"Actieve vensters oprollen met metacity thema decoratie's van ondoorzichtig "
+"tot doorzichtig"
 
 #: ../gtk/window-decorator/gwd.schemas.in.h:11
-msgid "Use metacity theme"
-msgstr ""
+msgid "Title bar mouse wheel action"
+msgstr "Titelbalk muiswiel actie"
 
 #: ../gtk/window-decorator/gwd.schemas.in.h:12
+msgid "Type of blur used for window decorations"
+msgstr "Type vervaging gebruikt voor venster decoratie"
+
+#: ../gtk/window-decorator/gwd.schemas.in.h:13
+msgid "Use metacity theme"
+msgstr "Gebruik metacity thema"
+
+#: ../gtk/window-decorator/gwd.schemas.in.h:14
 msgid "Use metacity theme when drawing window decorations"
+msgstr "Gebruik metacity thema voor venster decoratie"
+
+# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
+#: ../gtk/window-decorator/gtk-window-decorator.c:4347
+#: ../metadata/core.xml.in.h:24
+msgid "Close Window"
+msgstr "Venster sluiten"
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:4369
+#: ../metadata/core.xml.in.h:152
+msgid "Unmaximize Window"
+msgstr "Demaximaliseer venster"
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:4372
+#: ../metadata/core.xml.in.h:84
+msgid "Maximize Window"
+msgstr "Maximaliseer venster"
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:4414
+#: ../metadata/core.xml.in.h:90
+msgid "Minimize Window"
+msgstr "Venster minimaliseren"
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:4531
+#: ../metadata/core.xml.in.h:159
+msgid "Window Menu"
+msgstr "Venster menu"
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:4550
+#, fuzzy
+msgid "Shade"
+msgstr "Schaal"
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:4570
+msgid "Make Above"
+msgstr ""
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:4596
+msgid "Stick"
+msgstr ""
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:4616
+msgid "Unshade"
+msgstr ""
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:4636
+msgid "Unmake Above"
+msgstr ""
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:4662
+msgid "Unstick"
+msgstr ""
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:5019
+#, c-format
+msgid "The window \"%s\" is not responding."
+msgstr ""
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:5028
+msgid ""
+"Forcing this application to quit will cause you to lose any unsaved changes."
+msgstr ""
+
+#: ../gtk/window-decorator/gtk-window-decorator.c:5043
+msgid "_Force Quit"
 msgstr ""
 
 #: ../metadata/annotate.xml.in.h:1
-#, fuzzy
 msgid "Annotate"
-msgstr "Hittitisch"
+msgstr "Annoteer"
 
 #: ../metadata/annotate.xml.in.h:2
-#, fuzzy
 msgid "Annotate Fill Color"
-msgstr "Kleuren"
+msgstr "Annoteer opvul kleur"
 
 #: ../metadata/annotate.xml.in.h:3
 msgid "Annotate Stroke Color"
-msgstr ""
+msgstr "Annoteer doorhaal kleur"
 
 #: ../metadata/annotate.xml.in.h:4
-#, fuzzy
 msgid "Annotate plugin"
-msgstr "Actief profiel"
+msgstr "Annoteer plug-in"
 
 #: ../metadata/annotate.xml.in.h:5
-#, fuzzy
 msgid "Clear"
-msgstr "Begin_waarde"
+msgstr "Wissen"
 
 #: ../metadata/annotate.xml.in.h:6
 msgid "Draw"
-msgstr ""
+msgstr "Teken"
 
 #: ../metadata/annotate.xml.in.h:7
 msgid "Draw using tool"
-msgstr ""
+msgstr "Teken met hulpmiddel"
 
 #: ../metadata/annotate.xml.in.h:8
 msgid "Fill color for annotations"
-msgstr ""
+msgstr "Opvul kleur voor annotatie's"
 
+# Maybe "start" or "begin" would be better in dutch
 #: ../metadata/annotate.xml.in.h:9 ../metadata/clone.xml.in.h:2
 #: ../metadata/rotate.xml.in.h:11 ../metadata/screenshot.xml.in.h:3
 #: ../metadata/water.xml.in.h:6 ../metadata/zoom.xml.in.h:2
-#, fuzzy
 msgid "Initiate"
-msgstr "Hittitisch"
+msgstr "Initialiseren"
 
 #: ../metadata/annotate.xml.in.h:10
-#, fuzzy
 msgid "Initiate annotate drawing"
-msgstr "Hittitisch"
+msgstr "Initiëer tekenen van annotatie"
 
 #: ../metadata/annotate.xml.in.h:11
-#, fuzzy
 msgid "Initiate annotate erasing"
-msgstr "Hittitisch"
+msgstr "Initiëer verwĳderen van annotatie"
 
 #: ../metadata/annotate.xml.in.h:12
-#, fuzzy
 msgid "Initiate erase"
-msgstr "Hittitisch"
+msgstr "Starten verwijdering"
 
 #: ../metadata/annotate.xml.in.h:13
 msgid "Line width"
-msgstr ""
+msgstr "Lijn breedte"
 
 #: ../metadata/annotate.xml.in.h:14
 msgid "Line width for annotations"
-msgstr ""
+msgstr "Lijn breedte voor annotaties"
 
 #: ../metadata/annotate.xml.in.h:15
 msgid "Stroke color for annotations"
-msgstr ""
+msgstr "Doorhaal kleur voor annotaties"
 
 #: ../metadata/annotate.xml.in.h:16
 msgid "Stroke width"
-msgstr ""
+msgstr "Doorhaal breedte"
 
 #: ../metadata/annotate.xml.in.h:17
 msgid "Stroke width for annotations"
-msgstr ""
+msgstr "Doorhaal breedte voor annotaties"
 
-# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/blur.xml.in.h:1
-#, fuzzy
-msgid "Alpha Blur"
-msgstr "Windows &verwijderen"
+msgid "4xBilinear"
+msgstr "4xBilinear"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/blur.xml.in.h:2
-#, fuzzy
-msgid "Alpha blur windows"
-msgstr "Windows &verwijderen"
+msgid "Alpha Blur"
+msgstr "Alpha Vervaging"
 
+# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/blur.xml.in.h:3
-#, fuzzy
-msgid "Blur Filter"
-msgstr "Filter in&stellen"
+msgid "Alpha blur windows"
+msgstr "Aplha vervaging vensters"
 
 #: ../metadata/blur.xml.in.h:4
-#, fuzzy
-msgid "Blur Occlusion"
-msgstr "Tijdsduur"
+msgid "Blur Filter"
+msgstr "Vervagen filter"
 
 #: ../metadata/blur.xml.in.h:5
-#, fuzzy
-msgid "Blur Saturation"
-msgstr "Tijdsduur"
+msgid "Blur Occlusion"
+msgstr "Vervagen verbergen"
 
 #: ../metadata/blur.xml.in.h:6
-#, fuzzy
+msgid "Blur Saturation"
+msgstr "Vervagen verzadiging"
+
+#: ../metadata/blur.xml.in.h:7
 msgid "Blur Speed"
-msgstr "Geselecteerd"
+msgstr "Vervagen snelheid"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
-#: ../metadata/blur.xml.in.h:7
-#, fuzzy
-msgid "Blur Windows"
-msgstr "Windows &verwijderen"
-
 #: ../metadata/blur.xml.in.h:8
-msgid "Blur behind translucent parts of windows"
-msgstr ""
+msgid "Blur Windows"
+msgstr "Vervagen Vensters"
 
 #: ../metadata/blur.xml.in.h:9
-#, fuzzy
+msgid "Blur behind translucent parts of windows"
+msgstr "Vervagen achter doorzichtige onderdelen van vensters"
+
+#: ../metadata/blur.xml.in.h:10
 msgid "Blur saturation"
-msgstr "Tijdsduur"
+msgstr "Vervagen verzadiging"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
-#: ../metadata/blur.xml.in.h:10
-#, fuzzy
-msgid "Blur windows"
-msgstr "Windows &verwijderen"
-
 #: ../metadata/blur.xml.in.h:11
-msgid "Blur windows that doesn't have focus"
-msgstr ""
+msgid "Blur windows"
+msgstr "Vensters vervagen"
 
 #: ../metadata/blur.xml.in.h:12
-msgid "Filter method used for blurring"
-msgstr ""
+msgid "Blur windows that doesn't have focus"
+msgstr "Vervagen vensters zonder focus"
 
-# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/blur.xml.in.h:13
-#, fuzzy
-msgid "Focus Blur"
-msgstr "Windows &verwijderen"
+msgid "Disable blurring of screen regions obscured by other windows."
+msgstr ""
+"Uitschakelen van vervagen van scherm-regio's bedekt door andere vensters."
+
+#: ../metadata/blur.xml.in.h:14
+msgid "Filter method used for blurring"
+msgstr "Filter methode voor vervagen"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
-#: ../metadata/blur.xml.in.h:14
-#, fuzzy
-msgid "Focus blur windows"
-msgstr "Windows &verwijderen"
-
 #: ../metadata/blur.xml.in.h:15
-#, fuzzy
-msgid "Gaussian Radius"
-msgstr "Russische Federatie"
+msgid "Focus Blur"
+msgstr "Focus vervagen"
 
+# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/blur.xml.in.h:16
-#, fuzzy
-msgid "Gaussian Strength"
-msgstr "Russisch"
+msgid "Focus blur windows"
+msgstr "Focus vervagen vensters"
 
 #: ../metadata/blur.xml.in.h:17
-#, fuzzy
-msgid "Gaussian radius"
-msgstr "Russische Federatie"
+msgid "Gaussian"
+msgstr "Gaussisch"
 
 #: ../metadata/blur.xml.in.h:18
-#, fuzzy
-msgid "Gaussian strength"
-msgstr "Russisch"
+msgid "Gaussian Radius"
+msgstr "Gaussische Radius"
 
-# ../../db/printers.ycp.noloc:1400
 #: ../metadata/blur.xml.in.h:19
-#, fuzzy
-msgid "Mipmap LOD"
-msgstr "Lima"
+msgid "Gaussian Strength"
+msgstr "Gaussische Sterkte"
 
 #: ../metadata/blur.xml.in.h:20
-msgid "Mipmap level-of-detail"
-msgstr ""
+msgid "Gaussian radius"
+msgstr "Gaussische radius"
 
 #: ../metadata/blur.xml.in.h:21
-msgid "Pulse"
-msgstr ""
+msgid "Gaussian strength"
+msgstr "Gaussische sterkte"
 
 #: ../metadata/blur.xml.in.h:22
-msgid "Pulse effect"
+msgid "Independent texture fetch"
 msgstr ""
 
-#: ../metadata/blur.xml.in.h:23
-#, fuzzy
-msgid "Window blur speed"
-msgstr "Windows vrij (%1)"
+# ../../db/printers.ycp.noloc:1400
+#: ../metadata/blur.xml.in.h:23 ../metadata/cube.xml.in.h:26
+#: ../metadata/decoration.xml.in.h:10 ../metadata/switcher.xml.in.h:13
+msgid "Mipmap"
+msgstr "Mipmap"
 
+# ../../db/printers.ycp.noloc:1400
 #: ../metadata/blur.xml.in.h:24
-msgid "Windows that should be affected by focus blur"
-msgstr ""
+msgid "Mipmap LOD"
+msgstr "Mipmap LOD"
 
 #: ../metadata/blur.xml.in.h:25
-msgid "Windows that should be use alpha blur by default"
-msgstr ""
+msgid "Mipmap level-of-detail"
+msgstr "Mipmap detail-niveau"
 
 #: ../metadata/blur.xml.in.h:26
-msgid "blur occlusion"
+msgid "Pulse"
+msgstr "Puls"
+
+#: ../metadata/blur.xml.in.h:27
+msgid "Pulse effect"
+msgstr "Puls effect"
+
+#: ../metadata/blur.xml.in.h:28
+msgid ""
+"Use the available texture units to do as many as possible independent "
+"texture fetches."
 msgstr ""
 
+#: ../metadata/blur.xml.in.h:29
+msgid "Window blur speed"
+msgstr "Venster vervagen snelheid"
+
+#: ../metadata/blur.xml.in.h:30
+msgid "Windows that should be affected by focus blur"
+msgstr "Vensters die aanmerking komen voor focus vervagen"
+
+#: ../metadata/blur.xml.in.h:31
+msgid "Windows that should be use alpha blur by default"
+msgstr "Vensters die alpha vervagen standaard moeten gebruiken"
+
 #: ../metadata/clone.xml.in.h:1
-#, fuzzy
 msgid "Clone Output"
-msgstr "Uitvoer was"
+msgstr "Kloon uitvoer"
 
 #: ../metadata/clone.xml.in.h:3
-#, fuzzy
 msgid "Initiate clone selection"
-msgstr "Videomodus selecteren"
+msgstr "Start kloon selectie"
 
 #: ../metadata/clone.xml.in.h:4
 msgid "Output clone handler"
-msgstr ""
+msgstr "Kloon uitvoer afhandelaar"
 
 #: ../metadata/core.xml.in.h:1
 msgid ""
 "A keybinding that when invoked, will run the shell command identified by "
 "command0"
 msgstr ""
+"Een toetsbinding, die wanneer gekozen een shell opdracht zal uitvoeren "
+"herkenbaar aan commando0"
 
 #: ../metadata/core.xml.in.h:2
 msgid ""
 "A keybinding that when invoked, will run the shell command identified by "
 "command1"
 msgstr ""
+"Een toetsbinding die wanneer gekozen een shell opdracht zal uitvoeren "
+"herkenbaar aan commando1"
 
 #: ../metadata/core.xml.in.h:3
 msgid ""
 "A keybinding that when invoked, will run the shell command identified by "
 "command10"
 msgstr ""
+"Een toetsbinding die wanneer gekozen een shell opdracht zal uitvoeren "
+"herkenbaar aan commando10"
 
 #: ../metadata/core.xml.in.h:4
 msgid ""
 "A keybinding that when invoked, will run the shell command identified by "
 "command11"
 msgstr ""
+"Een toetsbinding die wanneer gekozen een shell opdracht zal uitvoeren "
+"herkenbaar aan commando11"
 
 #: ../metadata/core.xml.in.h:5
 msgid ""
 "A keybinding that when invoked, will run the shell command identified by "
 "command2"
 msgstr ""
+"Een toetsbinding die wanneer gekozen een shell opdracht zal uitvoeren "
+"herkenbaar aan commando2"
 
 #: ../metadata/core.xml.in.h:6
 msgid ""
 "A keybinding that when invoked, will run the shell command identified by "
 "command3"
 msgstr ""
+"Een toetsbinding die wanneer gekozen een shell opdracht zal uitvoeren "
+"herkenbaar aan commando3"
 
 #: ../metadata/core.xml.in.h:7
 msgid ""
 "A keybinding that when invoked, will run the shell command identified by "
 "command4"
 msgstr ""
+"Een toetsbinding die wanneer gekozen een shell opdracht zal uitvoeren "
+"herkenbaar aan commando4"
 
 #: ../metadata/core.xml.in.h:8
 msgid ""
 "A keybinding that when invoked, will run the shell command identified by "
 "command5"
 msgstr ""
+"Een toetsbinding die wanneer gekozen een shell opdracht zal uitvoeren "
+"herkenbaar aan commando5"
 
 #: ../metadata/core.xml.in.h:9
 msgid ""
 "A keybinding that when invoked, will run the shell command identified by "
 "command6"
 msgstr ""
+"Een toetsbinding die wanneer gekozen een shell opdracht zal uitvoeren "
+"herkenbaar aan commando6"
 
 #: ../metadata/core.xml.in.h:10
 msgid ""
 "A keybinding that when invoked, will run the shell command identified by "
 "command7"
 msgstr ""
+"Een toetsbinding die wanneer gekozen een shell opdracht zal uitvoeren "
+"herkenbaar aan commando7"
 
 #: ../metadata/core.xml.in.h:11
 msgid ""
 "A keybinding that when invoked, will run the shell command identified by "
 "command8"
 msgstr ""
+"Een toetsbinding die wanneer gekozen een shell opdracht zal uitvoeren "
+"herkenbaar aan commando8"
 
 #: ../metadata/core.xml.in.h:12
 msgid ""
 "A keybinding that when invoked, will run the shell command identified by "
 "command9"
 msgstr ""
+"Een toetsbinding die wanneer gekozen een shell opdracht zal uitvoeren "
+"herkenbaar aan commando9"
 
 #: ../metadata/core.xml.in.h:13
-#, fuzzy
 msgid "Active Plugins"
-msgstr "Actief profiel"
+msgstr "Actieve plugins"
 
 #: ../metadata/core.xml.in.h:14
 msgid ""
 "Allow drawing of fullscreen windows to not be redirected to offscreen pixmaps"
 msgstr ""
+"Sta volledig scherm vensters toe om niet omgeleid te worden naar off-screen "
+"pixmaps"
 
 #: ../metadata/core.xml.in.h:15
 msgid "Audible Bell"
-msgstr ""
+msgstr "Hoorbaar signaal"
 
 #: ../metadata/core.xml.in.h:16
-#, fuzzy
 msgid "Audible system beep"
-msgstr "Bestands&systeem"
+msgstr "Hoorbare systeem piep"
 
 # /usr/lib/YaST2/clients/dialup_dev_cfg.ycp:80
 #: ../metadata/core.xml.in.h:17
-#, fuzzy
 msgid "Auto-Raise"
-msgstr "AutoYast"
+msgstr "Automatisch naar de voorgrond"
 
 #: ../metadata/core.xml.in.h:18
 msgid "Auto-Raise Delay"
-msgstr ""
+msgstr "Automatisch naar de voorgrond vetraging"
 
 #: ../metadata/core.xml.in.h:19
-#, fuzzy
 msgid "Automatic detection of output devices"
-msgstr "Automatische detectie"
+msgstr "Automatische herkenning van uitvoer apparaten"
 
 #: ../metadata/core.xml.in.h:20
 msgid "Automatic detection of refresh rate"
-msgstr ""
+msgstr "Automatische herkenning van verversings snelheid"
 
 #: ../metadata/core.xml.in.h:21
-msgid "Click To Focus"
-msgstr ""
+msgid "Best"
+msgstr "Best"
 
 #: ../metadata/core.xml.in.h:22
-msgid "Click on window moves input focus to it"
-msgstr ""
+msgid "Click To Focus"
+msgstr "Klik voor focus"
 
-# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/core.xml.in.h:23
-#, fuzzy
-msgid "Close Window"
-msgstr "Windows &verwijderen"
-
-#: ../metadata/core.xml.in.h:24
-msgid "Close active window"
-msgstr ""
+msgid "Click on window moves input focus to it"
+msgstr "Klik op venster neemt invoer focus mee"
 
 #: ../metadata/core.xml.in.h:25
-#, fuzzy
-msgid "Command line 0"
-msgstr "Commando: "
+msgid "Close active window"
+msgstr "Sluit actief venster"
 
 #: ../metadata/core.xml.in.h:26
-#, fuzzy
-msgid "Command line 1"
-msgstr "Commando: "
+msgid "Command line 0"
+msgstr "Commando regel 0"
 
 #: ../metadata/core.xml.in.h:27
-#, fuzzy
-msgid "Command line 10"
-msgstr "Commando: "
+msgid "Command line 1"
+msgstr "Commando regel 1"
 
 #: ../metadata/core.xml.in.h:28
-#, fuzzy
-msgid "Command line 11"
-msgstr "Commando: "
+msgid "Command line 10"
+msgstr "Commando regel 10"
 
 #: ../metadata/core.xml.in.h:29
-#, fuzzy
-msgid "Command line 2"
-msgstr "Commando: "
+msgid "Command line 11"
+msgstr "Commando regel 11"
 
 #: ../metadata/core.xml.in.h:30
-#, fuzzy
-msgid "Command line 3"
-msgstr "Commando: "
+msgid "Command line 2"
+msgstr "Commando regel 2 "
 
 #: ../metadata/core.xml.in.h:31
-#, fuzzy
-msgid "Command line 4"
-msgstr "Commando: "
+msgid "Command line 3"
+msgstr "Commando regel 3"
 
 #: ../metadata/core.xml.in.h:32
-#, fuzzy
-msgid "Command line 5"
-msgstr "Commando: "
+msgid "Command line 4"
+msgstr "Commando regel 4"
 
 #: ../metadata/core.xml.in.h:33
-#, fuzzy
-msgid "Command line 6"
-msgstr "Commando: "
+msgid "Command line 5"
+msgstr "Commando regel 5"
 
 #: ../metadata/core.xml.in.h:34
-#, fuzzy
-msgid "Command line 7"
-msgstr "Commando: "
+msgid "Command line 6"
+msgstr "Commando regel 6"
 
 #: ../metadata/core.xml.in.h:35
-#, fuzzy
-msgid "Command line 8"
-msgstr "Commando: "
+msgid "Command line 7"
+msgstr "Commando regel 7"
 
 #: ../metadata/core.xml.in.h:36
-#, fuzzy
-msgid "Command line 9"
-msgstr "Commando: "
+msgid "Command line 8"
+msgstr "Commando regel 8"
 
 #: ../metadata/core.xml.in.h:37
-msgid "Command line to be executed in shell when run_command0 is invoked"
-msgstr ""
+msgid "Command line 9"
+msgstr "Commando regel 9"
 
 #: ../metadata/core.xml.in.h:38
-msgid "Command line to be executed in shell when run_command1 is invoked"
+msgid "Command line to be executed in shell when run_command0 is invoked"
 msgstr ""
+"Commando regel om uit te voerenin de shell als run_command0 aangeroepen wordt"
 
 #: ../metadata/core.xml.in.h:39
-msgid "Command line to be executed in shell when run_command10 is invoked"
+msgid "Command line to be executed in shell when run_command1 is invoked"
 msgstr ""
+"Command regel die uitgevoerd moet worden als start_command1 aangeroepen wordt"
 
 #: ../metadata/core.xml.in.h:40
-msgid "Command line to be executed in shell when run_command11 is invoked"
+msgid "Command line to be executed in shell when run_command10 is invoked"
 msgstr ""
+"Command regel die uitgevoerd moet worden als start_command10 aangeroepen "
+"wordt"
 
 #: ../metadata/core.xml.in.h:41
-msgid "Command line to be executed in shell when run_command2 is invoked"
+msgid "Command line to be executed in shell when run_command11 is invoked"
 msgstr ""
+"Command regel die uitgevoerd moet worden als start_command11 aangeroepen "
+"wordt"
 
 #: ../metadata/core.xml.in.h:42
-msgid "Command line to be executed in shell when run_command3 is invoked"
+msgid "Command line to be executed in shell when run_command2 is invoked"
 msgstr ""
+"Command regel die uitgevoerd moet worden als start_command2 aangeroepen wordt"
 
 #: ../metadata/core.xml.in.h:43
-msgid "Command line to be executed in shell when run_command4 is invoked"
+msgid "Command line to be executed in shell when run_command3 is invoked"
 msgstr ""
+"Command regel die uitgevoerd moet worden als start_command3 aangeroepen wordt"
 
 #: ../metadata/core.xml.in.h:44
-msgid "Command line to be executed in shell when run_command5 is invoked"
+msgid "Command line to be executed in shell when run_command4 is invoked"
 msgstr ""
+"Command regel die uitgevoerd moet worden als start_command4 aangeroepen wordt"
 
 #: ../metadata/core.xml.in.h:45
-msgid "Command line to be executed in shell when run_command6 is invoked"
+msgid "Command line to be executed in shell when run_command5 is invoked"
 msgstr ""
+"Command regel die uitgevoerd moet worden als start_command5 aangeroepen wordt"
 
 #: ../metadata/core.xml.in.h:46
-msgid "Command line to be executed in shell when run_command7 is invoked"
+msgid "Command line to be executed in shell when run_command6 is invoked"
 msgstr ""
+"Command regel die uitgevoerd moet worden als start_command6 aangeroepen wordt"
 
 #: ../metadata/core.xml.in.h:47
-msgid "Command line to be executed in shell when run_command8 is invoked"
+msgid "Command line to be executed in shell when run_command7 is invoked"
 msgstr ""
+"Command regel die uitgevoerd moet worden als start_command7 aangeroepen wordt"
 
 #: ../metadata/core.xml.in.h:48
-msgid "Command line to be executed in shell when run_command9 is invoked"
+msgid "Command line to be executed in shell when run_command8 is invoked"
 msgstr ""
+"Command regel die uitgevoerd moet worden als start_command8 aangeroepen wordt"
 
 #: ../metadata/core.xml.in.h:49
-msgid "Decrease Opacity"
+msgid "Command line to be executed in shell when run_command9 is invoked"
 msgstr ""
+"Command regel die uitgevoerd moet worden als start_command9 aangeroepen wordt"
 
 #: ../metadata/core.xml.in.h:50
-#, fuzzy
+msgid "Decrease Opacity"
+msgstr "Verminderen opaciteit"
+
+#: ../metadata/core.xml.in.h:51
 msgid "Decrease window opacity"
-msgstr "Windows geheel verwij&deren"
+msgstr "Verminderen venster opaciteit"
 
 # /usr/lib/YaST2/clients/lan_address.ycp:88
-#: ../metadata/core.xml.in.h:51
-#, fuzzy
-msgid "Default Icon"
-msgstr "Standaard sectie"
-
 #: ../metadata/core.xml.in.h:52
-#, fuzzy
-msgid "Default window icon image"
-msgstr "Standaard domein"
+msgid "Default Icon"
+msgstr "Standaard pictogram"
 
 #: ../metadata/core.xml.in.h:53
-#, fuzzy
-msgid "Detect Outputs"
-msgstr "Beknopte uitvoer"
+msgid "Default window icon image"
+msgstr "Standaard venster pictogram afbeelding"
 
 #: ../metadata/core.xml.in.h:54
-#, fuzzy
-msgid "Detect Refresh Rate"
-msgstr "Update-selectie"
+msgid "Detect Outputs"
+msgstr "Detecteer uitvoer"
 
 #: ../metadata/core.xml.in.h:55
-msgid "Focus Prevention Windows"
-msgstr ""
+msgid "Detect Refresh Rate"
+msgstr "Detecteer verversings snelheid"
 
 #: ../metadata/core.xml.in.h:56
-#, fuzzy
-msgid "Focus prevention windows"
-msgstr "De daemon wordt gestart."
+msgid ""
+"Duration the pointer must rest in a screen edge before an edge action is "
+"taken."
+msgstr ""
 
 #: ../metadata/core.xml.in.h:57
-msgid "General Options"
+msgid "Edge Trigger Delay"
 msgstr ""
 
 #: ../metadata/core.xml.in.h:58
-msgid "General compiz options"
-msgstr ""
+msgid "Fast"
+msgstr "Snel"
 
 #: ../metadata/core.xml.in.h:59
-msgid "Hide Skip Taskbar Windows"
-msgstr ""
+#, fuzzy
+msgid "Focus Prevention Level"
+msgstr "Focus Vensters Voorkomen"
 
 #: ../metadata/core.xml.in.h:60
-msgid "Hide all windows and focus desktop"
-msgstr ""
+msgid "Focus Prevention Windows"
+msgstr "Focus Vensters Voorkomen"
 
 #: ../metadata/core.xml.in.h:61
-msgid "Hide windows not in taskbar when entering show desktop mode"
-msgstr ""
+msgid "Focus prevention windows"
+msgstr "Focus vensters voorkomen"
 
 #: ../metadata/core.xml.in.h:62
-#, fuzzy
-msgid "Horizontal Virtual Size"
-msgstr "Virtueel apparaat"
+msgid "General Options"
+msgstr "Algemene opties"
 
 #: ../metadata/core.xml.in.h:63
-msgid "Ignore Hints When Maximized"
-msgstr ""
+msgid "General compiz options"
+msgstr "Algemene compiz opties"
 
 #: ../metadata/core.xml.in.h:64
-msgid "Ignore size increment and aspect hints when window is maximized"
-msgstr ""
+msgid "Good"
+msgstr "Goed"
 
 #: ../metadata/core.xml.in.h:65
-msgid "Increase Opacity"
-msgstr ""
+msgid "Hide Skip Taskbar Windows"
+msgstr "Verberg taakbalk overgeslagen vensters"
 
 #: ../metadata/core.xml.in.h:66
-msgid "Increase window opacity"
-msgstr ""
+msgid "Hide all windows and focus desktop"
+msgstr "Verberg alle vensters en laat bureaublad zien"
 
 #: ../metadata/core.xml.in.h:67
-msgid "Interval before raising selected windows"
+msgid "Hide windows not in taskbar when entering show desktop mode"
 msgstr ""
+"Verberg vensters die niet in de taakbalk staan als Toon Bureaublad modus "
+"ingeschakeld wordt"
 
 #: ../metadata/core.xml.in.h:68
-msgid "Interval between ping messages"
+msgid "High"
 msgstr ""
 
 #: ../metadata/core.xml.in.h:69
-#, fuzzy
-msgid "Lighting"
-msgstr "Loggen"
+msgid "Horizontal Virtual Size"
+msgstr "Virtuele horizontale grootte"
 
 #: ../metadata/core.xml.in.h:70
-#, fuzzy
-msgid "List of currently active plugins"
-msgstr "Alleen gedetecteerde printers weergeven"
+msgid "If available use compression for textures converted from images"
+msgstr ""
 
 #: ../metadata/core.xml.in.h:71
-msgid "List of strings describing output devices"
-msgstr ""
+msgid "Ignore Hints When Maximized"
+msgstr "Negeer tips wanneer gemaximalizeerd"
 
 #: ../metadata/core.xml.in.h:72
-#, fuzzy
-msgid "Lower Window"
-msgstr "Laag-Sorbiaans"
+msgid "Ignore size increment and aspect hints when window is maximized"
+msgstr "Negeer vergroting en aspect hints indien venster is gemaximaliseerd"
 
 #: ../metadata/core.xml.in.h:73
-msgid "Lower window beneath other windows"
-msgstr ""
+msgid "Increase Opacity"
+msgstr "Verhoog opaciteit"
 
 #: ../metadata/core.xml.in.h:74
-msgid "Maximize Window"
-msgstr ""
+msgid "Increase window opacity"
+msgstr "Verhoog venster opaciteit"
 
 #: ../metadata/core.xml.in.h:75
-#, fuzzy
-msgid "Maximize Window Horizontally"
-msgstr "&Windows verkleinen"
+msgid "Interval before raising selected windows"
+msgstr "interval voor het omhoogbrengen van geselecteerd venster"
 
 #: ../metadata/core.xml.in.h:76
-#, fuzzy
-msgid "Maximize Window Vertically"
-msgstr "&Windows verkleinen"
+msgid "Interval between ping messages"
+msgstr "Interval tussen ping berichten"
 
 #: ../metadata/core.xml.in.h:77
-msgid "Maximize active window"
+msgid "Level of focus stealing prevention"
 msgstr ""
 
 #: ../metadata/core.xml.in.h:78
-msgid "Maximize active window horizontally"
-msgstr ""
+msgid "Lighting"
+msgstr "Belichting"
 
 #: ../metadata/core.xml.in.h:79
-msgid "Maximize active window vertically"
-msgstr ""
+msgid "List of currently active plugins"
+msgstr "Lijst met actieve plung-ins"
 
 #: ../metadata/core.xml.in.h:80
-#, fuzzy
-msgid "Minimize Window"
-msgstr "&Windows verkleinen"
+msgid "List of strings describing output devices"
+msgstr "Lijst met strings die uitvoer apparaten omschrĳven"
 
 #: ../metadata/core.xml.in.h:81
-msgid "Minimize active window"
+msgid "Low"
 msgstr ""
 
 #: ../metadata/core.xml.in.h:82
-#, fuzzy
-msgid "Number of Desktops"
-msgstr "Desktop op afstand"
+msgid "Lower Window"
+msgstr "Laat venster zakken"
 
 #: ../metadata/core.xml.in.h:83
-#, fuzzy
-msgid "Number of virtual desktops"
-msgstr "Desktop op afstand"
-
-#: ../metadata/core.xml.in.h:84
-msgid "Only perform screen updates during vertical blanking period"
-msgstr ""
+msgid "Lower window beneath other windows"
+msgstr "Laat venster zakken achter andere vensters"
 
 #: ../metadata/core.xml.in.h:85
-msgid "Opacity Step"
-msgstr ""
+msgid "Maximize Window Horizontally"
+msgstr "Maximaliseer venster horizontaal"
 
 #: ../metadata/core.xml.in.h:86
-#, fuzzy
-msgid "Opacity change step"
-msgstr "Occitaans (na 1500)"
+msgid "Maximize Window Vertically"
+msgstr "Maximaliseer venster verticaal"
 
 #: ../metadata/core.xml.in.h:87
-msgid "Opacity values for windows that should be translucent by default"
-msgstr ""
+msgid "Maximize active window"
+msgstr "Maximaliseer actief venster"
 
 #: ../metadata/core.xml.in.h:88
-msgid "Opacity window values"
-msgstr ""
+msgid "Maximize active window horizontally"
+msgstr "Maximaliseer actief venster horizontaal"
 
-# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/core.xml.in.h:89
-#, fuzzy
-msgid "Opacity windows"
-msgstr "Windows &verwijderen"
-
-#: ../metadata/core.xml.in.h:90
-#, fuzzy
-msgid "Open a terminal"
-msgstr "In een terminal uitvoeren"
+msgid "Maximize active window vertically"
+msgstr "Maximaliseer actief venster verticaal"
 
 #: ../metadata/core.xml.in.h:91
-msgid "Open window menu"
-msgstr ""
+msgid "Minimize active window"
+msgstr "Minimaliseer actief venster"
 
 #: ../metadata/core.xml.in.h:92
-#, fuzzy
-msgid "Outputs"
-msgstr "Uitvoer was"
+msgid "Number of Desktops"
+msgstr "Aantal bureaubladen"
 
 #: ../metadata/core.xml.in.h:93
-#, fuzzy
-msgid "Ping Delay"
-msgstr "Wachttijd"
+msgid "Number of virtual desktops"
+msgstr "Aantal virtuele bureabladen"
 
 #: ../metadata/core.xml.in.h:94
-#, fuzzy
-msgid "Raise On Click"
-msgstr "&Radioklok"
+msgid "Off"
+msgstr ""
 
 #: ../metadata/core.xml.in.h:95
-#, fuzzy
-msgid "Raise Window"
-msgstr "De grootte-aanpassing is mislukt."
+msgid "Only perform screen updates during vertical blanking period"
+msgstr "Scherm alleen bijwerken tijdens verticale blanking periode"
 
 #: ../metadata/core.xml.in.h:96
-msgid "Raise selected windows after interval"
-msgstr ""
+msgid "Opacity Step"
+msgstr "Opaciteit stap"
 
 #: ../metadata/core.xml.in.h:97
-msgid "Raise window above other windows"
-msgstr ""
+msgid "Opacity change step"
+msgstr "Opaciteit verander stap"
 
 #: ../metadata/core.xml.in.h:98
-msgid "Raise windows when clicked"
+msgid "Opacity values for windows that should be translucent by default"
 msgstr ""
+"Opaciteit waarde voor vensters die standaard lichtdoorlatend moeten zijn"
 
 #: ../metadata/core.xml.in.h:99
-#, fuzzy
-msgid "Refresh Rate"
-msgstr "Verversen"
+msgid "Opacity window values"
+msgstr "Venster opaciteit waarde"
 
-# /usr/lib/YaST2/clients/dialup_dev_cfg.ycp:336
+# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/core.xml.in.h:100
-#, fuzzy
-msgid "Run Dialog"
-msgstr "&Toon bellen"
+msgid "Opacity windows"
+msgstr "Opaciteit vensters"
 
 #: ../metadata/core.xml.in.h:101
-#, fuzzy
-msgid "Run command 0"
-msgstr "Commando '%1'"
+msgid "Open a terminal"
+msgstr "Een terminal openen"
 
 #: ../metadata/core.xml.in.h:102
-#, fuzzy
-msgid "Run command 1"
-msgstr "Commando '%1'"
+msgid "Outputs"
+msgstr "Uitvoer"
 
 #: ../metadata/core.xml.in.h:103
-#, fuzzy
-msgid "Run command 10"
-msgstr "Commando '%1'"
+msgid "Overlapping Output Handling"
+msgstr ""
 
 #: ../metadata/core.xml.in.h:104
-#, fuzzy
-msgid "Run command 11"
-msgstr "Commando '%1'"
+msgid "Ping Delay"
+msgstr "Ping vertraging"
 
 #: ../metadata/core.xml.in.h:105
-#, fuzzy
-msgid "Run command 2"
-msgstr "Commando: "
+msgid "Prefer larger output"
+msgstr ""
 
 #: ../metadata/core.xml.in.h:106
-#, fuzzy
-msgid "Run command 3"
-msgstr "Commando: "
+msgid "Prefer smaller output"
+msgstr ""
 
 #: ../metadata/core.xml.in.h:107
-#, fuzzy
-msgid "Run command 4"
-msgstr "Commando: "
+msgid "Raise On Click"
+msgstr "Op voorgrond na klikken"
 
 #: ../metadata/core.xml.in.h:108
-#, fuzzy
-msgid "Run command 5"
-msgstr "Commando: "
+msgid "Raise Window"
+msgstr "Venster naar de voorgrond"
 
 #: ../metadata/core.xml.in.h:109
-#, fuzzy
-msgid "Run command 6"
-msgstr "Commando: "
+msgid "Raise selected windows after interval"
+msgstr "Breng venster naar de voorgrond na interval"
 
 #: ../metadata/core.xml.in.h:110
-#, fuzzy
-msgid "Run command 7"
-msgstr "Commando: "
+msgid "Raise window above other windows"
+msgstr "Breng venster op voorgrond over andere vensters"
 
 #: ../metadata/core.xml.in.h:111
-#, fuzzy
-msgid "Run command 8"
-msgstr "Commando: "
+msgid "Raise windows when clicked"
+msgstr "Breng venster naar de voorgrond na aanklikken"
 
 #: ../metadata/core.xml.in.h:112
-#, fuzzy
-msgid "Run command 9"
-msgstr "Commando: "
+msgid "Refresh Rate"
+msgstr "Verversings snelheid"
 
+# /usr/lib/YaST2/clients/dialup_dev_cfg.ycp:336
 #: ../metadata/core.xml.in.h:113
-msgid "Screen size multiplier for horizontal virtual size"
-msgstr ""
+msgid "Run Dialog"
+msgstr "Uitvoeren dialoog"
 
 #: ../metadata/core.xml.in.h:114
-msgid "Screen size multiplier for vertical virtual size"
-msgstr ""
+msgid "Run command 0"
+msgstr "Start commando 0"
 
 #: ../metadata/core.xml.in.h:115
-#, fuzzy
-msgid "Screenshot command line"
-msgstr "Fout opgetreden tijdens het ontleden van de commandoregel."
+msgid "Run command 1"
+msgstr "Start commando 1"
 
 #: ../metadata/core.xml.in.h:116
-#, fuzzy
-msgid "Show Main Menu"
-msgstr "Boot-menu tonen"
+msgid "Run command 10"
+msgstr "Start commando 10"
 
 #: ../metadata/core.xml.in.h:117
-msgid "Show Run Application dialog"
-msgstr ""
+msgid "Run command 11"
+msgstr "Start commando 11"
 
 #: ../metadata/core.xml.in.h:118
-#, fuzzy
-msgid "Show the main menu"
-msgstr "Boot-menu tonen"
+msgid "Run command 2"
+msgstr "Start commando 2"
 
 #: ../metadata/core.xml.in.h:119
-#, fuzzy
-msgid "Slow Animations"
-msgstr "Alle partities tonen"
+msgid "Run command 3"
+msgstr "Start commando 3"
 
 #: ../metadata/core.xml.in.h:120
-msgid "Sync To VBlank"
-msgstr ""
+msgid "Run command 4"
+msgstr "Start commando 4"
 
 #: ../metadata/core.xml.in.h:121
-msgid "Take a screenshot"
-msgstr ""
+msgid "Run command 5"
+msgstr "Start commando 5"
 
 #: ../metadata/core.xml.in.h:122
-msgid "Take a screenshot of a window"
-msgstr ""
+msgid "Run command 6"
+msgstr "Start commando 6"
 
 #: ../metadata/core.xml.in.h:123
-#, fuzzy
-msgid "Terminal command line"
-msgstr "Fout opgetreden tijdens het ontleden van de commandoregel."
+msgid "Run command 7"
+msgstr "Start commando 7"
 
 #: ../metadata/core.xml.in.h:124
-#, fuzzy
-msgid "Texture Filter"
-msgstr "Filter in&stellen"
+msgid "Run command 8"
+msgstr "Start commando 8"
 
 #: ../metadata/core.xml.in.h:125
-#, fuzzy
-msgid "Texture filtering"
-msgstr "Filter in&stellen"
+msgid "Run command 9"
+msgstr "Start commando 9"
 
 #: ../metadata/core.xml.in.h:126
-msgid "The rate at which the screen is redrawn (times/second)"
-msgstr ""
+msgid "Screen size multiplier for horizontal virtual size"
+msgstr "Schermgrootte vermenigvuldiger voor horizontale grootte"
 
 #: ../metadata/core.xml.in.h:127
-msgid "Toggle Window Maximized"
-msgstr ""
+msgid "Screen size multiplier for vertical virtual size"
+msgstr "scherm grootte vermenigvuldiger voor verticale grootte"
 
 #: ../metadata/core.xml.in.h:128
-msgid "Toggle Window Maximized Horizontally"
-msgstr ""
+msgid "Screenshot command line"
+msgstr "Schermafdruk commodo regel"
 
 #: ../metadata/core.xml.in.h:129
-msgid "Toggle Window Maximized Vertically"
-msgstr ""
+msgid "Show Desktop"
+msgstr "Toon bureaublad"
 
 #: ../metadata/core.xml.in.h:130
-msgid "Toggle Window Shaded"
-msgstr ""
+msgid "Show Main Menu"
+msgstr "Toon Hoofdmenu"
 
 #: ../metadata/core.xml.in.h:131
-msgid "Toggle active window maximized"
-msgstr ""
+msgid "Show Run Application dialog"
+msgstr "Toon start applicatie dialoog venster"
 
 #: ../metadata/core.xml.in.h:132
-msgid "Toggle active window maximized horizontally"
-msgstr ""
+msgid "Show the main menu"
+msgstr "Toon hoofdmenu"
 
 #: ../metadata/core.xml.in.h:133
-msgid "Toggle active window maximized vertically"
-msgstr ""
+msgid "Slow Animations"
+msgstr "Langzame animaties"
 
 #: ../metadata/core.xml.in.h:134
-msgid "Toggle active window shaded"
-msgstr ""
+#, fuzzy
+msgid "Smart mode"
+msgstr "Slim"
 
 #: ../metadata/core.xml.in.h:135
-msgid "Toggle use of slow animations"
-msgstr ""
+msgid "Sync To VBlank"
+msgstr "Sync naar VBlank"
 
 #: ../metadata/core.xml.in.h:136
-msgid "Unmaximize Window"
-msgstr ""
+msgid "Take a screenshot"
+msgstr "Maak een schermafdruk"
 
 #: ../metadata/core.xml.in.h:137
-msgid "Unmaximize active window"
-msgstr ""
+msgid "Take a screenshot of a window"
+msgstr "Maak een schermafdruk van een venster"
 
 #: ../metadata/core.xml.in.h:138
-msgid "Unredirect Fullscreen Windows"
-msgstr ""
+msgid "Terminal command line"
+msgstr "Terminal commando regel"
 
 #: ../metadata/core.xml.in.h:139
-msgid "Use diffuse light when screen is transformed"
-msgstr ""
+#, fuzzy
+msgid "Texture Compression"
+msgstr "Texturen filteren"
 
 #: ../metadata/core.xml.in.h:140
-#, fuzzy
-msgid "Vertical Virtual Size"
-msgstr "Virtueel apparaat"
+msgid "Texture Filter"
+msgstr "Texturen filter"
 
 #: ../metadata/core.xml.in.h:141
-#, fuzzy
-msgid "Window Menu"
-msgstr "Window manager"
+msgid "Texture filtering"
+msgstr "Texturen filteren"
 
 #: ../metadata/core.xml.in.h:142
-msgid "Window screenshot command line"
-msgstr ""
+msgid "The rate at which the screen is redrawn (times/second)"
+msgstr "De snelheid waarin een scherm opnieuw getekend wordt (tijd/seconden)"
 
 #: ../metadata/core.xml.in.h:143
-msgid "Windows that should be translucent by default"
+msgid "Toggle Window Maximized"
+msgstr "Schakel venster gemaximaliseerd"
+
+#: ../metadata/core.xml.in.h:144
+msgid "Toggle Window Maximized Horizontally"
+msgstr "Schakel venster horizontaal gemaximaliseerd"
+
+#: ../metadata/core.xml.in.h:145
+msgid "Toggle Window Maximized Vertically"
+msgstr "Schakel venster vertikaal gemaximaliseerd"
+
+#: ../metadata/core.xml.in.h:146
+msgid "Toggle Window Shaded"
+msgstr "Schakel venster opgerold"
+
+#: ../metadata/core.xml.in.h:147
+msgid "Toggle active window maximized"
+msgstr "Schakel actief venster gemaximaliseerd"
+
+#: ../metadata/core.xml.in.h:148
+msgid "Toggle active window maximized horizontally"
+msgstr "Schakel actief venster horizontaal gemaximaliseerd"
+
+#: ../metadata/core.xml.in.h:149
+msgid "Toggle active window maximized vertically"
+msgstr "Schakel actief venster vertikaal gemaximaliseerd"
+
+#: ../metadata/core.xml.in.h:150
+msgid "Toggle active window shaded"
+msgstr "Schakel actief venster schaduw"
+
+#: ../metadata/core.xml.in.h:151
+msgid "Toggle use of slow animations"
+msgstr "Schakel het gebruik van langzame animaties"
+
+#: ../metadata/core.xml.in.h:153
+msgid "Unmaximize active window"
+msgstr "Demaximaliseer actief venster"
+
+#: ../metadata/core.xml.in.h:154
+msgid "Unredirect Fullscreen Windows"
+msgstr "Niet omleiden van volledig scherm vensters"
+
+#: ../metadata/core.xml.in.h:155
+msgid "Use diffuse light when screen is transformed"
+msgstr "Gebruik diffuus licht als het scherm wordt getransformeerd"
+
+#: ../metadata/core.xml.in.h:156
+msgid "Vertical Virtual Size"
+msgstr "Verticale virtuele grootte"
+
+#: ../metadata/core.xml.in.h:157
+msgid "Very High"
 msgstr ""
+
+#: ../metadata/core.xml.in.h:158
+msgid "Which one of overlapping output devices should be preferred"
+msgstr ""
+
+#: ../metadata/core.xml.in.h:160
+msgid "Window menu button binding"
+msgstr "Venster menu knop verbinding"
+
+#: ../metadata/core.xml.in.h:161
+msgid "Window menu key binding"
+msgstr "Venster menu knop verbinding"
+
+#: ../metadata/core.xml.in.h:162
+msgid "Window screenshot command line"
+msgstr "Venster schermafdruk commando"
+
+#: ../metadata/core.xml.in.h:163
+msgid "Windows that should be translucent by default"
+msgstr "Vensters die standaard licht doorlatend moeten zijn"
 
 # workflow: "3D Beschleunigung aktivieren"
 # -ke-
 # /usr/lib/YaST2/clients/inst_config_x11.ycp:812
 #: ../metadata/cube.xml.in.h:1 ../metadata/rotate.xml.in.h:1
-#, fuzzy
 msgid "Acceleration"
-msgstr "3D versnelling:"
+msgstr "Versnelling"
 
 #: ../metadata/cube.xml.in.h:2
 msgid "Adjust Image"
-msgstr ""
+msgstr "Afbeelding bijstellen"
 
 #: ../metadata/cube.xml.in.h:3
 msgid "Adjust top face image to rotation"
-msgstr ""
+msgstr "Top zijde afbeelding bijstellen op rotatie"
 
 #: ../metadata/cube.xml.in.h:4
-#, fuzzy
 msgid "Advance to next slide"
-msgstr "Geavanceerde opties"
+msgstr "Door naar de volgende afbeelding"
 
 #: ../metadata/cube.xml.in.h:5
-#, fuzzy
 msgid "Animate Skydome"
-msgstr "Sydney"
+msgstr "Geanimeerde skydome"
 
 #: ../metadata/cube.xml.in.h:6
 msgid "Animate skydome when rotating cube"
-msgstr ""
+msgstr "Animeer skydome tijdens draaien van kubus"
 
+# /usr/lib/YaST2/clients/dialup_dev_cfg.ycp:80
 #: ../metadata/cube.xml.in.h:7
-msgid "Background Images"
-msgstr ""
+msgid "Automatic"
+msgstr "Automatisch"
 
 #: ../metadata/cube.xml.in.h:8
-msgid "Background images"
-msgstr ""
+msgid "Background Images"
+msgstr "Achtergrond afbeelding"
 
 #: ../metadata/cube.xml.in.h:9
-msgid "Color of top and bottom sides of the cube"
-msgstr ""
+msgid "Background images"
+msgstr "Achtergrond afbeelding"
 
 #: ../metadata/cube.xml.in.h:10
-msgid "Color to use for the bottom color-stop of the skydome-fallback gradient"
-msgstr ""
+msgid "Color of top and bottom sides of the cube"
+msgstr "Kleur van de onder en boven zijde van de kubus"
 
 #: ../metadata/cube.xml.in.h:11
-msgid "Color to use for the top color-stop of the skydome-fallback gradient"
+msgid "Color to use for the bottom color-stop of the skydome-fallback gradient"
 msgstr ""
+"Kleur om te gebruiken voor het onderste einde van de gradatie gebruikt als "
+"terugval voor de hemelkoepel"
 
 #: ../metadata/cube.xml.in.h:12
-#, fuzzy
-msgid "Cube Color"
-msgstr "Kleuren"
+msgid "Color to use for the top color-stop of the skydome-fallback gradient"
+msgstr ""
+"Kleur om te gebruiken voor het bovenste einde van de gradatie die wordt "
+"gebruikt als hemelkoepel terugval"
 
 #: ../metadata/cube.xml.in.h:13
-#, fuzzy
+msgid "Cube Color"
+msgstr "Kubus kleur"
+
+#: ../metadata/cube.xml.in.h:14
 msgid "Desktop Cube"
-msgstr "Desktop"
+msgstr "Bureaublad kubus"
 
 # workflow: "3D Beschleunigung aktivieren"
 # -ke-
 # /usr/lib/YaST2/clients/inst_config_x11.ycp:812
-#: ../metadata/cube.xml.in.h:14
-#, fuzzy
-msgid "Fold Acceleration"
-msgstr "3D versnelling:"
-
 #: ../metadata/cube.xml.in.h:15
-#, fuzzy
+msgid "Fold Acceleration"
+msgstr "Uitvouw versnelling"
+
+#: ../metadata/cube.xml.in.h:16
 msgid "Fold Speed"
-msgstr "Geselecteerd"
+msgstr "Uitvouw snelheid"
 
 # /usr/lib/YaST2/clients/inst_config_x11.ycp:821
-#: ../metadata/cube.xml.in.h:16
-#, fuzzy
+#: ../metadata/cube.xml.in.h:17
 msgid "Fold Timestep"
-msgstr "Testen"
+msgstr "Vouw tijdstap"
 
-#: ../metadata/cube.xml.in.h:17 ../metadata/switcher.xml.in.h:10
+#: ../metadata/cube.xml.in.h:18 ../metadata/switcher.xml.in.h:10
 msgid "Generate mipmaps when possible for higher quality scaling"
-msgstr ""
-
-#: ../metadata/cube.xml.in.h:18
-#, fuzzy
-msgid "Go back to previous slide"
-msgstr "&Vorige"
+msgstr "Genereer mipmap waarmogelijk voor een hogere schalings kwaliteit"
 
 #: ../metadata/cube.xml.in.h:19
-#, fuzzy
-msgid "Image files"
-msgstr "Mislukte bestanden"
+msgid "Go back to previous slide"
+msgstr "Ga terug naar vorige dia"
 
 #: ../metadata/cube.xml.in.h:20
-msgid "Image to use as texture for the skydome"
-msgstr ""
+msgid "Image files"
+msgstr "Afbeeldings bestanden"
 
 #: ../metadata/cube.xml.in.h:21
-msgid "Inside Cube"
-msgstr ""
+msgid "Image to use as texture for the skydome"
+msgstr "Te gebruiken afbeelding voor skydome"
 
 #: ../metadata/cube.xml.in.h:22
-msgid "Inside cube"
+msgid "Initiates Cube transparency only if rotation is mouse driven."
 msgstr ""
+"Initialiseer kubus transparantie alleen als rotatie via de muis gestuurd "
+"wordt"
 
 #: ../metadata/cube.xml.in.h:23
-msgid "List of PNG and SVG files that should be rendered on top face of cube"
-msgstr ""
+msgid "Inside Cube"
+msgstr "Binnen in de kubus"
 
-# ../../db/printers.ycp.noloc:1400
-#: ../metadata/cube.xml.in.h:24 ../metadata/decoration.xml.in.h:10
-#: ../metadata/switcher.xml.in.h:13
-#, fuzzy
-msgid "Mipmap"
-msgstr "Lima"
+#: ../metadata/cube.xml.in.h:24
+msgid "Inside cube"
+msgstr "Binnen in de kubus"
 
 #: ../metadata/cube.xml.in.h:25
-#, fuzzy
-msgid "Next Slide"
-msgstr "Nieuwe afmeting:"
+msgid "List of PNG and SVG files that should be rendered on top face of cube"
+msgstr ""
+"Lijst van PNG en SVG bestanden die afgebeeld moeten worden op de bovenzijde "
+"van de kubus"
 
-# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
-#: ../metadata/cube.xml.in.h:26
-#, fuzzy
-msgid "Place windows on cube"
-msgstr "Windows &verwijderen"
-
-#: ../metadata/cube.xml.in.h:27
-#, fuzzy
-msgid "Prev Slide"
-msgstr "&Vorige"
+#: ../metadata/cube.xml.in.h:27 ../metadata/scale.xml.in.h:17
+msgid "Multi Output Mode"
+msgstr "Multi uitvoer modus"
 
 #: ../metadata/cube.xml.in.h:28
-msgid "Render skydome"
-msgstr ""
+msgid "Multiple cubes"
+msgstr "Meerdere kubussen"
 
 #: ../metadata/cube.xml.in.h:29
-#, fuzzy
-msgid "Scale image"
-msgstr "lokale tijd"
+msgid "Next Slide"
+msgstr "Volgende dia"
 
 #: ../metadata/cube.xml.in.h:30
-msgid "Scale images to cover top face of cube"
-msgstr ""
+#, fuzzy
+msgid "One big cube"
+msgstr "Een grote kubus"
 
 #: ../metadata/cube.xml.in.h:31
-#, fuzzy
-msgid "Skydome"
-msgstr "Sydney"
+msgid "Opacity During Rotation"
+msgstr "Doorzichtig tijdens draaien"
 
 #: ../metadata/cube.xml.in.h:32
-msgid "Skydome Gradient End Color"
-msgstr ""
+msgid "Opacity When Not Rotating"
+msgstr "Doorzichtig tijdens niet draaien"
 
 #: ../metadata/cube.xml.in.h:33
-msgid "Skydome Gradient Start Color"
-msgstr ""
+msgid "Opacity of desktop window during rotation."
+msgstr "Ondoorzichtigheid van het bureaublad tijdens het draaien."
 
 #: ../metadata/cube.xml.in.h:34
-#, fuzzy
-msgid "Skydome Image"
-msgstr "Schijfimage"
+msgid "Opacity of desktop window when not rotating."
+msgstr "Doorzichtig van het bureaublad tijdens het niet draaien"
 
-#: ../metadata/cube.xml.in.h:35 ../metadata/minimize.xml.in.h:7
-#: ../metadata/rotate.xml.in.h:85 ../metadata/scale.xml.in.h:23
-#: ../metadata/switcher.xml.in.h:27 ../metadata/zoom.xml.in.h:7
-#, fuzzy
-msgid "Speed"
-msgstr "Geselecteerd"
+# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
+#: ../metadata/cube.xml.in.h:35
+msgid "Place windows on cube"
+msgstr "Plaats venster op de kubus"
 
-# /usr/lib/YaST2/clients/inst_config_x11.ycp:821
-#: ../metadata/cube.xml.in.h:36 ../metadata/minimize.xml.in.h:8
-#: ../metadata/rotate.xml.in.h:88 ../metadata/scale.xml.in.h:25
-#: ../metadata/switcher.xml.in.h:31 ../metadata/zoom.xml.in.h:8
-#, fuzzy
-msgid "Timestep"
-msgstr "Testen"
+#: ../metadata/cube.xml.in.h:36
+msgid "Prev Slide"
+msgstr "Vorige dia"
 
 #: ../metadata/cube.xml.in.h:37
-msgid "Unfold"
-msgstr ""
+msgid "Render skydome"
+msgstr "Render Skydome"
 
 #: ../metadata/cube.xml.in.h:38
-msgid "Unfold cube"
+msgid "Scale image"
+msgstr "Afbeelding oprekken"
+
+#: ../metadata/cube.xml.in.h:39
+msgid "Scale images to cover top face of cube"
+msgstr "Afbeelding oprekken om de boven zijde van de kubus te bedekken"
+
+#: ../metadata/cube.xml.in.h:40
+msgid "Selects how the cube is displayed if multiple output devices are used."
 msgstr ""
+"Selecteer hoe de kubus wordt weergegeven als er meerdere uitvoer apparaten "
+"gebruikt worden"
+
+#: ../metadata/cube.xml.in.h:41
+msgid "Skydome"
+msgstr "Hemelkoepel"
+
+#: ../metadata/cube.xml.in.h:42
+msgid "Skydome Gradient End Color"
+msgstr "Hemelkoepel gradatie eind kleur"
+
+#: ../metadata/cube.xml.in.h:43
+msgid "Skydome Gradient Start Color"
+msgstr "Hemelkoepel gradatie start kleur"
+
+#: ../metadata/cube.xml.in.h:44
+msgid "Skydome Image"
+msgstr "Hemelkoepel afbeelding"
+
+#: ../metadata/cube.xml.in.h:45 ../metadata/minimize.xml.in.h:7
+#: ../metadata/rotate.xml.in.h:90 ../metadata/scale.xml.in.h:32
+#: ../metadata/switcher.xml.in.h:31 ../metadata/zoom.xml.in.h:3
+msgid "Speed"
+msgstr "Snelheid"
+
+# /usr/lib/YaST2/clients/inst_config_x11.ycp:821
+#: ../metadata/cube.xml.in.h:46 ../metadata/minimize.xml.in.h:8
+#: ../metadata/rotate.xml.in.h:93 ../metadata/scale.xml.in.h:34
+#: ../metadata/switcher.xml.in.h:35 ../metadata/zoom.xml.in.h:4
+msgid "Timestep"
+msgstr "Tijdstempel"
+
+#: ../metadata/cube.xml.in.h:47
+msgid "Transparency Only on Mouse Rotate"
+msgstr "Doorschijnend alleen tijdens draaien met de muis"
+
+#: ../metadata/cube.xml.in.h:48
+msgid "Unfold"
+msgstr "Uitvouwen"
+
+#: ../metadata/cube.xml.in.h:49
+msgid "Unfold cube"
+msgstr "kubus uitvouwen"
 
 #: ../metadata/dbus.xml.in.h:1
 msgid "Dbus"
-msgstr ""
+msgstr "Dbus"
 
 #: ../metadata/dbus.xml.in.h:2
 msgid "Dbus Control Backend"
-msgstr ""
+msgstr "Dbus control backend"
 
 #: ../metadata/decoration.xml.in.h:1
 msgid "Allow mipmaps to be generated for decoration textures"
-msgstr ""
+msgstr "Sta toe dat mipmaps gegenereerd worden voor decoratie texturen"
 
 #: ../metadata/decoration.xml.in.h:2
-#, fuzzy
 msgid "Command"
-msgstr "Commando: "
+msgstr "Opdracht"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/decoration.xml.in.h:3
-#, fuzzy
 msgid "Decoration windows"
-msgstr "Windows &verwijderen"
+msgstr "Venster decoratie"
 
 #: ../metadata/decoration.xml.in.h:4
 msgid ""
 "Decorator command line that is executed if no decorator is already running"
 msgstr ""
+"Decorator commandoregel die uitgevoerd wordt als er nog geen decorator draait"
 
 #: ../metadata/decoration.xml.in.h:5
-#, fuzzy
 msgid "Drop shadow X offset"
-msgstr "&Lage capaciteit"
+msgstr "Slagschaduw X offset"
 
 #: ../metadata/decoration.xml.in.h:6
-#, fuzzy
 msgid "Drop shadow Y offset"
-msgstr "&Lage capaciteit"
+msgstr "Slagschaduw Y offset"
 
 #: ../metadata/decoration.xml.in.h:7
-#, fuzzy
 msgid "Drop shadow color"
-msgstr "Radius"
+msgstr "Schaduw kleur"
 
 #: ../metadata/decoration.xml.in.h:8
-#, fuzzy
 msgid "Drop shadow opacity"
-msgstr "&Lage capaciteit"
+msgstr "Slagschaduw opaciteit"
 
 #: ../metadata/decoration.xml.in.h:9
-#, fuzzy
 msgid "Drop shadow radius"
-msgstr "Radius"
+msgstr "Schaduw omtrek"
 
 #: ../metadata/decoration.xml.in.h:11
-#, fuzzy
 msgid "Shadow Color"
-msgstr "&Windows verkleinen"
+msgstr "Schaduw kleur"
 
 #: ../metadata/decoration.xml.in.h:12
-#, fuzzy
 msgid "Shadow Offset X"
-msgstr "&Lage capaciteit"
+msgstr "Schaduw X offset"
 
 #: ../metadata/decoration.xml.in.h:13
-#, fuzzy
 msgid "Shadow Offset Y"
-msgstr "&Lage capaciteit"
+msgstr "Schaduw Y offset"
 
 #: ../metadata/decoration.xml.in.h:14
-#, fuzzy
 msgid "Shadow Opacity"
-msgstr "&Lage capaciteit"
+msgstr "Schaduw ondoorzichtigheid"
 
 #: ../metadata/decoration.xml.in.h:15
-#, fuzzy
 msgid "Shadow Radius"
-msgstr "Radius"
+msgstr "Schaduw omtrek"
 
 #: ../metadata/decoration.xml.in.h:16
-#, fuzzy
 msgid "Shadow windows"
-msgstr "&Windows verkleinen"
+msgstr "Schaduw vensters"
 
 #: ../metadata/decoration.xml.in.h:17
-#, fuzzy
 msgid "Window Decoration"
-msgstr "Geen beschrijving"
+msgstr "Venster decoratie"
 
 #: ../metadata/decoration.xml.in.h:18
-#, fuzzy
 msgid "Window decorations"
-msgstr "ypbind-opties"
+msgstr "Venster decoraties"
 
 #: ../metadata/decoration.xml.in.h:19
 msgid "Windows that should be decorated"
-msgstr ""
+msgstr "Vensters met decoratie"
 
 #: ../metadata/decoration.xml.in.h:20
 msgid "Windows that should have a shadow"
-msgstr ""
+msgstr "Vensters met schaduw"
 
 #: ../metadata/fade.xml.in.h:1
 msgid "Fade On Minimize/Open/Close"
-msgstr ""
+msgstr "Vervaag bij Minimaliseren/Openen/Sluiten"
 
 #: ../metadata/fade.xml.in.h:2
-#, fuzzy
 msgid "Fade Speed"
-msgstr "Geselecteerd"
+msgstr "Vervaag snelheid"
 
 #: ../metadata/fade.xml.in.h:3
 msgid "Fade effect on minimize/open/close window events"
-msgstr ""
+msgstr "Vervaag effect bij Minimaliseren/Openen/Sluiten"
 
 #: ../metadata/fade.xml.in.h:4
-#, fuzzy
 msgid "Fade effect on system beep"
-msgstr "Bestands&systeem"
+msgstr "Vervaag effect bij systeem piep"
 
 #: ../metadata/fade.xml.in.h:5
 msgid "Fade in windows when mapped and fade out windows when unmapped"
 msgstr ""
+"Invagen van vensters als ze gemapped worden en uitvagen als ze gedemapped "
+"worden"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/fade.xml.in.h:6
-#, fuzzy
 msgid "Fade windows"
-msgstr "Windows &verwijderen"
+msgstr "Vervaag vensters"
 
 #: ../metadata/fade.xml.in.h:7
-#, fuzzy
 msgid "Fading Windows"
-msgstr "&Windows verkleinen"
+msgstr "Vervagende vensters"
 
 #: ../metadata/fade.xml.in.h:8
-#, fuzzy
 msgid "Fullscreen Visual Bell"
-msgstr "Aanraakbeeldscherm"
+msgstr "Visueel alarm is volledigscherm"
 
 #: ../metadata/fade.xml.in.h:9
 msgid "Fullscreen fade effect on system beep"
-msgstr ""
+msgstr "Volledig scherm vervagen bĳ systeem piep"
 
 #: ../metadata/fade.xml.in.h:10
 msgid "Visual Bell"
-msgstr ""
+msgstr "Visueel alarm"
 
 #: ../metadata/fade.xml.in.h:11
-#, fuzzy
 msgid "Window fade speed"
-msgstr "Windows vrij (%1)"
+msgstr "Venster vervaag snelheid"
 
 #: ../metadata/fade.xml.in.h:12
 msgid "Windows that should be fading"
-msgstr ""
+msgstr "Vensters die moeten vervagen"
 
 #: ../metadata/fs.xml.in.h:1
-#, fuzzy
 msgid "Mount Point"
-msgstr "Contact toevoegen"
+msgstr "Koppel punt"
 
 #: ../metadata/fs.xml.in.h:2
-#, fuzzy
 msgid "Mount point"
-msgstr "Contact toevoegen"
+msgstr "Koppel punt"
 
 #: ../metadata/fs.xml.in.h:3
 msgid "Userspace File System"
-msgstr ""
+msgstr "Gebruikers bestandssyteem"
 
 #: ../metadata/fs.xml.in.h:4
 msgid "Userspace file system"
-msgstr ""
+msgstr "Gebruikers bestandssysteem"
 
 #: ../metadata/gconf.xml.in.h:1
 msgid "GConf"
-msgstr ""
+msgstr "Gconf"
 
 #: ../metadata/gconf.xml.in.h:2
 msgid "GConf Control Backend"
-msgstr ""
+msgstr "Gconf gecontrolleerde backend"
+
+#: ../metadata/glib.xml.in.h:1
+msgid "GLib"
+msgstr "GLib"
+
+#: ../metadata/glib.xml.in.h:2
+msgid "GLib main loop support"
+msgstr "GLib main loop ondersteuning"
 
 #: ../metadata/ini.xml.in.h:1
-#, fuzzy
 msgid "Ini"
-msgstr "Niets loggen"
+msgstr "Ini"
 
 #: ../metadata/ini.xml.in.h:2
 msgid "Ini Flat File Backend"
-msgstr ""
+msgstr "Ini platte tekst backend"
 
 #: ../metadata/inotify.xml.in.h:1
 msgid "File change notification plugin"
-msgstr ""
+msgstr "Bestands wijziging meldings plug-in"
 
 #: ../metadata/inotify.xml.in.h:2
-#, fuzzy
 msgid "Inotify"
-msgstr "Niets loggen"
+msgstr "Inotify"
+
+#: ../metadata/kconfig.xml.in.h:1
+msgid "Kconfig"
+msgstr "Kconfig"
+
+#: ../metadata/kconfig.xml.in.h:2
+msgid "Kconfig Control Backend"
+msgstr "Kconfig gecontrolleerde backend"
 
 #: ../metadata/minimize.xml.in.h:1
-#, fuzzy
 msgid "Minimize Effect"
-msgstr "&Windows verkleinen"
+msgstr "Minimaliseer effect"
 
 #: ../metadata/minimize.xml.in.h:2
-#, fuzzy
 msgid "Minimize Windows"
-msgstr "&Windows verkleinen"
+msgstr "Venster minimaliseren"
 
 #: ../metadata/minimize.xml.in.h:3
-#, fuzzy
 msgid "Minimize speed"
-msgstr "&Windows verkleinen"
+msgstr "Minimaliseer snelheid"
 
 #: ../metadata/minimize.xml.in.h:4
-#, fuzzy
 msgid "Minimize timestep"
-msgstr "&Windows verkleinen"
+msgstr "Minimaliseer tijdstempel"
 
 #: ../metadata/minimize.xml.in.h:5
 msgid "Shade Resistance"
-msgstr ""
+msgstr "Oprol weerstand"
 
 #: ../metadata/minimize.xml.in.h:6
 msgid "Shade resistance"
-msgstr ""
+msgstr "Oprol weerstand"
 
 #: ../metadata/minimize.xml.in.h:9
 msgid "Transform windows when they are minimized and unminimized"
 msgstr ""
+"Transformeer vensters als deze worden geminimaliseerd en gemaximaliseerd"
 
 #: ../metadata/minimize.xml.in.h:10
 msgid "Windows that should be transformed when minimized"
-msgstr ""
+msgstr "Te transformeren vesters tijdens minimaliseren"
 
 #: ../metadata/move.xml.in.h:1
-#, fuzzy
 msgid "Constrain Y"
-msgstr "Bevat"
+msgstr "Begrens Y"
 
 #: ../metadata/move.xml.in.h:2
 msgid "Constrain Y coordinate to workspace area"
-msgstr ""
+msgstr "Begrens Y coördinaat tot werkruimte gebied"
 
 #: ../metadata/move.xml.in.h:3
-#, fuzzy
-msgid "Initiate Window Move"
-msgstr "XF86RotateWindows"
+msgid "Do not update the server-side position of windows until finished moving"
+msgstr ""
+"Werk de server-zijde positie niet bij van vensters totdat deze klaar is met "
+"verplaatsen"
 
 #: ../metadata/move.xml.in.h:4
-#, fuzzy
-msgid "Move Window"
-msgstr "Om&laag"
+msgid "Initiate Window Move"
+msgstr "Start venster verplaatsing"
 
 #: ../metadata/move.xml.in.h:5
-#, fuzzy
-msgid "Move window"
-msgstr "Om&laag"
+msgid "Lazy Positioning"
+msgstr "Luie positionering"
 
-#: ../metadata/move.xml.in.h:6 ../metadata/scale.xml.in.h:13
-#: ../metadata/switcher.xml.in.h:15
-#, fuzzy
-msgid "Opacity"
-msgstr "&Lage capaciteit"
+#: ../metadata/move.xml.in.h:6
+msgid "Move Window"
+msgstr "Verplaats venster"
 
 #: ../metadata/move.xml.in.h:7
-#, fuzzy
-msgid "Opacity level of moving windows"
-msgstr "De daemon wordt gestart."
+msgid "Move window"
+msgstr "Verplaats venster"
 
-#: ../metadata/move.xml.in.h:8
-msgid "Snapoff and auto unmaximized maximized windows when dragging"
-msgstr ""
+#: ../metadata/move.xml.in.h:8 ../metadata/scale.xml.in.h:21
+#: ../metadata/switcher.xml.in.h:17
+msgid "Opacity"
+msgstr "Ondoorzichtigheid"
 
 #: ../metadata/move.xml.in.h:9
-#, fuzzy
-msgid "Snapoff maximized windows"
-msgstr "&Windows verkleinen"
+msgid "Opacity level of moving windows"
+msgstr "Ondoorzichtigheid van vensters als zij worden verplaatst"
 
 #: ../metadata/move.xml.in.h:10
-#, fuzzy
+msgid "Snapoff and auto unmaximized maximized windows when dragging"
+msgstr ""
+"Los springen en auto de-maximaliseren van vensters als zij versleept worden"
+
+#: ../metadata/move.xml.in.h:11
+msgid "Snapoff maximized windows"
+msgstr "Los springen van gemaximaliseerde vensters"
+
+#: ../metadata/move.xml.in.h:12
 msgid "Start moving window"
-msgstr "De daemon wordt gestart."
+msgstr "Start vensters verplaatsen"
 
 #: ../metadata/place.xml.in.h:1
 msgid "Algorithm to use for window placement"
-msgstr ""
+msgstr "Te gebruiken algoritme om vensters te plaatsen"
 
 #: ../metadata/place.xml.in.h:2
-#, fuzzy
-msgid "Horizontal viewport positions"
-msgstr "Virtueel apparaat"
+msgid "Cascade"
+msgstr "Achter elkaar"
 
-# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/place.xml.in.h:3
-#, fuzzy
-msgid "Place Windows"
-msgstr "Windows &verwijderen"
+msgid "Centered"
+msgstr "Gecentreerd"
 
 #: ../metadata/place.xml.in.h:4
-msgid "Place windows at appropriate positions when mapped"
-msgstr ""
+msgid "Horizontal viewport positions"
+msgstr "Horizontale viewport positie's"
 
 #: ../metadata/place.xml.in.h:5
-msgid "Placement Mode"
-msgstr ""
+msgid "Maximize"
+msgstr "Maximaliseer"
 
+# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/place.xml.in.h:6
-#, fuzzy
-msgid "Positioned windows"
-msgstr "De grootte-aanpassing is mislukt."
+msgid "Place Windows"
+msgstr "Plaats venster"
 
 #: ../metadata/place.xml.in.h:7
-#, fuzzy
-msgid "Vertical viewport positions"
-msgstr "Virtueel apparaat"
+msgid "Place windows at appropriate positions when mapped"
+msgstr "Plaats vensters op toepasselĳke positie's bĳ mapping"
 
 #: ../metadata/place.xml.in.h:8
-#, fuzzy
-msgid "Viewport positioned windows"
-msgstr "De grootte-aanpassing is mislukt."
+msgid "Placement Mode"
+msgstr "Plaatsing modus"
 
 #: ../metadata/place.xml.in.h:9
-#, fuzzy
-msgid "Window placement workarounds"
-msgstr "ypbind-opties"
+msgid "Positioned windows"
+msgstr "Gepositioneerde vensters"
 
 #: ../metadata/place.xml.in.h:10
-msgid "Windows that should be positioned by default"
-msgstr ""
+msgid "Random"
+msgstr "Willekeurig"
 
 #: ../metadata/place.xml.in.h:11
-msgid "Windows that should be positioned in specific viewports by default"
-msgstr ""
+msgid "Smart"
+msgstr "Slim"
 
 #: ../metadata/place.xml.in.h:12
-#, fuzzy
-msgid "Workarounds"
-msgstr "&Werkgroep"
+msgid "Vertical viewport positions"
+msgstr "Verticale viewport positie"
 
 #: ../metadata/place.xml.in.h:13
-#, fuzzy
-msgid "X Positions"
-msgstr "De grootte-aanpassing is mislukt."
+msgid "Viewport positioned windows"
+msgstr "Viewport gepositioneerde vensters"
 
 #: ../metadata/place.xml.in.h:14
-#, fuzzy
-msgid "X Viewport Positions"
-msgstr "Virtueel apparaat"
+msgid "Window placement workarounds"
+msgstr "Venster plaatsing workarounds"
 
 #: ../metadata/place.xml.in.h:15
-msgid "X position values"
-msgstr ""
+msgid "Windows that should be positioned by default"
+msgstr "Vensters die standaard gepositioneerd moeten worden"
 
 #: ../metadata/place.xml.in.h:16
-#, fuzzy
-msgid "Y Positions"
-msgstr "De grootte-aanpassing is mislukt."
+msgid "Windows that should be positioned in specific viewports by default"
+msgstr "Vensters die gepositioneerd moeten worden in een specifieke viewport"
 
 #: ../metadata/place.xml.in.h:17
-#, fuzzy
-msgid "Y Viewport Positions"
-msgstr "Virtueel apparaat"
-
-#: ../metadata/place.xml.in.h:18
-msgid "Y position values"
+msgid "Workarounds"
 msgstr ""
 
+#: ../metadata/place.xml.in.h:18
+msgid "X Positions"
+msgstr "X positie"
+
+#: ../metadata/place.xml.in.h:19
+msgid "X Viewport Positions"
+msgstr "X viewport positie's"
+
+#: ../metadata/place.xml.in.h:20
+msgid "X position values"
+msgstr "X positie waarden"
+
+#: ../metadata/place.xml.in.h:21
+msgid "Y Positions"
+msgstr "Y positie's"
+
+#: ../metadata/place.xml.in.h:22
+msgid "Y Viewport Positions"
+msgstr "Y viewport positie's"
+
+#: ../metadata/place.xml.in.h:23
+msgid "Y position values"
+msgstr "Y positie waarden"
+
 #: ../metadata/plane.xml.in.h:1
-#, fuzzy
 msgid "Desktop Plane"
-msgstr "Desktop"
+msgstr "Bureaublad vlak"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/plane.xml.in.h:2
-#, fuzzy
 msgid "Place windows on a plane"
-msgstr "Windows &verwijderen"
+msgstr "Plaats vensters op een vlak"
 
 #: ../metadata/plane.xml.in.h:3
-#, fuzzy
 msgid "Plane Down"
-msgstr "Page Down"
+msgstr "Vlak omlaag"
 
 # /usr/lib/YaST2/clients/lan_dns.ycp:85
 # /usr/lib/YaST2/clients/lan_dns.ycp:85
 #: ../metadata/plane.xml.in.h:4
-#, fuzzy
 msgid "Plane Left"
-msgstr "Remote subnet"
+msgstr "Vlak links"
 
 #: ../metadata/plane.xml.in.h:5
-#, fuzzy
 msgid "Plane Right"
-msgstr "Naar rechts"
+msgstr "Vlak rechts"
 
 #: ../metadata/plane.xml.in.h:6
-#, fuzzy
 msgid "Plane To Face 1"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 1"
 
 #: ../metadata/plane.xml.in.h:7
-#, fuzzy
 msgid "Plane To Face 10"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 10"
 
 #: ../metadata/plane.xml.in.h:8
-#, fuzzy
 msgid "Plane To Face 11"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 11"
 
 #: ../metadata/plane.xml.in.h:9
-#, fuzzy
 msgid "Plane To Face 12"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 12"
 
 #: ../metadata/plane.xml.in.h:10
-#, fuzzy
 msgid "Plane To Face 2"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 2"
 
 #: ../metadata/plane.xml.in.h:11
-#, fuzzy
 msgid "Plane To Face 3"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 3"
 
 #: ../metadata/plane.xml.in.h:12
-#, fuzzy
 msgid "Plane To Face 4"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 4"
 
 #: ../metadata/plane.xml.in.h:13
-#, fuzzy
 msgid "Plane To Face 5"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 5"
 
 #: ../metadata/plane.xml.in.h:14
-#, fuzzy
 msgid "Plane To Face 6"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 6"
 
 #: ../metadata/plane.xml.in.h:15
-#, fuzzy
 msgid "Plane To Face 7"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 7"
 
 #: ../metadata/plane.xml.in.h:16
-#, fuzzy
 msgid "Plane To Face 8"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 8"
 
 #: ../metadata/plane.xml.in.h:17
-#, fuzzy
 msgid "Plane To Face 9"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 9"
 
 #: ../metadata/plane.xml.in.h:18
-#, fuzzy
 msgid "Plane Up"
-msgstr "Page Up"
+msgstr "Vlak omhoog"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/plane.xml.in.h:19
-#, fuzzy
 msgid "Plane down"
-msgstr "Windows &verwijderen"
+msgstr "Vlak omlaag"
 
 # /usr/lib/YaST2/clients/lan_dns.ycp:85
 # /usr/lib/YaST2/clients/lan_dns.ycp:85
 #: ../metadata/plane.xml.in.h:20
-#, fuzzy
 msgid "Plane left"
-msgstr "Remote subnet"
+msgstr "Vlak rechts"
 
 #: ../metadata/plane.xml.in.h:21
-#, fuzzy
 msgid "Plane right"
-msgstr "Naar rechts"
+msgstr "Vlak rechts"
 
 #: ../metadata/plane.xml.in.h:22
-#, fuzzy
 msgid "Plane to face 1"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 1"
 
 #: ../metadata/plane.xml.in.h:23
-#, fuzzy
 msgid "Plane to face 10"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 10"
 
 #: ../metadata/plane.xml.in.h:24
-#, fuzzy
 msgid "Plane to face 11"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 11"
 
 #: ../metadata/plane.xml.in.h:25
-#, fuzzy
 msgid "Plane to face 12"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 12"
 
 #: ../metadata/plane.xml.in.h:26
-#, fuzzy
 msgid "Plane to face 2"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 2"
 
 #: ../metadata/plane.xml.in.h:27
-#, fuzzy
 msgid "Plane to face 3"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 3"
 
 #: ../metadata/plane.xml.in.h:28
-#, fuzzy
 msgid "Plane to face 4"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 4"
 
 #: ../metadata/plane.xml.in.h:29
-#, fuzzy
 msgid "Plane to face 5"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 5"
 
 #: ../metadata/plane.xml.in.h:30
-#, fuzzy
 msgid "Plane to face 6"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 6"
 
 #: ../metadata/plane.xml.in.h:31
-#, fuzzy
 msgid "Plane to face 7"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 7"
 
 #: ../metadata/plane.xml.in.h:32
-#, fuzzy
 msgid "Plane to face 8"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 8"
 
 #: ../metadata/plane.xml.in.h:33
-#, fuzzy
 msgid "Plane to face 9"
-msgstr "Scherm draaien"
+msgstr "Vlak naar zĳde 9"
 
 #: ../metadata/plane.xml.in.h:34
-#, fuzzy
 msgid "Plane up"
-msgstr "Page Up"
+msgstr "Vlak omhoog"
 
 #: ../metadata/png.xml.in.h:1
 msgid "Png"
-msgstr ""
+msgstr "PNG"
 
 #: ../metadata/png.xml.in.h:2
 msgid "Png image loader"
-msgstr ""
+msgstr "PNG afbeelding lader"
 
 #: ../metadata/regex.xml.in.h:1
 msgid "Regex Matching"
@@ -1718,1314 +1840,1071 @@ msgstr ""
 
 #: ../metadata/regex.xml.in.h:2
 msgid "Regex window matching"
-msgstr ""
+msgstr "Regex matching voor vensters"
 
 #: ../metadata/resize.xml.in.h:1
-msgid "Default Resize Mode"
-msgstr ""
+msgid "Border Color"
+msgstr "Rand kleur"
 
 #: ../metadata/resize.xml.in.h:2
-msgid "Default mode used for window resizing"
-msgstr ""
+msgid "Border color used for outline and rectangle resize modes"
+msgstr "Rand kleur gebruikt voor omtrek en rechthoek grootte aanpassing modi"
 
 #: ../metadata/resize.xml.in.h:3
-#, fuzzy
-msgid "Initiate Window Resize"
-msgstr "Eerste RAM-disk"
+msgid "Default Resize Mode"
+msgstr "Standaard grootte aanpassing modus"
 
 #: ../metadata/resize.xml.in.h:4
-#, fuzzy
-msgid "Resize Window"
-msgstr "De grootte-aanpassing is mislukt."
+msgid "Default mode used for window resizing"
+msgstr "Standaard modus gebruikt voor grootte aanpassing van vensters"
 
 #: ../metadata/resize.xml.in.h:5
-#, fuzzy
-msgid "Resize window"
-msgstr "De grootte-aanpassing is mislukt."
+msgid "Fill Color"
+msgstr "Vul kleur"
 
 #: ../metadata/resize.xml.in.h:6
-#, fuzzy
+msgid "Fill color used for rectangle resize mode"
+msgstr "Vul kleur gebruikt voor de rechthoek grootte aanpassing modus"
+
+#: ../metadata/resize.xml.in.h:7
+msgid "Initiate Normal Window Resize"
+msgstr "Initiëer normale venster grootte aanpassing"
+
+#: ../metadata/resize.xml.in.h:8
+msgid "Initiate Outline Window Resize"
+msgstr "Initiëer omtrek venster grootte aanpassing"
+
+#: ../metadata/resize.xml.in.h:9
+msgid "Initiate Rectangle Window Resize"
+msgstr "Initiëer rechthoek venster grootte aanpassing"
+
+#: ../metadata/resize.xml.in.h:10
+msgid "Initiate Stretch Window Resize"
+msgstr "Initiëer rekken venster grootte aanpassing"
+
+#: ../metadata/resize.xml.in.h:11
+msgid "Initiate Window Resize"
+msgstr "Initiëer venster grootte aanpassing"
+
+#: ../metadata/resize.xml.in.h:12
+msgid "Normal"
+msgstr "Normaal"
+
+#: ../metadata/resize.xml.in.h:13
+msgid "Normal Resize Windows"
+msgstr "Normale grootte aanpassing van vensters"
+
+#: ../metadata/resize.xml.in.h:14
+msgid "Outline"
+msgstr "Omtrek"
+
+#: ../metadata/resize.xml.in.h:15
+msgid "Outline Resize Windows"
+msgstr "Omtrek grootte aanpassing van vensters"
+
+#: ../metadata/resize.xml.in.h:16
+msgid "Rectangle"
+msgstr "Rechthoek"
+
+#: ../metadata/resize.xml.in.h:17
+msgid "Rectangle Resize Windows"
+msgstr "Rechthoek grootte aanpassing"
+
+#: ../metadata/resize.xml.in.h:18
+msgid "Resize Window"
+msgstr "Grootte aanpassing venster"
+
+#: ../metadata/resize.xml.in.h:19
+msgid "Resize window"
+msgstr "Grootte aanpassing venster"
+
+#: ../metadata/resize.xml.in.h:20
 msgid "Start resizing window"
-msgstr "De daemon wordt gestart."
+msgstr "Begin met grootte aanpassing venster"
+
+#: ../metadata/resize.xml.in.h:21
+msgid "Start resizing window by stretching it"
+msgstr "Begin met grootte aanpassing door het op te rekken"
+
+#: ../metadata/resize.xml.in.h:22
+msgid "Start resizing window normally"
+msgstr "Start grootte aanpassing venster normaal"
+
+#: ../metadata/resize.xml.in.h:23
+msgid "Start resizing window with outline"
+msgstr "Begin grootte aanpassing van venster net omtrek"
+
+#: ../metadata/resize.xml.in.h:24
+msgid "Start resizing window with rectangle"
+msgstr "Begin met grootte aanpassing met rechthoek"
+
+#: ../metadata/resize.xml.in.h:25
+msgid "Stretch"
+msgstr "Rekken"
+
+#: ../metadata/resize.xml.in.h:26
+msgid "Stretch Resize Windows"
+msgstr "Rekken grootte aanpassing van vensters"
+
+#: ../metadata/resize.xml.in.h:27
+msgid "Windows that normal resize should be used for"
+msgstr ""
+"Vensters waar normale grootte aanpassing voor gebruikt zou moeten worden"
+
+#: ../metadata/resize.xml.in.h:28
+msgid "Windows that outline resize should be used for"
+msgstr "Vensters waarvoor omtrek grootte aanpassing gebruikt zou moeten worden"
+
+#: ../metadata/resize.xml.in.h:29
+msgid "Windows that rectangle resize should be used for"
+msgstr ""
+"Vensters waarvoor rechthoek grootte aanpassing gebruikt zou moeten worden"
+
+#: ../metadata/resize.xml.in.h:30
+msgid "Windows that stretch resize should be used for"
+msgstr "Vensters waarvoor rekken grootte aanpassing gebruikt zou moeten worden"
 
 #: ../metadata/rotate.xml.in.h:2
 msgid "Edge Flip DnD"
-msgstr ""
+msgstr "Rand kantel verslepen"
 
 #: ../metadata/rotate.xml.in.h:3
 msgid "Edge Flip Move"
-msgstr ""
+msgstr "Rand kantel verplaatsen"
 
 #: ../metadata/rotate.xml.in.h:4
 msgid "Edge Flip Pointer"
-msgstr ""
+msgstr "Rand kantel aanwĳzer"
 
 #: ../metadata/rotate.xml.in.h:5
-#, fuzzy
 msgid "Flip Time"
-msgstr "Real Time"
+msgstr "Kantel tĳd"
 
 #: ../metadata/rotate.xml.in.h:6
 msgid "Flip to left viewport and warp pointer"
-msgstr ""
+msgstr "Kantel naar linker viewport en warp aanwĳzer"
 
 #: ../metadata/rotate.xml.in.h:7
 msgid "Flip to next viewport when dragging object to screen edge"
 msgstr ""
+"Kantel naar volgende viewport als een object naar de scherm rand wordt "
+"versleept"
 
 #: ../metadata/rotate.xml.in.h:8
 msgid "Flip to next viewport when moving pointer to screen edge"
 msgstr ""
+"Kantel naar volgende viewport als de aanwĳzer naar de schermrand wordt "
+"verplaatst"
 
 #: ../metadata/rotate.xml.in.h:9
 msgid "Flip to next viewport when moving window to screen edge"
 msgstr ""
+"Kantel naar volgende viewport als venster wordt verplaatst naar schermrand"
 
 #: ../metadata/rotate.xml.in.h:10
 msgid "Flip to right viewport and warp pointer"
-msgstr ""
+msgstr "Kantel naar rechter viewport en warp aanwĳzer"
 
-#: ../metadata/rotate.xml.in.h:12 ../metadata/zoom.xml.in.h:3
+#: ../metadata/rotate.xml.in.h:12
 msgid "Invert Y axis for pointer movement"
-msgstr ""
+msgstr "Inverteer Y as voor aanwĳzer beweging"
 
-#: ../metadata/rotate.xml.in.h:13 ../metadata/zoom.xml.in.h:4
-#, fuzzy
+#: ../metadata/rotate.xml.in.h:13
 msgid "Pointer Invert Y"
-msgstr "Wijzer naar %1"
+msgstr "Aanwĳzer Y inverteren"
 
 # /usr/lib/YaST2/clients/printconf_filter.ycp:200
-#: ../metadata/rotate.xml.in.h:14 ../metadata/zoom.xml.in.h:5
-#, fuzzy
+#: ../metadata/rotate.xml.in.h:14
 msgid "Pointer Sensitivity"
-msgstr "Printer&beschrijving"
+msgstr "Aanwĳzer gevoeligheid"
 
-# /usr/lib/YaST2/clients/lan_dns.ycp:85
-# /usr/lib/YaST2/clients/lan_dns.ycp:85
 #: ../metadata/rotate.xml.in.h:15
-#, fuzzy
-msgid "Rotate Cube"
-msgstr "Remote subnet"
+msgid "Raise on rotate"
+msgstr "Omhoog halen bĳ roteren"
 
 #: ../metadata/rotate.xml.in.h:16
-#, fuzzy
-msgid "Rotate Flip Left"
-msgstr "Naar rechts"
+msgid "Raise window when rotating"
+msgstr "Verhef venster bĳ roteren"
 
+# /usr/lib/YaST2/clients/lan_dns.ycp:85
+# /usr/lib/YaST2/clients/lan_dns.ycp:85
 #: ../metadata/rotate.xml.in.h:17
-#, fuzzy
-msgid "Rotate Flip Right"
-msgstr "Naar rechts"
+msgid "Rotate Cube"
+msgstr "Roteer kubus"
 
-# /usr/lib/YaST2/clients/lan_dns.ycp:85
-# /usr/lib/YaST2/clients/lan_dns.ycp:85
 #: ../metadata/rotate.xml.in.h:18
-#, fuzzy
-msgid "Rotate Left"
-msgstr "Remote subnet"
+msgid "Rotate Flip Left"
+msgstr "Roteer kantel links"
 
 #: ../metadata/rotate.xml.in.h:19
-#, fuzzy
-msgid "Rotate Left with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate Flip Right"
+msgstr "Roteer kantel rechts"
 
+# /usr/lib/YaST2/clients/lan_dns.ycp:85
+# /usr/lib/YaST2/clients/lan_dns.ycp:85
 #: ../metadata/rotate.xml.in.h:20
-#, fuzzy
-msgid "Rotate Right"
-msgstr "Naar rechts"
+msgid "Rotate Left"
+msgstr "Roteer links"
 
 #: ../metadata/rotate.xml.in.h:21
-#, fuzzy
-msgid "Rotate Right with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate Left with Window"
+msgstr "Roteer links met venster"
 
-# /usr/lib/YaST2/clients/lan_dns.ycp:85
-# /usr/lib/YaST2/clients/lan_dns.ycp:85
 #: ../metadata/rotate.xml.in.h:22
-#, fuzzy
-msgid "Rotate To"
-msgstr "Remote subnet"
+msgid "Rotate Right"
+msgstr "Roteer rechts"
 
 #: ../metadata/rotate.xml.in.h:23
-#, fuzzy
-msgid "Rotate To Face 1"
-msgstr "Scherm draaien"
+msgid "Rotate Right with Window"
+msgstr "Roteer naar rechts met venster"
 
+# /usr/lib/YaST2/clients/lan_dns.ycp:85
+# /usr/lib/YaST2/clients/lan_dns.ycp:85
 #: ../metadata/rotate.xml.in.h:24
-#, fuzzy
-msgid "Rotate To Face 1 with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate To"
+msgstr "Roteer naar"
 
 #: ../metadata/rotate.xml.in.h:25
-#, fuzzy
-msgid "Rotate To Face 10"
-msgstr "Scherm draaien"
+msgid "Rotate To Face 1"
+msgstr "Roteer naar zĳde 1"
 
 #: ../metadata/rotate.xml.in.h:26
-#, fuzzy
-msgid "Rotate To Face 10 with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate To Face 1 with Window"
+msgstr "Roteer naar zĳde 1 met venster"
 
 #: ../metadata/rotate.xml.in.h:27
-#, fuzzy
-msgid "Rotate To Face 11"
-msgstr "Scherm draaien"
+msgid "Rotate To Face 10"
+msgstr "Roteer naar zĳde 10"
 
 #: ../metadata/rotate.xml.in.h:28
-#, fuzzy
-msgid "Rotate To Face 11 with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate To Face 10 with Window"
+msgstr "Roteer naar zĳde 10 met venster"
 
 #: ../metadata/rotate.xml.in.h:29
-#, fuzzy
-msgid "Rotate To Face 12"
-msgstr "Scherm draaien"
+msgid "Rotate To Face 11"
+msgstr "Roteer naar zĳde 11"
 
 #: ../metadata/rotate.xml.in.h:30
-#, fuzzy
-msgid "Rotate To Face 12 with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate To Face 11 with Window"
+msgstr "Roteer naar zĳde 11 met venster"
 
 #: ../metadata/rotate.xml.in.h:31
-#, fuzzy
-msgid "Rotate To Face 2"
-msgstr "Scherm draaien"
+msgid "Rotate To Face 12"
+msgstr "Roteer naar zĳde 12"
 
 #: ../metadata/rotate.xml.in.h:32
-#, fuzzy
-msgid "Rotate To Face 2 with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate To Face 12 with Window"
+msgstr "Roteer naar zĳde 12 met venster"
 
 #: ../metadata/rotate.xml.in.h:33
-#, fuzzy
-msgid "Rotate To Face 3"
-msgstr "Scherm draaien"
+msgid "Rotate To Face 2"
+msgstr "Roteer naar zĳde 2"
 
 #: ../metadata/rotate.xml.in.h:34
-#, fuzzy
-msgid "Rotate To Face 3 with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate To Face 2 with Window"
+msgstr "Roteer naar zĳde 2 met venster"
 
 #: ../metadata/rotate.xml.in.h:35
-#, fuzzy
-msgid "Rotate To Face 4"
-msgstr "Scherm draaien"
+msgid "Rotate To Face 3"
+msgstr "Roteer naar zĳde 3"
 
 #: ../metadata/rotate.xml.in.h:36
-#, fuzzy
-msgid "Rotate To Face 4 with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate To Face 3 with Window"
+msgstr "Roteer naar zĳde 3 met venster"
 
 #: ../metadata/rotate.xml.in.h:37
-#, fuzzy
-msgid "Rotate To Face 5"
-msgstr "Scherm draaien"
+msgid "Rotate To Face 4"
+msgstr "Roteer naar zĳde 4"
 
 #: ../metadata/rotate.xml.in.h:38
-#, fuzzy
-msgid "Rotate To Face 5 with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate To Face 4 with Window"
+msgstr "Roteer naar zĳde 4 met venster"
 
 #: ../metadata/rotate.xml.in.h:39
-#, fuzzy
-msgid "Rotate To Face 6"
-msgstr "Scherm draaien"
+msgid "Rotate To Face 5"
+msgstr "Roteer naar zĳde 5"
 
 #: ../metadata/rotate.xml.in.h:40
-#, fuzzy
-msgid "Rotate To Face 6 with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate To Face 5 with Window"
+msgstr "Roteer naar zĳde 5 met venster"
 
 #: ../metadata/rotate.xml.in.h:41
-#, fuzzy
-msgid "Rotate To Face 7"
-msgstr "Scherm draaien"
+msgid "Rotate To Face 6"
+msgstr "Roteer naar zĳde 6"
 
 #: ../metadata/rotate.xml.in.h:42
-#, fuzzy
-msgid "Rotate To Face 7 with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate To Face 6 with Window"
+msgstr "Roteer naar zĳde 6 met venster"
 
 #: ../metadata/rotate.xml.in.h:43
-#, fuzzy
-msgid "Rotate To Face 8"
-msgstr "Scherm draaien"
+msgid "Rotate To Face 7"
+msgstr "Roteer naar zĳde 7"
 
 #: ../metadata/rotate.xml.in.h:44
-#, fuzzy
-msgid "Rotate To Face 8 with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate To Face 7 with Window"
+msgstr "Roteer naar zĳde 7 met venster"
 
 #: ../metadata/rotate.xml.in.h:45
-#, fuzzy
-msgid "Rotate To Face 9"
-msgstr "Scherm draaien"
+msgid "Rotate To Face 8"
+msgstr "Roteer naar zĳde 8"
 
 #: ../metadata/rotate.xml.in.h:46
-#, fuzzy
-msgid "Rotate To Face 9 with Window"
-msgstr "De daemon wordt gestart."
+msgid "Rotate To Face 8 with Window"
+msgstr "Roteer naar zĳde 8 met venster"
 
 #: ../metadata/rotate.xml.in.h:47
-#, fuzzy
-msgid "Rotate desktop cube"
-msgstr "Scherm draaien"
+msgid "Rotate To Face 9"
+msgstr "Roteer naar zĳde 9"
 
-# /usr/lib/YaST2/clients/lan_dns.ycp:85
-# /usr/lib/YaST2/clients/lan_dns.ycp:85
 #: ../metadata/rotate.xml.in.h:48
-#, fuzzy
-msgid "Rotate left"
-msgstr "Remote subnet"
+msgid "Rotate To Face 9 with Window"
+msgstr "Roteer naar zĳde 9 met venster"
 
 #: ../metadata/rotate.xml.in.h:49
-msgid "Rotate left and brind active window along"
-msgstr ""
+msgid "Rotate desktop cube"
+msgstr "Roteer bureaublad kubus"
 
+# /usr/lib/YaST2/clients/lan_dns.ycp:85
+# /usr/lib/YaST2/clients/lan_dns.ycp:85
 #: ../metadata/rotate.xml.in.h:50
-#, fuzzy
-msgid "Rotate right"
-msgstr "Naar rechts"
+msgid "Rotate left"
+msgstr "Roteer naar links"
 
 #: ../metadata/rotate.xml.in.h:51
-msgid "Rotate right and brind active window along"
-msgstr ""
+msgid "Rotate left and bring active window along"
+msgstr "Roteer naar links en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:52
-#, fuzzy
-msgid "Rotate to face 1"
-msgstr "Scherm draaien"
+msgid "Rotate right"
+msgstr "Roteer naar rechts"
 
 #: ../metadata/rotate.xml.in.h:53
-#, fuzzy
-msgid "Rotate to face 1 and bring active window along"
-msgstr "De daemon wordt gestart."
+msgid "Rotate right and bring active window along"
+msgstr "Roteer naar rechts en neem venster mee"
 
 #: ../metadata/rotate.xml.in.h:54
-#, fuzzy
-msgid "Rotate to face 10"
-msgstr "Scherm draaien"
+msgid "Rotate to face 1"
+msgstr "Roteer naar zĳde 1"
 
 #: ../metadata/rotate.xml.in.h:55
-#, fuzzy
-msgid "Rotate to face 10 and bring active window along"
-msgstr "De daemon wordt gestart."
+msgid "Rotate to face 1 and bring active window along"
+msgstr "Roteer naar zĳde 1 en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:56
-#, fuzzy
-msgid "Rotate to face 11"
-msgstr "Scherm draaien"
+msgid "Rotate to face 10"
+msgstr "Roteer naar zĳde 10"
 
 #: ../metadata/rotate.xml.in.h:57
-#, fuzzy
-msgid "Rotate to face 11 and bring active window along"
-msgstr "De daemon wordt gestart."
+msgid "Rotate to face 10 and bring active window along"
+msgstr "Roteer naar zĳde 10 en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:58
-#, fuzzy
-msgid "Rotate to face 12"
-msgstr "Scherm draaien"
+msgid "Rotate to face 11"
+msgstr "Roteer naar zĳde 11"
 
 #: ../metadata/rotate.xml.in.h:59
-#, fuzzy
-msgid "Rotate to face 12 and bring active window along"
-msgstr "De daemon wordt gestart."
+msgid "Rotate to face 11 and bring active window along"
+msgstr "Roteer naar zĳde 11 en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:60
-#, fuzzy
-msgid "Rotate to face 2"
-msgstr "Scherm draaien"
+msgid "Rotate to face 12"
+msgstr "Roteer naar zĳde 12"
 
 #: ../metadata/rotate.xml.in.h:61
-#, fuzzy
-msgid "Rotate to face 2 and bring active window along"
-msgstr "De daemon wordt gestart."
+msgid "Rotate to face 12 and bring active window along"
+msgstr "Roteer naar zĳde 12 en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:62
-#, fuzzy
-msgid "Rotate to face 3"
-msgstr "Scherm draaien"
+msgid "Rotate to face 2"
+msgstr "Roteer naar zĳde 2"
 
 #: ../metadata/rotate.xml.in.h:63
-#, fuzzy
-msgid "Rotate to face 3 and bring active window along"
-msgstr "De daemon wordt gestart."
+msgid "Rotate to face 2 and bring active window along"
+msgstr "Roteer naar zĳde 2 en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:64
-#, fuzzy
-msgid "Rotate to face 4"
-msgstr "Scherm draaien"
+msgid "Rotate to face 3"
+msgstr "Roteer naar zĳde 3"
 
 #: ../metadata/rotate.xml.in.h:65
-#, fuzzy
-msgid "Rotate to face 4 and bring active window along"
-msgstr "De daemon wordt gestart."
+msgid "Rotate to face 3 and bring active window along"
+msgstr "Roteer naar zĳde 3 en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:66
-#, fuzzy
-msgid "Rotate to face 5"
-msgstr "Scherm draaien"
+msgid "Rotate to face 4"
+msgstr "Roteer naar zĳde 4"
 
 #: ../metadata/rotate.xml.in.h:67
-#, fuzzy
-msgid "Rotate to face 5 and bring active window along"
-msgstr "De daemon wordt gestart."
+msgid "Rotate to face 4 and bring active window along"
+msgstr "Roteer naar zĳde 4 en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:68
-#, fuzzy
-msgid "Rotate to face 6"
-msgstr "Scherm draaien"
+msgid "Rotate to face 5"
+msgstr "Roteer naar zĳde 5"
 
 #: ../metadata/rotate.xml.in.h:69
-#, fuzzy
-msgid "Rotate to face 6 and bring active window along"
-msgstr "De daemon wordt gestart."
+msgid "Rotate to face 5 and bring active window along"
+msgstr "Roteer naar zĳde 5 en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:70
-#, fuzzy
-msgid "Rotate to face 7"
-msgstr "Scherm draaien"
+msgid "Rotate to face 6"
+msgstr "Roteer naar zĳde 6"
 
 #: ../metadata/rotate.xml.in.h:71
-#, fuzzy
-msgid "Rotate to face 7 and bring active window along"
-msgstr "De daemon wordt gestart."
+msgid "Rotate to face 6 and bring active window along"
+msgstr "Roteer naar zĳde 6 en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:72
-#, fuzzy
-msgid "Rotate to face 8"
-msgstr "Scherm draaien"
+msgid "Rotate to face 7"
+msgstr "Roteer naar zĳde 7"
 
 #: ../metadata/rotate.xml.in.h:73
-#, fuzzy
-msgid "Rotate to face 8 and bring active window along"
-msgstr "De daemon wordt gestart."
+msgid "Rotate to face 7 and bring active window along"
+msgstr "Roteer naar zĳde 7 en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:74
-#, fuzzy
-msgid "Rotate to face 9"
-msgstr "Scherm draaien"
+msgid "Rotate to face 8"
+msgstr "Roteer naar zĳde 8"
 
 #: ../metadata/rotate.xml.in.h:75
-#, fuzzy
-msgid "Rotate to face 9 and bring active window along"
-msgstr "De daemon wordt gestart."
+msgid "Rotate to face 8 and bring active window along"
+msgstr "Roteer naar zĳde 8 en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:76
-#, fuzzy
-msgid "Rotate to viewport"
-msgstr "Scherm draaien"
+msgid "Rotate to face 9"
+msgstr "Roteer naar zĳde 9"
 
 #: ../metadata/rotate.xml.in.h:77
-#, fuzzy
-msgid "Rotate window"
-msgstr "XF86RotateWindows"
+msgid "Rotate to face 9 and bring active window along"
+msgstr "Roteer naar zĳde 9 en neem actief venster mee"
 
 #: ../metadata/rotate.xml.in.h:78
-#, fuzzy
+msgid "Rotate to viewport"
+msgstr "Roteer naar viewport"
+
+#: ../metadata/rotate.xml.in.h:79
+msgid "Rotate window"
+msgstr "Roteer venster"
+
+#: ../metadata/rotate.xml.in.h:80
 msgid "Rotate with window"
-msgstr "De daemon wordt gestart."
+msgstr "Roteer met venster"
 
 # workflow: "3D Beschleunigung aktivieren"
 # -ke-
 # /usr/lib/YaST2/clients/inst_config_x11.ycp:812
-#: ../metadata/rotate.xml.in.h:79
-#, fuzzy
-msgid "Rotation Acceleration"
-msgstr "3D versnelling:"
-
-# /usr/lib/YaST2/clients/inst_config_x11.ycp:821
-#: ../metadata/rotate.xml.in.h:80
-#, fuzzy
-msgid "Rotation Speed"
-msgstr "Testen"
-
-# /usr/lib/YaST2/clients/inst_config_x11.ycp:821
 #: ../metadata/rotate.xml.in.h:81
-#, fuzzy
-msgid "Rotation Timestep"
-msgstr "Testen"
+msgid "Rotation Acceleration"
+msgstr "Rotatie acceleratie"
 
-#: ../metadata/rotate.xml.in.h:82 ../metadata/zoom.xml.in.h:6
-msgid "Sensitivity of pointer movement"
-msgstr ""
+# /usr/lib/YaST2/clients/inst_config_x11.ycp:821
+#: ../metadata/rotate.xml.in.h:82
+msgid "Rotation Speed"
+msgstr "Rotatie snelheid"
 
+# /usr/lib/YaST2/clients/inst_config_x11.ycp:821
 #: ../metadata/rotate.xml.in.h:83
-msgid "Snap Cube Rotation to Top Face"
-msgstr ""
+msgid "Rotation Timestep"
+msgstr "Rotatie tĳdstap"
 
+# /usr/lib/YaST2/clients/inst_config_x11.ycp:821
 #: ../metadata/rotate.xml.in.h:84
-msgid "Snap To Top Face"
-msgstr ""
+msgid "Rotation Zoom"
+msgstr "Rotatie zoom"
+
+#: ../metadata/rotate.xml.in.h:85
+msgid "Sensitivity of pointer movement"
+msgstr "Gevoeligheid van aanwĳzer beweging"
 
 #: ../metadata/rotate.xml.in.h:86
-#, fuzzy
-msgid "Start Rotation"
-msgstr "Begin met detecteren"
+msgid "Snap Cube Rotation to Bottom Face"
+msgstr "Klik kubus rotatie aan ondervlak"
 
 #: ../metadata/rotate.xml.in.h:87
+msgid "Snap Cube Rotation to Top Face"
+msgstr "Klik kubus rotatie aan bovenvlak"
+
+#: ../metadata/rotate.xml.in.h:88
+msgid "Snap To Bottom Face"
+msgstr "Klik aan ondervlak"
+
+#: ../metadata/rotate.xml.in.h:89
+msgid "Snap To Top Face"
+msgstr "Klik aan bovenvlak"
+
+#: ../metadata/rotate.xml.in.h:91
+msgid "Start Rotation"
+msgstr "Begin rotatie"
+
+#: ../metadata/rotate.xml.in.h:92
 msgid "Timeout before flipping viewport"
-msgstr ""
+msgstr "Timeout voor kantelen viewport"
+
+#: ../metadata/rotate.xml.in.h:94 ../metadata/switcher.xml.in.h:37
+msgid "Zoom"
+msgstr "Zoom"
 
 #: ../metadata/scale.xml.in.h:1 ../metadata/switcher.xml.in.h:2
 msgid "Amount of opacity in percent"
-msgstr ""
+msgstr "Mate van ondoorzichtigheid in procenten"
 
 #: ../metadata/scale.xml.in.h:2
-#, fuzzy
-msgid "Darken Background"
-msgstr "Achtergrond"
+msgid "Big"
+msgstr "Groot"
 
 #: ../metadata/scale.xml.in.h:3
-msgid "Darken background when scaling windows"
-msgstr ""
+msgid "Click Desktop to Show Desktop"
+msgstr "Klik bureaublad voor Toon Bureaublad"
 
 #: ../metadata/scale.xml.in.h:4
-msgid "Hover Time"
-msgstr ""
+msgid "Darken Background"
+msgstr "Achtergrond donker maken"
 
 #: ../metadata/scale.xml.in.h:5
-#, fuzzy
-msgid "Initiate Window Picker"
-msgstr "Eerste RAM-disk"
+msgid "Darken background when scaling windows"
+msgstr "Achtergrond donker maken tĳdens schalen van vensters"
 
 #: ../metadata/scale.xml.in.h:6
-#, fuzzy
-msgid "Initiate Window Picker For All Windows"
-msgstr "Eerste RAM-disk"
+msgid "Emblem"
+msgstr "Embleem"
 
 #: ../metadata/scale.xml.in.h:7
-#, fuzzy
-msgid "Initiate Window Picker For Window Group"
-msgstr "Eerste RAM-disk"
+msgid "Enter Show Desktop mode when Desktop is clicked during Scale"
+msgstr ""
+"Activeer Toon Bureaublad modus als bureaublad wordt aangeklikt tĳdens het "
+"schalen"
 
 #: ../metadata/scale.xml.in.h:8
-#, fuzzy
-msgid "Initiate Window Picker For Windows on Current Output"
-msgstr "Eerste RAM-disk"
+msgid "Hover Time"
+msgstr "Zweef tĳd"
 
 #: ../metadata/scale.xml.in.h:9
-msgid "Layout and start transforming all windows"
-msgstr ""
+msgid "Initiate Window Picker"
+msgstr "Initiëer venster kiezer"
 
 #: ../metadata/scale.xml.in.h:10
-msgid "Layout and start transforming window group"
-msgstr ""
+msgid "Initiate Window Picker For All Windows"
+msgstr "Initiëer venster kiezer voor alle vensters"
 
 #: ../metadata/scale.xml.in.h:11
-msgid "Layout and start transforming windows"
-msgstr ""
+msgid "Initiate Window Picker For Window Group"
+msgstr "Initiëer venster kiezer voor venster groep"
 
 #: ../metadata/scale.xml.in.h:12
-msgid "Layout and start transforming windows on current output"
-msgstr ""
+msgid "Initiate Window Picker For Windows on Current Output"
+msgstr "Initiëer venster kiezer voor vensters op huidige uitvoer"
+
+#: ../metadata/scale.xml.in.h:13
+msgid "Layout and start transforming all windows"
+msgstr "Uitleggen en begin met transformeren van alle vensters"
 
 #: ../metadata/scale.xml.in.h:14
-msgid "Overlay Icon"
-msgstr ""
+msgid "Layout and start transforming window group"
+msgstr "Uitleggen en beginnen met transformeren van venster groep"
 
 #: ../metadata/scale.xml.in.h:15
-msgid "Overlay an icon on windows once they are scaled"
-msgstr ""
+msgid "Layout and start transforming windows"
+msgstr "Uitleggen en start transformeren vensters"
 
 #: ../metadata/scale.xml.in.h:16
-#, fuzzy
-msgid "Scale"
-msgstr "Opslaan"
+msgid "Layout and start transforming windows on current output"
+msgstr "Uitleggen en start transformeren vensters op huidige uitvoer"
 
-# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
-#: ../metadata/scale.xml.in.h:17
-#, fuzzy
-msgid "Scale Windows"
-msgstr "Windows &verwijderen"
-
-#: ../metadata/scale.xml.in.h:18
-#, fuzzy
-msgid "Scale speed"
-msgstr "lokale tijd"
+#: ../metadata/scale.xml.in.h:18 ../metadata/wobbly.xml.in.h:16
+msgid "None"
+msgstr "Geen"
 
 #: ../metadata/scale.xml.in.h:19
-#, fuzzy
-msgid "Scale timestep"
-msgstr "lokale tijd"
+msgid "On all output devices"
+msgstr "Op alle uitvoer apparaten"
 
-# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/scale.xml.in.h:20
-#, fuzzy
-msgid "Scale windows"
-msgstr "Windows &verwijderen"
-
-# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
-#: ../metadata/scale.xml.in.h:21
-#, fuzzy
-msgid "Space between windows"
-msgstr "Windows &verwijderen"
+msgid "On current output device"
+msgstr "Op huidige uitvoer apparaten"
 
 #: ../metadata/scale.xml.in.h:22
-#, fuzzy
-msgid "Spacing"
-msgstr "Spanje"
+msgid "Overlay Icon"
+msgstr "Overlay icoon"
+
+#: ../metadata/scale.xml.in.h:23
+msgid "Overlay an icon on windows once they are scaled"
+msgstr "Een overlay icoon op vensters als ze zĳn geschaald"
 
 #: ../metadata/scale.xml.in.h:24
+msgid "Scale"
+msgstr "Schaal"
+
+# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
+#: ../metadata/scale.xml.in.h:25
+msgid "Scale Windows"
+msgstr "Schaal vensters"
+
+#: ../metadata/scale.xml.in.h:26
+msgid "Scale speed"
+msgstr "Schaal snelheid"
+
+#: ../metadata/scale.xml.in.h:27
+msgid "Scale timestep"
+msgstr "Schaal tijdstap"
+
+# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
+#: ../metadata/scale.xml.in.h:28
+msgid "Scale windows"
+msgstr "Schaal vensters"
+
+#: ../metadata/scale.xml.in.h:29
+msgid "Selects where windows are scaled if multiple output devices are used."
+msgstr ""
+"Selecteert waar vensters worden geschaald als meerdere uitvoer apparaten "
+"worden gebruikt."
+
+# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
+#: ../metadata/scale.xml.in.h:30
+msgid "Space between windows"
+msgstr "Ruimte tussen vensters"
+
+#: ../metadata/scale.xml.in.h:31
+msgid "Spacing"
+msgstr "Tussenruimte"
+
+#: ../metadata/scale.xml.in.h:33
 msgid ""
 "Time (in ms) before scale mode is terminated when hovering over a window"
 msgstr ""
+"Tĳd (in ms) voordat de schaal modus wordt afgebroken als over het venster "
+"wordt gezweefd"
 
-#: ../metadata/scale.xml.in.h:26
+#: ../metadata/scale.xml.in.h:35
 msgid "Windows that should be scaled in scale mode"
-msgstr ""
+msgstr "Vensters die geschaald moeten worden in schaal modus"
 
 #: ../metadata/screenshot.xml.in.h:1
-#, fuzzy
 msgid "Automatically open screenshot in this application"
-msgstr "Applet bij aanmelden automatisch starten"
+msgstr "Automatisch schermafdruk openen in deze applicatie"
 
 #: ../metadata/screenshot.xml.in.h:2
-#, fuzzy
 msgid "Directory"
-msgstr "Directory\n"
+msgstr "Directory"
 
 #: ../metadata/screenshot.xml.in.h:4
-#, fuzzy
 msgid "Initiate rectangle screenshot"
-msgstr "Videomodus selecteren"
+msgstr "Initiëer rechthoek schermafdruk"
 
 #: ../metadata/screenshot.xml.in.h:5
-#, fuzzy
 msgid "Launch Application"
-msgstr "Lanceer een toepassing"
+msgstr "Start toepassing"
 
 #: ../metadata/screenshot.xml.in.h:6
-#, fuzzy
 msgid "Put screenshot images in this directory"
-msgstr "Ook submappen doorlopen"
+msgstr "Stop schermafdruk afbeeldingen in deze folder"
 
 #: ../metadata/screenshot.xml.in.h:7
-#, fuzzy
 msgid "Screenshot"
-msgstr "Scherm"
+msgstr "Schermafdruk"
 
 #: ../metadata/screenshot.xml.in.h:8
-#, fuzzy
 msgid "Screenshot plugin"
-msgstr "Fout opgetreden tijdens het ontleden van de commandoregel."
+msgstr "Schermafdruk plugin"
 
 #: ../metadata/svg.xml.in.h:1
 msgid "Svg"
-msgstr ""
+msgstr "SVG"
 
 #: ../metadata/svg.xml.in.h:2
 msgid "Svg image loader"
-msgstr ""
+msgstr "SVG afbeelding lader"
 
 #: ../metadata/switcher.xml.in.h:1
 msgid "Amount of brightness in percent"
-msgstr ""
+msgstr "Mate van helderheid in procenten"
 
 #: ../metadata/switcher.xml.in.h:3
 msgid "Amount of saturation in percent"
-msgstr ""
+msgstr "Mate van verzadiging in procenten"
 
 #: ../metadata/switcher.xml.in.h:4
-#, fuzzy
 msgid "Application Switcher"
-msgstr "Applicatievolgorde"
+msgstr "Applicatie wisselaar"
 
 # /usr/lib/YaST2/clients/dialup_dev_cfg.ycp:80
 #: ../metadata/switcher.xml.in.h:5
-#, fuzzy
 msgid "Auto Rotate"
-msgstr "AutoYast"
+msgstr "Auto rotatie"
 
 #: ../metadata/switcher.xml.in.h:6
-#, fuzzy
 msgid "Brightness"
-msgstr "Bridge"
+msgstr "Helderheid"
 
 # /usr/lib/YaST2/clients/inst_ask_config.ycp:100
 #: ../metadata/switcher.xml.in.h:7
-#, fuzzy
 msgid "Bring To Front"
-msgstr "Tijdens opstarten"
+msgstr "Breng naar voren"
 
 #: ../metadata/switcher.xml.in.h:8
 msgid "Bring selected window to front"
-msgstr ""
+msgstr "Breng geselcteerd venster naar voren"
 
 #: ../metadata/switcher.xml.in.h:9
 msgid "Distance desktop should be zoom out while switching windows"
-msgstr ""
+msgstr "Afstand bureaublad moet zĳn uitgezoomd tĳdens wisselen van vensters"
 
 #: ../metadata/switcher.xml.in.h:11
-#, fuzzy
 msgid "Icon"
-msgstr "Pictogrammen"
+msgstr "Pictogram"
 
 #: ../metadata/switcher.xml.in.h:12
-#, fuzzy
 msgid "Minimized"
-msgstr "&Windows verkleinen"
+msgstr "Geminimaliseerd"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/switcher.xml.in.h:14
-#, fuzzy
 msgid "Next window"
-msgstr "Windows &verwijderen"
+msgstr "Volgende venster"
 
+# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
+#: ../metadata/switcher.xml.in.h:15
+msgid "Next window (All windows)"
+msgstr "Volgende venster (alle vensters)"
+
+# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/switcher.xml.in.h:16
-msgid "Popup switcher if not visible and select next window"
-msgstr ""
-
-#: ../metadata/switcher.xml.in.h:17
-msgid "Popup switcher if not visible and select next window out of all windows"
-msgstr ""
+msgid "Next window (No popup)"
+msgstr "Volgende venster (geen popup)"
 
 #: ../metadata/switcher.xml.in.h:18
-msgid "Popup switcher if not visible and select previous window"
+msgid "Popup switcher if not visible and select next window"
 msgstr ""
+"Laat wisselaar te voorschĳn komen indien niet zichtbaar en selecteer "
+"volgende venster"
 
 #: ../metadata/switcher.xml.in.h:19
+msgid "Popup switcher if not visible and select next window out of all windows"
+msgstr ""
+"Laat venster te voorschĳn komen indien niet zichtbaar en selecteer volgende "
+"venster uit alle vensters"
+
+#: ../metadata/switcher.xml.in.h:20
+msgid "Popup switcher if not visible and select previous window"
+msgstr ""
+"Laat venster te voorschĳn komen indien niet zichtbaar en selecteer vorige "
+"venster"
+
+#: ../metadata/switcher.xml.in.h:21
 msgid ""
 "Popup switcher if not visible and select previous window out of all windows"
 msgstr ""
-
-#: ../metadata/switcher.xml.in.h:20
-#, fuzzy
-msgid "Prev window"
-msgstr "Windows"
-
-#: ../metadata/switcher.xml.in.h:21
-msgid "Rotate to the selected window while switching"
-msgstr ""
+"Laat wisselaar te voorschĳn komen indien niet zichtbaar en selecteer vorige "
+"venster uit alle vensters"
 
 #: ../metadata/switcher.xml.in.h:22
-#, fuzzy
-msgid "Saturation"
-msgstr "Tijdsduur"
+msgid "Prev window"
+msgstr "Vorig venster"
 
-# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/switcher.xml.in.h:23
-#, fuzzy
-msgid "Select next window"
-msgstr "Windows &verwijderen"
+msgid "Prev window (All windows)"
+msgstr "Vorig venster (all vensters)"
 
 #: ../metadata/switcher.xml.in.h:24
-#, fuzzy
-msgid "Select previous window"
-msgstr "De daemon wordt gestart."
+msgid "Prev window (No popup)"
+msgstr "Vorig venster (geen popup)"
 
 #: ../metadata/switcher.xml.in.h:25
-msgid "Show icon next to thumbnail"
-msgstr ""
+msgid "Rotate to the selected window while switching"
+msgstr "Roteer naar het geselecteerde venster tijdens wisseling"
 
 #: ../metadata/switcher.xml.in.h:26
-#, fuzzy
-msgid "Show minimized windows"
-msgstr "&Windows verkleinen"
+msgid "Saturation"
+msgstr "Verzadiging"
+
+#: ../metadata/switcher.xml.in.h:27
+msgid "Select next window without showing the popup window."
+msgstr "Selecteer volgende venster zonder het popup venster te tonen."
 
 #: ../metadata/switcher.xml.in.h:28
-#, fuzzy
-msgid "Switcher speed"
-msgstr "Wisselscripts"
+msgid "Select previous window without showing the popup window."
+msgstr "Selecteer vorige venster zonder het popup venster te tonen."
 
 #: ../metadata/switcher.xml.in.h:29
-#, fuzzy
-msgid "Switcher timestep"
-msgstr "lokale tijd"
+msgid "Show icon next to thumbnail"
+msgstr "Toon pictogram naast thumbnail"
 
-# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/switcher.xml.in.h:30
-#, fuzzy
-msgid "Switcher windows"
-msgstr "Windows &verwijderen"
+msgid "Show minimized windows"
+msgstr "Toon geminimaliseerde vensters"
 
 #: ../metadata/switcher.xml.in.h:32
-msgid "Windows that should be shown in switcher"
-msgstr ""
+msgid "Switcher speed"
+msgstr "Wisselaar snelheid"
 
 #: ../metadata/switcher.xml.in.h:33
-#, fuzzy
-msgid "Zoom"
-msgstr "Afmelden"
+msgid "Switcher timestep"
+msgstr "Wisselaar tijdstap"
+
+# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
+#: ../metadata/switcher.xml.in.h:34
+msgid "Switcher windows"
+msgstr "Wisselaar vensters"
+
+#: ../metadata/switcher.xml.in.h:36
+msgid "Windows that should be shown in switcher"
+msgstr "Vensters die getoond moeten worden in  de wisselaar"
 
 #: ../metadata/video.xml.in.h:1
 msgid "Provide YV12 colorspace support"
-msgstr ""
+msgstr "Voorzie in ondersteuning voor YV12 colorspace"
 
 #: ../metadata/video.xml.in.h:2
 msgid "Video Playback"
-msgstr ""
+msgstr "Video afspelen"
 
 #: ../metadata/video.xml.in.h:3
 msgid "Video playback"
-msgstr ""
+msgstr "Video afspelen"
 
 #: ../metadata/video.xml.in.h:4
 msgid "YV12 colorspace"
-msgstr ""
+msgstr "YV12 colorspace"
 
 #: ../metadata/water.xml.in.h:1
-#, fuzzy
 msgid "Add line"
-msgstr "Link &toevoegen"
+msgstr "Lijn toevoegen"
 
 #: ../metadata/water.xml.in.h:2
-#, fuzzy
 msgid "Add point"
-msgstr "Contact toevoegen"
+msgstr "Punt toevoegen"
 
 #: ../metadata/water.xml.in.h:3
 msgid "Adds water effects to different desktop actions"
-msgstr ""
+msgstr "Voegt water effecten toe aan verschillende bureaublad acties"
 
 #: ../metadata/water.xml.in.h:4
 msgid "Delay (in ms) between each rain-drop"
-msgstr ""
+msgstr "Vertraging (in ms) tussen elke regen-druppel"
 
 #: ../metadata/water.xml.in.h:5
 msgid "Enable pointer water effects"
-msgstr ""
+msgstr "Inschakelen aanwĳzer water effecten"
 
 #: ../metadata/water.xml.in.h:7
 msgid "Line"
-msgstr ""
+msgstr "Lijn"
 
 #: ../metadata/water.xml.in.h:8
 msgid "Offset Scale"
-msgstr ""
+msgstr "Offset schaal"
 
 #: ../metadata/water.xml.in.h:9
 msgid "Point"
-msgstr ""
+msgstr "Punt"
 
 #: ../metadata/water.xml.in.h:10
-#, fuzzy
 msgid "Rain Delay"
-msgstr "Wachttijd"
+msgstr "Regen vertraging"
 
 #: ../metadata/water.xml.in.h:11
-#, fuzzy
 msgid "Title wave"
-msgstr "Titel: %1"
+msgstr "Titel golf"
 
 #: ../metadata/water.xml.in.h:12
-#, fuzzy
 msgid "Toggle rain"
-msgstr "Token ring"
+msgstr "Schakel regen"
 
 #: ../metadata/water.xml.in.h:13
-#, fuzzy
 msgid "Toggle rain effect"
-msgstr "Token ring"
+msgstr "Schakel regen effect"
 
 #: ../metadata/water.xml.in.h:14
-#, fuzzy
 msgid "Toggle wiper"
-msgstr "Token ring"
+msgstr "Schakel wisser"
 
 #: ../metadata/water.xml.in.h:15
-#, fuzzy
 msgid "Toggle wiper effect"
-msgstr "Token ring"
+msgstr "Schakel wisser effect"
 
 #: ../metadata/water.xml.in.h:16
 msgid "Water Effect"
-msgstr ""
+msgstr "Water effect"
 
 #: ../metadata/water.xml.in.h:17
 msgid "Water offset scale"
-msgstr ""
+msgstr "Water offset schaal"
 
 #: ../metadata/water.xml.in.h:18
-#, fuzzy
 msgid "Wave effect from window title"
-msgstr "afstand vanaf titel"
+msgstr "Golf effect vanaf venster titel"
 
 #: ../metadata/wobbly.xml.in.h:1
 msgid "Focus Effect"
-msgstr ""
+msgstr "Focus effect"
 
 #: ../metadata/wobbly.xml.in.h:2
-#, fuzzy
 msgid "Focus Window Effect"
-msgstr "Windows"
+msgstr "Focus venster effect"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/wobbly.xml.in.h:3
-#, fuzzy
 msgid "Focus Windows"
-msgstr "Windows &verwijderen"
+msgstr "Focus vensters"
 
 #: ../metadata/wobbly.xml.in.h:4
-#, fuzzy
 msgid "Friction"
-msgstr "Actie"
+msgstr "Wrijving"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/wobbly.xml.in.h:5
-#, fuzzy
 msgid "Grab Windows"
-msgstr "Windows &verwijderen"
+msgstr "Grijp vensters"
 
 #: ../metadata/wobbly.xml.in.h:6
-#, fuzzy
 msgid "Grid Resolution"
-msgstr "Resolutie"
+msgstr "Raster Resolutie"
 
 #: ../metadata/wobbly.xml.in.h:7
 msgid "Inverted window snapping"
-msgstr ""
+msgstr "Geïnverteerd venster klikken"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
 #: ../metadata/wobbly.xml.in.h:8
-#, fuzzy
 msgid "Make window shiver"
-msgstr "Windows &verwijderen"
+msgstr "Laat vensters rillen"
 
 #: ../metadata/wobbly.xml.in.h:9
-#, fuzzy
 msgid "Map Effect"
-msgstr "Windows"
+msgstr ""
 
 #: ../metadata/wobbly.xml.in.h:10
-#, fuzzy
 msgid "Map Window Effect"
-msgstr "Windows"
+msgstr ""
 
 #: ../metadata/wobbly.xml.in.h:11
-#, fuzzy
 msgid "Map Windows"
-msgstr "Windows"
+msgstr ""
 
 #: ../metadata/wobbly.xml.in.h:12
-#, fuzzy
 msgid "Maximize Effect"
-msgstr "Windows"
+msgstr "Maximaliseren effect"
 
 #: ../metadata/wobbly.xml.in.h:13
-#, fuzzy
 msgid "Minimum Grid Size"
-msgstr "Maximale grootte"
+msgstr "Minimale raster grootte"
 
 #: ../metadata/wobbly.xml.in.h:14
-#, fuzzy
 msgid "Minimum Vertex Grid Size"
-msgstr "Maximale grootte"
+msgstr "Minimum vertex raster grootte"
 
 #: ../metadata/wobbly.xml.in.h:15
-#, fuzzy
 msgid "Move Windows"
-msgstr "Om&laag"
+msgstr "Verplaats vensters"
 
 # 'driver' as in '(hardware) driver update'
-#: ../metadata/wobbly.xml.in.h:16
-#, fuzzy
-msgid "Shiver"
-msgstr "Stuurprogramma"
-
 #: ../metadata/wobbly.xml.in.h:17
-msgid "Snap Inverted"
-msgstr ""
+msgid "Shiver"
+msgstr "Rilling"
 
 #: ../metadata/wobbly.xml.in.h:18
-#, fuzzy
-msgid "Snap windows"
-msgstr "&Windows verkleinen"
+msgid "Snap Inverted"
+msgstr "Klikken geïnverteerd"
 
 #: ../metadata/wobbly.xml.in.h:19
-#, fuzzy
-msgid "Spring Friction"
-msgstr "Actie"
+msgid "Snap windows"
+msgstr "Vensters klikken"
 
 #: ../metadata/wobbly.xml.in.h:20
-#, fuzzy
-msgid "Spring K"
-msgstr "Stepping"
+msgid "Spring Friction"
+msgstr "Veer Wrijving"
 
 #: ../metadata/wobbly.xml.in.h:21
-#, fuzzy
+msgid "Spring K"
+msgstr "Veer K"
+
+#: ../metadata/wobbly.xml.in.h:22
 msgid "Spring Konstant"
-msgstr "Stepping"
+msgstr "Veer Contstante"
 
 # /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
-#: ../metadata/wobbly.xml.in.h:22
-#, fuzzy
-msgid "Toggle window snapping"
-msgstr "Windows &verwijderen"
-
 #: ../metadata/wobbly.xml.in.h:23
-msgid "Use spring model for wobbly window effect"
-msgstr ""
+msgid "Toggle window snapping"
+msgstr "Schakel venster klikken"
 
 #: ../metadata/wobbly.xml.in.h:24
-#, fuzzy
-msgid "Vertex Grid Resolution"
-msgstr "Server resolutie"
+msgid "Use spring model for wobbly window effect"
+msgstr "Gebruik veer model voor wiebelend venster effect"
 
 #: ../metadata/wobbly.xml.in.h:25
-msgid "Windows that should wobble when focused"
-msgstr ""
+msgid "Vertex Grid Resolution"
+msgstr "Vertex raster resolutie"
 
 #: ../metadata/wobbly.xml.in.h:26
-msgid "Windows that should wobble when grabbed"
-msgstr ""
+msgid "Windows that should wobble when focused"
+msgstr "Vensters die moeten wiebelen tijdens focus"
 
 #: ../metadata/wobbly.xml.in.h:27
-msgid "Windows that should wobble when mapped"
-msgstr ""
+msgid "Windows that should wobble when grabbed"
+msgstr "Vensters die moeten wiebelen als ze gegrepen worden"
 
 #: ../metadata/wobbly.xml.in.h:28
-msgid "Windows that should wobble when moved"
-msgstr ""
+msgid "Windows that should wobble when mapped"
+msgstr "Vensters die moeten wiebelen als ze gemapped worden"
 
 #: ../metadata/wobbly.xml.in.h:29
-msgid "Wobble effect when maximizing and unmaximizing windows"
-msgstr ""
+msgid "Windows that should wobble when moved"
+msgstr "Vensters die moeten wiebelen tijdens verplaatsen"
 
 #: ../metadata/wobbly.xml.in.h:30
-#, fuzzy
+msgid "Wobble effect when maximizing and unmaximizing windows"
+msgstr "Wiebel effect tijdens maximaliseren en herstellen vensters"
+
+#: ../metadata/wobbly.xml.in.h:31
 msgid "Wobbly Windows"
-msgstr "Windows"
+msgstr "Wiebelende Vensters"
 
 #: ../metadata/zoom.xml.in.h:1
-#, fuzzy
 msgid "Filter Linear"
-msgstr "Filter: "
+msgstr "Filter Lineair"
+
+#: ../metadata/zoom.xml.in.h:5
+msgid "Use linear filter when zoomed in"
+msgstr "Gebruik lineair filter zodra ingezoomd"
+
+#: ../metadata/zoom.xml.in.h:6
+msgid "Zoom Desktop"
+msgstr "Zoom bureaublad"
+
+#: ../metadata/zoom.xml.in.h:7
+msgid "Zoom In"
+msgstr "Zoom in"
+
+#: ../metadata/zoom.xml.in.h:8
+msgid "Zoom Out"
+msgstr "Zoom uit"
 
 #: ../metadata/zoom.xml.in.h:9
-msgid "Use linear filter when zoomed in"
-msgstr ""
+msgid "Zoom Pan"
+msgstr "Zoom verschuiven"
 
 #: ../metadata/zoom.xml.in.h:10
-#, fuzzy
-msgid "Zoom Desktop"
-msgstr "Desktop"
+msgid "Zoom Speed"
+msgstr "Zoom snelheid"
 
+# /usr/lib/YaST2/clients/inst_config_x11.ycp:821
 #: ../metadata/zoom.xml.in.h:11
-#, fuzzy
-msgid "Zoom In"
-msgstr "Afmelden"
+msgid "Zoom Timestep"
+msgstr "Zoom tijdstap"
 
 #: ../metadata/zoom.xml.in.h:12
-#, fuzzy
-msgid "Zoom Out"
-msgstr "Afmelden"
+msgid "Zoom and pan desktop cube"
+msgstr "Zoomen en verschuiven van bureaublad kubus"
 
 #: ../metadata/zoom.xml.in.h:13
-#, fuzzy
-msgid "Zoom Speed"
-msgstr "Geselecteerd"
-
-# /usr/lib/YaST2/clients/inst_config_x11.ycp:821
-#: ../metadata/zoom.xml.in.h:14
-#, fuzzy
-msgid "Zoom Timestep"
-msgstr "Testen"
-
-#: ../metadata/zoom.xml.in.h:15
-msgid "Zoom and pan desktop cube"
-msgstr ""
-
-#: ../metadata/zoom.xml.in.h:16
-#, fuzzy
 msgid "Zoom factor"
-msgstr "Afmelden"
+msgstr "Zoom factor"
 
-#: ../src/main.c:55
-msgid "Dock"
-msgstr ""
+#: ../metadata/zoom.xml.in.h:14
+msgid "Zoom pan"
+msgstr "Zoom verschuiven"
 
-#: ../src/main.c:56
-#, fuzzy
-msgid "Toolbar"
-msgstr "Gereedschappen"
+#~ msgid "Desktop Window Opacity Fade Time."
+#~ msgstr "Bureaublad venster opaciteit verduisteren tijdsduur"
 
-#: ../src/main.c:57
-msgid "Menu"
-msgstr "Menu"
-
-#: ../src/main.c:58
-#, fuzzy
-msgid "Utility"
-msgstr "Monitordiskette..."
-
-#: ../src/main.c:59
-#, fuzzy
-msgid "Splash"
-msgstr "opstartscherm"
-
-# /usr/lib/YaST2/clients/dialup_dev_cfg.ycp:336
-#: ../src/main.c:60
-#, fuzzy
-msgid "Dialog"
-msgstr "&Toon bellen"
-
-#: ../src/main.c:61
-msgid "Normal"
-msgstr "Normaal"
-
-#: ../src/main.c:62
-#, fuzzy
-msgid "DropdownMenu"
-msgstr "Window manager"
-
-#: ../src/main.c:63
-#, fuzzy
-msgid "PopupMenu"
-msgstr "Menu"
-
-#: ../src/main.c:64
-#, fuzzy
-msgid "Tooltip"
-msgstr "Gereedschappen"
-
-#: ../src/main.c:65
-#, fuzzy
-msgid "Notification"
-msgstr "Notificaties"
-
-#: ../src/main.c:66
-msgid "Combo"
-msgstr ""
-
-#: ../src/main.c:67
-#, fuzzy
-msgid "Dnd"
-msgstr "End"
-
-#: ../src/main.c:68
-msgid "ModalDialog"
-msgstr ""
-
-#: ../src/main.c:69
-#, fuzzy
-msgid "Fullscreen"
-msgstr "Aanraakbeeldscherm"
-
-#: ../src/main.c:70
-msgid "Unknown"
-msgstr "Onbekend"
-
-#, fuzzy
-#~ msgid "4xBilinear"
-#~ msgstr "Filter: "
-
-#, fuzzy
-#~ msgid "Gaussian"
-#~ msgstr "Russisch"
-
-#, fuzzy
-#~ msgid "Blur saturation (0-100)"
-#~ msgstr "Tijdsduur"
-
-#, fuzzy
-#~ msgid "Do not modify"
-#~ msgstr "Niets loggen"
-
-#, fuzzy
-#~ msgid "Drop shadow opacity (0.01-6.00)"
-#~ msgstr "&Lage capaciteit"
-
-#, fuzzy
-#~ msgid "Drop shadow radius (0.0-48.0)"
-#~ msgstr "Radius"
-
-#, fuzzy
-#~ msgid "Focus prevention windows (match)"
-#~ msgstr "De daemon wordt gestart."
-
-# workflow: "3D Beschleunigung aktivieren"
-# -ke-
-# /usr/lib/YaST2/clients/inst_config_x11.ycp:812
-#, fuzzy
-#~ msgid "Fold Acceleration (1.0-20.0)"
-#~ msgstr "3D-versnelling: "
-
-# workflow: "3D Beschleunigung aktivieren"
-# -ke-
-# /usr/lib/YaST2/clients/inst_config_x11.ycp:812
-#, fuzzy
-#~ msgid "Fold Speed (0.0-50.0)"
-#~ msgstr "3D-versnelling: "
-
-# /usr/lib/YaST2/clients/inst_config_x11.ycp:821
-#, fuzzy
-#~ msgid "Fold Timestep (0.0-50.0)"
-#~ msgstr "Testen"
-
-#, fuzzy
-#~ msgid "Gaussian radius (1-15)"
-#~ msgstr "Russische Federatie"
-
-#, fuzzy
-#~ msgid "Gaussian strength (0.00-1.00)"
-#~ msgstr "Russisch"
-
-#, fuzzy
-#~ msgid "Map Window Effect (None, Shiver)"
-#~ msgstr "Windows"
-
-#, fuzzy
-#~ msgid "Minimize speed (0.0-50.0)"
-#~ msgstr "&Windows verkleinen"
-
-#, fuzzy
-#~ msgid "Minimize timestep (0.0-50.0)"
-#~ msgstr "&Windows verkleinen"
-
-#, fuzzy
-#~ msgid "Minimum Vertex Grid Size (4-128)"
-#~ msgstr "Maximale grootte"
-
-#, fuzzy
-#~ msgid "Number of virtual desktops (1-36)"
-#~ msgstr "Desktop op afstand"
-
-#, fuzzy
-#~ msgid "Opacity change step (1-50)"
-#~ msgstr "Occitaans (na 1500)"
-
-#, fuzzy
-#~ msgid "Opacity level of moving windows (1-100)"
-#~ msgstr "De daemon wordt gestart."
-
-#, fuzzy
-#~ msgid "Opacity level of resizing windows (1-100)"
-#~ msgstr "De daemon wordt gestart."
-
-#, fuzzy
-#~ msgid "Outline Color"
-#~ msgstr "Kleuren"
-
-# workflow: "3D Beschleunigung aktivieren"
-# -ke-
-# /usr/lib/YaST2/clients/inst_config_x11.ycp:812
-#, fuzzy
-#~ msgid "Rotation Acceleration (1.0-20.0)"
-#~ msgstr "3D-versnelling: "
-
-# /usr/lib/YaST2/clients/inst_config_x11.ycp:821
-#, fuzzy
-#~ msgid "Rotation Timestep (0.0-50.0)"
-#~ msgstr "Testen"
-
-#, fuzzy
-#~ msgid "Scale speed (0.0-50.0)"
-#~ msgstr "lokale tijd"
-
-#, fuzzy
-#~ msgid "Scale timestep (0.0-50.0)"
-#~ msgstr "lokale tijd"
-
-# /usr/lib/YaST2/clients/lan_inetd_custom.ycp:770
-#, fuzzy
-#~ msgid "Space between windows (0-250)"
-#~ msgstr "Windows &verwijderen"
-
-#, fuzzy
-#~ msgid "Spring Friction (0.0-10.0)"
-#~ msgstr "Actie"
-
-#, fuzzy
-#~ msgid "Spring Konstant (0.0-10.0)"
-#~ msgstr "Stepping"
-
-#, fuzzy
-#~ msgid "Switcher speed (0.0-50.0)"
-#~ msgstr "Wisselscripts"
-
-#, fuzzy
-#~ msgid "Texture filtering (Fast, Good, Best)"
-#~ msgstr "Filter in&stellen"
-
-#, fuzzy
-#~ msgid "Vertex Grid Resolution (1-64)"
-#~ msgstr "Server resolutie"
-
-#, fuzzy
-#~ msgid "Window blur speed (0.0-10.0)"
-#~ msgstr "Windows vrij (%1)"
-
-#, fuzzy
-#~ msgid "Window fade speed (0.0-25.0)"
-#~ msgstr "Windows vrij (%1)"
-
-#, fuzzy
-#~ msgid "Zoom Speed (0.0-50.0)"
-#~ msgstr "Geselecteerd"
-
-# /usr/lib/YaST2/clients/inst_config_x11.ycp:821
-#, fuzzy
-#~ msgid "Zoom Timestep (0.0-50.0)"
-#~ msgstr "Testen"
-
-#, fuzzy
-#~ msgid "Zoom factor (1.01-3.00)"
-#~ msgstr "Afmelden"
-
-#, fuzzy
-#~ msgid "Plane To Face %d"
-#~ msgstr "Scherm draaien"
-
-#, fuzzy
-#~ msgid "Plane to face %d"
-#~ msgstr "Scherm draaien"
-
-#, fuzzy
-#~ msgid "Plane To Face %d with Window"
-#~ msgstr "De daemon wordt gestart."
-
-#, fuzzy
-#~ msgid "Rotate To Face %d"
-#~ msgstr "Scherm draaien"
-
-#, fuzzy
-#~ msgid "Rotate to face %d"
-#~ msgstr "Scherm draaien"
-
-#~ msgid "None"
-#~ msgstr "Geen"
-
-#~ msgid "Big"
-#~ msgstr "Groot"
-
-#, fuzzy
-#~ msgid "Command line %d"
-#~ msgstr "Commando: "
-
-#, fuzzy
-#~ msgid "Run command %d"
-#~ msgstr "Commando: "
-
-#, fuzzy
-#~ msgid "Window Types"
-#~ msgstr "Windows"
-
-#, fuzzy
-#~ msgid "Move Window Types"
-#~ msgstr "Providertype"
-
-#, fuzzy
-#~ msgid "Enable focus prevention"
-#~ msgstr "ZEN-partitie inschakelen"
-
-#, fuzzy
-#~ msgid "Corners"
-#~ msgstr "Cornish"
-
-# /usr/lib/YaST2/clients/inst_config_x11.ycp:1061
-#, fuzzy
-#~ msgid "Show switcher"
-#~ msgstr "&Wijzigingen weergeven"
-
-#, fuzzy
-#~ msgid "Sloppy Focus"
-#~ msgstr "Diskette"
-
-#, fuzzy
-#~ msgid "Start moving window using keyboard"
-#~ msgstr "De daemon wordt gestart."
-
-#, fuzzy
-#~ msgid "Terminate"
-#~ msgstr "Terminals"
+#~ msgid "Fade Time"
+#~ msgstr "Verduisteren tijdsduur"

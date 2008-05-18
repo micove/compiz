@@ -1,3 +1,11 @@
+compiz (0.7.4-1) unstable; urgency=low
+
+  * New upstream release
+  * Incorporate xcb-disabling patch from
+    http://gitweb.opencompositing.org/?p=users/3v1n0/compiz-patches
+
+ -- Sean Finney <seanius@debian.org>  Sun, 18 May 2008 19:15:13 +0200
+
 compiz (0.6.3~git20080115.0ea58487-1) unstable; urgency=low
 
   * New upstream (git snapshot) release.  Refreshed quilt patches.

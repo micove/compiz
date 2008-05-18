@@ -1,28 +1,86 @@
-Release 0.6.2 (2007-10-18 Danny Baumann <dannybaumann@web.de>)
-==============================================================
-Stable release.
+Release 0.7.4 (2008-03-04 Dennis Kasprzyk <onestone@opencompositing.org>)
+=========================================================================
+Development release.
 
-Support for automatically starting one decorator per screen.
+Configurable handling of overlapping output devices.
 
-Various stacking problem fixes.
+Enhanced focus stealing prevention with configurable amount of focus
+stealing prevention.
 
-Fixes for various focus issues.
+Added configurable, optional delay for edge actions to prevent
+accidential invocation.
 
-Minor other bug fixes.
+Generalized vertex system to improve plugin compatibility.
 
-Release 0.6.0 (2007-10-01 Danny Baumann <dannybaumann@web.de>)
-==============================================================
-Third stable release of Compiz.
+Optimized gaussian blur shaders to support more hardware.
 
-Improved focus stealing prevention.
+Improved unredirection of fullscreen windows.
 
-Improved dynamic desktop resizing support.
+Several bugfixes.
 
-Added button action configuration options to gtk-window-decorator.
+Translation updates.
 
-Added UTF-8 window title support to kde-window-decorator.
+Release 0.7.2 (2008-03-06 Dennis Kasprzyk <onestone@opencompositing.org>)
+=========================================================================
+Development release.
 
-Various bug fixes and improvements.
+Several bugfixes 
+
+Translation support in gtk-window-decorator.
+
+Updated translations.
+
+Added wrapable session functions to core. This allows to provide a full session save/restore in a plugin.
+
+Release 0.7.0 (2008-02-07 Dennis Kasprzyk <onestone@opencompositing.org>)
+=========================================================================
+Development release.
+
+A core plugin has been added that allows handling certain core APIs, such as
+querying the ABI version, similarly to plugin APIs, allowing sharing more
+code.
+
+Added a simple object system, which generalize the privates mechanism and the plugin system. It allows to share more code between display, screen and window objects. It also makes it possible to properly introduce new object types without changing the plugin interface or breaking the API.
+
+Multi-display support.
+
+Various fixes in ICCCM compliance, window stacking and focus handling.
+
+Validity checking of ConfigureRequest events.
+
+Fixes to transient children placement in place plugin.
+
+Hooks have been added to the cube plugin which allow better control of
+viewport drawing.
+
+Middle and right click actions have been made configurable in
+gtk-window-decorator.
+
+Gtk-window-decorator now optionally allows mouse wheel title bar actions, such
+as shading.
+
+A KDE4 port of the kde-window-decorator has been added.
+
+Frequent crashes of kde-window-decorator for some people have been fixed.
+
+
+Release 0.5.4 (2007-08-20 David Reveman <davidr@novell.com>)
+============================================================
+Development release.
+
+XCB is now required.
+
+Major improvements to option system that makes
+configuration backend integration much less complex.
+
+Kconfig plugin that provides proper KDE configuration
+support.
+
+Kcfg files are generated from the meta-data and they can
+be used to generate C++ source code that will provide an
+API for applications to access all compiz configuration
+data used by the kconfig plugin.
+
 
 Release 0.5.2 (2007-08-03 David Reveman <davidr@novell.com>)
 ============================================================

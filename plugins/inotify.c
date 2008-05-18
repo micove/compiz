@@ -28,11 +28,11 @@
 #include <poll.h>
 #include <sys/inotify.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 static CompMetadata inotifyMetadata;
 
-static int displayPrivateIndex;
+static int corePrivateIndex;
 
 typedef struct _CompInotifyWatch {
     struct _CompInotifyWatch *next;
@@ -40,32 +40,31 @@ typedef struct _CompInotifyWatch {
     int			     wd;
 } CompInotifyWatch;
 
-typedef struct _InotifyDisplay {
+typedef struct _InotifyCore {
     int		      fd;
     CompInotifyWatch  *watch;
     CompWatchFdHandle watchFdHandle;
 
     FileWatchAddedProc   fileWatchAdded;
     FileWatchRemovedProc fileWatchRemoved;
-} InotifyDisplay;
+} InotifyCore;
 
-#define GET_INOTIFY_DISPLAY(d)				        \
-    ((InotifyDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_INOTIFY_CORE(c)				       \
+    ((InotifyCore *) (c)->base.privates[corePrivateIndex].ptr)
 
-#define INOTIFY_DISPLAY(d)		         \
-    InotifyDisplay *id = GET_INOTIFY_DISPLAY (d)
+#define INOTIFY_CORE(c)			   \
+    InotifyCore *ic = GET_INOTIFY_CORE (c)
 
 
 static Bool
 inotifyProcessEvents (void *data)
 {
-    char	buf[256 * (sizeof (struct inotify_event) + 16)];
-    CompDisplay	*d = (CompDisplay *) data;
-    int		len;
+    char buf[256 * (sizeof (struct inotify_event) + 16)];
+    int	 len;
 
-    INOTIFY_DISPLAY (d);
+    INOTIFY_CORE (&core);
 
-    len = read (id->fd, buf, sizeof (buf));
+    len = read (ic->fd, buf, sizeof (buf));
     if (len < 0)
     {
 	perror ("read");
@@ -81,13 +80,13 @@ inotifyProcessEvents (void *data)
 	{
 	    event = (struct inotify_event *) &buf[i];
 
-	    for (iw = id->watch; iw; iw = iw->next)
+	    for (iw = ic->watch; iw; iw = iw->next)
 		if (iw->wd == event->wd)
 		    break;
 
 	    if (iw)
 	    {
-		for (fw = d->fileWatch; fw; fw = fw->next)
+		for (fw = core.fileWatch; fw; fw = fw->next)
 		    if (fw->handle == iw->handle)
 			break;
 
@@ -128,19 +127,19 @@ inotifyMask (CompFileWatch *fileWatch)
 }
 
 static void
-inotifyFileWatchAdded (CompDisplay   *d,
+inotifyFileWatchAdded (CompCore      *c,
 		       CompFileWatch *fileWatch)
 {
     CompInotifyWatch *iw;
 
-    INOTIFY_DISPLAY (d);
+    INOTIFY_CORE (c);
 
     iw = malloc (sizeof (CompInotifyWatch));
     if (!iw)
 	return;
 
     iw->handle = fileWatch->handle;
-    iw->wd     = inotify_add_watch (id->fd,
+    iw->wd     = inotify_add_watch (ic->fd,
 				    fileWatch->path,
 				    inotifyMask (fileWatch));
     if (iw->wd < 0)
@@ -150,19 +149,19 @@ inotifyFileWatchAdded (CompDisplay   *d,
 	return;
     }
 
-    iw->next  = id->watch;
-    id->watch = iw;
+    iw->next  = ic->watch;
+    ic->watch = iw;
 }
 
 static void
-inotifyFileWatchRemoved (CompDisplay   *d,
+inotifyFileWatchRemoved (CompCore      *c,
 			 CompFileWatch *fileWatch)
 {
     CompInotifyWatch *p = 0, *iw;
 
-    INOTIFY_DISPLAY (d);
+    INOTIFY_CORE (c);
 
-    for (iw = id->watch; iw; iw = iw->next)
+    for (iw = ic->watch; iw; iw = iw->next)
     {
 	if (iw->handle == fileWatch->handle)
 	    break;
@@ -175,9 +174,9 @@ inotifyFileWatchRemoved (CompDisplay   *d,
 	if (p)
 	    p->next = iw->next;
 	else
-	    id->watch = iw->next;
+	    ic->watch = iw->next;
 
-	if (inotify_rm_watch (id->fd, iw->wd))
+	if (inotify_rm_watch (ic->fd, iw->wd))
 	    perror ("inotify_rm_watch");
 
 	free (iw);
@@ -185,56 +184,86 @@ inotifyFileWatchRemoved (CompDisplay   *d,
 }
 
 static Bool
-inotifyInitDisplay (CompPlugin  *p,
-		    CompDisplay *d)
+inotifyInitCore (CompPlugin *p,
+		 CompCore   *c)
 {
-    InotifyDisplay *id;
-    CompFileWatch  *fw;
+    InotifyCore   *ic;
+    CompFileWatch *fw;
 
-    id = malloc (sizeof (InotifyDisplay));
-    if (!id)
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
 	return FALSE;
 
-    id->fd = inotify_init ();
-    if (id->fd < 0)
+    ic = malloc (sizeof (InotifyCore));
+    if (!ic)
+	return FALSE;
+
+    ic->fd = inotify_init ();
+    if (ic->fd < 0)
     {
 	perror ("inotify_init");
-	free (id);
+	free (ic);
 	return FALSE;
     }
 
-    id->watch = NULL;
+    ic->watch = NULL;
 
-    id->watchFdHandle = compAddWatchFd (id->fd,
+    ic->watchFdHandle = compAddWatchFd (ic->fd,
 					POLLIN | POLLPRI | POLLHUP | POLLERR,
 					inotifyProcessEvents,
-					d);
+					NULL);
 
-    WRAP (id, d, fileWatchAdded, inotifyFileWatchAdded);
-    WRAP (id, d, fileWatchRemoved, inotifyFileWatchRemoved);
+    WRAP (ic, c, fileWatchAdded, inotifyFileWatchAdded);
+    WRAP (ic, c, fileWatchRemoved, inotifyFileWatchRemoved);
 
-    d->privates[displayPrivateIndex].ptr = id;
+    c->base.privates[corePrivateIndex].ptr = ic;
 
-    for (fw = d->fileWatch; fw; fw = fw->next)
-	inotifyFileWatchAdded (d, fw);
+    for (fw = c->fileWatch; fw; fw = fw->next)
+	inotifyFileWatchAdded (c, fw);
 
     return TRUE;
 }
 
 static void
-inotifyFiniDisplay (CompPlugin  *p,
-		    CompDisplay *d)
+inotifyFiniCore (CompPlugin *p,
+		 CompCore   *c)
 {
-    INOTIFY_DISPLAY (d);
+    CompFileWatch *fw;
 
-    compRemoveWatchFd (id->watchFdHandle);
+    INOTIFY_CORE (c);
 
-    close (id->fd);
+    compRemoveWatchFd (ic->watchFdHandle);
 
-    UNWRAP (id, d, fileWatchAdded);
-    UNWRAP (id, d, fileWatchRemoved);
+    for (fw = c->fileWatch; fw; fw = fw->next)
+	inotifyFileWatchRemoved (c, fw);
 
-    free (id);
+    close (ic->fd);
+
+    UNWRAP (ic, c, fileWatchAdded);
+    UNWRAP (ic, c, fileWatchRemoved);
+
+    free (ic);
+}
+
+static CompBool
+inotifyInitObject (CompPlugin *p,
+		   CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) inotifyInitCore
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+inotifyFiniObject (CompPlugin *p,
+		   CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) inotifyFiniCore
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
 }
 
 static Bool
@@ -244,8 +273,8 @@ inotifyInit (CompPlugin *p)
 					 0, 0, 0, 0))
 	return FALSE;
 
-    displayPrivateIndex = allocateDisplayPrivateIndex ();
-    if (displayPrivateIndex < 0)
+    corePrivateIndex = allocateCorePrivateIndex ();
+    if (corePrivateIndex < 0)
     {
 	compFiniMetadata (&inotifyMetadata);
 	return FALSE;
@@ -259,15 +288,8 @@ inotifyInit (CompPlugin *p)
 static void
 inotifyFini (CompPlugin *p)
 {
-    freeDisplayPrivateIndex (displayPrivateIndex);
+    freeCorePrivateIndex (corePrivateIndex);
     compFiniMetadata (&inotifyMetadata);
-}
-
-static int
-inotifyGetVersion (CompPlugin *plugin,
-		   int	      version)
-{
-    return ABIVERSION;
 }
 
 static CompMetadata *
@@ -278,24 +300,17 @@ inotifyGetMetadata (CompPlugin *plugin)
 
 CompPluginVTable inotifyVTable = {
     "inotify",
-    inotifyGetVersion,
     inotifyGetMetadata,
     inotifyInit,
     inotifyFini,
-    inotifyInitDisplay,
-    inotifyFiniDisplay,
-    0, /* InitScreen */
-    0, /* FiniScreen */
-    0, /* InitWindow */
-    0, /* FiniWindow */
-    0, /* GetDisplayOptions */
-    0, /* SetDisplayOption */
-    0, /* GetScreenOptions */
-    0  /* SetScreenOption */
+    inotifyInitObject,
+    inotifyFiniObject,
+    0, /* GetObjectOptions */
+    0  /* SetObjectOption */
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &inotifyVTable;
 }

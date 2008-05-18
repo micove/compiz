@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/poll.h>
+#include <assert.h>
 
 #define XK_MISCELLANY
 #include <X11/keysymdef.h>
@@ -41,44 +42,15 @@
 #include <X11/extensions/Xrandr.h>
 #include <X11/extensions/shape.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 static unsigned int virtualModMask[] = {
     CompAltMask, CompMetaMask, CompSuperMask, CompHyperMask,
     CompModeSwitchMask, CompNumLockMask, CompScrollLockMask
 };
 
-typedef struct _CompTimeout {
-    struct _CompTimeout *next;
-    int			time;
-    int			left;
-    CallBackProc	callBack;
-    void		*closure;
-    CompTimeoutHandle   handle;
-} CompTimeout;
-
-static CompTimeout       *timeouts = 0;
-static struct timeval    lastTimeout;
-static CompTimeoutHandle lastTimeoutHandle = 1;
-
-typedef struct _CompWatchFd {
-    struct _CompWatchFd *next;
-    int			fd;
-    CallBackProc	callBack;
-    void		*closure;
-    CompWatchFdHandle   handle;
-} CompWatchFd;
-
-static CompWatchFd       *watchFds = 0;
-static CompWatchFdHandle lastWatchFdHandle = 1;
-static struct pollfd     *watchPollFds = 0;
-static int               nWatchFds = 0;
-
-static CompFileWatchHandle lastFileWatchHandle = 1;
-
 static CompScreen *targetScreen = NULL;
 static CompOutput *targetOutput;
-static Region	  tmpRegion, outputRegion;
 
 static Bool inHandleEvent = FALSE;
 
@@ -98,10 +70,6 @@ int pointerY     = 0;
 
 #define NUM_OPTIONS(d) (sizeof ((d)->opt) / sizeof (CompOption))
 
-CompDisplay *compDisplays = 0;
-
-static CompDisplay compDisplay;
-
 static char *displayPrivateIndices = 0;
 static int  displayPrivateLen = 0;
 
@@ -109,23 +77,23 @@ static int
 reallocDisplayPrivate (int  size,
 		       void *closure)
 {
-    CompDisplay *d = compDisplays;
+    CompDisplay *d;
     void        *privates;
 
-    if (d)
+    for (d = core.displays; d; d = d->next)
     {
-	privates = realloc (d->privates, size * sizeof (CompPrivate));
+	privates = realloc (d->base.privates, size * sizeof (CompPrivate));
 	if (!privates)
 	    return FALSE;
 
-	d->privates = (CompPrivate *) privates;
+	d->base.privates = (CompPrivate *) privates;
     }
 
     return TRUE;
 }
 
 int
-allocateDisplayPrivateIndex (void)
+allocDisplayObjectPrivateIndex (CompObject *parent)
 {
     return allocatePrivateIndex (&displayPrivateLen,
 				 &displayPrivateIndices,
@@ -134,9 +102,60 @@ allocateDisplayPrivateIndex (void)
 }
 
 void
-freeDisplayPrivateIndex (int index)
+freeDisplayObjectPrivateIndex (CompObject *parent,
+			       int	  index)
 {
     freePrivateIndex (displayPrivateLen, displayPrivateIndices, index);
+}
+
+CompBool
+forEachDisplayObject (CompObject         *parent,
+		      ObjectCallBackProc proc,
+		      void	         *closure)
+{
+    if (parent->type == COMP_OBJECT_TYPE_CORE)
+    {
+	CompDisplay *d;
+
+	for (d = core.displays; d; d = d->next)
+	{
+	    if (!(*proc) (&d->base, closure))
+		return FALSE;
+	}
+    }
+
+    return TRUE;
+}
+
+char *
+nameDisplayObject (CompObject *object)
+{
+    return NULL;
+}
+
+CompObject *
+findDisplayObject (CompObject *parent,
+		   const char *name)
+{
+    if (parent->type == COMP_OBJECT_TYPE_CORE)
+    {
+	if (!name || !name[0])
+	    return &core.displays->base;
+    }
+
+    return NULL;
+}
+
+int
+allocateDisplayPrivateIndex (void)
+{
+    return compObjectAllocatePrivateIndex (NULL, COMP_OBJECT_TYPE_DISPLAY);
+}
+
+void
+freeDisplayPrivateIndex (int index)
+{
+    compObjectFreePrivateIndex (NULL, COMP_OBJECT_TYPE_DISPLAY, index);
 }
 
 static Bool
@@ -467,13 +486,13 @@ runCommandDispatch (CompDisplay     *d,
     if (s)
     {
 	int index = -1;
-	int i = COMP_DISPLAY_OPTION_RUN_COMMAND0;
+	int i = COMP_DISPLAY_OPTION_RUN_COMMAND0_KEY;
 
-	while (i <= COMP_DISPLAY_OPTION_RUN_COMMAND11)
+	while (i <= COMP_DISPLAY_OPTION_RUN_COMMAND11_KEY)
 	{
 	    if (action == &d->opt[i].value.action)
 	    {
-		index = i - COMP_DISPLAY_OPTION_RUN_COMMAND0 +
+		index = i - COMP_DISPLAY_OPTION_RUN_COMMAND0_KEY +
 		    COMP_DISPLAY_OPTION_COMMAND0;
 		break;
 	    }
@@ -665,14 +684,16 @@ shade (CompDisplay     *d,
 }
 
 const CompMetadataOptionInfo coreDisplayOptionInfo[COMP_DISPLAY_OPTION_NUM] = {
+    { "abi", "int", 0, 0, 0 },
     { "active_plugins", "list", "<type>string</type>", 0, 0 },
     { "texture_filter", "int", RESTOSTRING (0, 2), 0, 0 },
     { "click_to_focus", "bool", 0, 0, 0 },
     { "autoraise", "bool", 0, 0, 0 },
     { "autoraise_delay", "int", 0, 0, 0 },
-    { "close_window", "action", 0, closeWin, 0 },
-    { "main_menu", "action", 0, mainMenu, 0 },
-    { "run", "action", 0, runDialog, 0 },
+    { "close_window_key", "key", 0, closeWin, 0 },
+    { "close_window_button", "button", 0, closeWin, 0 },
+    { "main_menu_key", "key", 0, mainMenu, 0 },
+    { "run_key", "key", 0, runDialog, 0 },
     { "command0", "string", 0, 0, 0 },
     { "command1", "string", 0, 0, 0 },
     { "command2", "string", 0, 0, 0 },
@@ -685,53 +706,61 @@ const CompMetadataOptionInfo coreDisplayOptionInfo[COMP_DISPLAY_OPTION_NUM] = {
     { "command9", "string", 0, 0, 0 },
     { "command10", "string", 0, 0, 0 },
     { "command11", "string", 0, 0, 0 },
-    { "run_command0", "action", 0, runCommandDispatch, 0 },
-    { "run_command1", "action", 0, runCommandDispatch, 0 },
-    { "run_command2", "action", 0, runCommandDispatch, 0 },
-    { "run_command3", "action", 0, runCommandDispatch, 0 },
-    { "run_command4", "action", 0, runCommandDispatch, 0 },
-    { "run_command5", "action", 0, runCommandDispatch, 0 },
-    { "run_command6", "action", 0, runCommandDispatch, 0 },
-    { "run_command7", "action", 0, runCommandDispatch, 0 },
-    { "run_command8", "action", 0, runCommandDispatch, 0 },
-    { "run_command9", "action", 0, runCommandDispatch, 0 },
-    { "run_command10", "action", 0, runCommandDispatch, 0 },
-    { "run_command11", "action", 0, runCommandDispatch, 0 },
-    { "slow_animations", "action", 0, toggleSlowAnimations, 0 },
-    { "raise_window", "action", 0, raiseInitiate, 0 },
-    { "lower_window", "action", 0, lowerInitiate, 0 },
-    { "unmaximize_window", "action", 0, unmaximize, 0 },
-    { "minimize_window", "action", 0, minimize, 0 },
-    { "maximize_window", "action", 0, maximize, 0 },
-    { "maximize_window_horizontally", "action", 0, maximizeHorizontally, 0 },
-    { "maximize_window_vertically", "action", 0, maximizeVertically, 0 },
-    { "opacity_increase", "action", 0, increaseOpacity, 0 },
-    { "opacity_decrease", "action", 0, decreaseOpacity, 0 },
+    { "run_command0_key", "key", 0, runCommandDispatch, 0 },
+    { "run_command1_key", "key", 0, runCommandDispatch, 0 },
+    { "run_command2_key", "key", 0, runCommandDispatch, 0 },
+    { "run_command3_key", "key", 0, runCommandDispatch, 0 },
+    { "run_command4_key", "key", 0, runCommandDispatch, 0 },
+    { "run_command5_key", "key", 0, runCommandDispatch, 0 },
+    { "run_command6_key", "key", 0, runCommandDispatch, 0 },
+    { "run_command7_key", "key", 0, runCommandDispatch, 0 },
+    { "run_command8_key", "key", 0, runCommandDispatch, 0 },
+    { "run_command9_key", "key", 0, runCommandDispatch, 0 },
+    { "run_command10_key", "key", 0, runCommandDispatch, 0 },
+    { "run_command11_key", "key", 0, runCommandDispatch, 0 },
+    { "slow_animations_key", "key", 0, toggleSlowAnimations, 0 },
+    { "raise_window_key", "key", 0, raiseInitiate, 0 },
+    { "raise_window_button", "button", 0, raiseInitiate, 0 },
+    { "lower_window_key", "key", 0, lowerInitiate, 0 },
+    { "lower_window_button", "button", 0, lowerInitiate, 0 },
+    { "unmaximize_window_key", "key", 0, unmaximize, 0 },
+    { "minimize_window_key", "key", 0, minimize, 0 },
+    { "minimize_window_button", "button", 0, minimize, 0 },
+    { "maximize_window_key", "key", 0, maximize, 0 },
+    { "maximize_window_horizontally_key", "key", 0, maximizeHorizontally, 0 },
+    { "maximize_window_vertically_key", "key", 0, maximizeVertically, 0 },
+    { "opacity_increase_button", "button", 0, increaseOpacity, 0 },
+    { "opacity_decrease_button", "button", 0, decreaseOpacity, 0 },
     { "command_screenshot", "string", 0, 0, 0 },
-    { "run_command_screenshot", "action", 0, runCommandScreenshot, 0 },
+    { "run_command_screenshot_key", "key", 0, runCommandScreenshot, 0 },
     { "command_window_screenshot", "string", 0, 0, 0 },
-    { "run_command_window_screenshot", "action", 0,
+    { "run_command_window_screenshot_key", "key", 0,
       runCommandWindowScreenshot, 0 },
-    { "window_menu", "action", 0, windowMenu, 0 },
-    { "show_desktop", "action", 0, showDesktop, 0 },
+    { "window_menu_button", "button", 0, windowMenu, 0 },
+    { "window_menu_key", "key", 0, windowMenu, 0 },
+    { "show_desktop_key", "key", 0, showDesktop, 0 },
+    { "show_desktop_edge", "edge", 0, showDesktop, 0 },
     { "raise_on_click", "bool", 0, 0, 0 },
     { "audible_bell", "bool", 0, 0, 0 },
-    { "toggle_window_maximized", "action", 0, toggleMaximized, 0 },
-    { "toggle_window_maximized_horizontally", "action", 0,
+    { "toggle_window_maximized_key", "key", 0, toggleMaximized, 0 },
+    { "toggle_window_maximized_button", "button", 0, toggleMaximized, 0 },
+    { "toggle_window_maximized_horizontally_key", "key", 0,
       toggleMaximizedHorizontally, 0 },
-    { "toggle_window_maximized_vertically", "action", 0,
+    { "toggle_window_maximized_vertically_key", "key", 0,
       toggleMaximizedVertically, 0 },
     { "hide_skip_taskbar_windows", "bool", 0, 0, 0 },
-    { "toggle_window_shaded", "action", 0, shade, 0 },
+    { "toggle_window_shaded_key", "key", 0, shade, 0 },
     { "ignore_hints_when_maximized", "bool", 0, 0, 0 },
     { "command_terminal", "string", 0, 0, 0 },
-    { "run_command_terminal", "action", 0, runCommandTerminal, 0 },
-    { "ping_delay", "int", "<min>1000</min>", 0, 0 }
+    { "run_command_terminal_key", "key", 0, runCommandTerminal, 0 },
+    { "ping_delay", "int", "<min>1000</min>", 0, 0 },
+    { "edge_delay", "int", "<min>0</min>", 0, 0 }
 };
 
 CompOption *
-compGetDisplayOptions (CompDisplay *display,
-		       int	   *count)
+getDisplayOptions (CompPlugin  *plugin,
+		   CompDisplay *display,
+		   int	       *count)
 {
     *count = NUM_OPTIONS (display);
     return display->opt;
@@ -820,9 +849,10 @@ pingTimeout (void *closure)
     return TRUE;
 }
 
-static Bool
-setDisplayOption (CompDisplay     *display,
-		  char	          *name,
+Bool
+setDisplayOption (CompPlugin	  *plugin,
+		  CompDisplay     *display,
+		  const char      *name,
 		  CompOptionValue *value)
 {
     CompOption *o;
@@ -833,6 +863,8 @@ setDisplayOption (CompDisplay     *display,
 	return FALSE;
 
     switch (index) {
+    case COMP_DISPLAY_OPTION_ABI:
+	break;
     case COMP_DISPLAY_OPTION_ACTIVE_PLUGINS:
 	if (compSetOptionList (o, value))
 	{
@@ -883,21 +915,6 @@ setDisplayOption (CompDisplay     *display,
     return FALSE;
 }
 
-static Bool
-setDisplayOptionForPlugin (CompDisplay     *display,
-			   char	           *plugin,
-			   char	           *name,
-			   CompOptionValue *value)
-{
-    CompPlugin *p;
-
-    p = findActivePlugin (plugin);
-    if (p && p->vTable->setDisplayOption)
-	return (*p->vTable->setDisplayOption) (p, display, name, value);
-
-    return FALSE;
-}
-
 static void
 updatePlugins (CompDisplay *d)
 {
@@ -908,20 +925,30 @@ updatePlugins (CompDisplay *d)
     d->dirtyPluginList = FALSE;
 
     o = &d->opt[COMP_DISPLAY_OPTION_ACTIVE_PLUGINS];
-    for (i = 0; i < d->plugin.list.nValue && i < o->value.list.nValue; i++)
+
+    /* The old plugin list always begins with the core plugin. To make sure
+       we don't unnecessarily unload plugins if the new plugin list does not
+       contain the core plugin, we have to use an offset */
+    if (o->value.list.nValue > 0 && strcmp (o->value.list.value[0].s, "core"))
+	i = 0;
+    else
+	i = 1;
+
+    /* j is initialized to 1 to make sure we never pop the core plugin */
+    for (j = 1; j < d->plugin.list.nValue && i < o->value.list.nValue; i++, j++)
     {
-	if (strcmp (d->plugin.list.value[i].s, o->value.list.value[i].s))
+	if (strcmp (d->plugin.list.value[j].s, o->value.list.value[i].s))
 	    break;
     }
 
-    nPop = d->plugin.list.nValue - i;
+    nPop = d->plugin.list.nValue - j;
 
     if (nPop)
     {
 	pop = malloc (sizeof (CompPlugin *) * nPop);
 	if (!pop)
 	{
-	    (*d->setDisplayOption) (d, o->name, &d->plugin);
+	    (*core.setOptionForPlugin) (&d->base, "core", o->name, &d->plugin);
 	    return;
 	}
     }
@@ -993,7 +1020,7 @@ updatePlugins (CompDisplay *d)
     if (nPop)
 	free (pop);
 
-    (*d->setDisplayOption) (d, o->name, &d->plugin);
+    (*core.setOptionForPlugin) (&d->base, "core", o->name, &d->plugin);
 }
 
 static void
@@ -1001,7 +1028,7 @@ addTimeout (CompTimeout *timeout)
 {
     CompTimeout *p = 0, *t;
 
-    for (t = timeouts; t; t = t->next)
+    for (t = core.timeouts; t; t = t->next)
     {
 	if (timeout->time < t->left)
 	    break;
@@ -1015,7 +1042,7 @@ addTimeout (CompTimeout *timeout)
     if (p)
 	p->next = timeout;
     else
-	timeouts = timeout;
+	core.timeouts = timeout;
 }
 
 CompTimeoutHandle
@@ -1032,13 +1059,10 @@ compAddTimeout (int	     time,
     timeout->time     = time;
     timeout->callBack = callBack;
     timeout->closure  = closure;
-    timeout->handle   = lastTimeoutHandle++;
+    timeout->handle   = core.lastTimeoutHandle++;
 
-    if (lastTimeoutHandle == MAXSHORT)
-	lastTimeoutHandle = 1;
-
-    if (!timeouts)
-	gettimeofday (&lastTimeout, 0);
+    if (core.lastTimeoutHandle == MAXSHORT)
+	core.lastTimeoutHandle = 1;
 
     addTimeout (timeout);
 
@@ -1051,7 +1075,7 @@ compRemoveTimeout (CompTimeoutHandle handle)
     CompTimeout *p = 0, *t;
     void        *closure = NULL;
 
-    for (t = timeouts; t; t = t->next)
+    for (t = core.timeouts; t; t = t->next)
     {
 	if (t->handle == handle)
 	    break;
@@ -1064,7 +1088,7 @@ compRemoveTimeout (CompTimeoutHandle handle)
 	if (p)
 	    p->next = t->next;
 	else
-	    timeouts = t->next;
+	    core.timeouts = t->next;
 
 	closure = t->closure;
 
@@ -1089,20 +1113,21 @@ compAddWatchFd (int	     fd,
     watchFd->fd	      = fd;
     watchFd->callBack = callBack;
     watchFd->closure  = closure;
-    watchFd->handle   = lastWatchFdHandle++;
+    watchFd->handle   = core.lastWatchFdHandle++;
 
-    if (lastWatchFdHandle == MAXSHORT)
-	lastWatchFdHandle = 1;
+    if (core.lastWatchFdHandle == MAXSHORT)
+	core.lastWatchFdHandle = 1;
 
-    watchFd->next = watchFds;
-    watchFds = watchFd;
+    watchFd->next = core.watchFds;
+    core.watchFds = watchFd;
 
-    nWatchFds++;
+    core.nWatchFds++;
 
-    watchPollFds = realloc (watchPollFds, nWatchFds * sizeof (struct pollfd));
+    core.watchPollFds = realloc (core.watchPollFds,
+				 core.nWatchFds * sizeof (struct pollfd));
 
-    watchPollFds[nWatchFds - 1].fd     = fd;
-    watchPollFds[nWatchFds - 1].events = events;
+    core.watchPollFds[core.nWatchFds - 1].fd     = fd;
+    core.watchPollFds[core.nWatchFds - 1].events = events;
 
     return watchFd->handle;
 }
@@ -1113,7 +1138,7 @@ compRemoveWatchFd (CompWatchFdHandle handle)
     CompWatchFd *p = 0, *w;
     int i;
 
-    for (i = nWatchFds - 1, w = watchFds; w; i--, w = w->next)
+    for (i = core.nWatchFds - 1, w = core.watchFds; w; i--, w = w->next)
     {
 	if (w->handle == handle)
 	    break;
@@ -1126,13 +1151,13 @@ compRemoveWatchFd (CompWatchFdHandle handle)
 	if (p)
 	    p->next = w->next;
 	else
-	    watchFds = w->next;
+	    core.watchFds = w->next;
 
-	nWatchFds--;
+	core.nWatchFds--;
 
-	if (i < nWatchFds)
-	    memmove (&watchPollFds[i], &watchPollFds[i + 1],
-		     (nWatchFds - i) * sizeof (struct pollfd));
+	if (i < core.nWatchFds)
+	    memmove (&core.watchPollFds[i], &core.watchPollFds[i + 1],
+		     (core.nWatchFds - i) * sizeof (struct pollfd));
 
 	free (w);
     }
@@ -1144,11 +1169,11 @@ compWatchFdEvents (CompWatchFdHandle handle)
     CompWatchFd *w;
     int		i;
 
-    for (i = nWatchFds - 1, w = watchFds; w; i--, w = w->next)
+    for (i = core.nWatchFds - 1, w = core.watchFds; w; i--, w = w->next)
 	if (w->handle == handle)
-	    return watchPollFds[i].revents;
+	    return core.watchPollFds[i].revents;
 
-    return 0;   
+    return 0;
 }
 
 #define TIMEVALDIFF(tv1, tv2)						   \
@@ -1246,7 +1271,7 @@ updateModifierMappings (CompDisplay *d)
     XDisplayKeycodes (d->display, &minKeycode, &maxKeycode);
     key = XGetKeyboardMapping (d->display,
 			       minKeycode, (maxKeycode - minKeycode + 1),
-		     	       &keysymsPerKeycode);
+			       &keysymsPerKeycode);
 
     if (d->modMap)
 	XFreeModifiermap (d->modMap);
@@ -1379,16 +1404,16 @@ doPoll (int timeout)
 {
     int rv;
 
-    rv = poll (watchPollFds, nWatchFds, timeout);
+    rv = poll (core.watchPollFds, core.nWatchFds, timeout);
     if (rv)
     {
 	CompWatchFd *w;
 	int	    i;
 
-	for (i = nWatchFds - 1, w = watchFds; w; i--, w = w->next)
+	for (i = core.nWatchFds - 1, w = core.watchFds; w; i--, w = w->next)
 	{
-	    if (watchPollFds[i].revents != 0 && w->callBack)
-		w->callBack (w->closure);
+	    if (core.watchPollFds[i].revents != 0 && w->callBack)
+		(*w->callBack) (w->closure);
 	}
     }
 
@@ -1401,31 +1426,31 @@ handleTimeouts (struct timeval *tv)
     CompTimeout *t;
     int		timeDiff;
 
-    timeDiff = TIMEVALDIFF (tv, &lastTimeout);
+    timeDiff = TIMEVALDIFF (tv, &core.lastTimeout);
 
     /* handle clock rollback */
     if (timeDiff < 0)
 	timeDiff = 0;
 
-    for (t = timeouts; t; t = t->next)
+    for (t = core.timeouts; t; t = t->next)
 	t->left -= timeDiff;
 
-    while (timeouts && timeouts->left <= 0)
+    while (core.timeouts && core.timeouts->left <= 0)
     {
-	t = timeouts;
+	t = core.timeouts;
 	if ((*t->callBack) (t->closure))
 	{
-	    timeouts = t->next;
+	    core.timeouts = t->next;
 	    addTimeout (t);
 	}
 	else
 	{
-	    timeouts = t->next;
+	    core.timeouts = t->next;
 	    free (t);
 	}
     }
 
-    lastTimeout = *tv;
+    core.lastTimeout = *tv;
 }
 
 static void
@@ -1485,14 +1510,14 @@ paintScreen (CompScreen   *s,
 	}
 	else if (mask & COMP_SCREEN_DAMAGE_REGION_MASK)
 	{
-	    XIntersectRegion (tmpRegion,
+	    XIntersectRegion (core.tmpRegion,
 			      &outputs[i].region,
-			      outputRegion);
+			      core.outputRegion);
 
 	    if (!(*s->paintOutput) (s,
 				    &defaultScreenPaintAttrib,
 				    &identity,
-				    outputRegion, &outputs[i],
+				    core.outputRegion, &outputs[i],
 				    PAINT_SCREEN_REGION_MASK))
 	    {
 		(*s->paintOutput) (s,
@@ -1501,36 +1526,13 @@ paintScreen (CompScreen   *s,
 				   &outputs[i].region, &outputs[i],
 				   PAINT_SCREEN_FULL_MASK);
 
-		XUnionRegion (tmpRegion,
+		XUnionRegion (core.tmpRegion,
 			      &outputs[i].region,
-			      tmpRegion);
+			      core.tmpRegion);
 
 	    }
 	}
     }
-}
-
-static void
-mapWindowIfHidden (CompWindow *w,
-		   void       *closure)
-{
-    if (w->attrib.override_redirect || w->hidden)
-	return;
-
-    if (w->state & CompWindowStateHiddenMask)
-	XMapWindow (w->screen->display->display, w->id);
-}
-
-static void
-restoreWindowGeometryIfSaved (CompWindow *w,
-			      void       *closure)
-{
-    if (w->attrib.override_redirect)
-	return;
-
-    if (w->saveMask)
-	XConfigureWindow (w->screen->display->display, w->id, w->saveMask,
-			  &w->saveWc);
 }
 
 void
@@ -1539,112 +1541,109 @@ eventLoop (void)
     XEvent	   event;
     int		   timeDiff;
     struct timeval tv;
-    CompDisplay    *display = compDisplays;
+    CompDisplay    *d;
     CompScreen	   *s;
-    int		   time, timeToNextRedraw = 0;
     CompWindow	   *w;
+    int		   time, timeToNextRedraw = 0;
     unsigned int   damageMask, mask;
 
-    tmpRegion = XCreateRegion ();
-    outputRegion = XCreateRegion ();
-    if (!tmpRegion || !outputRegion)
-    {
-	compLogMessage (display, "core", CompLogLevelFatal,
-			"Couldn't create temporary regions");
-	return;
-    }
-
-    compAddWatchFd (ConnectionNumber (display->display), POLLIN, NULL, NULL);
+    for (d = core.displays; d; d = d->next)
+	d->watchFdHandle =
+	    compAddWatchFd (ConnectionNumber (d->display), POLLIN, NULL, NULL);
 
     for (;;)
     {
-	if (display->dirtyPluginList)
-	    updatePlugins (display);
-
 	if (restartSignal || shutDown)
-	{
-	    while (popPlugin ());
-	    forEachWindowOnDisplay (display, restoreWindowGeometryIfSaved, 0);
-	    forEachWindowOnDisplay (display, mapWindowIfHidden, 0);
-	    XSync (display->display, False);
-	    return;
-	}
+	    break;
 
-	while (XPending (display->display))
+	for (d = core.displays; d; d = d->next)
 	{
-	    XNextEvent (display->display, &event);
+	    if (d->dirtyPluginList)
+		updatePlugins (d);
 
-	    switch (event.type) {
-	    case ButtonPress:
-	    case ButtonRelease:
-		pointerX = event.xbutton.x_root;
-		pointerY = event.xbutton.y_root;
-		break;
-	    case KeyPress:
-	    case KeyRelease:
-		pointerX = event.xkey.x_root;
-		pointerY = event.xkey.y_root;
-		break;
-	    case MotionNotify:
-		pointerX = event.xmotion.x_root;
-		pointerY = event.xmotion.y_root;
-		break;
-	    case EnterNotify:
-	    case LeaveNotify:
-		pointerX = event.xcrossing.x_root;
-		pointerY = event.xcrossing.y_root;
-		break;
-	    case ClientMessage:
-		if (event.xclient.message_type == display->xdndPositionAtom)
-		{
-		    pointerX = event.xclient.data.l[2] >> 16;
-		    pointerY = event.xclient.data.l[2] & 0xffff;
+	    while (XPending (d->display))
+	    {
+		XNextEvent (d->display, &event);
+
+		switch (event.type) {
+		case ButtonPress:
+		case ButtonRelease:
+		    pointerX = event.xbutton.x_root;
+		    pointerY = event.xbutton.y_root;
+		    break;
+		case KeyPress:
+		case KeyRelease:
+		    pointerX = event.xkey.x_root;
+		    pointerY = event.xkey.y_root;
+		    break;
+		case MotionNotify:
+		    pointerX = event.xmotion.x_root;
+		    pointerY = event.xmotion.y_root;
+		    break;
+		case EnterNotify:
+		case LeaveNotify:
+		    pointerX = event.xcrossing.x_root;
+		    pointerY = event.xcrossing.y_root;
+		    break;
+		case ClientMessage:
+		    if (event.xclient.message_type == d->xdndPositionAtom)
+		    {
+			pointerX = event.xclient.data.l[2] >> 16;
+			pointerY = event.xclient.data.l[2] & 0xffff;
+		    }
+		default:
+		    break;
 		}
-	    default:
-		break;
+
+		sn_display_process_event (d->snDisplay, &event);
+
+		inHandleEvent = TRUE;
+
+		(*d->handleEvent) (d, &event);
+
+		inHandleEvent = FALSE;
+
+		lastPointerX = pointerX;
+		lastPointerY = pointerY;
 	    }
-
-	    sn_display_process_event (display->snDisplay, &event);
-
-	    inHandleEvent = TRUE;
-
-	    (*display->handleEvent) (display, &event);
-
-	    inHandleEvent = FALSE;
-
-	    lastPointerX = pointerX;
-	    lastPointerY = pointerY;
 	}
 
-	for (s = display->screens; s; s = s->next)
+	for (d = core.displays; d; d = d->next)
 	{
-	    if (s->damageMask)
+	    for (s = d->screens; s; s = s->next)
 	    {
-		finishScreenDrawing (s);
-	    }
-	    else
-	    {
-		s->idle = TRUE;
+		if (s->damageMask)
+		{
+		    finishScreenDrawing (s);
+		}
+		else
+		{
+		    s->idle = TRUE;
+		}
 	    }
 	}
 
 	damageMask	 = 0;
 	timeToNextRedraw = MAXSHORT;
 
-	for (s = display->screens; s; s = s->next)
+	for (d = core.displays; d; d = d->next)
 	{
-	    if (!s->damageMask)
-		continue;
-
-	    if (!damageMask)
+	    for (s = d->screens; s; s = s->next)
 	    {
-		gettimeofday (&tv, 0);
-		damageMask |= s->damageMask;
-	    }
+		if (!s->damageMask)
+		    continue;
 
-	    s->timeLeft = getTimeToNextRedraw (s, &tv, &s->lastRedraw, s->idle);
-	    if (s->timeLeft < timeToNextRedraw)
-		timeToNextRedraw = s->timeLeft;
+		if (!damageMask)
+		{
+		    gettimeofday (&tv, 0);
+		    damageMask |= s->damageMask;
+		}
+
+		s->timeLeft = getTimeToNextRedraw (s, &tv, &s->lastRedraw,
+						   s->idle);
+		if (s->timeLeft < timeToNextRedraw)
+		    timeToNextRedraw = s->timeLeft;
+	    }
 	}
 
 	if (damageMask)
@@ -1657,185 +1656,189 @@ eventLoop (void)
 	    {
 		gettimeofday (&tv, 0);
 
-		if (timeouts)
+		if (core.timeouts)
 		    handleTimeouts (&tv);
 
-		for (s = display->screens; s; s = s->next)
+		for (d = core.displays; d; d = d->next)
 		{
-		    if (!s->damageMask || s->timeLeft > timeToNextRedraw)
-			continue;
-
-		    targetScreen = s;
-
-		    timeDiff = TIMEVALDIFF (&tv, &s->lastRedraw);
-
-		    /* handle clock rollback */
-		    if (timeDiff < 0)
-			timeDiff = 0;
-
-		    makeScreenCurrent (s);
-
-		    if (s->slowAnimations)
+		    for (s = d->screens; s; s = s->next)
 		    {
-			(*s->preparePaintScreen) (s,
-						  s->idle ? 2 : (timeDiff * 2) /
-						  s->redrawTime);
-		    }
-		    else
-			(*s->preparePaintScreen) (s,
-						  s->idle ? s->redrawTime :
-						  timeDiff);
+			if (!s->damageMask || s->timeLeft > timeToNextRedraw)
+			    continue;
 
-		    /* substract top most overlay window region */
-		    if (s->overlayWindowCount)
-		    {
-			for (w = s->reverseWindows; w; w = w->prev)
+			targetScreen = s;
+
+			timeDiff = TIMEVALDIFF (&tv, &s->lastRedraw);
+
+			/* handle clock rollback */
+			if (timeDiff < 0)
+			    timeDiff = 0;
+
+			makeScreenCurrent (s);
+
+			if (s->slowAnimations)
 			{
-			    if (w->destroyed || w->invisible)
-				continue;
-
-			    if (!w->redirected)
-				XSubtractRegion (s->damage, w->region,
-						 s->damage);
-
-			    break;
+			    (*s->preparePaintScreen) (s,
+						      s->idle ? 2 :
+						      (timeDiff * 2) /
+						      s->redrawTime);
 			}
+			else
+			    (*s->preparePaintScreen) (s,
+						      s->idle ? s->redrawTime :
+						      timeDiff);
 
-			if (s->damageMask & COMP_SCREEN_DAMAGE_ALL_MASK)
+			/* substract top most overlay window region */
+			if (s->overlayWindowCount)
 			{
-			    s->damageMask &= ~COMP_SCREEN_DAMAGE_ALL_MASK;
-			    s->damageMask |= COMP_SCREEN_DAMAGE_REGION_MASK;
-			}
-		    }
-
-		    if (s->damageMask & COMP_SCREEN_DAMAGE_REGION_MASK)
-		    {
-			XIntersectRegion (s->damage, &s->region, tmpRegion);
-
-			if (tmpRegion->numRects  == 1	     &&
-			    tmpRegion->rects->x1 == 0	     &&
-			    tmpRegion->rects->y1 == 0	     &&
-			    tmpRegion->rects->x2 == s->width &&
-			    tmpRegion->rects->y2 == s->height)
-			    damageScreen (s);
-		    }
-
-		    EMPTY_REGION (s->damage);
-
-		    mask = s->damageMask;
-		    s->damageMask = 0;
-
-		    if (s->clearBuffers)
-		    {
-			if (mask & COMP_SCREEN_DAMAGE_ALL_MASK)
-			    glClear (GL_COLOR_BUFFER_BIT);
-		    }
-
-		    (*s->paintScreen) (s, s->outputDev,
-				       s->nOutputDev,
-				       mask);
-
-		    targetScreen = NULL;
-		    targetOutput = &s->outputDev[0];
-
-		    waitForVideoSync (s);
-
-		    if (mask & COMP_SCREEN_DAMAGE_ALL_MASK)
-		    {
-			glXSwapBuffers (display->display, s->output);
-		    }
-		    else
-		    {
-			BoxPtr pBox;
-			int    nBox, y;
-
-			pBox = tmpRegion->rects;
-			nBox = tmpRegion->numRects;
-
-			if (s->copySubBuffer)
-			{
-			    while (nBox--)
+			    for (w = s->reverseWindows; w; w = w->prev)
 			    {
-				y = s->height - pBox->y2;
+				if (w->destroyed || w->invisible)
+				    continue;
 
-				(*s->copySubBuffer) (display->display,
-						     s->output,
-						     pBox->x1, y,
-						     pBox->x2 -
-						     pBox->x1,
-						     pBox->y2 -
-						     pBox->y1);
+				if (!w->redirected)
+				    XSubtractRegion (s->damage, w->region,
+						     s->damage);
 
-				pBox++;
+				break;
 			    }
+
+			    if (s->damageMask & COMP_SCREEN_DAMAGE_ALL_MASK)
+			    {
+				s->damageMask &= ~COMP_SCREEN_DAMAGE_ALL_MASK;
+				s->damageMask |=
+				    COMP_SCREEN_DAMAGE_REGION_MASK;
+			    }
+			}
+
+			if (s->damageMask & COMP_SCREEN_DAMAGE_REGION_MASK)
+			{
+			    XIntersectRegion (s->damage, &s->region,
+					      core.tmpRegion);
+
+			    if (core.tmpRegion->numRects  == 1	  &&
+				core.tmpRegion->rects->x1 == 0	  &&
+				core.tmpRegion->rects->y1 == 0	  &&
+				core.tmpRegion->rects->x2 == s->width &&
+				core.tmpRegion->rects->y2 == s->height)
+				damageScreen (s);
+			}
+
+			EMPTY_REGION (s->damage);
+
+			mask = s->damageMask;
+			s->damageMask = 0;
+
+			if (s->clearBuffers)
+			{
+			    if (mask & COMP_SCREEN_DAMAGE_ALL_MASK)
+				glClear (GL_COLOR_BUFFER_BIT);
+			}
+
+			(*s->paintScreen) (s, s->outputDev,
+					   s->nOutputDev,
+					   mask);
+
+			targetScreen = NULL;
+			targetOutput = &s->outputDev[0];
+
+			waitForVideoSync (s);
+
+			if (mask & COMP_SCREEN_DAMAGE_ALL_MASK)
+			{
+			    glXSwapBuffers (d->display, s->output);
 			}
 			else
 			{
-			    glEnable (GL_SCISSOR_TEST);
-			    glDrawBuffer (GL_FRONT);
+			    BoxPtr pBox;
+			    int    nBox, y;
 
-			    while (nBox--)
+			    pBox = core.tmpRegion->rects;
+			    nBox = core.tmpRegion->numRects;
+
+			    if (s->copySubBuffer)
 			    {
-				y = s->height - pBox->y2;
+				while (nBox--)
+				{
+				    y = s->height - pBox->y2;
 
-				glBitmap (0, 0, 0, 0,
-					  pBox->x1 - s->rasterX,
-					  y - s->rasterY,
-					  NULL);
+				    (*s->copySubBuffer) (d->display,
+							 s->output,
+							 pBox->x1, y,
+							 pBox->x2 - pBox->x1,
+							 pBox->y2 - pBox->y1);
 
-				s->rasterX = pBox->x1;
-				s->rasterY = y;
-
-				glScissor (pBox->x1, y,
-					   pBox->x2 - pBox->x1,
-					   pBox->y2 - pBox->y1);
-
-				glCopyPixels (pBox->x1, y,
-					      pBox->x2 - pBox->x1,
-					      pBox->y2 - pBox->y1,
-					      GL_COLOR);
-
-				pBox++;
+				    pBox++;
+				}
 			    }
+			    else
+			    {
+				glEnable (GL_SCISSOR_TEST);
+				glDrawBuffer (GL_FRONT);
 
-			    glDrawBuffer (GL_BACK);
-			    glDisable (GL_SCISSOR_TEST);
-			    glFlush ();
+				while (nBox--)
+				{
+				    y = s->height - pBox->y2;
+
+				    glBitmap (0, 0, 0, 0,
+					      pBox->x1 - s->rasterX,
+					      y - s->rasterY,
+					      NULL);
+
+				    s->rasterX = pBox->x1;
+				    s->rasterY = y;
+
+				    glScissor (pBox->x1, y,
+					       pBox->x2 - pBox->x1,
+					       pBox->y2 - pBox->y1);
+
+				    glCopyPixels (pBox->x1, y,
+						  pBox->x2 - pBox->x1,
+						  pBox->y2 - pBox->y1,
+						  GL_COLOR);
+
+				    pBox++;
+				}
+
+				glDrawBuffer (GL_BACK);
+				glDisable (GL_SCISSOR_TEST);
+				glFlush ();
+			    }
 			}
-		    }
 
-		    s->lastRedraw = tv;
+			s->lastRedraw = tv;
 
-		    (*s->donePaintScreen) (s);
+			(*s->donePaintScreen) (s);
 
-		    /* remove destroyed windows */
-		    while (s->pendingDestroys)
-		    {
-			CompWindow *w;
-
-			for (w = s->windows; w; w = w->next)
+			/* remove destroyed windows */
+			while (s->pendingDestroys)
 			{
-			    if (w->destroyed)
+			    CompWindow *w;
+
+			    for (w = s->windows; w; w = w->next)
 			    {
-				addWindowDamage (w);
-				removeWindow (w);
-				break;
+				if (w->destroyed)
+				{
+				    addWindowDamage (w);
+				    removeWindow (w);
+				    break;
+				}
 			    }
+
+			    s->pendingDestroys--;
 			}
 
-			s->pendingDestroys--;
+			s->idle = FALSE;
 		    }
-
-		    s->idle = FALSE;
 		}
 	    }
 	}
 	else
 	{
-	    if (timeouts)
+	    if (core.timeouts)
 	    {
-		if (timeouts->left > 0)
-		    doPoll (timeouts->left);
+		if (core.timeouts->left > 0)
+		    doPoll (core.timeouts->left);
 
 		gettimeofday (&tv, 0);
 
@@ -1843,10 +1846,13 @@ eventLoop (void)
 	    }
 	    else
 	    {
-		doPoll (1000);
+		doPoll (-1);
 	    }
 	}
     }
+
+    for (d = core.displays; d; d = d->next)
+	compRemoveWatchFd (d->watchFdHandle);
 }
 
 static int errors = 0;
@@ -1858,8 +1864,6 @@ errorHandler (Display     *dpy,
 
 #ifdef DEBUG
     char str[128];
-    char *name = 0;
-    int  o;
 #endif
 
     errors++;
@@ -1868,24 +1872,8 @@ errorHandler (Display     *dpy,
     XGetErrorDatabaseText (dpy, "XlibMessage", "XError", "", str, 128);
     fprintf (stderr, "%s", str);
 
-    o = e->error_code - compDisplays->damageError;
-    switch (o) {
-    case BadDamage:
-	name = "BadDamage";
-	break;
-    default:
-	break;
-    }
-
-    if (name)
-    {
-	fprintf (stderr, ": %s\n  ", name);
-    }
-    else
-    {
-	XGetErrorText (dpy, e->error_code, str, 128);
-	fprintf (stderr, ": %s\n  ", str);
-    }
+    XGetErrorText (dpy, e->error_code, str, 128);
+    fprintf (stderr, ": %s\n  ", str);
 
     XGetErrorDatabaseText (dpy, "XlibMessage", "MajorCode", "%d", str, 128);
     fprintf (stderr, str, e->request_code);
@@ -1932,11 +1920,11 @@ addScreenActions (CompScreen *s)
 
     for (i = 0; i < COMP_DISPLAY_OPTION_NUM; i++)
     {
-	if (s->display->opt[i].type == CompOptionTypeAction)
-	{
-	    if (s->display->opt[i].value.action.state & CompActionStateAutoGrab)
-		addScreenAction (s, &s->display->opt[i].value.action);
-	}
+	if (!isActionOption (&s->display->opt[i]))
+	    continue;
+
+	if (s->display->opt[i].value.action.state & CompActionStateAutoGrab)
+	    addScreenAction (s, &s->display->opt[i].value.action);
     }
 }
 
@@ -1956,10 +1944,30 @@ addScreenToDisplay (CompDisplay *display,
     addScreenActions (s);
 }
 
+static void
+freeDisplay (CompDisplay *d)
+{
+    compFiniDisplayOptions (d, d->opt, COMP_DISPLAY_OPTION_NUM);
+
+    compFiniOptionValue (&d->plugin, CompOptionTypeList);
+
+    if (d->screenInfo)
+	XFree (d->screenInfo);
+
+    if (d->screenPrivateIndices)
+	free (d->screenPrivateIndices);
+
+    if (d->base.privates)
+	free (d->base.privates);
+
+    free (d);
+}
+
 Bool
-addDisplay (char *name)
+addDisplay (const char *name)
 {
     CompDisplay *d;
+    CompPrivate	*privates;
     Display     *dpy;
     Window	focus;
     int		revertTo, i;
@@ -1968,21 +1976,35 @@ addDisplay (char *name)
     int		xkbOpcode;
     int		firstScreen, lastScreen;
 
-    d = &compDisplay;
+    d = malloc (sizeof (CompDisplay));
+    if (!d)
+	return FALSE;
 
     if (displayPrivateLen)
     {
-	d->privates = malloc (displayPrivateLen * sizeof (CompPrivate));
-	if (!d->privates)
+	privates = malloc (displayPrivateLen * sizeof (CompPrivate));
+	if (!privates)
+	{
+	    free (d);
 	    return FALSE;
+	}
     }
     else
-	d->privates = 0;
+	privates = 0;
 
+    compObjectInit (&d->base, privates, COMP_OBJECT_TYPE_DISPLAY);
+
+    d->next    = NULL;
     d->screens = NULL;
+
+    d->watchFdHandle = 0;
 
     d->screenPrivateIndices = 0;
     d->screenPrivateLen     = 0;
+
+    d->edgeDelayHandle = 0;
+
+    d->logMessage = logMessage;
 
     d->modMap = 0;
 
@@ -1991,9 +2013,23 @@ addDisplay (char *name)
 
     d->ignoredModMask = LockMask;
 
+    compInitOptionValue (&d->plugin);
+
     d->plugin.list.type   = CompOptionTypeString;
-    d->plugin.list.nValue = 0;
-    d->plugin.list.value  = 0;
+    d->plugin.list.nValue = 1;
+    d->plugin.list.value  = malloc (sizeof (CompOptionValue));
+
+    if (!d->plugin.list.value) {
+	free (d);
+	return FALSE;
+    }
+
+    d->plugin.list.value->s = strdup ("core");
+    if (!d->plugin.list.value->s) {
+        free (d->plugin.list.value);
+	free (d);
+	return FALSE;
+    }
 
     d->dirtyPluginList = TRUE;
 
@@ -2005,8 +2041,6 @@ addDisplay (char *name)
     d->autoRaiseHandle = 0;
     d->autoRaiseWindow = None;
 
-    d->logMessage = logMessage;
-
     d->display = dpy = XOpenDisplay (name);
     if (!d->display)
     {
@@ -2015,12 +2049,16 @@ addDisplay (char *name)
 	return FALSE;
     }
 
+    d->connection = XGetXCBConnection (dpy);
+
     if (!compInitDisplayOptionsFromMetadata (d,
 					     &coreMetadata,
 					     coreDisplayOptionInfo,
 					     d->opt,
 					     COMP_DISPLAY_OPTION_NUM))
 	return FALSE;
+
+    d->opt[COMP_DISPLAY_OPTION_ABI].value.i = CORE_ABIVERSION;
 
     snprintf (d->displayString, 255, "DISPLAY=%s", DisplayString (dpy));
 
@@ -2032,22 +2070,11 @@ addDisplay (char *name)
 
     updateModifierMappings (d);
 
-    d->setDisplayOption		 = setDisplayOption;
-    d->setDisplayOptionForPlugin = setDisplayOptionForPlugin;
-
-    d->initPluginForDisplay = initPluginForDisplay;
-    d->finiPluginForDisplay = finiPluginForDisplay;
-
     d->handleEvent	 = handleEvent;
     d->handleCompizEvent = handleCompizEvent;
 
     d->fileToImage = fileToImage;
     d->imageToFile = imageToFile;
-
-    d->fileWatchAdded   = fileWatchAdded;
-    d->fileWatchRemoved = fileWatchRemoved;
-
-    d->fileWatch = NULL;
 
     d->matchInitExp	      = matchInitExp;
     d->matchExpHandlerChanged = matchExpHandlerChanged;
@@ -2304,20 +2331,25 @@ addDisplay (char *name)
 	d->xkbEvent = d->xkbError = -1;
     }
 
+    d->screenInfo  = NULL;
+    d->nScreenInfo = 0;
+
     d->xineramaExtension = XineramaQueryExtension (dpy,
 						   &d->xineramaEvent,
 						   &d->xineramaError);
-    
-    d->nScreenInfo = 0;
-    if (d->xineramaExtension)
-	d->screenInfo  = XineramaQueryScreens (dpy, &d->nScreenInfo);
-    else
-	d->screenInfo  = NULL;
 
-    compDisplays = d;
+    if (d->xineramaExtension)
+	d->screenInfo = XineramaQueryScreens (dpy, &d->nScreenInfo);
 
     d->escapeKeyCode = XKeysymToKeycode (dpy, XStringToKeysym ("Escape"));
     d->returnKeyCode = XKeysymToKeycode (dpy, XStringToKeysym ("Return"));
+
+    addDisplayToCore (d);
+
+    /* TODO: bailout properly when objectInitPlugins fails */
+    assert (objectInitPlugins (&d->base));
+
+    (*core.objectAdd) (&core.base, &d->base);
 
     if (onlyCurrentScreen)
     {
@@ -2536,7 +2568,7 @@ addDisplay (char *name)
 
     if (focus == None || focus == PointerRoot)
     {
-	focusDefaultWindow (d);
+	focusDefaultWindow (d->screens);
     }
     else
     {
@@ -2548,7 +2580,7 @@ addDisplay (char *name)
 	    moveInputFocusToWindow (w);
 	}
 	else
-	    focusDefaultWindow (d);
+	    focusDefaultWindow (d->screens);
     }
 
     d->pingHandle =
@@ -2556,6 +2588,38 @@ addDisplay (char *name)
 			pingTimeout, d);
 
     return TRUE;
+}
+
+void
+removeDisplay (CompDisplay *d)
+{
+    CompDisplay *p;
+
+    for (p = core.displays; p; p = p->next)
+	if (p->next == d)
+	    break;
+
+    if (p)
+	p->next = d->next;
+    else
+	core.displays = NULL;
+
+    while (d->screens)
+	removeScreen (d->screens);
+
+    (*core.objectRemove) (&core.base, &d->base);
+
+    objectFiniPlugins (&d->base);
+
+    compRemoveTimeout (d->pingHandle);
+
+    if (d->snDisplay)
+	sn_display_unref (d->snDisplay);
+
+    XSync (d->display, False);
+    XCloseDisplay (d->display);
+
+    freeDisplay (d);
 }
 
 Time
@@ -2571,64 +2635,6 @@ getCurrentTimeFromDisplay (CompDisplay *d)
 		  &event);
 
     return event.xproperty.time;
-}
-
-void
-focusDefaultWindow (CompDisplay *d)
-{
-    CompScreen *s;
-    CompWindow *w;
-    CompWindow *focus = NULL;
-
-    if (!d->opt[COMP_DISPLAY_OPTION_CLICK_TO_FOCUS].value.b)
-    {
-	w = findTopLevelWindowAtDisplay (d, d->below);
-	if (w && !(w->type & (CompWindowTypeDesktopMask |
-			      CompWindowTypeDockMask)))
-	{
-	    if ((*w->screen->focusWindow) (w))
-		focus = w;
-	}
-    }
-
-    if (!focus)
-    {
-	for (s = d->screens; s; s = s->next)
-	{
-	    for (w = s->reverseWindows; w; w = w->prev)
-	    {
-		if (w->type & CompWindowTypeDockMask)
-		    continue;
-
-		if ((*s->focusWindow) (w))
-		{
-		    if (focus)
-		    {
-			if (w->type & (CompWindowTypeNormalMask |
-				       CompWindowTypeDialogMask |
-				       CompWindowTypeModalDialogMask))
-			{
-			    if (compareWindowActiveness (focus, w) < 0)
-				focus = w;
-			}
-		    }
-		    else
-			focus = w;
-		}
-	    }
-	}
-    }
-
-    if (focus)
-    {
-	if (focus->id != d->activeWindow)
-	    moveInputFocusToWindow (focus);
-    }
-    else
-    {
-	XSetInputFocus (d->display, d->screens->root, RevertToPointerRoot,
-			CurrentTime);
-    }
 }
 
 CompScreen *
@@ -3008,78 +3014,6 @@ imageToFile (CompDisplay *display,
 	     void	 *data)
 {
     return FALSE;
-}
-
-CompFileWatchHandle
-addFileWatch (CompDisplay	    *display,
-	      const char	    *path,
-	      int		    mask,
-	      FileWatchCallBackProc callBack,
-	      void		    *closure)
-{
-    CompFileWatch *fileWatch;
-
-    fileWatch = malloc (sizeof (CompFileWatch));
-    if (!fileWatch)
-	return 0;
-
-    fileWatch->path	= strdup (path);
-    fileWatch->mask	= mask;
-    fileWatch->callBack = callBack;
-    fileWatch->closure  = closure;
-    fileWatch->handle   = lastFileWatchHandle++;
-
-    if (lastFileWatchHandle == MAXSHORT)
-	lastFileWatchHandle = 1;
-
-    fileWatch->next = display->fileWatch;
-    display->fileWatch = fileWatch;
-
-    (*display->fileWatchAdded) (display, fileWatch);
-
-    return fileWatch->handle;
-}
-
-void
-removeFileWatch (CompDisplay	     *display,
-		 CompFileWatchHandle handle)
-{
-    CompFileWatch *p = 0, *w;
-
-    for (w = display->fileWatch; w; w = w->next)
-    {
-	if (w->handle == handle)
-	    break;
-
-	p = w;
-    }
-
-    if (w)
-    {
-	if (p)
-	    p->next = w->next;
-	else
-	    display->fileWatch = w->next;
-
-	(*display->fileWatchRemoved) (display, w);
-
-	if (w->path)
-	    free (w->path);
-
-	free (w);
-    }
-}
-
-void
-fileWatchAdded (CompDisplay   *display,
-		CompFileWatch *fileWatch)
-{
-}
-
-void
-fileWatchRemoved (CompDisplay   *display,
-		  CompFileWatch *fileWatch)
-{
 }
 
 CompCursor *
