@@ -5,7 +5,7 @@ dnl An odd micro number indicates in-progress development.
 dnl An even micro number indicates a released version.
 m4_define(compiz_version_major, 0)
 m4_define(compiz_version_minor, 7)
-m4_define(compiz_version_micro, 4)
+m4_define(compiz_version_micro, 6)
 
 AC_INIT([compiz],
 	[compiz_version_major().compiz_version_minor().compiz_version_micro()],
@@ -24,7 +24,7 @@ AC_PROG_INTLTOOL([0.23])
 AM_MAINTAINER_MODE
 
 dnl decorator interface version
-AC_DEFINE(DECOR_INTERFACE_VERSION, 20080131, [Decorator interface version])
+AC_DEFINE(DECOR_INTERFACE_VERSION, 20080529, [Decorator interface version])
 
 AC_ISC_POSIX
 AC_PROG_CC
@@ -203,19 +203,6 @@ fi
 
 stylesheetdir=$datadir/compiz
 AC_SUBST(stylesheetdir)
-
-AC_ARG_ENABLE(place,
-  [  --disable-place         Disable window placement plugin],
-  [use_place=$enableval], [use_place=yes])
-
-if test "x$use_place" = "xyes"; then
-  PKG_CHECK_MODULES(PLACE, glib-2.0, [use_place=yes], [use_place=no])
-fi
-
-AM_CONDITIONAL(PLACE_PLUGIN, test "x$use_place" = "xyes")
-if test "$use_place" = yes; then
-  AC_DEFINE(USE_PLACE, 1, [Build placement plugin])
-fi
 
 AC_ARG_ENABLE(dbus,
   [  --disable-dbus          Disable dbus plugin],
@@ -647,7 +634,6 @@ echo "the following optional plugins will be compiled:"
 echo "  glib:     $use_glib"
 echo "  gconf:    $use_gconf"
 echo "  kconfig:  $use_kconfig"
-echo "  place:    $use_place"
 echo "  dbus:     $use_dbus"
 echo "  annotate: $use_annotate"
 echo "  svg:      $use_librsvg"

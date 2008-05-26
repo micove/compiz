@@ -28,7 +28,7 @@
 
 #include <compiz-plugin.h>
 
-#define CORE_ABIVERSION 20080401
+#define CORE_ABIVERSION 20080424
 
 #include <stdio.h>
 #include <sys/time.h>
@@ -1370,6 +1370,8 @@ typedef void (*DonePaintScreenProc) (CompScreen *screen);
 #define PAINT_SCREEN_TRANSFORMED_MASK		   (1 << 2)
 #define PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS_MASK (1 << 3)
 #define PAINT_SCREEN_CLEAR_MASK			   (1 << 4)
+#define PAINT_SCREEN_NO_OCCLUSION_DETECTION_MASK   (1 << 5)
+#define PAINT_SCREEN_NO_BACKGROUND_MASK            (1 << 6)
 
 typedef void (*PaintScreenProc) (CompScreen   *screen,
 				 CompOutput   *outputs,
@@ -1500,12 +1502,6 @@ typedef void (*PaintCursorProc) (CompCursor	     *cursor,
 				 Region		     region,
 				 unsigned int	     mask);
 
-#define PAINT_BACKGROUND_ON_TRANSFORMED_SCREEN_MASK (1 << 0)
-
-typedef void (*PaintBackgroundProc) (CompScreen   *screen,
-				     Region	  region,
-				     unsigned int mask);
-
 void
 preparePaintScreen (CompScreen *screen,
 		    int	       msSinceLastPaint);
@@ -1603,12 +1599,6 @@ paintCursor (CompCursor		 *cursor,
 	     const CompTransform *transform,
 	     Region		 region,
 	     unsigned int	 mask);
-
-void
-paintBackground (CompScreen   *screen,
-		 Region	      region,
-		 unsigned int mask);
-
 
 /* texture.c */
 
@@ -1727,7 +1717,8 @@ disableTexture (CompScreen  *screen,
 #define COMP_SCREEN_OPTION_OPACITY_MATCHES	  15
 #define COMP_SCREEN_OPTION_OPACITY_VALUES	  16
 #define COMP_SCREEN_OPTION_TEXTURE_COMPRESSION	  17
-#define COMP_SCREEN_OPTION_NUM		          18
+#define COMP_SCREEN_OPTION_FORCE_INDEPENDENT      18
+#define COMP_SCREEN_OPTION_NUM		          19
 
 #ifndef GLX_EXT_texture_from_pixmap
 #define GLX_BIND_TO_TEXTURE_RGB_EXT        0x20D0
@@ -1824,6 +1815,9 @@ typedef void (*GLProgramParameter4fProc) (GLenum  target,
 					  GLfloat y,
 					  GLfloat z,
 					  GLfloat w);
+typedef void (*GLGetProgramivProc) (GLenum target,
+				    GLenum pname,
+				    int    *params);
 
 typedef void (*GLGenFramebuffersProc) (GLsizei n,
 				       GLuint  *framebuffers);
@@ -2077,6 +2071,7 @@ struct _CompScreen {
     int	       nOutputDev;
     int	       currentOutputDev;
     CompOutput fullscreenOutput;
+    Bool       hasOverlappingOutputs;
 
     int windowOffsetX;
     int windowOffsetY;
@@ -2179,6 +2174,7 @@ struct _CompScreen {
     GLProgramStringProc	     programString;
     GLProgramParameter4fProc programEnvParameter4f;
     GLProgramParameter4fProc programLocalParameter4f;
+    GLGetProgramivProc       getProgramiv;
 
     GLGenFramebuffersProc        genFramebuffers;
     GLDeleteFramebuffersProc     deleteFramebuffers;
@@ -2199,7 +2195,6 @@ struct _CompScreen {
     EnableOutputClippingProc	    enableOutputClipping;
     DisableOutputClippingProc	    disableOutputClipping;
     ApplyScreenTransformProc	    applyScreenTransform;
-    PaintBackgroundProc		    paintBackground;
     PaintWindowProc		    paintWindow;
     DrawWindowProc		    drawWindow;
     AddWindowGeometryProc	    addWindowGeometry;
@@ -2884,6 +2879,12 @@ void
 configureXWindow (CompWindow	 *w,
 		  unsigned int	 valueMask,
 		  XWindowChanges *xwc);
+
+unsigned int
+adjustConfigureRequestForGravity (CompWindow     *w,
+				  XWindowChanges *xwc,
+				  unsigned int   xwcm,
+				  int            gravity);
 
 void
 moveResizeWindow (CompWindow     *w,

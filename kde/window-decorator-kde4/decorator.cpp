@@ -23,6 +23,7 @@
 
 #include <KDE/KCmdLineArgs>
 #include <KDE/KConfig>
+#include <KDE/KConfigGroup>
 #include <KDE/KGlobal>
 #include <kwindowsystem.h>
 #include <KDE/KLocale>
@@ -105,6 +106,9 @@ KWD::Decorator::Decorator (Display* display,
     mRootInfo = new NETRootInfo (QX11Info::display(), 0);
 
     mActiveId = 0;
+
+    KConfigGroup cfg (KSharedConfig::openConfig("plasmarc"), QString("Theme"));
+    Plasma::Theme::defaultTheme ()->setThemeName (cfg.readEntry ("name"));
 
     Atoms::init ();
 
@@ -237,9 +241,9 @@ KWD::Decorator::enableDecorations (Time timestamp,
 
     connect (&mIdleTimer, SIGNAL (timeout ()), SLOT (processDamage ()));
 
-    connect (Plasma::Theme::self (), SIGNAL (changed ()),
+    connect (Plasma::Theme::defaultTheme (), SIGNAL (themeChanged ()),
 	     SLOT (plasmaThemeChanged ()));
-    
+
     // select for client messages
     XSelectInput (QX11Info::display(), QX11Info::appRootWindow(),
 		  StructureNotifyMask | PropertyChangeMask);
@@ -599,7 +603,16 @@ KWD::Decorator::x11EventFilter (XEvent *xevent)
 		xbe2.y = xbe->y - child->pos ().y ();
 	    }
 
+	    client->setFakeRelease (false);
 	    QApplication::x11ProcessEvent ((XEvent *) &xbe2);
+
+	    /* We won't get a button release event, because of the screengrabs
+	       in compiz */
+	    if (client->getFakeRelease () && xevent->type == ButtonPress)
+	    {
+		xbe2.type = ButtonRelease;
+		QApplication::x11ProcessEvent ((XEvent *) &xbe2);
+	    }
 
 	    return true;
 	}

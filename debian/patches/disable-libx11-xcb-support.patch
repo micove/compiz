@@ -1,10 +1,8 @@
 disable-libx11-xcb-support.patch
 origin: http://gitweb.opencompositing.org/?p=users/3v1n0/compiz-patches;a=blob_plain;f=disable-libx11-xcb-support.patch;hb=4b8e083acf9b1779a9de43ed295b6a4a86594f10
 locally modified to reflect 0.7.4 updates
-Index: compiz/configure.ac
-===================================================================
---- compiz.orig/configure.ac
-+++ compiz/configure.ac
+--- 0-compiz.orig/configure.ac
++++ 0-compiz/configure.ac
 @@ -118,8 +118,7 @@ AC_SUBST(imagedir)
  metadatadir=$datadir/compiz
  AC_SUBST(metadatadir)
@@ -15,10 +13,8 @@ Index: compiz/configure.ac
  		 xfixes	    \
  		 xdamage    \
  		 xrandr	    \
-Index: compiz/include/compiz-core.h
-===================================================================
---- compiz.orig/include/compiz-core.h
-+++ compiz/include/compiz-core.h
+--- 0-compiz.orig/include/compiz-core.h
++++ 0-compiz/include/compiz-core.h
 @@ -33,7 +33,7 @@
  #include <stdio.h>
  #include <sys/time.h>
@@ -37,11 +33,9 @@ Index: compiz/include/compiz-core.h
      Display    *display;
      CompScreen *screens;
  
-Index: compiz/src/display.c
-===================================================================
---- compiz.orig/src/display.c
-+++ compiz/src/display.c
-@@ -2049,8 +2049,6 @@ addDisplay (const char *name)
+--- 0-compiz.orig/src/display.c
++++ 0-compiz/src/display.c
+@@ -2054,8 +2054,6 @@ addDisplay (const char *name)
  	return FALSE;
      }
  

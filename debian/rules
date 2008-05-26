@@ -50,12 +50,15 @@ confflags += --disable-static \
 AUTOFOO_DELETE:=aclocal.m4 config.guess config.h.in config.sub configure \
                 depcomp install-sh intltool-extract.in intltool-merge.in \
                 intltool-update.in ltmain.sh missing mkinstalldirs \
-				Makefile.in gtk/Makefile.in gtk/gnome/Makefile.in \
-				gtk/window-decorator/Makefile.in images/Makefile.in \
-				include/Makefile.in kde/Makefile.in \
-				kde/window-decorator/Makefile.in libdecoration/Makefile.in \
-				metadata/Makefile.in plugins/Makefile.in po/Makefile.in.in \
-				src/Makefile.in
+                Makefile.in gtk/Makefile.in gtk/gnome/Makefile.in \
+                gtk/window-decorator/Makefile.in images/Makefile.in \
+                include/Makefile.in kde/Makefile.in \
+                kde/window-decorator/Makefile.in libdecoration/Makefile.in \
+                metadata/Makefile.in plugins/Makefile.in po/Makefile.in.in \
+                src/Makefile.in kde/window-decorator-kde4/Makefile.in
+
+# brief shorthand for cleaner rules below
+DESTDIR:=$(CURDIR)/debian/tmp
 
 build: patch build-stamp
 build-stamp:
@@ -68,11 +71,15 @@ build-stamp:
 	$(MAKE)
 	touch $@
 
+unpatch: distclean
+
+distclean:
+	[ ! -f Makefile ] || $(MAKE) distclean
+
 clean: unpatch
 	dh_testdir
 	dh_testroot
 	rm -f po/*.gmo
-	[ ! -f Makefile ] || $(MAKE) distclean
 	rm -f build-stamp
 	rm -f $(AUTOFOO_DELETE)
 	for f in $(UPSTREAM_PRESERVE); do \
@@ -87,11 +94,11 @@ install: build
 	dh_testroot
 	dh_clean -k
 	dh_installdirs
-	$(MAKE) DESTDIR=$(CURDIR)/debian/tmp install
-	mv $(CURDIR)/debian/tmp/usr/bin/compiz $(CURDIR)/debian/tmp/usr/bin/compiz.real
-	$(INSTALL) --mode 0755 debian/compiz-manager $(CURDIR)/debian/tmp/usr/bin/compiz
+	$(MAKE) DESTDIR=$(DESTDIR) install
+	mv $(DESTDIR)/usr/bin/compiz $(DESTDIR)/usr/bin/compiz.real
+	$(INSTALL) --mode 0755 debian/compiz-manager $(DESTDIR)/usr/bin/compiz
 	# remove unneeded .la files
-	find $(CURDIR)/debian/tmp/usr/lib -type f -name '*.la' | xargs rm -f
+	find $(DESTDIR)/usr/lib -type f -name '*.la' | xargs rm -f
 
 # Build architecture-dependent files here.
 binary-arch: build install
@@ -100,7 +107,13 @@ binary-arch: build install
 	
 	dh_installdocs
 	dh_installchangelogs ChangeLog
-	dh_install --sourcedir=debian/tmp --list-missing
+	dh_install --sourcedir=$(DESTDIR) --fail-missing
+	# the gconf and kconfig plugins are seperately installed into
+	# the -gnome and -kde packages respectively
+	rm $(CURDIR)/debian/tmp/usr/lib/compiz/libkconfig.so
+	rm $(CURDIR)/debian/compiz-plugins/usr/lib/compiz/libkconfig.so
+	rm $(CURDIR)/debian/tmp/usr/lib/compiz/libgconf.so
+	rm $(CURDIR)/debian/compiz-plugins/usr/lib/compiz/libgconf.so
 	dh_installman
 	dh_link
 	dh_gconf

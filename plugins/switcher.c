@@ -55,7 +55,11 @@ static int displayPrivateIndex;
 #define SWITCH_DISPLAY_OPTION_NEXT_NO_POPUP_KEY    9
 #define SWITCH_DISPLAY_OPTION_PREV_NO_POPUP_BUTTON 10
 #define SWITCH_DISPLAY_OPTION_PREV_NO_POPUP_KEY    11
-#define SWITCH_DISPLAY_OPTION_NUM	           12
+#define SWITCH_DISPLAY_OPTION_NEXT_PANEL_BUTTON    12
+#define SWITCH_DISPLAY_OPTION_NEXT_PANEL_KEY       13
+#define SWITCH_DISPLAY_OPTION_PREV_PANEL_BUTTON    14
+#define SWITCH_DISPLAY_OPTION_PREV_PANEL_KEY       15
+#define SWITCH_DISPLAY_OPTION_NUM	           16
 
 typedef struct _SwitchDisplay {
     int		    screenPrivateIndex;
@@ -81,12 +85,17 @@ typedef struct _SwitchDisplay {
 #define SWITCH_SCREEN_OPTION_AUTO_ROTATE  11
 #define SWITCH_SCREEN_OPTION_NUM	  12
 
+typedef enum {
+    CurrentViewport = 0,
+    AllViewports,
+    Panels
+} SwitchWindowSelection;
+
 typedef struct _SwitchScreen {
     PreparePaintScreenProc preparePaintScreen;
     DonePaintScreenProc    donePaintScreen;
     PaintOutputProc	   paintOutput;
     PaintWindowProc        paintWindow;
-    PaintBackgroundProc    paintBackground;
     DamageWindowRectProc   damageWindowRect;
 
     CompOption opt[SWITCH_SCREEN_OPTION_NUM];
@@ -121,7 +130,7 @@ typedef struct _SwitchScreen {
     float translate;
     float sTranslate;
 
-    Bool allWindows;
+    SwitchWindowSelection selection;
 
     unsigned int fgColor[4];
 } SwitchScreen;
@@ -264,16 +273,27 @@ isSwitchWin (CompWindow *w)
 	}
     }
 
+    if (!(w->inputHint || (w->protocols & CompWindowProtocolTakeFocusMask)))
+	return FALSE;
+
     if (w->attrib.override_redirect)
 	return FALSE;
 
-    if (w->wmType & (CompWindowTypeDockMask | CompWindowTypeDesktopMask))
-	return FALSE;
+    if (ss->selection == Panels)
+    {
+	if (!(w->type & (CompWindowTypeDockMask | CompWindowTypeDesktopMask)))
+	    return FALSE;
+    }
+    else
+    {
+	if (w->wmType & (CompWindowTypeDockMask | CompWindowTypeDesktopMask))
+	    return FALSE;
 
-    if (w->state & CompWindowStateSkipTaskbarMask)
-	return FALSE;
+	if (w->state & CompWindowStateSkipTaskbarMask)
+	    return FALSE;
+    }
 
-    if (!ss->allWindows)
+    if (ss->selection == CurrentViewport)
     {
 	if (!w->mapNum || w->attrib.map_state != IsViewable)
 	{
@@ -438,7 +458,8 @@ switchToWindow (CompScreen *s,
     {
 	Window old = ss->selectedWindow;
 
-	if (ss->allWindows && ss->opt[SWITCH_SCREEN_OPTION_AUTO_ROTATE].value.b)
+	if (ss->selection == AllViewports &&
+	    ss->opt[SWITCH_SCREEN_OPTION_AUTO_ROTATE].value.b)
 	{
 	    XEvent xev;
 	    int	   x, y;
@@ -557,9 +578,9 @@ findArgbVisual (Display *dpy, int scr)
 }
 
 static void
-switchInitiate (CompScreen *s,
-		Bool	   allWindows,
-		Bool	   showPopup)
+switchInitiate (CompScreen            *s,
+		SwitchWindowSelection selection,
+		Bool	              showPopup)
 {
     int count;
 
@@ -568,7 +589,8 @@ switchInitiate (CompScreen *s,
     if (otherScreenGrabExist (s, "switcher", "scale", "cube", 0))
 	return;
 
-    ss->allWindows = allWindows;
+    ss->selection      = selection;
+    ss->selectedWindow = None;
 
     count = switchCountWindows (s);
     if (count < 1)
@@ -638,6 +660,8 @@ switchInitiate (CompScreen *s,
 	setWindowProp (s->display, ss->popupWindow,
 		       s->display->winDesktopAtom,
 		       0xffffffff);
+
+	setSelectedWindowHint (s);
     }
 
     if (!ss->grabIndex)
@@ -668,8 +692,6 @@ switchInitiate (CompScreen *s,
 		    XMapWindow (s->display->display, ss->popupWindow);
 		}
 	    }
-
-	    setSelectedWindowHint (s);
 
 	    switchActivateEvent (s, TRUE);
 	}
@@ -748,6 +770,9 @@ switchTerminate (CompDisplay     *d,
 		ss->moreAdjust = 1;
 	    }
 
+	    ss->selectedWindow = None;
+	    setSelectedWindowHint (s);
+
 	    ss->lastActiveNum = 0;
 
 	    damageScreen (s);
@@ -761,11 +786,14 @@ switchTerminate (CompDisplay     *d,
 }
 
 static Bool
-switchNext (CompDisplay     *d,
-	    CompAction      *action,
-	    CompActionState state,
-	    CompOption      *option,
-	    int	            nOption)
+switchInitiateCommon (CompDisplay           *d,
+		      CompAction            *action,
+		      CompActionState       state,
+		      CompOption            *option,
+		      int                   nOption,
+		      SwitchWindowSelection selection,
+		      Bool                  showPopup,
+		      Bool                  nextWindow)
 {
     CompScreen *s;
     Window     xid;
@@ -779,23 +807,32 @@ switchNext (CompDisplay     *d,
 
 	if (!ss->switching)
 	{
-	    switchInitiate (s, FALSE, TRUE);
+	    switchInitiate (s, selection, showPopup);
 
 	    if (state & CompActionStateInitKey)
 		action->state |= CompActionStateTermKey;
 
-	    if (state & CompActionStateInitButton)
-		action->state |= CompActionStateTermButton;
-
 	    if (state & CompActionStateInitEdge)
 		action->state |= CompActionStateTermEdge;
-
+	    else if (state & CompActionStateInitButton)
+		action->state |= CompActionStateTermButton;
 	}
 
-	switchToWindow (s, TRUE);
+	switchToWindow (s, nextWindow);
     }
 
     return FALSE;
+}
+
+static Bool
+switchNext (CompDisplay     *d,
+	    CompAction      *action,
+	    CompActionState state,
+	    CompOption      *option,
+	    int	            nOption)
+{
+    return switchInitiateCommon (d, action, state, option, nOption,
+				 CurrentViewport, TRUE, TRUE);
 }
 
 static Bool
@@ -805,34 +842,8 @@ switchPrev (CompDisplay     *d,
 	    CompOption      *option,
 	    int	            nOption)
 {
-    CompScreen *s;
-    Window     xid;
-
-    xid = getIntOptionNamed (option, nOption, "root", 0);
-
-    s = findScreenAtDisplay (d, xid);
-    if (s)
-    {
-	SWITCH_SCREEN (s);
-
-	if (!ss->switching)
-	{
-	    switchInitiate (s, FALSE, TRUE);
-
-	    if (state & CompActionStateInitKey)
-		action->state |= CompActionStateTermKey;
-
-	    if (state & CompActionStateInitButton)
-		action->state |= CompActionStateTermButton;
-
-	    if (state & CompActionStateInitEdge)
-		action->state |= CompActionStateTermEdge;
-	}
-
-	switchToWindow (s, FALSE);
-    }
-
-    return FALSE;
+    return switchInitiateCommon (d, action, state, option, nOption,
+				 CurrentViewport, TRUE, FALSE);
 }
 
 static Bool
@@ -842,34 +853,8 @@ switchNextAll (CompDisplay     *d,
 	       CompOption      *option,
 	       int	       nOption)
 {
-    CompScreen *s;
-    Window     xid;
-
-    xid = getIntOptionNamed (option, nOption, "root", 0);
-
-    s = findScreenAtDisplay (d, xid);
-    if (s)
-    {
-	SWITCH_SCREEN (s);
-
-	if (!ss->switching)
-	{
-	    switchInitiate (s, TRUE, TRUE);
-
-	    if (state & CompActionStateInitKey)
-		action->state |= CompActionStateTermKey;
-
-	    if (state & CompActionStateInitButton)
-		action->state |= CompActionStateTermButton;
-
-	    if (state & CompActionStateInitEdge)
-		action->state |= CompActionStateTermEdge;
-	}
-
-	switchToWindow (s, TRUE);
-    }
-
-    return FALSE;
+    return switchInitiateCommon (d, action, state, option, nOption,
+				 AllViewports, TRUE, TRUE);
 }
 
 static Bool
@@ -879,34 +864,8 @@ switchPrevAll (CompDisplay     *d,
 	       CompOption      *option,
 	       int	       nOption)
 {
-    CompScreen *s;
-    Window     xid;
-
-    xid = getIntOptionNamed (option, nOption, "root", 0);
-
-    s = findScreenAtDisplay (d, xid);
-    if (s)
-    {
-	SWITCH_SCREEN (s);
-
-	if (!ss->switching)
-	{
-	    switchInitiate (s, TRUE, TRUE);
-
-	    if (state & CompActionStateInitKey)
-		action->state |= CompActionStateTermKey;
-
-	    if (state & CompActionStateInitButton)
-		action->state |= CompActionStateTermButton;
-
-	    if (state & CompActionStateInitEdge)
-		action->state |= CompActionStateTermEdge;
-	}
-
-	switchToWindow (s, FALSE);
-    }
-
-    return FALSE;
+    return switchInitiateCommon (d, action, state, option, nOption,
+				 AllViewports, TRUE, FALSE);
 }
 
 static Bool
@@ -916,35 +875,8 @@ switchNextNoPopup (CompDisplay     *d,
 		   CompOption      *option,
 		   int	           nOption)
 {
-    CompScreen *s;
-    Window     xid;
-
-    xid = getIntOptionNamed (option, nOption, "root", 0);
-
-    s = findScreenAtDisplay (d, xid);
-    if (s)
-    {
-	SWITCH_SCREEN (s);
-
-	if (!ss->switching)
-	{
-	    switchInitiate (s, FALSE, FALSE);
-
-	    if (state & CompActionStateInitKey)
-		action->state |= CompActionStateTermKey;
-
-	    if (state & CompActionStateInitButton)
-		action->state |= CompActionStateTermButton;
-
-	    if (state & CompActionStateInitEdge)
-		action->state |= CompActionStateTermEdge;
-
-	}
-
-	switchToWindow (s, TRUE);
-    }
-
-    return FALSE;
+    return switchInitiateCommon (d, action, state, option, nOption,
+				 CurrentViewport, FALSE, TRUE);
 }
 
 static Bool
@@ -954,34 +886,30 @@ switchPrevNoPopup (CompDisplay     *d,
 		   CompOption      *option,
 		   int	           nOption)
 {
-    CompScreen *s;
-    Window     xid;
+    return switchInitiateCommon (d, action, state, option, nOption,
+				 CurrentViewport, FALSE, FALSE);
+}
 
-    xid = getIntOptionNamed (option, nOption, "root", 0);
+static Bool
+switchNextPanel (CompDisplay     *d,
+		 CompAction      *action,
+		 CompActionState state,
+		 CompOption      *option,
+		 int	         nOption)
+{
+    return switchInitiateCommon (d, action, state, option, nOption,
+				 Panels, FALSE, TRUE);
+}
 
-    s = findScreenAtDisplay (d, xid);
-    if (s)
-    {
-	SWITCH_SCREEN (s);
-
-	if (!ss->switching)
-	{
-	    switchInitiate (s, FALSE, FALSE);
-
-	    if (state & CompActionStateInitKey)
-		action->state |= CompActionStateTermKey;
-
-	    if (state & CompActionStateInitButton)
-		action->state |= CompActionStateTermButton;
-
-	    if (state & CompActionStateInitEdge)
-		action->state |= CompActionStateTermEdge;
-	}
-
-	switchToWindow (s, FALSE);
-    }
-
-    return FALSE;
+static Bool
+switchPrevPanel (CompDisplay     *d,
+		 CompAction      *action,
+		 CompActionState state,
+		 CompOption      *option,
+		 int	         nOption)
+{
+    return switchInitiateCommon (d, action, state, option, nOption,
+				 Panels, FALSE, FALSE);
 }
 
 static void
@@ -1405,6 +1333,7 @@ switchPaintOutput (CompScreen		   *s,
 	    float zTranslate;
 
 	    mask &= ~PAINT_SCREEN_CLEAR_MASK;
+	    mask |= PAINT_SCREEN_NO_BACKGROUND_MASK;
 
 	    ss->zoomMask = ZOOMED_WINDOW_MASK;
 
@@ -1817,21 +1746,6 @@ switchPaintWindow (CompWindow		   *w,
     return status;
 }
 
-static void
-switchPaintBackground (CompScreen   *s,
-		       Region	    region,
-		       unsigned int mask)
-{
-    SWITCH_SCREEN (s);
-
-    if (!(ss->zoomMask & NORMAL_WINDOW_MASK))
-	return;
-
-    UNWRAP (ss, s, paintBackground);
-    (*s->paintBackground) (s, region, mask);
-    WRAP (ss, s, paintBackground, switchPaintBackground);
-}
-
 static Bool
 switchDamageWindowRect (CompWindow *w,
 			Bool	   initial,
@@ -1908,7 +1822,11 @@ static const CompMetadataOptionInfo switchDisplayOptionInfo[] = {
     { "next_no_popup_key", "key", 0, switchNextNoPopup, switchTerminate },
     { "prev_no_popup_button", "button", 0, switchPrevNoPopup,
       switchTerminate },
-    { "prev_no_popup_key", "key", 0, switchPrevNoPopup, switchTerminate }
+    { "prev_no_popup_key", "key", 0, switchPrevNoPopup, switchTerminate },
+    { "next_panel_button", "button", 0, switchNextPanel, switchTerminate },
+    { "next_panel_key", "key", 0, switchNextPanel, switchTerminate },
+    { "prev_panel_button", "button", 0, switchPrevPanel, switchTerminate },
+    { "prev_panel_key", "key", 0, switchPrevPanel, switchTerminate } 
 };
 
 static Bool
@@ -2038,7 +1956,7 @@ switchInitScreen (CompPlugin *p,
     ss->translate  = 0.0f;
     ss->sTranslate = 0.0f;
 
-    ss->allWindows = FALSE;
+    ss->selection = CurrentViewport;
 
     ss->fgColor[0] = 0;
     ss->fgColor[1] = 0;
@@ -2049,7 +1967,6 @@ switchInitScreen (CompPlugin *p,
     WRAP (ss, s, donePaintScreen, switchDonePaintScreen);
     WRAP (ss, s, paintOutput, switchPaintOutput);
     WRAP (ss, s, paintWindow, switchPaintWindow);
-    WRAP (ss, s, paintBackground, switchPaintBackground);
     WRAP (ss, s, damageWindowRect, switchDamageWindowRect);
 
     s->base.privates[sd->screenPrivateIndex].ptr = ss;
@@ -2067,8 +1984,10 @@ switchFiniScreen (CompPlugin *p,
     UNWRAP (ss, s, donePaintScreen);
     UNWRAP (ss, s, paintOutput);
     UNWRAP (ss, s, paintWindow);
-    UNWRAP (ss, s, paintBackground);
     UNWRAP (ss, s, damageWindowRect);
+
+    if (ss->popupWindow)
+	XDestroyWindow (s->display->display, ss->popupWindow);
 
     if (ss->windowsSize)
 	free (ss->windows);

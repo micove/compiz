@@ -267,7 +267,7 @@ updateOutputDevices (CompScreen	*s)
     CompOutput	  *o, *output = NULL;
     CompListValue *list = &s->opt[COMP_SCREEN_OPTION_OUTPUTS].value.list;
     int		  nOutput = 0;
-    int		  x, y, i, bits;
+    int		  x, y, i, j, bits;
     unsigned int  width, height;
     int		  x1, y1, x2, y2;
     Region	  region;
@@ -367,8 +367,9 @@ updateOutputDevices (CompScreen	*s)
 	free (s->outputDev);
     }
 
-    s->outputDev  = output;
-    s->nOutputDev = nOutput;
+    s->outputDev             = output;
+    s->nOutputDev            = nOutput;
+    s->hasOverlappingOutputs = FALSE;
 
     setCurrentOutput (s, s->currentOutputDev);
 
@@ -385,6 +386,17 @@ updateOutputDevices (CompScreen	*s)
 	r.rects = &r.extents;
 	r.numRects = 1;
 
+	for (i = 0; i < nOutput - 1; i++)
+	    for (j = i + 1; j < nOutput; j++)
+            {
+		XIntersectRegion (&output[i].region,
+				  &output[j].region,
+				  region);
+		if (REGION_NOT_EMPTY (region))
+		    s->hasOverlappingOutputs = TRUE;
+	    }
+	XSubtractRegion (&emptyRegion, &emptyRegion, region);
+	
 	if (s->display->nScreenInfo)
 	{
 	    for (i = 0; i < s->display->nScreenInfo; i++)
@@ -617,6 +629,13 @@ setScreenOption (CompPlugin	 *plugin,
 	    return TRUE;
 	}
 	break;
+     case COMP_SCREEN_OPTION_FORCE_INDEPENDENT:
+	if (compSetBoolOption (o, value))
+	{
+	    updateOutputDevices (screen);
+	    return TRUE;
+	}
+	break;
     default:
 	if (compSetScreenOption (screen, o, value))
 	    return TRUE;
@@ -646,7 +665,8 @@ const CompMetadataOptionInfo coreScreenOptionInfo[COMP_SCREEN_OPTION_NUM] = {
     { "focus_prevention_match", "match", 0, 0, 0 },
     { "opacity_matches", "list", "<type>match</type>", 0, 0 },
     { "opacity_values", "list", "<type>int</type>", 0, 0 },
-    { "texture_compression", "bool", 0, 0, 0 }
+    { "texture_compression", "bool", 0, 0, 0 },
+    { "force_independent_output_painting", "bool", 0, 0, 0 }
 };
 
 static void
@@ -1431,7 +1451,8 @@ enterShowDesktopMode (CompScreen *s)
 	if ((s->showingDesktopMask & w->wmType) &&
 	    (!(w->state & CompWindowStateSkipTaskbarMask) || st->value.b))
 	{
-	    if (!w->inShowDesktopMode && !w->grabbed && (*s->focusWindow) (w))
+	    if (!w->inShowDesktopMode && !w->grabbed &&
+		w->managed && (*s->focusWindow) (w))
 	    {
 		w->inShowDesktopMode = TRUE;
 		hideWindow (w);
@@ -1749,7 +1770,6 @@ addScreen (CompDisplay *display,
     s->enableOutputClipping	   = enableOutputClipping;
     s->disableOutputClipping	   = disableOutputClipping;
     s->applyScreenTransform	   = applyScreenTransform;
-    s->paintBackground		   = paintBackground;
     s->paintWindow		   = paintWindow;
     s->drawWindow		   = drawWindow;
     s->addWindowGeometry	   = addWindowGeometry;
@@ -2026,13 +2046,16 @@ addScreen (CompDisplay *display,
 	    getProcAddress (s, "glProgramEnvParameter4fARB");
 	s->programLocalParameter4f = (GLProgramParameter4fProc)
 	    getProcAddress (s, "glProgramLocalParameter4fARB");
+	s->getProgramiv = (GLGetProgramivProc)
+	    getProcAddress (s, "glGetProgramivARB");
 
-	if (s->genPrograms	     &&
-	    s->deletePrograms	     &&
-	    s->bindProgram	     &&
-	    s->programString	     &&
-	    s->programEnvParameter4f &&
-	    s->programLocalParameter4f)
+	if (s->genPrograms	       &&
+	    s->deletePrograms	       &&
+	    s->bindProgram	       &&
+	    s->programString	       &&
+	    s->programEnvParameter4f   &&
+	    s->programLocalParameter4f &&
+	    s->getProgramiv)
 	    s->fragmentProgram = 1;
     }
 

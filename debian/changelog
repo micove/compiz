@@ -1,3 +1,28 @@
+compiz (0.7.6-1) unstable; urgency=low
+
+  * New upstream release
+
+  [ Sean Finney ]
+  * Special-case the gconf and kconfig plugins to go into the -gtk and -kde
+    packages respectively, as they are semi-obsoleted by the ccp plugin anyway
+    and cause potentially problematic dependencies.  Thanks to Fabiano 
+    Manoel de Andrade for the report (closes: #482150).
+  * Add versioned Conflicts on libcompizconfig0 to compiz-core, to reflect
+    ABI breakage without introducing a circular dependency.  Thanks
+    to Mike Hommey for the report (closes: #482646).
+  * Make debian/rules stricter about catching uninstalled files.
+  * Make debian/rules able to build/clean/build again.
+  * Misc cleanups in debian/rules.
+  * Lintian fixes:
+    - Spelling correction in debian/control
+    - Fix for build-depends-on-1-revision for x11proto-gl-dev
+
+  [ Julien Cristau ]
+  * Add Depends: libxslt1-dev, libxml2-dev to compiz-dev, as they are required
+    by compiz.pc (closes: #482192).
+
+ -- Sean Finney <seanius@debian.org>  Mon, 26 May 2008 23:04:24 +0200
+
 compiz (0.7.4-1) unstable; urgency=low
 
   * New upstream release

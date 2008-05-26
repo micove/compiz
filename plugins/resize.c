@@ -331,10 +331,8 @@ resizeInitiate (CompDisplay     *d,
 
 	RESIZE_SCREEN (w->screen);
 
-	x = getIntOptionNamed (option, nOption, "x",
-			       w->serverX + (w->serverWidth / 2));
-	y = getIntOptionNamed (option, nOption, "y",
-			       w->serverY + (w->serverHeight / 2));
+	x = getIntOptionNamed (option, nOption, "x", pointerX);
+	y = getIntOptionNamed (option, nOption, "y", pointerY);
 
 	button = getIntOptionNamed (option, nOption, "button", -1);
 
@@ -866,13 +864,9 @@ resizeHandleEvent (CompDisplay *d,
 		    {
 			option = RESIZE_DISPLAY_OPTION_INITIATE_KEY;
 
-			o[1].type    = CompOptionTypeInt;
-			o[1].name    = "button";
-			o[1].value.i = 0;
-
 			resizeInitiate (d, &rd->opt[option].value.action,
 					CompActionStateInitKey,
-					o, 2);
+					o, 1);
 		    }
 		    else
 		    {
@@ -1001,13 +995,16 @@ resizePaintRectangle (CompScreen              *s,
 		      unsigned short	      *borderColor,
 		      unsigned short	      *fillColor)
 {
-    BoxRec box;
+    BoxRec        box;
+    CompTransform sTransform = *transform;
 
     resizeGetPaintRectangle (s->display, &box);
 
     glPushMatrix ();
 
-    prepareXCoords (s, output, -DEFAULT_Z_CAMERA);
+    transformToScreenSpace (s, output, -DEFAULT_Z_CAMERA, &sTransform);
+    
+    glLoadMatrixf (sTransform.m);
 
     glDisableClientState (GL_TEXTURE_COORD_ARRAY);
     glEnable (GL_BLEND);

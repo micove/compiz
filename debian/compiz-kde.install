@@ -1,1 +1,4 @@
 usr/bin/kde-window-decorator
+usr/lib/compiz/libkconfig.so
+usr/share/config.kcfg/*.kcfg
+etc/kde3/compizrc

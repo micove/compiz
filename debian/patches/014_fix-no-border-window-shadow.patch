@@ -6,11 +6,9 @@ Subject: [PATCH] Fix no border window shadow
  libdecoration/decoration.c |    4 +++-
  1 files changed, 3 insertions(+), 1 deletions(-)
 
-Index: compiz/libdecoration/decoration.c
-===================================================================
---- compiz.orig/libdecoration/decoration.c
-+++ compiz/libdecoration/decoration.c
-@@ -1243,7 +1243,9 @@
+--- 0-compiz.orig/libdecoration/decoration.c
++++ 0-compiz/libdecoration/decoration.c
+@@ -1243,7 +1243,9 @@ decor_shadow_create (Display		    *xdisp
      }
  
      /* create pixmap for temporary decorations */

@@ -3,10 +3,8 @@ Enable snapping of windows by default.
 This patch originally by Thierry Reding, later modified/updated by Sean Finney
 Not submitted to upstream.
 
-Index: compiz/metadata/wobbly.xml.in
-===================================================================
---- compiz.orig/metadata/wobbly.xml.in
-+++ compiz/metadata/wobbly.xml.in
+--- 0-compiz.orig/metadata/wobbly.xml.in
++++ 0-compiz/metadata/wobbly.xml.in
 @@ -18,7 +18,7 @@
  	    <option name="snap_inverted" type="bool">
  		<_short>Snap Inverted</_short>

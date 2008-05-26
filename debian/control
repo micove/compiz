@@ -12,7 +12,7 @@ Build-Depends: autoconf, automake1.9, autotools-dev,
  libsm-dev (>= 1:1.0.1), libtool, libwnck-dev, libxcomposite-dev (>= 1:0.3-2), 
  libxdamage-dev (>=1:1.0.3), libxfixes-dev (>= 1:4.0.1), libxinerama-dev, 
  libxml-parser-perl, libxrandr-dev (>= 2:1.1.0.2), libxrender-dev (>= 1:0.9.1), 
- quilt (>= 0.40), x11proto-gl-dev (>= 1.4.8-1), xsltproc
+ quilt (>= 0.40), x11proto-gl-dev (>= 1.4.8), xsltproc
 Standards-Version: 3.7.3
 
 Package: compiz
@@ -24,7 +24,7 @@ Description: OpenGL window and compositing manager
  easier to use, more powerful and intuitive, and more accessible for users
  with special needs.
  .
- This meta-package provides the components necessary for running compiz. It
+ This metapackage provides the components necessary for running compiz. It
  provides the compiz core, a set of standard plugins, a window decorator using
  the Gtk toolkit and the files necessary to integrate compiz with the GNOME
  desktop environment.
@@ -32,6 +32,7 @@ Description: OpenGL window and compositing manager
 Package: compiz-core
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, mesa-utils
+Conflicts: libcompizconfig0 (<< 0.7.6)
 Recommends: compiz-plugins (= ${binary:Version})
 Suggests: nvidia-glx (>= 1.0.9625-1)
 Description: OpenGL window and compositing manager
@@ -48,7 +49,7 @@ Description: OpenGL window and compositing manager
 
 Package: compiz-dev
 Architecture: any
-Depends: compiz-core (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}, libgl1-mesa-dev | libgl-dev, libpng-dev, libxcomposite-dev, libxdamage-dev, libxinerama-dev, libxrandr-dev, libice-dev, libsm-dev, libstartup-notification0-dev
+Depends: compiz-core (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}, libgl1-mesa-dev | libgl-dev, libpng-dev, libxcomposite-dev, libxdamage-dev, libxinerama-dev, libxrandr-dev, libice-dev, libsm-dev, libstartup-notification0-dev, libxslt1-dev, libxml2-dev
 Description: OpenGL window and compositing manager - development files
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users

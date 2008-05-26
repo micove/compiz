@@ -1,10 +1,8 @@
 debian bug: http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=456628
 reported upstream: http://bugs.opencompositing.org/show_bug.cgi?id=708
-Index: compiz/debian/compiz-manager
-===================================================================
---- compiz.orig/debian/compiz-manager
-+++ compiz/debian/compiz-manager
-@@ -150,7 +150,7 @@
+--- 0-compiz.orig/debian/compiz-manager
++++ 0-compiz/debian/compiz-manager
+@@ -150,7 +150,7 @@ check_fbconfig()
  check_tfp()
  {
  	verbose "Checking for texture_from_pixmap: "

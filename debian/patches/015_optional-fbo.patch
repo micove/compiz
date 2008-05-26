@@ -1,7 +1,5 @@
-Index: compiz/include/compiz-core.h
-===================================================================
---- compiz.orig/include/compiz-core.h
-+++ compiz/include/compiz-core.h
+--- 0-compiz.orig/include/compiz-core.h
++++ 0-compiz/include/compiz-core.h
 @@ -219,6 +219,7 @@ extern Bool       useCow;
  extern Bool       noDetection;
  extern Bool	  useDesktopHints;
@@ -10,10 +8,8 @@ Index: compiz/include/compiz-core.h
  
  extern int  defaultRefreshRate;
  extern char *defaultTextureFilter;
-Index: compiz/src/main.c
-===================================================================
---- compiz.orig/src/main.c
-+++ compiz/src/main.c
+--- 0-compiz.orig/src/main.c
++++ 0-compiz/src/main.c
 @@ -62,6 +62,7 @@ Bool strictBinding = TRUE;
  Bool noDetection = FALSE;
  Bool useDesktopHints = TRUE;
@@ -41,11 +37,9 @@ Index: compiz/src/main.c
  
  #ifdef USE_COW
  	else if (!strcmp (argv[i], "--use-root-window"))
-Index: compiz/src/screen.c
-===================================================================
---- compiz.orig/src/screen.c
-+++ compiz/src/screen.c
-@@ -2037,7 +2037,7 @@ addScreen (CompDisplay *display,
+--- 0-compiz.orig/src/screen.c
++++ 0-compiz/src/screen.c
+@@ -2060,7 +2060,7 @@ addScreen (CompDisplay *display,
      }
  
      s->fbo = 0;

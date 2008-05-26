@@ -1881,6 +1881,8 @@ KWD::Window::moveWindow (QMouseEvent *qme)
 					       qme->globalX (),
 					       qme->globalY (),
 					       direction);
+    mFakeRelease = true;
+
 }
 
 #define OPACITY_STEP (0xffff / 10)
@@ -2025,15 +2027,17 @@ KWD::Window::processDamage (void)
     {
 	r2.translate (-xOff, -yOff);
 
-	decor_blend_top_border_picture (QX11Info::display(),
-					&mContext,
-					mPicture,
-					xOff, xOff,
-					mTexturePicture,
-					&mLayout,
-					r2.handle (),
-					(unsigned short) (alpha * 0xffff),
-					shade_alpha);
+	decor_blend_border_picture (QX11Info::display(),
+				    &mContext,
+				    mPicture,
+				    xOff, xOff,
+				    mTexturePicture,
+				    &mLayout,
+				    BORDER_TOP,
+				    r2.handle (),
+				    (unsigned short) (alpha * 0xffff),
+				    shade_alpha,
+				    TRUE);
     }
 
     xOff = 0;
@@ -2046,15 +2050,17 @@ KWD::Window::processDamage (void)
     {
 	r2.translate (-xOff, -yOff);
 
-	decor_blend_bottom_border_picture (QX11Info::display(),
-					   &mContext,
-					   mPicture,
-					   xOff, yOff,
-					   mTexturePicture,
-					   &mLayout,
-					   r2.handle (),
-					   (unsigned short) (alpha * 0xffff),
-					   shade_alpha);
+	decor_blend_border_picture (QX11Info::display(),
+				    &mContext,
+				    mPicture,
+				    xOff, yOff,
+				    mTexturePicture,
+				    &mLayout,
+				    BORDER_BOTTOM,
+				    r2.handle (),
+				    (unsigned short) (alpha * 0xffff),
+				    shade_alpha,
+				    TRUE);
     }
 
     xOff = 0;
@@ -2067,15 +2073,17 @@ KWD::Window::processDamage (void)
     {
 	r2.translate (-xOff, -yOff);
 
-	decor_blend_left_border_picture (QX11Info::display(),
-					 &mContext,
-					 mPicture,
-					 xOff, yOff,
-					 mTexturePicture,
-					 &mLayout,
-					 r2.handle (),
-					 (unsigned short) (alpha * 0xffff),
-					 shade_alpha);
+	decor_blend_border_picture (QX11Info::display(),
+				    &mContext,
+				    mPicture,
+				    xOff, yOff,
+				    mTexturePicture,
+				    &mLayout,
+				    BORDER_LEFT,
+				    r2.handle (),
+				    (unsigned short) (alpha * 0xffff),
+				    shade_alpha,
+				    TRUE);
     }
 
     xOff = mContext.extents.left + mGeometry.width ();
@@ -2088,15 +2096,17 @@ KWD::Window::processDamage (void)
     {
 	r2.translate (-xOff, -yOff);
 
-	decor_blend_right_border_picture (QX11Info::display(),
-					  &mContext,
-					  mPicture,
-					  xOff, yOff,
-					  mTexturePicture,
-					  &mLayout,
-					  r2.handle (),
-					  (unsigned short) (alpha * 0xffff),
-					  shade_alpha);
+	decor_blend_border_picture (QX11Info::display(),
+				    &mContext,
+				    mPicture,
+				    xOff, yOff,
+				    mTexturePicture,
+				    &mLayout,
+				    BORDER_RIGHT,
+				    r2.handle (),
+				    (unsigned short) (alpha * 0xffff),
+				    shade_alpha,
+				    TRUE);
     }
 
     mDamage = QRegion ();
