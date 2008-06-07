@@ -1,3 +1,12 @@
+compiz (0.7.6-2) unstable; urgency=low
+
+  * Add Conflicts against xscreensaver-data-extra as an unfortunately
+    heavy handed workaround to prevent graphical lockups with an as-of-yet
+    unknown bug somewhere in the screensaver-compiz-driver-xserver chain.
+    (See: #483170, and other bugs/urls referenced in that report)
+
+ -- Sean Finney <seanius@debian.org>  Sat, 07 Jun 2008 14:22:15 +0200
+
 compiz (0.7.6-1) unstable; urgency=low
 
   * New upstream release
