@@ -61,6 +61,7 @@ Description: OpenGL window and compositing manager - development files
 Package: compiz-gtk
 Architecture: any
 Depends: compiz-core (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Replaces: compiz-plugins (<< 0.7.6-2)
 Suggests: gnome-themes
 Description: OpenGL window and compositing manager - Gtk window decorator
  Compiz brings to life a variety of visual effects that make the Linux desktop

@@ -1,3 +1,10 @@
+compiz (0.7.6-3) unstable; urgency=high
+
+  * Add a versioned Replaces on older compiz-plugins to compiz-gtk, to prevent
+    file conflicts.  Thanks to Daniel Burrows for the report (closes: #485436).
+
+ -- Sean Finney <seanius@debian.org>  Mon, 09 Jun 2008 18:39:57 +0200
+
 compiz (0.7.6-2) unstable; urgency=low
 
   * Add Conflicts against xscreensaver-data-extra as an unfortunately
