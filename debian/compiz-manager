@@ -63,7 +63,6 @@ unset T
 
 COMPIZ_OPTIONS="--ignore-desktop-hints --replace"
 COMPIZ_PLUGINS=""
-ENV=""
 
 # Use emerald by default if it exist
 USE_EMERALD="yes"
@@ -282,27 +281,23 @@ have_blacklisted_pciid()
 build_env()
 {
 	if check_nvidia; then
-		ENV="__GL_YIELD=NOTHING "
+		export __GL_YIELD=NOTHING
 	fi
 	if [ "$INDIRECT" = "yes" ]; then
-		ENV="$ENV LIBGL_ALWAYS_INDIRECT=1 "
+		export LIBGL_ALWAYS_INDIRECT=1
 	fi
 	if check_xgl; then
 		if [ -f ${LIBGL_NVIDIA} ]; then
-			ENV="$ENV LD_PRELOAD=${LIBGL_NVIDIA}"
+			export LD_PRELOAD="${LD_PRELOAD:+${LD_PRELOAD} }${LIBGL_NVIDIA}"
 			verbose "Enabling Xgl with nVidia drivers...\n"
 		fi
 		if [ -f ${LIBGL_FGLRX} ]; then
-			ENV="$ENV LD_PRELOAD=${LIBGL_FGLRX}"
+			export LD_PRELOAD="${LD_PRELOAD:+${LD_PRELOAD} }${LIBGL_FGLRX}"
 			verbose "Enabling Xgl with fglrx ATi drivers...\n"
 		fi
 	fi
 
-	ENV="$ENV FROM_WRAPPER=yes"
-
-	if [ -n "$ENV" ]; then
-		export $ENV
-	fi
+	export FROM_WRAPPER=yes
 }
 
 build_args()

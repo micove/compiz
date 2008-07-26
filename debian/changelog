@@ -1,3 +1,13 @@
+compiz (0.7.6-4) unstable; urgency=low
+
+  [ Julien Cristau ]
+  * Bump libdecoration0 shlibs to >= 0.7.6 (closes: #485775).
+
+  [ Sean Finney ]
+  * Include fix for posixly-incorrect usage of ENV (closes: #484225).
+
+ -- Julien Cristau <jcristau@debian.org>  Sat, 26 Jul 2008 21:44:51 +0200
+
 compiz (0.7.6-3) unstable; urgency=high
 
   * Add a versioned Replaces on older compiz-plugins to compiz-gtk, to prevent
