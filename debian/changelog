@@ -1,3 +1,11 @@
+compiz (0.7.6-5) unstable; urgency=high
+
+  * Brown paper bag: remove shlibs.local and libdecoration0.shlibs, call
+    dh_makeshlibs with the proper flags to actually fix dependencies on
+    libdecoration0.
+
+ -- Julien Cristau <jcristau@debian.org>  Fri, 01 Aug 2008 18:57:30 +0200
+
 compiz (0.7.6-4) unstable; urgency=low
 
   [ Julien Cristau ]
