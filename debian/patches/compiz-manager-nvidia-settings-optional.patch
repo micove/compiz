@@ -1,6 +1,6 @@
 --- 0-compiz.orig/debian/compiz-manager
 +++ 0-compiz/debian/compiz-manager
-@@ -198,6 +198,10 @@ check_xgl()
+@@ -197,6 +197,10 @@ check_xgl()
  # Check if the nVidia card has enough video ram to make sense
  check_nvidia_memory()
  {

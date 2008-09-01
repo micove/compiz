@@ -32,7 +32,7 @@ Description: OpenGL window and compositing manager
 Package: compiz-core
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, mesa-utils
-Conflicts: libcompizconfig0 (<< 0.7.6), xscreensaver-data-extra
+Conflicts: libcompizconfig0 (<< 0.7.6)
 Recommends: compiz-plugins (= ${binary:Version})
 Suggests: nvidia-glx (>= 1.0.9625-1)
 Description: OpenGL window and compositing manager

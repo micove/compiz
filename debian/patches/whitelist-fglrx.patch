@@ -1,0 +1,13 @@
+whitelist the fglrx driver too
+see #495539
+--- 0-compiz.orig/debian/compiz-manager
++++ 0-compiz/debian/compiz-manager
+@@ -51,7 +51,7 @@ FALLBACKWM="${METACITY}"
+ FALLBACKWM_OPTIONS="--replace $@"
+ 
+ # Driver whitelist
+-WHITELIST="nvidia intel ati radeon i810"
++WHITELIST="fglrx nvidia intel ati radeon i810"
+ 
+ # blacklist based on the pci ids 
+ # See http://wiki.compiz-fusion.org/Hardware/Blacklist for details
