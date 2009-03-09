@@ -60,13 +60,15 @@ AUTOFOO_DELETE:=aclocal.m4 config.guess config.h.in config.sub configure \
 # brief shorthand for cleaner rules below
 DESTDIR:=$(CURDIR)/debian/tmp
 
-build: patch build-stamp
-build-stamp:
+build: build-stamp
+build-stamp: $(QUILT_STAMPFN)
 	dh_testdir
 	for f in $(UPSTREAM_PRESERVE); do \
 		cp -a $$f $$f.preserve; \
 	done
-	./autogen.sh --prefix=/usr --sysconfdir=\$${prefix}/share $(confflags) \
+	autoreconf -vi
+	intltoolize --copy --force --automake
+	./configure --prefix=/usr --sysconfdir=\$${prefix}/share $(confflags) \
 	             CFLAGS="$(CFLAGS)" QTDIR=/usr
 	$(MAKE)
 	touch $@
