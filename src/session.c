@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <pwd.h>
 #include <X11/SM/SMlib.h>
 #include <X11/ICE/ICElib.h>
 
@@ -136,22 +137,51 @@ setRestartStyle (SmcConn connection,
 }
 
 static void
-setProgram (SmcConn    connection,
-	    const char *program)
+setProgramInfo (SmcConn    connection,
+		pid_t      pid,
+		uid_t      uid)
 {
-    SmProp	prop, *pProp;
-    SmPropValue propVal;
+    SmProp	  progProp, pidProp, userProp;
+    SmPropValue   progVal, pidVal, userVal;
+    SmProp	  *props[3];
+    char	  pidBuffer[32];
+    unsigned int  count = 0;
+    struct passwd *pw;
 
-    prop.name = SmProgram;
-    prop.type = SmARRAY8;
-    prop.num_vals = 1;
-    prop.vals = &propVal;
-    propVal.value = (SmPointer) program;
-    propVal.length = strlen (program);
+    progProp.name     = SmProgram;
+    progProp.type     = SmARRAY8;
+    progProp.num_vals = 1;
+    progProp.vals     = &progVal;
+    progVal.value     = (SmPointer) "compiz";
+    progVal.length    = strlen (progVal.value);
 
-    pProp = &prop;
+    props[count++] = &progProp;
 
-    SmcSetProperties (connection, 1, &pProp);
+    snprintf (pidBuffer, sizeof (pidBuffer), "%d", pid);
+
+    pidProp.name     = SmProcessID;
+    pidProp.type     = SmARRAY8;
+    pidProp.num_vals = 1;
+    pidProp.vals     = &pidVal;
+    pidVal.value     = (SmPointer) pidBuffer;
+    pidVal.length    = strlen (pidBuffer);
+
+    props[count++] = &pidProp;
+
+    pw = getpwuid (uid);
+    if (pw)
+    {
+	userProp.name     = SmUserID;
+	userProp.type     = SmARRAY8;
+	userProp.num_vals = 1;
+	userProp.vals     = &userVal;
+	userVal.value     = (SmPointer) pw->pw_name;
+	userVal.length    = strlen (pw->pw_name);
+
+	props[count++] = &userProp;
+    }
+
+    SmcSetProperties (connection, count, props);
 }
 
 static void
@@ -184,7 +214,7 @@ saveYourselfCallback (SmcConn	connection,
 
     setCloneRestartCommands (connection);
     setRestartStyle (connection, SmRestartImmediately);
-    setProgram (connection, programName);
+    setProgramInfo (connection, getpid (), getuid ());
     SmcSaveYourselfDone (connection, 1);
 }
 
@@ -249,7 +279,7 @@ initSession (char *prevClientId)
 					   sizeof (errorBuffer),
 					   errorBuffer);
 	if (!smcConnection)
-	    compLogMessage (NULL, "core", CompLogLevelWarn,
+	    compLogMessage ("core", CompLogLevelWarn,
 			    "SmcOpenConnection failed: %s",
 			    errorBuffer);
 	else

@@ -28,6 +28,10 @@
 #include <string.h>
 #include <dlfcn.h>
 #include <dirent.h>
+#include <unistd.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <compiz-core.h>
 
@@ -145,8 +149,13 @@ dlloaderLoadPlugin (CompPlugin *p,
 		    const char *path,
 		    const char *name)
 {
-    char *file;
-    void *dlhand;
+    char        *file;
+    void        *dlhand;
+    struct stat fileInfo;
+    Bool        loaded = FALSE;
+
+    if (cloaderLoadPlugin (p, path, name))
+	return TRUE;
 
     file = malloc ((path ? strlen (path) : 0) + strlen (name) + 8);
     if (!file)
@@ -157,6 +166,16 @@ dlloaderLoadPlugin (CompPlugin *p,
     else
 	sprintf (file, "lib%s.so", name);
 
+    if (stat (file, &fileInfo) != 0)
+    {
+	/* file likely not present */
+	compLogMessage ("core", CompLogLevelDebug,
+			"Could not stat() file %s : %s",
+			file, strerror (errno));
+	free (file);
+	return FALSE;
+    }
+
     dlhand = dlopen (file, RTLD_LAZY);
     if (dlhand)
     {
@@ -165,14 +184,13 @@ dlloaderLoadPlugin (CompPlugin *p,
 
 	dlerror ();
 
-	getInfo = (PluginGetInfoProc)
-	    dlsym (dlhand, "getCompPluginInfo20070830");
+	getInfo = (PluginGetInfoProc) dlsym (dlhand,
+					     "getCompPluginInfo20070830");
 
 	error = dlerror ();
 	if (error)
 	{
-	    compLogMessage (NULL, "core", CompLogLevelError,
-			    "dlsym: %s", error);
+	    compLogMessage ("core", CompLogLevelError, "dlsym: %s", error);
 
 	    getInfo = 0;
 	}
@@ -182,37 +200,30 @@ dlloaderLoadPlugin (CompPlugin *p,
 	    p->vTable = (*getInfo) ();
 	    if (!p->vTable)
 	    {
-		compLogMessage (NULL, "core", CompLogLevelError,
+		compLogMessage ("core", CompLogLevelError,
 				"Couldn't get vtable from '%s' plugin",
 				file);
-
-		dlclose (dlhand);
-		free (file);
-
-		return FALSE;
 	    }
-	}
-	else
-	{
-	    dlclose (dlhand);
-	    free (file);
-
-	    return FALSE;
+	    else
+	    {
+		p->devPrivate.ptr = dlhand;
+		p->devType	  = "dlloader";
+		loaded		  = TRUE;
+	    }
 	}
     }
     else
     {
-	free (file);
-
-	return cloaderLoadPlugin (p, path, name);
+	compLogMessage ("core", CompLogLevelError,
+			"Couldn't load plugin '%s' : %s", file, dlerror ());
     }
 
     free (file);
 
-    p->devPrivate.ptr = dlhand;
-    p->devType	      = "dlloader";
+    if (!loaded && dlhand)
+	dlclose (dlhand);
 
-    return TRUE;
+    return loaded;
 }
 
 static void
@@ -368,7 +379,7 @@ initObjectTree (CompObject *object,
     {
 	if (!(*p->vTable->initObject) (p, object))
 	{
-	    compLogMessage (NULL, p->vTable->name, CompLogLevelError,
+	    compLogMessage (p->vTable->name, CompLogLevelError,
 			    "InitObject failed");
 	    return FALSE;
 	}
@@ -433,7 +444,7 @@ initPlugin (CompPlugin *p)
 
     if (!(*p->vTable->init) (p))
     {
-	compLogMessage (NULL, "core", CompLogLevelError,
+	compLogMessage ("core", CompLogLevelError,
 			"InitPlugin '%s' failed", p->vTable->name);
 	return FALSE;
     }
@@ -575,8 +586,10 @@ loadPlugin (const char *name)
     if (status)
 	return p;
 
-    compLogMessage (NULL, "core", CompLogLevelError,
+    compLogMessage ("core", CompLogLevelError,
 		    "Couldn't load plugin '%s'", name);
+
+    free (p);
 
     return 0;
 }
@@ -586,7 +599,7 @@ pushPlugin (CompPlugin *p)
 {
     if (findActivePlugin (p->vTable->name))
     {
-	compLogMessage (NULL, "core", CompLogLevelWarn,
+	compLogMessage ("core", CompLogLevelWarn,
 			"Plugin '%s' already active",
 			p->vTable->name);
 
@@ -598,7 +611,7 @@ pushPlugin (CompPlugin *p)
 
     if (!initPlugin (p))
     {
-	compLogMessage (NULL, "core", CompLogLevelError,
+	compLogMessage ("core", CompLogLevelError,
 			"Couldn't activate plugin '%s'", p->vTable->name);
 	plugins = p->next;
 
@@ -735,11 +748,21 @@ Bool
 checkPluginABI (const char *name,
 		int	   abi)
 {
-    if (getPluginABI (name) != abi)
+    int pluginABI;
+
+    pluginABI = getPluginABI (name);
+    if (!pluginABI)
     {
-	compLogMessage (NULL, "core", CompLogLevelError,
-			"no '%s' plugin with ABI version '%d' loaded\n",
-			name, abi);
+	compLogMessage ("core", CompLogLevelError,
+			"Plugin '%s' not loaded.\n", name);
+	return FALSE;
+    }
+    else if (pluginABI != abi)
+    {
+	compLogMessage ("core", CompLogLevelError,
+			"Plugin '%s' has ABI version '%d', expected "
+			"ABI version '%d'.\n",
+			name, pluginABI, abi);
 	return FALSE;
     }
 

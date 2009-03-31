@@ -38,6 +38,8 @@ INSTALL = /usr/bin/install
 
 confflags += --disable-static \
              --disable-fuse \
+             --disable-kde \
+             --enable-kde4 \
              --enable-librsvg \
              --enable-gconf \
              --enable-gconf-dump
@@ -112,8 +114,8 @@ binary-arch: build install
 	dh_install --sourcedir=$(DESTDIR) --fail-missing
 	# the gconf and kconfig plugins are seperately installed into
 	# the -gnome and -kde packages respectively
-	rm $(CURDIR)/debian/tmp/usr/lib/compiz/libkconfig.so
-	rm $(CURDIR)/debian/compiz-plugins/usr/lib/compiz/libkconfig.so
+	rm -f $(CURDIR)/debian/tmp/usr/lib/compiz/libkconfig.so
+	rm -f $(CURDIR)/debian/compiz-plugins/usr/lib/compiz/libkconfig.so
 	rm $(CURDIR)/debian/tmp/usr/lib/compiz/libgconf.so
 	rm $(CURDIR)/debian/compiz-plugins/usr/lib/compiz/libgconf.so
 	dh_installman
@@ -122,7 +124,7 @@ binary-arch: build install
 	dh_strip
 	dh_compress
 	dh_fixperms
-	dh_makeshlibs -plibdecoration0 -V'libdecoration0 (>= 0.7.6)'
+	dh_makeshlibs -plibdecoration0 -V'libdecoration0 (>= 0.8.2)'
 	dh_shlibdeps
 	dh_installdeb
 	dh_gencontrol

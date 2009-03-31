@@ -29,6 +29,7 @@
 
 #include <qpixmap.h>
 #include <qwidget.h>
+#include <qprocess.h>
 
 #include <decoration.h>
 
@@ -44,7 +45,7 @@ class QMenu;
 
 namespace KWD
 {
-class Window:public QWidget, public KDecorationBridge {
+class Window:public QWidget, public KDecorationBridgeUnstable {
     Q_OBJECT public:
 
 	enum Type
@@ -102,6 +103,12 @@ class Window:public QWidget, public KDecorationBridge {
 	virtual QWidget *initialParentWidget (void) const;
 	virtual Qt::WFlags initialWFlags (void) const;
 	virtual void grabXServer (bool grab);
+
+	/* unstable API */
+	virtual void repaintShadow ();
+	virtual bool compositingActive () const;
+	virtual bool shadowsActive () const;
+	virtual double opacity () const;
 
 	void handleActiveChange (void);
 	void updateFrame (WId frame);
@@ -187,7 +194,6 @@ class Window:public QWidget, public KDecorationBridge {
 
     private:
 	void createDecoration (void);
-	void updateShadow (void);
 	bool resizeDecoration (bool force = false);
 	void updateBlurProperty (int topOffset,
 				 int bottomOffset,
@@ -203,11 +209,11 @@ class Window:public QWidget, public KDecorationBridge {
 
 
     private slots:
+	void updateShadow (void);
 	void handlePopupActivated (QAction *action);
 	void handleOpacityPopupActivated (QAction *action);
 	void handleDesktopPopupActivated (QAction *action);
 	void handlePopupAboutToShow (void);
-	void handleProcessKillerExited (void);
 
     private:
 	Type mType;
@@ -217,7 +223,8 @@ class Window:public QWidget, public KDecorationBridge {
 	WId mSelectedId;
 	QRect mGeometry;
 	QString mName;
-	QIcon mIcon;
+	QPixmap mIcon;
+	QPixmap mMiniIcon;
 	decor_extents_t mBorder;
 	unsigned short mOpacity;
 	KDecoration *mDecor;
@@ -249,7 +256,7 @@ class Window:public QWidget, public KDecorationBridge {
 	int mPendingMap;
 	int mPendingConfigure;
 	QSize mSize;
-	QProcess *mProcessKiller;
+	QProcess mProcessKiller;
 	KActionCollection mKeys;
 	bool mFakeRelease;
 

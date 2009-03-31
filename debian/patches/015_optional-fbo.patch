@@ -10,23 +10,23 @@
  extern char *defaultTextureFilter;
 --- 0-compiz.orig/src/main.c
 +++ 0-compiz/src/main.c
-@@ -62,6 +62,7 @@ Bool strictBinding = TRUE;
+@@ -63,6 +63,7 @@ Bool strictBinding = TRUE;
  Bool noDetection = FALSE;
- Bool useDesktopHints = TRUE;
+ Bool useDesktopHints = FALSE;
  Bool onlyCurrentScreen = FALSE;
 +Bool noFBO = FALSE;
+ static Bool debugOutput = FALSE;
  
  #ifdef USE_COW
- Bool useCow = TRUE;
-@@ -83,6 +84,7 @@ usage (void)
+@@ -84,6 +85,7 @@ usage (void)
+ 	    "[--keep-desktop-hints] "
+ 	    "[--loose-binding] "
+ 	    "[--replace]\n       "
++	    "[--no-fbo] "
  	    "[--sm-disable] "
  	    "[--sm-client-id ID] "
- 	    "[--no-detection]\n       "
-+	    "[--no-fbo] "
- 	    "[--ignore-desktop-hints] "
- 	    "[--only-current-screen]"
- 
-@@ -329,6 +331,10 @@ main (int argc, char **argv)
+ 	    "[--only-current-screen]\n      "
+@@ -343,6 +345,10 @@ main (int argc, char **argv)
  	{
  	    onlyCurrentScreen = TRUE;
  	}
@@ -39,7 +39,7 @@
  	else if (!strcmp (argv[i], "--use-root-window"))
 --- 0-compiz.orig/src/screen.c
 +++ 0-compiz/src/screen.c
-@@ -2060,7 +2060,7 @@ addScreen (CompDisplay *display,
+@@ -2063,7 +2063,7 @@ addScreen (CompDisplay *display,
      }
  
      s->fbo = 0;

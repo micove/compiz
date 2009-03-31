@@ -135,6 +135,7 @@ typedef struct _RotateScreen {
 
     XPoint savedPointer;
     Bool   grabbed;
+    Bool   focusDefault;
 
     CompTimeoutHandle rotateHandle;
     Bool	      slow;
@@ -392,7 +393,7 @@ rotatePreparePaintScreen (CompScreen *s,
 			    syncWindowPosition (w);
 			}
 		    }
-		    else
+		    else if (rs->focusDefault)
 		    {
 			int i;
 
@@ -754,6 +755,8 @@ rotate (CompDisplay     *d,
 	    rotateInitiate (d, NULL, 0, o, 3);
 	}
 
+	rs->focusDefault = getBoolOptionNamed (option, nOption,
+					       "focus_default", TRUE);
 	rs->moving  = TRUE;
 	rs->moveTo += (360.0f / s->hsize) * direction;
 	rs->grabbed = FALSE;
@@ -1170,7 +1173,9 @@ rotateEdgeFlip (CompScreen      *s,
 	    {
 		int flipTime = rd->opt[ROTATE_DISPLAY_OPTION_FLIPTIME].value.i;
 
-		rs->rotateHandle = compAddTimeout (flipTime, rotateFlipLeft, s);
+		rs->rotateHandle = compAddTimeout (flipTime,
+						   (float) flipTime * 1.2,
+						   rotateFlipLeft, s);
 	    }
 
 	    rs->moving  = TRUE;
@@ -1216,7 +1221,8 @@ rotateEdgeFlip (CompScreen      *s,
 		int flipTime = rd->opt[ROTATE_DISPLAY_OPTION_FLIPTIME].value.i;
 
 		rs->rotateHandle =
-		    compAddTimeout (flipTime, rotateFlipRight, s);
+		    compAddTimeout (flipTime, (float) flipTime * 1.2,
+				    rotateFlipRight, s);
 	    }
 
 	    rs->moving  = TRUE;
@@ -1588,7 +1594,7 @@ rotateActivateWindow (CompWindow *w)
 	    Window	 win;
 	    int		 i, x, y;
 	    unsigned int ui;
-	    CompOption   o[4];
+	    CompOption   o[5];
 
 	    XQueryPointer (s->display->display, s->root,
 			   &win, &win, &x, &y, &i, &i, &ui);
@@ -1614,7 +1620,11 @@ rotateActivateWindow (CompWindow *w)
 	    o[3].name    = "direction";
 	    o[3].value.i = dx;
 
-	    rotate (s->display, NULL, 0, o, 4);
+	    o[4].type    = CompOptionTypeBool;
+	    o[4].name    = "focus_default";
+	    o[4].value.b = FALSE;
+
+	    rotate (s->display, NULL, 0, o, 5);
 	}
     }
 
@@ -1842,9 +1852,10 @@ rotateInitScreen (CompPlugin *p,
     rs->savedPointer.x = 0;
     rs->savedPointer.y = 0;
 
-    rs->grabbed	   = FALSE;
-    rs->snapTop	   = FALSE;
-    rs->snapBottom = FALSE;
+    rs->focusDefault = TRUE;
+    rs->grabbed	     = FALSE;
+    rs->snapTop	     = FALSE;
+    rs->snapBottom   = FALSE;
 
     rs->slow       = FALSE;
     rs->grabMask   = FALSE;
@@ -1932,8 +1943,9 @@ rotateGetObjectOptions (CompPlugin *plugin,
 	(GetPluginObjectOptionsProc) rotateGetScreenOptions
     };
 
+    *count = 0;
     RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
-		     (void *) (*count = 0), (plugin, object, count));
+		     (void *) count, (plugin, object, count));
 }
 
 static CompBool

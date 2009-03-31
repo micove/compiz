@@ -133,6 +133,8 @@ typedef struct _DecorScreen {
     WindowResizeNotifyProc windowResizeNotify;
 
     WindowStateChangeNotifyProc windowStateChangeNotify;
+
+    CompTimeoutHandle decoratorStartHandle;
 } DecorScreen;
 
 typedef struct _DecorWindow {
@@ -411,14 +413,20 @@ decorCreateDecoration (CompScreen *screen,
 				 XA_INTEGER, &actual, &format,
 				 &n, &nleft, &data);
 
-    if (result != Success || !n || !data)
+    if (result != Success || !data)
 	return NULL;
+
+    if (!n)
+    {
+	XFree (data);
+	return NULL;
+    }
 
     prop = (long *) data;
 
     if (decor_property_get_version (prop) != decor_version ())
     {
-	compLogMessage (screen->display, "decoration", CompLogLevelWarn,
+	compLogMessage ("decoration", CompLogLevelWarn,
 			"Property ignored because "
 			"version is %d and decoration plugin version is %d\n",
 			decor_property_get_version (prop), decor_version ());
@@ -740,6 +748,9 @@ decorWindowUpdate (CompWindow *w,
 	break;
     }
 
+    if (w->wmType & (CompWindowTypeDockMask | CompWindowTypeDesktopMask))
+	decorate = FALSE;
+
     if (w->attrib.override_redirect)
 	decorate = FALSE;
 
@@ -769,12 +780,8 @@ decorWindowUpdate (CompWindow *w,
 	match = &dd->opt[DECOR_DISPLAY_OPTION_SHADOW_MATCH].value.match;
 	if (matchEval (match, w))
 	{
-	    if (w->region->numRects == 1 && !w->alpha)
+	    if (w->region->numRects == 1)
 		decor = ds->decor[DECOR_BARE];
-
-	    /* no decoration on windows with below state */
-	    if (w->state & CompWindowStateBelowMask)
-		decor = NULL;
 
 	    if (decor)
 	    {
@@ -831,7 +838,7 @@ decorWindowUpdate (CompWindow *w,
 	moveDy = -oldShiftY;
     }
 
-    if (!w->attrib.override_redirect && (moveDx || moveDy))
+    if (w->placed && !w->attrib.override_redirect && (moveDx || moveDy))
     {
 	XWindowChanges xwc;
 	unsigned int   mask = CWX | CWY;
@@ -880,19 +887,23 @@ decorCheckForDmOnScreen (CompScreen *s,
 				 XA_WINDOW, &actual, &format,
 				 &n, &left, &data);
 
-    if (result == Success && n && data)
+    if (result == Success && data)
     {
-	XWindowAttributes attr;
+	if (n)
+	{
+	    XWindowAttributes attr;
 
-	memcpy (&dmWin, data, sizeof (Window));
+	    memcpy (&dmWin, data, sizeof (Window));
+
+	    compCheckForError (d->display);
+
+	    XGetWindowAttributes (d->display, dmWin, &attr);
+
+	    if (compCheckForError (d->display))
+		dmWin = None;
+	}
+
 	XFree (data);
-
-	compCheckForError (d->display);
-
-	XGetWindowAttributes (d->display, dmWin, &attr);
-
-	if (compCheckForError (d->display))
-	    dmWin = None;
     }
 
     if (dmWin != ds->dmWin)
@@ -1127,6 +1138,22 @@ decorGetOutputExtentsForWindow (CompWindow	  *w,
     }
 }
 
+static CompBool
+decorStartDecorator (void *closure)
+{
+    CompScreen *s = (CompScreen *) closure;
+
+    DECOR_DISPLAY (s->display);
+    DECOR_SCREEN (s);
+
+    ds->decoratorStartHandle = 0;
+
+    if (!ds->dmWin)
+	runCommand (s, dd->opt[DECOR_DISPLAY_OPTION_COMMAND].value.s);
+
+    return FALSE;
+}
+
 static CompOption *
 decorGetDisplayOptions (CompPlugin  *plugin,
 			CompDisplay *display,
@@ -1170,8 +1197,40 @@ decorSetDisplayOption (CompPlugin      *plugin,
 	    return TRUE;
 	}
 	break;
-    case DECOR_DISPLAY_OPTION_DECOR_MATCH:
     case DECOR_DISPLAY_OPTION_SHADOW_MATCH:
+	{
+	    char *matchString;
+
+	    /*
+	       Make sure RGBA matching is always present and disable shadows
+	       for RGBA windows by default if the user didn't specify an
+	       RGBA match.
+	       Reasoning for that is that shadows are desired for some RGBA
+	       windows (e.g. rectangular windows that just happen to have an
+	       RGBA colormap), while it's absolutely undesired for others
+	       (especially shaped ones) ... by enforcing no shadows for RGBA
+	       windows by default, we are flexible to user desires while still
+	       making sure we don't show ugliness by default
+	     */
+
+	    matchString = matchToString (&value->match);
+	    if (matchString)
+	    {
+		if (!strstr (matchString, "rgba="))
+		{
+		    CompMatch rgbaMatch;
+
+		    matchInit (&rgbaMatch);
+		    matchAddFromString (&rgbaMatch, "rgba=0");
+		    matchAddGroup (&value->match, MATCH_OP_AND_MASK,
+				   &rgbaMatch);
+		    matchFini (&rgbaMatch);
+		}
+		free (matchString);
+	    }
+	}
+	/* fall-through intended */
+    case DECOR_DISPLAY_OPTION_DECOR_MATCH:
 	if (compSetMatchOption (o, value))
 	{
 	    CompScreen *s;
@@ -1252,7 +1311,7 @@ decorWindowResizeNotify (CompWindow *w,
        we never should call a wrapped function that's currently
        processed, we need the timer for the moment. updateWindowOutputExtents
        should be fixed so that it does not emit a resize notification. */
-    dw->resizeUpdateHandle = compAddTimeout (0, decorResizeUpdateTimeout, w);
+    dw->resizeUpdateHandle = compAddTimeout (0, 0, decorResizeUpdateTimeout, w);
     updateWindowDecorationScale (w);
 
     UNWRAP (ds, w->screen, windowResizeNotify);
@@ -1492,7 +1551,8 @@ decorInitScreen (CompPlugin *p,
 
     memset (ds->decor, 0, sizeof (ds->decor));
 
-    ds->dmWin = None;
+    ds->dmWin                = None;
+    ds->decoratorStartHandle = 0;
 
     WRAP (ds, s, drawWindow, decorDrawWindow);
     WRAP (ds, s, damageWindowRect, decorDamageWindowRect);
@@ -1506,7 +1566,8 @@ decorInitScreen (CompPlugin *p,
     decorCheckForDmOnScreen (s, FALSE);
 
     if (!ds->dmWin)
-	runCommand (s, dd->opt[DECOR_DISPLAY_OPTION_COMMAND].value.s);
+	ds->decoratorStartHandle = compAddTimeout (0, -1,
+						   decorStartDecorator, s);
 
     return TRUE;
 }
@@ -1522,6 +1583,9 @@ decorFiniScreen (CompPlugin *p,
     for (i = 0; i < DECOR_NUM; i++)
 	if (ds->decor[i])
 	    decorReleaseDecoration (s, ds->decor[i]);
+
+    if (ds->decoratorStartHandle)
+	compRemoveTimeout (ds->decoratorStartHandle);
 
     freeWindowPrivateIndex (s, ds->windowPrivateIndex);
 
@@ -1622,8 +1686,9 @@ decorGetObjectOptions (CompPlugin *plugin,
 	(GetPluginObjectOptionsProc) decorGetDisplayOptions
     };
 
+    *count = 0;
     RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
-		     (void *) (*count = 0), (plugin, object, count));
+		     (void *) count, (plugin, object, count));
 }
 
 static CompBool

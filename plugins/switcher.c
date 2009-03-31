@@ -286,11 +286,18 @@ isSwitchWin (CompWindow *w)
     }
     else
     {
+	CompMatch *match;
+
 	if (w->wmType & (CompWindowTypeDockMask | CompWindowTypeDesktopMask))
 	    return FALSE;
 
 	if (w->state & CompWindowStateSkipTaskbarMask)
 	    return FALSE;
+
+	match = &ss->opt[SWITCH_SCREEN_OPTION_WINDOW_MATCH].value.match;
+	if (!matchEval (match, w))
+	    return FALSE;
+
     }
 
     if (ss->selection == CurrentViewport)
@@ -309,9 +316,6 @@ isSwitchWin (CompWindow *w)
 		return FALSE;
 	}
     }
-
-    if (!matchEval (&ss->opt[SWITCH_SCREEN_OPTION_WINDOW_MATCH].value.match, w))
-	return FALSE;
 
     return TRUE;
 }
@@ -601,6 +605,7 @@ switchInitiate (CompScreen            *s,
 	Display		     *dpy = s->display->display;
 	XSizeHints	     xsh;
 	XWMHints	     xwmh;
+	XClassHint           xch;
 	Atom		     state[4];
 	int		     nState = 0;
 	XSetWindowAttributes attr;
@@ -617,13 +622,16 @@ switchInitiate (CompScreen            *s,
 		count = 3;
 	}
 
-	xsh.flags       = PSize | PPosition | PWinGravity;
+	xsh.flags       = PSize | PWinGravity;
 	xsh.width       = WINDOW_WIDTH (count);
 	xsh.height      = WINDOW_HEIGHT;
 	xsh.win_gravity = StaticGravity;
 
 	xwmh.flags = InputHint;
 	xwmh.input = 0;
+
+	xch.res_name  = "compiz";
+	xch.res_class = "switcher-window";
 
 	attr.background_pixel = 0;
 	attr.border_pixel     = 0;
@@ -640,7 +648,7 @@ switchInitiate (CompScreen            *s,
 
 	XSetWMProperties (dpy, ss->popupWindow, NULL, NULL,
 			  programArgv, programArgc,
-			  &xsh, &xwmh, NULL);
+			  &xsh, &xwmh, &xch);
 
 	state[nState++] = s->display->winStateAboveAtom;
 	state[nState++] = s->display->winStateStickyAtom;
@@ -1048,7 +1056,7 @@ updateForegroundColor (CompScreen *s)
 				 XA_INTEGER, &actual, &format,
 				 &n, &left, &propData);
 
-    if (result == Success && n && propData)
+    if (result == Success && propData)
     {
 	if (n == 3 || n == 4)
 	{
@@ -1079,6 +1087,23 @@ switchHandleEvent (CompDisplay *d,
 {
     CompWindow *w;
     SWITCH_DISPLAY (d);
+
+    switch (event->type) {
+	w = findWindowAtDisplay (d, event->xmap.window);
+	if (w)
+	{
+	    SWITCH_SCREEN (w->screen);
+
+	    if (w->id == ss->popupWindow)
+	    {
+		w->wmType = getWindowType (d, w->id);
+		recalcWindowType (w);
+		recalcWindowActions (w);
+		updateWindowClassHints (w);
+	    }
+	}
+	break;
+    }
 
     UNWRAP (sd, d, handleEvent);
     (*d->handleEvent) (d, event);
@@ -1826,7 +1851,7 @@ static const CompMetadataOptionInfo switchDisplayOptionInfo[] = {
     { "next_panel_button", "button", 0, switchNextPanel, switchTerminate },
     { "next_panel_key", "key", 0, switchNextPanel, switchTerminate },
     { "prev_panel_button", "button", 0, switchPrevPanel, switchTerminate },
-    { "prev_panel_key", "key", 0, switchPrevPanel, switchTerminate } 
+    { "prev_panel_key", "key", 0, switchPrevPanel, switchTerminate }
 };
 
 static Bool
@@ -1989,7 +2014,7 @@ switchFiniScreen (CompPlugin *p,
     if (ss->popupWindow)
 	XDestroyWindow (s->display->display, ss->popupWindow);
 
-    if (ss->windowsSize)
+    if (ss->windows)
 	free (ss->windows);
 
     compFiniScreenOptions (s, ss->opt, SWITCH_SCREEN_OPTION_NUM);
@@ -2034,8 +2059,9 @@ switchGetObjectOptions (CompPlugin *plugin,
 	(GetPluginObjectOptionsProc) switchGetScreenOptions
     };
 
+    *count = 0;
     RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
-		     (void *) (*count = 0), (plugin, object, count));
+		     (void *) count, (plugin, object, count));
 }
 
 static CompBool

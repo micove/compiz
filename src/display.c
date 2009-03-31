@@ -180,50 +180,6 @@ closeWin (CompDisplay     *d,
 }
 
 static Bool
-mainMenu (CompDisplay     *d,
-	  CompAction      *action,
-	  CompActionState state,
-	  CompOption      *option,
-	  int		  nOption)
-{
-    CompScreen   *s;
-    Window       xid;
-    unsigned int time;
-
-    xid  = getIntOptionNamed (option, nOption, "root", 0);
-    time = getIntOptionNamed (option, nOption, "time", CurrentTime);
-
-    s = findScreenAtDisplay (d, xid);
-    if (s && !s->maxGrab)
-	toolkitAction (s, s->display->toolkitActionMainMenuAtom, time, s->root,
-		       0, 0, 0);
-
-    return TRUE;
-}
-
-static Bool
-runDialog (CompDisplay     *d,
-	   CompAction      *action,
-	   CompActionState state,
-	   CompOption      *option,
-	   int		   nOption)
-{
-    CompScreen   *s;
-    Window       xid;
-    unsigned int time;
-
-    xid  = getIntOptionNamed (option, nOption, "root", 0);
-    time = getIntOptionNamed (option, nOption, "time", CurrentTime);
-
-    s = findScreenAtDisplay (d, xid);
-    if (s && !s->maxGrab)
-	toolkitAction (s, s->display->toolkitActionRunDialogAtom, time, s->root,
-		       0, 0, 0);
-
-    return TRUE;
-}
-
-static Bool
 unmaximize (CompDisplay     *d,
 	    CompAction      *action,
 	    CompActionState state,
@@ -399,171 +355,6 @@ lowerInitiate (CompDisplay     *d,
     return TRUE;
 }
 
-static void
-changeWindowOpacity (CompWindow *w,
-		     int	direction)
-{
-    CompScreen *s = w->screen;
-    int	       step, opacity;
-
-    if (w->attrib.override_redirect)
-	return;
-
-    if (w->type & CompWindowTypeDesktopMask)
-	return;
-
-    step = (0xff * s->opt[COMP_SCREEN_OPTION_OPACITY_STEP].value.i) / 100;
-
-    w->opacityFactor = w->opacityFactor + step * direction;
-    if (w->opacityFactor > 0xff)
-    {
-	w->opacityFactor = 0xff;
-    }
-    else if (w->opacityFactor < step)
-    {
-	w->opacityFactor = step;
-    }
-
-    opacity = (w->opacity * w->opacityFactor) / 0xff;
-    if (opacity != w->paint.opacity)
-    {
-	w->paint.opacity = opacity;
-	addWindowDamage (w);
-    }
-}
-
-static Bool
-increaseOpacity (CompDisplay     *d,
-		 CompAction      *action,
-		 CompActionState state,
-		 CompOption      *option,
-		 int	         nOption)
-{
-    CompWindow *w;
-    Window     xid;
-
-    xid = getIntOptionNamed (option, nOption, "window", 0);
-
-    w = findTopLevelWindowAtDisplay (d, xid);
-    if (w)
-	changeWindowOpacity (w, 1);
-
-    return TRUE;
-}
-
-static Bool
-decreaseOpacity (CompDisplay     *d,
-		 CompAction      *action,
-		 CompActionState state,
-		 CompOption      *option,
-		 int	         nOption)
-{
-    CompWindow *w;
-    Window     xid;
-
-    xid = getIntOptionNamed (option, nOption, "window", 0);
-
-    w = findTopLevelWindowAtDisplay (d, xid);
-    if (w)
-	changeWindowOpacity (w, -1);
-
-    return TRUE;
-}
-
-static Bool
-runCommandDispatch (CompDisplay     *d,
-		    CompAction      *action,
-		    CompActionState state,
-		    CompOption      *option,
-		    int		    nOption)
-{
-    CompScreen *s;
-    Window     xid;
-
-    xid = getIntOptionNamed (option, nOption, "root", 0);
-
-    s = findScreenAtDisplay (d, xid);
-    if (s)
-    {
-	int index = -1;
-	int i = COMP_DISPLAY_OPTION_RUN_COMMAND0_KEY;
-
-	while (i <= COMP_DISPLAY_OPTION_RUN_COMMAND11_KEY)
-	{
-	    if (action == &d->opt[i].value.action)
-	    {
-		index = i - COMP_DISPLAY_OPTION_RUN_COMMAND0_KEY +
-		    COMP_DISPLAY_OPTION_COMMAND0;
-		break;
-	    }
-
-	    i++;
-	}
-
-	if (index > 0)
-	    runCommand (s, d->opt[index].value.s);
-    }
-
-    return TRUE;
-}
-
-static Bool
-runCommandScreenshot (CompDisplay     *d,
-		      CompAction      *action,
-		      CompActionState state,
-		      CompOption      *option,
-		      int	      nOption)
-{
-    CompScreen *s;
-    Window     xid;
-
-    xid = getIntOptionNamed (option, nOption, "root", 0);
-
-    s = findScreenAtDisplay (d, xid);
-    if (s)
-	runCommand (s, d->opt[COMP_DISPLAY_OPTION_SCREENSHOT].value.s);
-
-    return TRUE;
-}
-
-static Bool
-runCommandWindowScreenshot (CompDisplay     *d,
-			    CompAction      *action,
-			    CompActionState state,
-			    CompOption      *option,
-			    int	            nOption)
-{
-    CompScreen *s;
-    Window     xid;
-
-    xid = getIntOptionNamed (option, nOption, "root", 0);
-
-    s = findScreenAtDisplay (d, xid);
-    if (s)
-	runCommand (s, d->opt[COMP_DISPLAY_OPTION_WINDOW_SCREENSHOT].value.s);
-
-    return TRUE;
-}
-
-static Bool
-runCommandTerminal (CompDisplay     *d,
-		    CompAction      *action,
-		    CompActionState state,
-		    CompOption      *option,
-		    int	            nOption)
-{
-    CompScreen *s;
-    Window     xid;
-
-    xid = getIntOptionNamed (option, nOption, "root", 0);
-
-    s = findScreenAtDisplay (d, xid);
-    if (s)
-	runCommand (s, d->opt[COMP_DISPLAY_OPTION_TERMINAL].value.s);
-
-    return TRUE;
-}
-
 static Bool
 windowMenu (CompDisplay     *d,
 	    CompAction      *action,
@@ -692,32 +483,6 @@ const CompMetadataOptionInfo coreDisplayOptionInfo[COMP_DISPLAY_OPTION_NUM] = {
     { "autoraise_delay", "int", 0, 0, 0 },
     { "close_window_key", "key", 0, closeWin, 0 },
     { "close_window_button", "button", 0, closeWin, 0 },
-    { "main_menu_key", "key", 0, mainMenu, 0 },
-    { "run_key", "key", 0, runDialog, 0 },
-    { "command0", "string", 0, 0, 0 },
-    { "command1", "string", 0, 0, 0 },
-    { "command2", "string", 0, 0, 0 },
-    { "command3", "string", 0, 0, 0 },
-    { "command4", "string", 0, 0, 0 },
-    { "command5", "string", 0, 0, 0 },
-    { "command6", "string", 0, 0, 0 },
-    { "command7", "string", 0, 0, 0 },
-    { "command8", "string", 0, 0, 0 },
-    { "command9", "string", 0, 0, 0 },
-    { "command10", "string", 0, 0, 0 },
-    { "command11", "string", 0, 0, 0 },
-    { "run_command0_key", "key", 0, runCommandDispatch, 0 },
-    { "run_command1_key", "key", 0, runCommandDispatch, 0 },
-    { "run_command2_key", "key", 0, runCommandDispatch, 0 },
-    { "run_command3_key", "key", 0, runCommandDispatch, 0 },
-    { "run_command4_key", "key", 0, runCommandDispatch, 0 },
-    { "run_command5_key", "key", 0, runCommandDispatch, 0 },
-    { "run_command6_key", "key", 0, runCommandDispatch, 0 },
-    { "run_command7_key", "key", 0, runCommandDispatch, 0 },
-    { "run_command8_key", "key", 0, runCommandDispatch, 0 },
-    { "run_command9_key", "key", 0, runCommandDispatch, 0 },
-    { "run_command10_key", "key", 0, runCommandDispatch, 0 },
-    { "run_command11_key", "key", 0, runCommandDispatch, 0 },
     { "slow_animations_key", "key", 0, toggleSlowAnimations, 0 },
     { "raise_window_key", "key", 0, raiseInitiate, 0 },
     { "raise_window_button", "button", 0, raiseInitiate, 0 },
@@ -729,13 +494,6 @@ const CompMetadataOptionInfo coreDisplayOptionInfo[COMP_DISPLAY_OPTION_NUM] = {
     { "maximize_window_key", "key", 0, maximize, 0 },
     { "maximize_window_horizontally_key", "key", 0, maximizeHorizontally, 0 },
     { "maximize_window_vertically_key", "key", 0, maximizeVertically, 0 },
-    { "opacity_increase_button", "button", 0, increaseOpacity, 0 },
-    { "opacity_decrease_button", "button", 0, decreaseOpacity, 0 },
-    { "command_screenshot", "string", 0, 0, 0 },
-    { "run_command_screenshot_key", "key", 0, runCommandScreenshot, 0 },
-    { "command_window_screenshot", "string", 0, 0, 0 },
-    { "run_command_window_screenshot_key", "key", 0,
-      runCommandWindowScreenshot, 0 },
     { "window_menu_button", "button", 0, windowMenu, 0 },
     { "window_menu_key", "key", 0, windowMenu, 0 },
     { "show_desktop_key", "key", 0, showDesktop, 0 },
@@ -751,8 +509,6 @@ const CompMetadataOptionInfo coreDisplayOptionInfo[COMP_DISPLAY_OPTION_NUM] = {
     { "hide_skip_taskbar_windows", "bool", 0, 0, 0 },
     { "toggle_window_shaded_key", "key", 0, shade, 0 },
     { "ignore_hints_when_maximized", "bool", 0, 0, 0 },
-    { "command_terminal", "string", 0, 0, 0 },
-    { "run_command_terminal_key", "key", 0, runCommandTerminal, 0 },
     { "ping_delay", "int", "<min>1000</min>", 0, 0 },
     { "edge_delay", "int", "<min>0</min>", 0, 0 }
 };
@@ -815,9 +571,7 @@ pingTimeout (void *closure)
 		{
 		    if (w->alive)
 		    {
-			w->alive	    = FALSE;
-			w->paint.brightness = 0xa8a8;
-			w->paint.saturation = 0;
+			w->alive = FALSE;
 
 			if (w->closeRequests)
 			{
@@ -895,7 +649,8 @@ setDisplayOption (CompPlugin	  *plugin,
 		compRemoveTimeout (display->pingHandle);
 
 	    display->pingHandle =
-		compAddTimeout (o->value.i, pingTimeout, display);
+		compAddTimeout (o->value.i, o->value.i + 500,
+				pingTimeout, display);
 	    return TRUE;
 	}
 	break;
@@ -1030,14 +785,15 @@ addTimeout (CompTimeout *timeout)
 
     for (t = core.timeouts; t; t = t->next)
     {
-	if (timeout->time < t->left)
+	if (timeout->minTime < t->minLeft)
 	    break;
 
 	p = t;
     }
 
     timeout->next = t;
-    timeout->left = timeout->time;
+    timeout->minLeft = timeout->minTime;
+    timeout->maxLeft = timeout->maxTime;
 
     if (p)
 	p->next = timeout;
@@ -1046,7 +802,8 @@ addTimeout (CompTimeout *timeout)
 }
 
 CompTimeoutHandle
-compAddTimeout (int	     time,
+compAddTimeout (int	     minTime,
+		int	     maxTime,
 		CallBackProc callBack,
 		void	     *closure)
 {
@@ -1056,7 +813,8 @@ compAddTimeout (int	     time,
     if (!timeout)
 	return 0;
 
-    timeout->time     = time;
+    timeout->minTime  = minTime;
+    timeout->maxTime  = (maxTime >= minTime) ? maxTime : minTime;
     timeout->callBack = callBack;
     timeout->closure  = closure;
     timeout->handle   = core.lastTimeoutHandle++;
@@ -1433,9 +1191,12 @@ handleTimeouts (struct timeval *tv)
 	timeDiff = 0;
 
     for (t = core.timeouts; t; t = t->next)
-	t->left -= timeDiff;
+    {
+	t->minLeft -= timeDiff;
+	t->maxLeft -= timeDiff;
+    }
 
-    while (core.timeouts && core.timeouts->left <= 0)
+    while (core.timeouts && core.timeouts->minLeft <= 0)
     {
 	t = core.timeouts;
 	if ((*t->callBack) (t->closure))
@@ -1544,6 +1305,7 @@ eventLoop (void)
     CompDisplay    *d;
     CompScreen	   *s;
     CompWindow	   *w;
+    CompTimeout    *t;
     int		   time, timeToNextRedraw = 0;
     unsigned int   damageMask, mask;
 
@@ -1842,8 +1604,18 @@ eventLoop (void)
 	{
 	    if (core.timeouts)
 	    {
-		if (core.timeouts->left > 0)
-		    doPoll (core.timeouts->left);
+		if (core.timeouts->minLeft > 0)
+		{
+		    t = core.timeouts;
+		    time = t->maxLeft;
+		    while (t && t->minLeft <= time)
+		    {
+			if (t->maxLeft < time)
+			    time = t->maxLeft;
+			t = t->next;
+		    }
+		    doPoll (time);
+		}
 
 		gettimeofday (&tv, 0);
 
@@ -1956,6 +1728,9 @@ freeDisplay (CompDisplay *d)
 
     compFiniOptionValue (&d->plugin, CompOptionTypeList);
 
+    if (d->modMap)
+	XFreeModifiermap (d->modMap);
+
     if (d->screenInfo)
 	XFree (d->screenInfo);
 
@@ -2009,8 +1784,6 @@ addDisplay (const char *name)
 
     d->edgeDelayHandle = 0;
 
-    d->logMessage = logMessage;
-
     d->modMap = 0;
 
     for (i = 0; i < CompModNum; i++)
@@ -2049,12 +1822,10 @@ addDisplay (const char *name)
     d->display = dpy = XOpenDisplay (name);
     if (!d->display)
     {
-	compLogMessage (d, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"Couldn't open display %s", XDisplayName (name));
 	return FALSE;
     }
-
-    d->connection = XGetXCBConnection (dpy);
 
     if (!compInitDisplayOptionsFromMetadata (d,
 					     &coreMetadata,
@@ -2192,7 +1963,8 @@ addDisplay (const char *name)
 
     d->wmUserTimeAtom = XInternAtom (dpy, "_NET_WM_USER_TIME", 0);
 
-    d->wmIconAtom = XInternAtom (dpy,"_NET_WM_ICON", 0);
+    d->wmIconAtom         = XInternAtom (dpy,"_NET_WM_ICON", 0);
+    d->wmIconGeometryAtom = XInternAtom (dpy, "_NET_WM_ICON_GEOMETRY", 0);
 
     d->clientListAtom	      = XInternAtom (dpy, "_NET_CLIENT_LIST", 0);
     d->clientListStackingAtom =
@@ -2209,10 +1981,13 @@ addDisplay (const char *name)
     d->wmDeleteWindowAtom = XInternAtom (dpy, "WM_DELETE_WINDOW", 0);
     d->wmTakeFocusAtom	  = XInternAtom (dpy, "WM_TAKE_FOCUS", 0);
     d->wmPingAtom	  = XInternAtom (dpy, "_NET_WM_PING", 0);
-    d->wmSyncRequestAtom  = XInternAtom (dpy, "_NET_WM_SYNC_REQUEST", 0);
 
+    d->wmSyncRequestAtom  = XInternAtom (dpy, "_NET_WM_SYNC_REQUEST", 0);
     d->wmSyncRequestCounterAtom =
 	XInternAtom (dpy, "_NET_WM_SYNC_REQUEST_COUNTER", 0);
+
+    d->wmFullscreenMonitorsAtom =
+	XInternAtom (dpy, "_NET_WM_FULLSCREEN_MONITORS", 0);
 
     d->closeWindowAtom	    = XInternAtom (dpy, "_NET_CLOSE_WINDOW", 0);
     d->wmMoveResizeAtom	    = XInternAtom (dpy, "_NET_WM_MOVERESIZE", 0);
@@ -2226,10 +2001,6 @@ addDisplay (const char *name)
 
     d->toolkitActionAtom	  =
 	XInternAtom (dpy, "_COMPIZ_TOOLKIT_ACTION", 0);
-    d->toolkitActionMainMenuAtom  =
-	XInternAtom (dpy, "_COMPIZ_TOOLKIT_ACTION_MAIN_MENU", 0);
-    d->toolkitActionRunDialogAtom =
-	XInternAtom (dpy, "_COMPIZ_TOOLKIT_ACTION_RUN_DIALOG", 0);
     d->toolkitActionWindowMenuAtom  =
 	XInternAtom (dpy, "_COMPIZ_TOOLKIT_ACTION_WINDOW_MENU", 0);
     d->toolkitActionForceQuitDialogAtom  =
@@ -2265,7 +2036,7 @@ addDisplay (const char *name)
 			  &d->compositeEvent,
 			  &d->compositeError))
     {
-	compLogMessage (d, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"No composite extension");
 	return FALSE;
     }
@@ -2273,28 +2044,28 @@ addDisplay (const char *name)
     XCompositeQueryVersion (dpy, &compositeMajor, &compositeMinor);
     if (compositeMajor == 0 && compositeMinor < 2)
     {
-	compLogMessage (d, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"Old composite extension");
 	return FALSE;
     }
 
     if (!XDamageQueryExtension (dpy, &d->damageEvent, &d->damageError))
     {
-	compLogMessage (d, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"No damage extension");
 	return FALSE;
     }
 
     if (!XSyncQueryExtension (dpy, &d->syncEvent, &d->syncError))
     {
-	compLogMessage (d, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"No sync extension");
 	return FALSE;
     }
 
     if (!XFixesQueryExtension (dpy, &d->fixesEvent, &d->fixesError))
     {
-	compLogMessage (d, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"No fixes extension");
 	return FALSE;
     }
@@ -2330,7 +2101,7 @@ addDisplay (const char *name)
     }
     else
     {
-	compLogMessage (d, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"No XKB extension");
 
 	d->xkbEvent = d->xkbError = -1;
@@ -2389,7 +2160,7 @@ addDisplay (const char *name)
 	{
 	    if (!replaceCurrentWm)
 	    {
-		compLogMessage (d, "core", CompLogLevelError,
+		compLogMessage ("core", CompLogLevelError,
 				"Screen %d on display \"%s\" already "
 				"has a window manager; try using the "
 				"--replace option to replace the current "
@@ -2412,7 +2183,7 @@ addDisplay (const char *name)
 	{
 	    if (!replaceCurrentWm)
 	    {
-		compLogMessage (d, "core", CompLogLevelError,
+		compLogMessage ("core", CompLogLevelError,
 				"Screen %d on display \"%s\" already "
 				"has a compositing manager; try using the "
 				"--replace option to replace the current "
@@ -2453,7 +2224,7 @@ addDisplay (const char *name)
 
 	if (XGetSelectionOwner (dpy, wmSnAtom) != newWmSnOwner)
 	{
-	    compLogMessage (d, "core", CompLogLevelError,
+	    compLogMessage ("core", CompLogLevelError,
 			    "Could not acquire window manager "
 			    "selection on screen %d display \"%s\"",
 			    i, DisplayString (dpy));
@@ -2493,7 +2264,7 @@ addDisplay (const char *name)
 
 	if (compCheckForError (dpy))
 	{
-	    compLogMessage (d, "core", CompLogLevelError,
+	    compLogMessage ("core", CompLogLevelError,
 			    "Another composite manager is already "
 			    "running on screen: %d", i);
 
@@ -2504,7 +2275,7 @@ addDisplay (const char *name)
 
 	if (XGetSelectionOwner (dpy, cmSnAtom) != newCmSnOwner)
 	{
-	    compLogMessage (d, "core", CompLogLevelError,
+	    compLogMessage ("core", CompLogLevelError,
 			    "Could not acquire compositing manager "
 			    "selection on screen %d display \"%s\"",
 			    i, DisplayString (dpy));
@@ -2530,7 +2301,7 @@ addDisplay (const char *name)
 
 	if (compCheckForError (dpy))
 	{
-	    compLogMessage (d, "core", CompLogLevelError,
+	    compLogMessage ("core", CompLogLevelError,
 			    "Another window manager is "
 			    "already running on screen: %d", i);
 
@@ -2540,7 +2311,7 @@ addDisplay (const char *name)
 
 	if (!addScreen (d, i, newWmSnOwner, wmSnAtom, wmSnTimestamp))
 	{
-	    compLogMessage (d, "core", CompLogLevelError,
+	    compLogMessage ("core", CompLogLevelError,
 			    "Failed to manage screen: %d", i);
 	}
 
@@ -2557,7 +2328,7 @@ addDisplay (const char *name)
 
     if (!d->screens)
     {
-	compLogMessage (d, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"No manageable screens found on display %s",
 			XDisplayName (name));
 	return FALSE;
@@ -2590,6 +2361,7 @@ addDisplay (const char *name)
 
     d->pingHandle =
 	compAddTimeout (d->opt[COMP_DISPLAY_OPTION_PING_DELAY].value.i,
+			d->opt[COMP_DISPLAY_OPTION_PING_DELAY].value.i + 500,
 			pingTimeout, d);
 
     return TRUE;
@@ -2821,6 +2593,9 @@ handleSelectionRequest (CompDisplay *display,
 			     event->xselectionrequest.property,
 			     display->atomPairAtom,
 			     32, PropModeReplace, data, num);
+
+	    if (data)
+		XFree (data);
 	}
     }
     else

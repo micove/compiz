@@ -41,6 +41,7 @@
 
 #include <gtk/gtk.h>
 #include <gdk/gdkx.h>
+#include <glib/gi18n.h>
 
 #ifdef USE_GCONF
 #include <gconf/gconf-client.h>
@@ -77,10 +78,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <signal.h>
-
-#include <libintl.h>
-#define _(x)  gettext (x)
-#define N_(x) x
 
 #ifdef USE_METACITY
 #include <metacity-private/theme.h>
@@ -217,7 +214,9 @@ enum {
     CLICK_ACTION_MINIMIZE,
     CLICK_ACTION_RAISE,
     CLICK_ACTION_LOWER,
-    CLICK_ACTION_MENU
+    CLICK_ACTION_MENU,
+    CLICK_ACTION_MAXIMIZE_HORZ,
+    CLICK_ACTION_MAXIMIZE_VERT
 };
 
 enum {
@@ -311,16 +310,11 @@ static Atom wm_move_resize_atom;
 static Atom restack_window_atom;
 static Atom select_window_atom;
 static Atom mwm_hints_atom;
+static Atom switcher_fg_atom;
 
 static Atom toolkit_action_atom;
-static Atom toolkit_action_main_menu_atom;
-static Atom toolkit_action_run_dialog_atom;
 static Atom toolkit_action_window_menu_atom;
 static Atom toolkit_action_force_quit_dialog_atom;
-
-static Atom panel_action_atom;
-static Atom panel_action_main_menu_atom;
-static Atom panel_action_run_dialog_atom;
 
 static Time dm_sn_timestamp;
 
@@ -628,36 +622,6 @@ decor_update_window_property (decor_t *d)
 }
 
 static void
-decor_update_switcher_property (decor_t *d)
-{
-    long	 data[256];
-    Display	 *xdisplay = GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
-    gint	 nQuad;
-    decor_quad_t quads[N_QUADS_MAX];
-
-    nQuad = decor_set_lSrStSbX_window_quads (quads, &switcher_context,
-					     &d->border_layout,
-					     d->border_layout.top.x2 -
-					     d->border_layout.top.x1 -
-					     switcher_context.extents.left -
-					     switcher_context.extents.right -
-					     32);
-
-    decor_quads_to_property (data, GDK_PIXMAP_XID (d->pixmap),
-			     &_switcher_extents, &_switcher_extents,
-			     0, 0, quads, nQuad);
-
-    gdk_error_trap_push ();
-    XChangeProperty (xdisplay, d->prop_xid,
-		     win_decor_atom,
-		     XA_INTEGER,
-		     32, PropModeReplace, (guchar *) data,
-		     BASE_PROP_SIZE + QUAD_PROP_SIZE * nQuad);
-    gdk_display_sync (gdk_display_get_default ());
-    gdk_error_trap_pop ();
-}
-
-static void
 gdk_cairo_set_source_color_alpha (cairo_t  *cr,
 				  GdkColor *color,
 				  double   alpha)
@@ -673,32 +637,10 @@ static GdkPixmap *
 create_pixmap (int w,
 	       int h)
 {
-    GdkPixmap	*pixmap;
-    GdkVisual	*visual;
-    GdkColormap *colormap;
-
-    visual = gdk_visual_get_best_with_depth (32);
-    if (!visual)
-	return NULL;
-
     if (w == 0 || h ==0)
 	abort ();
 
-    pixmap = gdk_pixmap_new (NULL, w, h, 32);
-    if (!pixmap)
-	return NULL;
-
-    colormap = gdk_colormap_new (visual, FALSE);
-    if (!colormap)
-    {
-	g_object_unref (G_OBJECT (pixmap));
-	return NULL;
-    }
-
-    gdk_drawable_set_colormap (GDK_DRAWABLE (pixmap), colormap);
-    g_object_unref (G_OBJECT (colormap));
-
-    return pixmap;
+    return gdk_pixmap_new (GDK_DRAWABLE (style_window->window), w, h, 32);
 }
 
 #define CORNER_TOPLEFT     (1 << 0)
@@ -2204,6 +2146,47 @@ meta_draw_window_decoration (decor_t *d)
 #define SWITCHER_ALPHA 0xa0a0
 
 static void
+decor_update_switcher_property (decor_t *d)
+{
+    long	 data[256];
+    Display	 *xdisplay = GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
+    gint	 nQuad;
+    decor_quad_t quads[N_QUADS_MAX];
+    GtkStyle     *style;
+    long         fgColor[4];
+
+    nQuad = decor_set_lSrStSbX_window_quads (quads, &switcher_context,
+					     &d->border_layout,
+					     d->border_layout.top.x2 -
+					     d->border_layout.top.x1 -
+					     switcher_context.extents.left -
+					     switcher_context.extents.right -
+					     32);
+
+    decor_quads_to_property (data, GDK_PIXMAP_XID (d->pixmap),
+			     &_switcher_extents, &_switcher_extents,
+			     0, 0, quads, nQuad);
+
+    style = gtk_widget_get_style (style_window);
+
+    fgColor[0] = style->fg[GTK_STATE_NORMAL].red;
+    fgColor[1] = style->fg[GTK_STATE_NORMAL].green;
+    fgColor[2] = style->fg[GTK_STATE_NORMAL].blue;
+    fgColor[3] = SWITCHER_ALPHA;
+
+    gdk_error_trap_push ();
+    XChangeProperty (xdisplay, d->prop_xid,
+		     win_decor_atom,
+		     XA_INTEGER,
+		     32, PropModeReplace, (guchar *) data,
+		     BASE_PROP_SIZE + QUAD_PROP_SIZE * nQuad);
+    XChangeProperty (xdisplay, d->prop_xid, switcher_fg_atom,
+		     XA_INTEGER, 32, PropModeReplace, (guchar *) fgColor, 4);
+    gdk_display_sync (gdk_display_get_default ());
+    gdk_error_trap_pop ();
+}
+
+static void
 draw_switcher_background (decor_t *d)
 {
     Display	  *xdisplay = GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
@@ -2401,6 +2384,7 @@ draw_switcher_background (decor_t *d)
     gdk_error_trap_push ();
     XSetWindowBackground (xdisplay, d->prop_xid, pixel);
     XClearWindow (xdisplay, d->prop_xid);
+
     gdk_display_sync (gdk_display_get_default ());
     gdk_error_trap_pop ();
 
@@ -2731,7 +2715,7 @@ get_mwm_prop (Window xwindow)
     if (err != Success || result != Success)
 	return decor;
 
-    if (n && data)
+    if (data)
     {
 	MwmHints *mwm_hints = (MwmHints *) data;
 
@@ -2937,7 +2921,7 @@ meta_button_present (MetaButtonLayout   *button_layout,
 		     MetaButtonFunction function)
 {
     int i;
-		     
+
     for (i = 0; i < MAX_BUTTONS_PER_CORNER; i++)
 	if (button_layout->left_buttons[i] == function)
 	    return TRUE;
@@ -3221,6 +3205,7 @@ max_window_name_width (WnckWindow *win)
     if (!name)
 	return 0;
 
+    pango_layout_set_auto_dir (d->layout, FALSE);
     pango_layout_set_width (d->layout, -1);
     pango_layout_set_text (d->layout, name, strlen (name));
     pango_layout_get_pixel_size (d->layout, &w, NULL);
@@ -3266,6 +3251,7 @@ update_window_decoration_name (WnckWindow *win)
 		w = 1;
 	}
 
+	pango_layout_set_auto_dir (d->layout, FALSE);
 	pango_layout_set_width (d->layout, w * PANGO_SCALE);
 	pango_layout_set_text (d->layout, name, name_length);
 
@@ -3562,6 +3548,8 @@ add_frame_window (WnckWindow *win,
 
     xdisplay = GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
 
+    d->active = wnck_window_is_active (win);
+
     attr.event_mask = ButtonPressMask | EnterWindowMask | LeaveWindowMask;
     attr.override_redirect = TRUE;
 
@@ -3697,6 +3685,7 @@ update_switcher_window (WnckWindow *win,
 
 		tw = width - switcher_context.left_space -
 		    switcher_context.right_space - 64;
+		pango_layout_set_auto_dir (d->layout, FALSE);
 		pango_layout_set_width (d->layout, tw * PANGO_SCALE);
 		pango_layout_set_text (d->layout, name, name_length);
 
@@ -3732,8 +3721,9 @@ update_switcher_window (WnckWindow *win,
 
     if (selected != switcher_selected_window)
     {
-	gtk_label_set_text (GTK_LABEL (switcher_label),
-			    (selected_win && d->name) ? d->name : "");
+	gtk_label_set_text (GTK_LABEL (switcher_label), "");
+	if (selected_win && d->name)
+	    gtk_label_set_text (GTK_LABEL (switcher_label), d->name);
 	switcher_selected_window = selected;
     }
 
@@ -3964,7 +3954,7 @@ window_actions_changed (WnckWindow *win)
 	if (!update_window_decoration_size (win))
 	    queue_decor_draw (d);
 
-    	update_event_windows (win);
+	update_event_windows (win);
     }
 }
 
@@ -4032,8 +4022,6 @@ window_opened (WnckScreen *screen,
     wnck_window_get_client_window_geometry (win, NULL, NULL,
 					    &d->client_width,
 					    &d->client_height);
-
-    d->active = wnck_window_is_active (win);
 
     d->draw = theme_draw_window_decoration;
 
@@ -4509,13 +4497,21 @@ position_action_menu (GtkMenu  *menu,
 {
     WnckWindow *win = (WnckWindow *) user_data;
     decor_t    *d = g_object_get_data (G_OBJECT (win), "decor");
-    gint	bx, by, width, height;
+    gint       bx, by, width, height;
 
     wnck_window_get_client_window_geometry (win, x, y, &width, &height);
 
     if ((*theme_get_button_position) (d, BUTTON_MENU, width, height,
 				      &bx, &by, &width, &height))
 	*x = *x - _win_extents.left + bx;
+
+    if (gtk_widget_get_default_direction () == GTK_TEXT_DIR_RTL)
+    {
+	GtkRequisition req;
+
+	gtk_widget_size_request (GTK_WIDGET (menu), &req);
+	*x = MAX (0, *x - req.width + width);
+    }
 
     *push_in = TRUE;
 }
@@ -4760,6 +4756,18 @@ handle_title_button_event (WnckWindow   *win,
 	else
 	    wnck_window_maximize (win);
 	break;
+    case CLICK_ACTION_MAXIMIZE_HORZ:
+	if (wnck_window_is_maximized_horizontally (win))
+	    wnck_window_unmaximize_horizontally (win);
+	else
+	    wnck_window_maximize_horizontally (win);
+	break;
+    case CLICK_ACTION_MAXIMIZE_VERT:
+	if (wnck_window_is_maximized_vertically (win))
+	    wnck_window_unmaximize_vertically (win);
+	else
+	    wnck_window_maximize_vertically (win);
+	break;
     case CLICK_ACTION_MINIMIZE:
 	if (!wnck_window_is_minimized (win))
 	    wnck_window_minimize (win);
@@ -4949,27 +4957,6 @@ bottom_right_event (WnckWindow *win,
 		    XEvent     *xevent)
 {
     frame_common_event (win, WM_MOVERESIZE_SIZE_BOTTOMRIGHT, xevent);
-}
-
-static void
-panel_action (Display *xdisplay,
-	      Window  root,
-	      Atom    panel_action,
-	      Time    event_time)
-{
-    XEvent ev;
-
-    ev.type		    = ClientMessage;
-    ev.xclient.window	    = root;
-    ev.xclient.message_type = panel_action_atom;
-    ev.xclient.format	    = 32;
-    ev.xclient.data.l[0]    = panel_action;
-    ev.xclient.data.l[1]    = event_time;
-    ev.xclient.data.l[2]    = 0;
-    ev.xclient.data.l[3]    = 0;
-    ev.xclient.data.l[4]    = 0;
-
-    XSendEvent (xdisplay, root, FALSE, StructureNotifyMask, &ev);
 }
 
 static void
@@ -5261,19 +5248,7 @@ event_filter_func (GdkXEvent *gdkxevent,
 	    long action;
 
 	    action = xevent->xclient.data.l[0];
-	    if (action == toolkit_action_main_menu_atom)
-	    {
-		panel_action (xdisplay, xevent->xclient.window,
-			      panel_action_main_menu_atom,
-			      xevent->xclient.data.l[1]);
-	    }
-	    else if (action == toolkit_action_run_dialog_atom)
-	    {
-		panel_action (xdisplay, xevent->xclient.window,
-			      panel_action_run_dialog_atom,
-			      xevent->xclient.data.l[1]);
-	    }
-	    else if (action == toolkit_action_window_menu_atom)
+	    if (action == toolkit_action_window_menu_atom)
 	    {
 		WnckWindow *win;
 
@@ -5837,6 +5812,10 @@ titlebar_click_action_changed (GConfClient *client,
 	    *action_value = CLICK_ACTION_SHADE;
 	else if (strcmp (action, "toggle_maximize") == 0)
 	    *action_value = CLICK_ACTION_MAXIMIZE;
+	else if (strcmp (action, "toggle_maximize_horizontally") == 0)
+	    *action_value = CLICK_ACTION_MAXIMIZE_HORZ;
+	else if (strcmp (action, "toggle_maximize_vertically") == 0)
+	    *action_value = CLICK_ACTION_MAXIMIZE_VERT;
 	else if (strcmp (action, "minimize") == 0)
 	    *action_value = CLICK_ACTION_MINIMIZE;
 	else if (strcmp (action, "raise") == 0)
@@ -5932,6 +5911,22 @@ meta_button_opposite_function (MetaButtonFunction ofwhat)
 }
 
 static void
+meta_initialize_button_layout (MetaButtonLayout *layout)
+{
+    int	i;
+
+    for (i = 0; i < MAX_BUTTONS_PER_CORNER; i++)
+    {
+	layout->left_buttons[i] = META_BUTTON_FUNCTION_LAST;
+	layout->right_buttons[i] = META_BUTTON_FUNCTION_LAST;
+#ifdef HAVE_METACITY_2_23_2
+	layout->left_buttons_has_spacer[i] = FALSE;
+	layout->right_buttons_has_spacer[i] = FALSE;
+#endif
+    }
+}
+
+static void
 meta_update_button_layout (const char *value)
 {
     MetaButtonLayout   new_layout;
@@ -5939,21 +5934,18 @@ meta_update_button_layout (const char *value)
     char	       **sides;
     int		       i;
 
-    for (i = 0; i < MAX_BUTTONS_PER_CORNER; i++)
-    {
-	new_layout.left_buttons[i] = META_BUTTON_FUNCTION_LAST;
-	new_layout.right_buttons[i] = META_BUTTON_FUNCTION_LAST;
-    }
+    meta_initialize_button_layout (&new_layout);
 
     sides = g_strsplit (value, ":", 2);
 
     if (sides[0] != NULL)
     {
-	gboolean used[META_BUTTON_FUNCTION_LAST];
 	char	 **buttons;
 	int	 b;
+	gboolean used[META_BUTTON_FUNCTION_LAST];
 
-	memset (used, 0, sizeof (used));
+	for (i = 0; i < META_BUTTON_FUNCTION_LAST; i++)
+	   used[i] = FALSE;
 
 	buttons = g_strsplit (sides[0], ",", -1);
 
@@ -5961,59 +5953,135 @@ meta_update_button_layout (const char *value)
 	while (buttons[b] != NULL)
 	{
 	    f = meta_button_function_from_string (buttons[b]);
-	    if (f != META_BUTTON_FUNCTION_LAST && !used[f])
-	    {
-		new_layout.left_buttons[i++] = f;
-		used[f] = TRUE;
+#ifdef HAVE_METACITY_2_23_2
+	    if (i > 0 && strcmp("spacer", buttons[b]) == 0)
+            {
+	       new_layout.left_buttons_has_spacer[i - 1] = TRUE;
+	       f = meta_button_opposite_function (f);
 
-		f = meta_button_opposite_function (f);
-		if (f != META_BUTTON_FUNCTION_LAST)
-		    new_layout.left_buttons[i++] = f;
-	    }
+	       if (f != META_BUTTON_FUNCTION_LAST)
+                  new_layout.left_buttons_has_spacer[i - 2] = TRUE;
+            }
 	    else
+#endif
 	    {
-		fprintf (stderr, "%s: Ignoring unknown or already-used "
-			 "button name \"%s\"\n", program_name, buttons[b]);
-	    }
+	       if (f != META_BUTTON_FUNCTION_LAST && !used[f])
+	       {
+                  used[f] = TRUE;
+                  new_layout.left_buttons[i++] = f;
 
+		  f = meta_button_opposite_function (f);
+
+                  if (f != META_BUTTON_FUNCTION_LAST)
+                      new_layout.left_buttons[i++] = f;
+
+	       }
+	       else
+	       {
+		  fprintf (stderr, "%s: Ignoring unknown or already-used "
+			   "button name \"%s\"\n", program_name, buttons[b]);
+	       }
+	    }
 	    b++;
 	}
+
+	new_layout.left_buttons[i] = META_BUTTON_FUNCTION_LAST;
 
 	g_strfreev (buttons);
 
 	if (sides[1] != NULL)
 	{
-	    memset (used, 0, sizeof (used));
+	    for (i = 0; i < META_BUTTON_FUNCTION_LAST; i++)
+		used[i] = FALSE;
 
 	    buttons = g_strsplit (sides[1], ",", -1);
 
 	    i = b = 0;
 	    while (buttons[b] != NULL)
 	    {
-		f = meta_button_function_from_string (buttons[b]);
-		if (f != META_BUTTON_FUNCTION_LAST && !used[f])
-		{
-		    new_layout.right_buttons[i++] = f;
-		    used[f] = TRUE;
+	       f = meta_button_function_from_string (buttons[b]);
+#ifdef HAVE_METACITY_2_23_2
+	       if (i > 0 && strcmp("spacer", buttons[b]) == 0)
+	       {
+		  new_layout.right_buttons_has_spacer[i - 1] = TRUE;
+		  f = meta_button_opposite_function (f);
+		  if (f != META_BUTTON_FUNCTION_LAST)
+		     new_layout.right_buttons_has_spacer[i - 2] = TRUE;
+	       }
+	       else
+#endif
+	       {
+		   if (f != META_BUTTON_FUNCTION_LAST && !used[f])
+		   {
+		       used[f] = TRUE;
+		       new_layout.right_buttons[i++] = f;
 
-		    f = meta_button_opposite_function (f);
-		    if (f != META_BUTTON_FUNCTION_LAST)
-			new_layout.right_buttons[i++] = f;
-		}
-		else
-		{
-		    fprintf (stderr, "%s: Ignoring unknown or already-used "
-			     "button name \"%s\"\n", program_name, buttons[b]);
-		}
+		       f = meta_button_opposite_function (f);
 
-		b++;
+		       if (f != META_BUTTON_FUNCTION_LAST)
+			   new_layout.right_buttons[i++] = f;
+		   }
+		   else
+		   {
+		       fprintf (stderr, "%s: Ignoring unknown or "
+				"already-used button name \"%s\"\n",
+				program_name, buttons[b]);
+		   }
+	       }
+	       b++;
 	    }
+	    new_layout.right_buttons[i] = META_BUTTON_FUNCTION_LAST;
 
 	    g_strfreev (buttons);
 	}
     }
 
     g_strfreev (sides);
+
+    /* Invert the button layout for RTL languages */
+    if (gtk_widget_get_default_direction () == GTK_TEXT_DIR_RTL)
+    {
+	MetaButtonLayout rtl_layout;
+	int j;
+
+	meta_initialize_button_layout (&rtl_layout);
+
+	i = 0;
+	while (new_layout.left_buttons[i] != META_BUTTON_FUNCTION_LAST)
+	    i++;
+
+	for (j = 0; j < i; j++)
+	{
+	    rtl_layout.right_buttons[j] = new_layout.left_buttons[i - j - 1];
+#ifdef HAVE_METACITY_2_23_2
+	    if (j == 0)
+		rtl_layout.right_buttons_has_spacer[i - 1] =
+		    new_layout.left_buttons_has_spacer[i - j - 1];
+	    else
+		rtl_layout.right_buttons_has_spacer[j - 1] =
+		    new_layout.left_buttons_has_spacer[i - j - 1];
+#endif
+	}
+
+	i = 0;
+	while (new_layout.right_buttons[i] != META_BUTTON_FUNCTION_LAST)
+	    i++;
+
+	for (j = 0; j < i; j++)
+	{
+	    rtl_layout.left_buttons[j] = new_layout.right_buttons[i - j - 1];
+#ifdef HAVE_METACITY_2_23_2
+	    if (j == 0)
+		rtl_layout.left_buttons_has_spacer[i - 1] =
+		    new_layout.right_buttons_has_spacer[i - j - 1];
+	    else
+		rtl_layout.left_buttons_has_spacer[j - 1] =
+		    new_layout.right_buttons_has_spacer[i - j - 1];
+#endif
+	}
+
+	new_layout = rtl_layout;
+    }
 
     meta_button_layout = new_layout;
 }
@@ -6964,25 +7032,17 @@ main (int argc, char *argv[])
     select_window_atom	= XInternAtom (xdisplay, DECOR_SWITCH_WINDOW_ATOM_NAME,
 				       FALSE);
     mwm_hints_atom	= XInternAtom (xdisplay, "_MOTIF_WM_HINTS", FALSE);
+    switcher_fg_atom    = XInternAtom (xdisplay,
+				       DECOR_SWITCH_FOREGROUND_COLOR_ATOM_NAME,
+				       FALSE);
 
     toolkit_action_atom			  =
 	XInternAtom (xdisplay, "_COMPIZ_TOOLKIT_ACTION", FALSE);
-    toolkit_action_main_menu_atom	  =
-	XInternAtom (xdisplay, "_COMPIZ_TOOLKIT_ACTION_MAIN_MENU", FALSE);
-    toolkit_action_run_dialog_atom	  =
-	XInternAtom (xdisplay, "_COMPIZ_TOOLKIT_ACTION_RUN_DIALOG", FALSE);
     toolkit_action_window_menu_atom	  =
 	XInternAtom (xdisplay, "_COMPIZ_TOOLKIT_ACTION_WINDOW_MENU", FALSE);
     toolkit_action_force_quit_dialog_atom =
 	XInternAtom (xdisplay, "_COMPIZ_TOOLKIT_ACTION_FORCE_QUIT_DIALOG",
 		     FALSE);
-
-    panel_action_atom		 =
-	XInternAtom (xdisplay, "_GNOME_PANEL_ACTION", FALSE);
-    panel_action_main_menu_atom  =
-	XInternAtom (xdisplay, "_GNOME_PANEL_ACTION_MAIN_MENU", FALSE);
-    panel_action_run_dialog_atom =
-	XInternAtom (xdisplay, "_GNOME_PANEL_ACTION_RUN_DIALOG", FALSE);
 
     status = decor_acquire_dm_session (xdisplay,
 				       gdk_screen_get_number (gdkscreen),
@@ -7032,6 +7092,7 @@ main (int argc, char *argv[])
     }
 
     screen = wnck_screen_get_default ();
+    wnck_set_client_type (WNCK_CLIENT_TYPE_PAGER);
 
     gdk_window_add_filter (NULL,
 			   selection_event_filter_func,

@@ -27,12 +27,13 @@
 # 
 
 
-COMPIZ_BIN_PATH="/usr/bin/" # For window decorators and compiz
-PLUGIN_PATH="/usr/lib/compiz/" 
+COMPIZ_BIN_PATH="/usr/local/bin/" # For window decorators and compiz
+PLUGIN_PATH="/usr/local/lib/compiz/" 
 GLXINFO="/usr/bin/glxinfo"
 KWIN="/usr/bin/kwin"
 METACITY="/usr/bin/metacity"
-COMPIZ_NAME="compiz.real" # Final name for compiz (compiz.real) 
+XFWM="/usr/bin/xfwm"
+COMPIZ_NAME="compiz" # Final name for compiz (compiz.real) 
 
 # For Xgl LD_PRELOAD
 LIBGL_NVIDIA="/usr/lib/nvidia/libGL.so.1.2.xlibmesa"
@@ -46,8 +47,15 @@ NVIDIA_SETTINGS="nvidia-settings" # Assume it's in the path by default
 
 # For detecting what driver is in use, the + is for one or more /'s
 XORG_DRIVER_PATH="/usr/lib/xorg/modules/drivers/+"
+FALLBACKWM="xterm"
+if [ x"$KDE_FULL_SESSION" = x"true" ]; then 
+        FALLBACKWM="${KWIN}";
+elif [ x"$GNOME_DESKTOP_SESSION_ID" != x"" ]; then 
+        FALLBACKWM="${METACITY}"
+elif xprop -root _DT_SAVE_MODE | grep ' = \"xfce4\"$' >/dev/null 2>&1; then 
+        FALLBACKWM="${XFWM}"
+fi
 
-FALLBACKWM="${METACITY}"
 FALLBACKWM_OPTIONS="--replace $@"
 
 # Driver whitelist
@@ -63,6 +71,7 @@ unset T
 
 COMPIZ_OPTIONS="--ignore-desktop-hints --replace"
 COMPIZ_PLUGINS=""
+ENV=""
 
 # Use emerald by default if it exist
 USE_EMERALD="yes"
@@ -149,7 +158,7 @@ check_fbconfig()
 check_tfp()
 {
 	verbose "Checking for texture_from_pixmap: "
-	if [ $($GLXINFO 2>/dev/null | grep GLX_EXT_texture_from_pixmap -c) -gt 2 ] ; then
+	if [ $($GLXINFO 2>/dev/null | grep -c GLX_EXT_texture_from_pixmap) -gt 2 ] ; then
 		verbose "present. \n"
 		return 0;
 	else
@@ -281,29 +290,36 @@ have_blacklisted_pciid()
 build_env()
 {
 	if check_nvidia; then
-		export __GL_YIELD=NOTHING
+		ENV="__GL_YIELD=NOTHING "
 	fi
 	if [ "$INDIRECT" = "yes" ]; then
-		export LIBGL_ALWAYS_INDIRECT=1
+		ENV="$ENV LIBGL_ALWAYS_INDIRECT=1 "
 	fi
 	if check_xgl; then
 		if [ -f ${LIBGL_NVIDIA} ]; then
-			export LD_PRELOAD="${LD_PRELOAD:+${LD_PRELOAD} }${LIBGL_NVIDIA}"
+			ENV="$ENV LD_PRELOAD=${LIBGL_NVIDIA}"
 			verbose "Enabling Xgl with nVidia drivers...\n"
 		fi
 		if [ -f ${LIBGL_FGLRX} ]; then
-			export LD_PRELOAD="${LD_PRELOAD:+${LD_PRELOAD} }${LIBGL_FGLRX}"
+			ENV="$ENV LD_PRELOAD=${LIBGL_FGLRX}"
 			verbose "Enabling Xgl with fglrx ATi drivers...\n"
 		fi
 	fi
 
-	export FROM_WRAPPER=yes
+	ENV="$ENV FROM_WRAPPER=yes"
+
+	if [ -n "$ENV" ]; then
+		export $ENV
+	fi
 }
 
 build_args()
 {
 	if [ "x$INDIRECT" = "xyes" ]; then
 		COMPIZ_OPTIONS="$COMPIZ_OPTIONS --indirect-rendering "
+	fi
+	if [ ! -z "$DESKTOP_AUTOSTART_ID" ]; then
+		COMPIZ_OPTIONS="$COMPIZ_OPTIONS --sm-client-id $DESKTOP_AUTOSTART_ID"
 	fi
 	if check_nvidia; then
 		if [ "x$INDIRECT" != "xyes" ]; then
@@ -371,6 +387,7 @@ build_args
 
 if [ "x$CM_DRY" = "xyes" ]; then
 	verbose "Dry run finished: everything should work with regards to Compiz and 3D.\n"
+	verbose "Execute: ${COMPIZ_BIN_PATH}${COMPIZ_NAME} $COMPIZ_OPTIONS "$@" $COMPIZ_PLUGINS \n"
 	exit 0;
 fi
 # start the gtk-window-decorator if present

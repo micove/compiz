@@ -221,7 +221,7 @@ loadFragmentProgram (CompScreen *s,
     glGetIntegerv (GL_PROGRAM_ERROR_POSITION_ARB, &errorPos);
     if (glGetError () != GL_NO_ERROR || errorPos != -1)
     {
-	compLogMessage (s->display, "water", CompLogLevelError,
+	compLogMessage ("water", CompLogLevelError,
 			"failed to load bump map program");
 
 	(*s->deletePrograms) (1, program);
@@ -447,7 +447,7 @@ fboPrologue (CompScreen *s,
 	ws->fboStatus = (*s->checkFramebufferStatus) (GL_FRAMEBUFFER_EXT);
 	if (ws->fboStatus != GL_FRAMEBUFFER_COMPLETE_EXT)
 	{
-	    compLogMessage (s->display, "water", CompLogLevelError,
+	    compLogMessage ("water", CompLogLevelError,
 			    "framebuffer incomplete");
 
 	    (*s->bindFramebuffer) (GL_FRAMEBUFFER_EXT, 0);
@@ -1335,7 +1335,8 @@ waterToggleRain (CompDisplay     *d,
 	    int delay;
 
 	    delay = wd->opt[WATER_DISPLAY_OPTION_RAIN_DELAY].value.i;
-	    ws->rainHandle = compAddTimeout (delay, waterRainTimeout, s);
+	    ws->rainHandle = compAddTimeout (delay, (float) delay * 1.2,
+					     waterRainTimeout, s);
 	}
 	else
 	{
@@ -1363,10 +1364,7 @@ waterToggleWiper (CompDisplay     *d,
 
 	if (!ws->wiperHandle)
 	{
-	    int delay;
-
-	    delay = 2000;
-	    ws->wiperHandle = compAddTimeout (delay, waterWiperTimeout, s);
+	    ws->wiperHandle = compAddTimeout (2000, 2400, waterWiperTimeout, s);
 	}
 	else
 	{
@@ -1565,7 +1563,9 @@ waterSetDisplayOption (CompPlugin      *plugin,
 		    continue;
 
 		compRemoveTimeout (ws->rainHandle);
-		ws->rainHandle = compAddTimeout (value->i, waterRainTimeout, s);
+		ws->rainHandle = compAddTimeout (value->i,
+						 (float)value->i * 1.2,
+						 waterRainTimeout, s);
 	    }
 	    return TRUE;
 	}
@@ -1751,8 +1751,9 @@ waterGetObjectOptions (CompPlugin *plugin,
 	(GetPluginObjectOptionsProc) waterGetDisplayOptions
     };
 
+    *count = 0;
     RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
-		     (void *) (*count = 0), (plugin, object, count));
+		     (void *) count, (plugin, object, count));
 }
 
 static CompBool

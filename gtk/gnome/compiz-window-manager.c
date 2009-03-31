@@ -28,6 +28,7 @@
 #include <dirent.h>
 #include <string.h>
 #include <gconf/gconf-client.h>
+#include <glib/gi18n.h>
 
 #include "compiz-window-manager.h"
 
@@ -58,8 +59,30 @@
     GCONF_DIR "/theme"
 
 enum {
+    DOUBLE_CLICK_NONE,
     DOUBLE_CLICK_SHADE,
-    DOUBLE_CLICK_MAXIMIZE
+    DOUBLE_CLICK_MAXIMIZE,
+    DOUBLE_CLICK_MAXIMIZE_HORIZONTALLY,
+    DOUBLE_CLICK_MAXIMIZE_VERTICALLY,
+    DOUBLE_CLICK_MINIMIZE,
+    DOUBLE_CLICK_RAISE,
+    DOUBLE_CLICK_LOWER,
+    DOUBLE_CLICK_MENU
+};
+
+static const struct {
+    unsigned int action;
+    const char   *value;
+} double_click_actions [] = {
+    { DOUBLE_CLICK_NONE,                  "none" },
+    { DOUBLE_CLICK_SHADE,                 "toggle_shade" },
+    { DOUBLE_CLICK_MAXIMIZE,              "toggle_maximize" },
+    { DOUBLE_CLICK_MAXIMIZE_HORIZONTALLY, "toggle_maximize_horizontally" },
+    { DOUBLE_CLICK_MAXIMIZE_VERTICALLY,   "toggle_maximize_vertically" },
+    { DOUBLE_CLICK_MINIMIZE,              "minimize" },
+    { DOUBLE_CLICK_RAISE,                 "raise" },
+    { DOUBLE_CLICK_LOWER,                 "lower" },
+    { DOUBLE_CLICK_MENU,                  "menu" }
 };
 
 static GnomeWindowManagerClass *parent_class;
@@ -149,15 +172,17 @@ compiz_change_settings (GnomeWindowManager    *wm,
 
     if (settings->flags & GNOME_WM_SETTING_DOUBLE_CLICK_ACTION)
     {
-	const char *action = NULL;
+	const char   *action = NULL;
+	unsigned int i;
 
-	switch (settings->double_click_action) {
-	case DOUBLE_CLICK_SHADE:
-	    action = "toggle_shade";
-	    break;
-	case DOUBLE_CLICK_MAXIMIZE:
-	    action = "toggle_maximize";
-	    break;
+	for (i = 0; i < G_N_ELEMENTS (double_click_actions); i++)
+	{
+	    if (settings->double_click_action ==
+		double_click_actions[i].action)
+	    {
+		action = double_click_actions[i].value;
+		break;
+	    }
 	}
 
 	if (action)
@@ -295,10 +320,17 @@ compiz_get_settings (GnomeWindowManager *wm,
 
 	if (str)
 	{
-	    if (strcmp (str, "toggle_shade") == 0)
-		settings->double_click_action = DOUBLE_CLICK_SHADE;
-	    else if (strcmp (str, "toggle_maximize") == 0)
-		settings->double_click_action = DOUBLE_CLICK_MAXIMIZE;
+	    unsigned int i;
+
+	    for (i = 0; i < G_N_ELEMENTS (double_click_actions); i++)
+	    {
+		if (strcmp (str, double_click_actions[i].value) == 0)
+		{
+		    settings->double_click_action =
+			double_click_actions[i].action;
+		    break;
+		}
+	    }
 	}
 
 	settings->flags |= GNOME_WM_SETTING_DOUBLE_CLICK_ACTION;
@@ -389,10 +421,28 @@ compiz_get_double_click_actions (GnomeWindowManager             *wm,
 				 const GnomeWMDoubleClickAction **actions_p,
 				 int                            *n_actions_p)
 {
+    static gboolean initialized = FALSE;
     static GnomeWMDoubleClickAction actions[] = {
-	{ DOUBLE_CLICK_SHADE,    "Shade"    },
-	{ DOUBLE_CLICK_MAXIMIZE, "Maximize" }
+	{ DOUBLE_CLICK_NONE,		      N_("None")		  },
+	{ DOUBLE_CLICK_SHADE,		      N_("Shade")		  },
+	{ DOUBLE_CLICK_MAXIMIZE,	      N_("Maximize")		  },
+	{ DOUBLE_CLICK_MAXIMIZE_HORIZONTALLY, N_("Maximize Horizontally") },
+	{ DOUBLE_CLICK_MAXIMIZE_HORIZONTALLY, N_("Maximize Vertically")   },
+	{ DOUBLE_CLICK_MINIMIZE,	      N_("Minimize")		  },
+	{ DOUBLE_CLICK_RAISE,		      N_("Raise")		  },
+	{ DOUBLE_CLICK_LOWER,		      N_("Lower")		  },
+	{ DOUBLE_CLICK_MENU,		      N_("Window Menu")	          }
     };
+
+    if (!initialized)
+    {
+	unsigned int i;
+
+	for (i = 0; i < G_N_ELEMENTS (actions); i++)
+	    actions[i].human_readable_name = _(actions[i].human_readable_name);
+
+	initialized = TRUE;
+    }
 
     *actions_p   = actions;
     *n_actions_p = (int) G_N_ELEMENTS (actions);
@@ -459,6 +509,10 @@ compiz_window_manager_class_init (CompizWindowManagerClass *class)
 {
     GObjectClass	    *object_class;
     GnomeWindowManagerClass *wm_class;
+
+    bindtextdomain (GETTEXT_PACKAGE, LOCALEDIR);
+    bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
+    textdomain (GETTEXT_PACKAGE);
 
     object_class = G_OBJECT_CLASS (class);
     wm_class	 = GNOME_WINDOW_MANAGER_CLASS (class);

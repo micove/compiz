@@ -816,6 +816,9 @@ cloneFiniScreen (CompPlugin *p,
     for (i = 0; i < cs->nClone; i++)
 	cloneRemove (s, i);
 
+    if (cs->clone)
+	free (cs->clone);
+
     UNWRAP (cs, s, preparePaintScreen);
     UNWRAP (cs, s, donePaintScreen);
     UNWRAP (cs, s, paintOutput);
@@ -861,8 +864,9 @@ cloneGetObjectOptions (CompPlugin *plugin,
 	(GetPluginObjectOptionsProc) cloneGetDisplayOptions
     };
 
+    *count = 0;
     RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
-		     (void *) (*count = 0), (plugin, object, count));
+		     (void *) count, (plugin, object, count));
 }
 
 static CompBool

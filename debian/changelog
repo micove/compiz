@@ -1,3 +1,24 @@
+compiz (0.8.2-1) unstable; urgency=low
+
+  * new upstream release.
+  * update location of compiz-gnome desktop file
+  * add new app desktop file for compiz to compiz-core
+  * update build-deps to use kdebase-workspace-dev
+  * add build-dep on libxslt1-dev
+  * disable kde3 decorator and enable kde4 decorator
+  * include a gbp.conf for use with git-buildpackage
+  * bump the libdecoration0 shlibs version to 0.8.2
+  * update compiz-manager to upstream's 223180bf
+  * Obsolete patches now removed:
+    - disable-libx11-xcb-support.patch
+    - xscreensaver-damage-fix.patch
+    - compiz-manager-posixly-correct.patch
+  * Lintian fixes: 
+    - update Standards-Version to 3.8.1
+    - add misc:Depends to compiz
+
+ -- Sean Finney <seanius@debian.org>  Wed, 01 Apr 2009 00:00:10 +0200
+
 compiz (0.7.6-8) unstable; urgency=low
 
   * Don't run glib-gettextize, to fix FTBFS caused by intltoolize changes

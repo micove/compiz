@@ -2,7 +2,7 @@ whitelist the fglrx driver too
 see #495539
 --- 0-compiz.orig/debian/compiz-manager
 +++ 0-compiz/debian/compiz-manager
-@@ -51,7 +51,7 @@ FALLBACKWM="${METACITY}"
+@@ -59,7 +59,7 @@ fi
  FALLBACKWM_OPTIONS="--replace $@"
  
  # Driver whitelist

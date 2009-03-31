@@ -271,6 +271,7 @@ updateOutputDevices (CompScreen	*s)
     unsigned int  width, height;
     int		  x1, y1, x2, y2;
     Region	  region;
+    CompWindow    *w;
 
     for (i = 0; i < list->nValue; i++)
     {
@@ -372,6 +373,12 @@ updateOutputDevices (CompScreen	*s)
     s->hasOverlappingOutputs = FALSE;
 
     setCurrentOutput (s, s->currentOutputDev);
+
+    /* clear out fullscreen monitor hints of all windows as
+       suggested on monitor layout changes in EWMH */
+    for (w = s->windows; w; w = w->next)
+	if (w->fullscreenMonitorsSet)
+	    setWindowFullscreenMonitors (w, NULL);
 
     updateWorkareaForScreen (s);
 
@@ -603,32 +610,6 @@ setScreenOption (CompPlugin	 *plugin,
 	    return TRUE;
 	}
 	break;
-    case COMP_SCREEN_OPTION_OPACITY_MATCHES:
-	if (compSetOptionList (o, value))
-	{
-	    CompWindow *w;
-	    int	       i;
-
-	    for (i = 0; i < o->value.list.nValue; i++)
-		matchUpdate (screen->display, &o->value.list.value[i].match);
-
-	    for (w = screen->windows; w; w = w->next)
-		updateWindowOpacity (w);
-
-	    return TRUE;
-	}
-	break;
-    case COMP_SCREEN_OPTION_OPACITY_VALUES:
-	if (compSetOptionList (o, value))
-	{
-	    CompWindow *w;
-
-	    for (w = screen->windows; w; w = w->next)
-		updateWindowOpacity (w);
-
-	    return TRUE;
-	}
-	break;
      case COMP_SCREEN_OPTION_FORCE_INDEPENDENT:
 	if (compSetBoolOption (o, value))
 	{
@@ -651,7 +632,6 @@ const CompMetadataOptionInfo coreScreenOptionInfo[COMP_SCREEN_OPTION_NUM] = {
     { "refresh_rate", "int", "<min>1</min>", 0, 0 },
     { "hsize", "int", "<min>1</min><max>32</max>", 0, 0 },
     { "vsize", "int", "<min>1</min><max>32</max>", 0, 0 },
-    { "opacity_step", "int", "<min>1</min>", 0, 0 },
     { "unredirect_fullscreen_windows", "bool", 0, 0, 0 },
     { "default_icon", "string", 0, 0, 0 },
     { "sync_to_vblank", "bool", 0, 0, 0 },
@@ -663,8 +643,6 @@ const CompMetadataOptionInfo coreScreenOptionInfo[COMP_SCREEN_OPTION_NUM] = {
     { "focus_prevention_level", "int",
       RESTOSTRING (0, FOCUS_PREVENTION_LEVEL_LAST), 0, 0 },
     { "focus_prevention_match", "match", 0, 0, 0 },
-    { "opacity_matches", "list", "<type>match</type>", 0, 0 },
-    { "opacity_values", "list", "<type>int</type>", 0, 0 },
     { "texture_compression", "bool", 0, 0, 0 },
     { "force_independent_output_painting", "bool", 0, 0, 0 }
 };
@@ -726,7 +704,7 @@ addSequence (CompScreen        *screen,
     screen->startupSequences = s;
 
     if (!screen->startupSequenceTimeoutHandle)
-	compAddTimeout (1000,
+	compAddTimeout (1000, 1500,
 			startupSequenceTimeout,
 			screen);
 
@@ -934,7 +912,7 @@ reshape (CompScreen *s,
     s->fullscreenOutput.workArea.y       = 0;
     s->fullscreenOutput.workArea.width   = w;
     s->fullscreenOutput.workArea.height  = h;
- 
+
     updateScreenEdges (s);
 }
 
@@ -1006,7 +984,7 @@ updateScreenBackground (CompScreen  *screen,
 				     &actualType, &actualFormat, &nItems,
 				     &bytesAfter, &prop);
 
-	if (status == Success && nItems && prop)
+	if (status == Success && prop)
 	{
 	    if (actualType   == pixmapAtom &&
 		actualFormat == 32         &&
@@ -1046,7 +1024,7 @@ updateScreenBackground (CompScreen  *screen,
 	if (!bindPixmapToTexture (screen, texture, pixmap,
 				  width, height, depth))
 	{
-	    compLogMessage (NULL, "core", CompLogLevelWarn,
+	    compLogMessage ("core", CompLogLevelWarn,
 			    "Couldn't bind background pixmap 0x%x to "
 			    "texture", (int) pixmap);
 	}
@@ -1228,6 +1206,8 @@ setSupported (CompScreen *s)
     data[i++] = d->moveResizeWindowAtom;
     data[i++] = d->restackWindowAtom;
 
+    data[i++] = d->wmFullscreenMonitorsAtom;
+
     XChangeProperty (d->display, s->root, d->supportedAtom, XA_ATOM, 32,
 		     PropModeReplace, (unsigned char *) data, i);
 }
@@ -1242,18 +1222,42 @@ getDesktopHints (CompScreen *s)
     unsigned long n, left;
     unsigned char *propData;
 
-    result = XGetWindowProperty (s->display->display, s->root,
-				 d->numberOfDesktopsAtom, 0L, 1L, FALSE,
-				 XA_CARDINAL, &actual, &format,
-				 &n, &left, &propData);
-
-    if (result == Success && n && propData && useDesktopHints)
+    if (useDesktopHints)
     {
-	memcpy (data, propData, sizeof (unsigned long));
-	XFree (propData);
+	result = XGetWindowProperty (s->display->display, s->root,
+				     d->numberOfDesktopsAtom, 0L, 1L, FALSE,
+				     XA_CARDINAL, &actual, &format,
+				     &n, &left, &propData);
 
-	if (data[0] > 0 && data[0] < 0xffffffff)
-	    s->nDesktop = data[0];
+	if (result == Success && propData)
+	{
+	    if (n)
+	    {
+		memcpy (data, propData, sizeof (unsigned long));
+
+		if (data[0] > 0 && data[0] < 0xffffffff)
+		    s->nDesktop = data[0];
+	    }
+	    XFree (propData);
+	}
+
+	result = XGetWindowProperty (s->display->display, s->root,
+				     d->currentDesktopAtom, 0L, 1L, FALSE,
+				     XA_CARDINAL, &actual, &format,
+				     &n, &left, &propData);
+
+	if (result == Success && propData)
+	{
+	    if (n)
+	    {
+		memcpy (data, propData, sizeof (unsigned long));
+
+		if (data[0] < s->nDesktop)
+		    s->currentDesktop = data[0];
+	    }
+
+	    XFree (propData);
+	}
     }
 
     result = XGetWindowProperty (s->display->display, s->root,
@@ -1261,7 +1265,7 @@ getDesktopHints (CompScreen *s)
 				 FALSE, XA_CARDINAL, &actual, &format,
 				 &n, &left, &propData);
 
-    if (result == Success && n && propData)
+    if (result == Success && propData)
     {
 	if (n == 2)
 	{
@@ -1278,31 +1282,20 @@ getDesktopHints (CompScreen *s)
     }
 
     result = XGetWindowProperty (s->display->display, s->root,
-				 d->currentDesktopAtom, 0L, 1L, FALSE,
-				 XA_CARDINAL, &actual, &format,
-				 &n, &left, &propData);
-
-    if (result == Success && n && propData && useDesktopHints)
-    {
-	memcpy (data, propData, sizeof (unsigned long));
-	XFree (propData);
-
-	if (data[0] < s->nDesktop)
-	    s->currentDesktop = data[0];
-    }
-
-    result = XGetWindowProperty (s->display->display, s->root,
 				 d->showingDesktopAtom, 0L, 1L, FALSE,
 				 XA_CARDINAL, &actual, &format,
 				 &n, &left, &propData);
 
-    if (result == Success && n && propData)
+    if (result == Success && propData)
     {
-	memcpy (data, propData, sizeof (unsigned long));
-	XFree (propData);
+	if (n)
+	{
+	    memcpy (data, propData, sizeof (unsigned long));
 
-	if (data[0])
-	    (*s->enterShowDesktopMode) (s);
+	    if (data[0])
+		(*s->enterShowDesktopMode) (s);
+	}
+	XFree (propData);
     }
 
     data[0] = s->currentDesktop;
@@ -1559,10 +1552,10 @@ initWindowWalker (CompScreen *screen,
 static void
 freeScreen (CompScreen *s)
 {
+    int i, j;
+
     if (s->outputDev)
     {
-	int i;
-
 	for (i = 0; i < s->nOutputDev; i++)
 	    if (s->outputDev[i].name)
 		free (s->outputDev[i].name);
@@ -1587,6 +1580,19 @@ freeScreen (CompScreen *s)
 
     if (s->damage)
 	XDestroyRegion (s->damage);
+
+    if (s->grabs)
+	free (s->grabs);
+
+    if (s->exposeRects)
+	free (s->exposeRects);
+
+    /* XXX: Maybe we should free all fragment functions here? But
+       the definition of CompFunction is private to fragment.c ... */
+    for (i = 0; i < 2; i++)
+	for (j = 0; j < 64; j++)
+	    if (s->saturateFunction[i][j])
+		destroyFragmentFunction (s, s->saturateFunction[i][j]);
 
     compFiniScreenOptions (s, s->opt, COMP_SCREEN_OPTION_NUM);
 
@@ -1818,7 +1824,7 @@ addScreen (CompDisplay *display,
     visinfo = XGetVisualInfo (dpy, VisualIDMask, &templ, &nvisinfo);
     if (!nvisinfo)
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"Couldn't get visual info for default visual");
 	return FALSE;
     }
@@ -1829,8 +1835,7 @@ addScreen (CompDisplay *display,
 
     if (!XAllocColor (dpy, s->colormap, &black))
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
-			"Couldn't allocate color");
+	compLogMessage ("core", CompLogLevelFatal, "Couldn't allocate color");
 	XFree (visinfo);
 	return FALSE;
     }
@@ -1838,8 +1843,7 @@ addScreen (CompDisplay *display,
     bitmap = XCreateBitmapFromData (dpy, s->root, &data, 1, 1);
     if (!bitmap)
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
-			"Couldn't create bitmap");
+	compLogMessage ("core", CompLogLevelFatal, "Couldn't create bitmap");
 	XFree (visinfo);
 	return FALSE;
     }
@@ -1848,7 +1852,7 @@ addScreen (CompDisplay *display,
 					      &black, &black, 0, 0);
     if (!s->invisibleCursor)
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"Couldn't create invisible cursor");
 	XFree (visinfo);
 	return FALSE;
@@ -1860,7 +1864,7 @@ addScreen (CompDisplay *display,
     glXGetConfig (dpy, visinfo, GLX_USE_GL, &value);
     if (!value)
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"Root visual is not a GL visual");
 	XFree (visinfo);
 	return FALSE;
@@ -1869,7 +1873,7 @@ addScreen (CompDisplay *display,
     glXGetConfig (dpy, visinfo, GLX_DOUBLEBUFFER, &value);
     if (!value)
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"Root visual is not a double buffered GL visual");
 	XFree (visinfo);
 	return FALSE;
@@ -1878,8 +1882,7 @@ addScreen (CompDisplay *display,
     s->ctx = glXCreateContext (dpy, visinfo, NULL, !indirectRendering);
     if (!s->ctx)
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
-			"glXCreateContext failed");
+	compLogMessage ("core", CompLogLevelFatal, "glXCreateContext failed");
 	XFree (visinfo);
 
 	return FALSE;
@@ -1888,7 +1891,7 @@ addScreen (CompDisplay *display,
     glxExtensions = glXQueryExtensionsString (dpy, screenNum);
     if (!strstr (glxExtensions, "GLX_EXT_texture_from_pixmap"))
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"GLX_EXT_texture_from_pixmap is missing");
 	XFree (visinfo);
 
@@ -1899,7 +1902,7 @@ addScreen (CompDisplay *display,
 
     if (!strstr (glxExtensions, "GLX_SGIX_fbconfig"))
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"GLX_SGIX_fbconfig is missing");
 	return FALSE;
     }
@@ -1921,14 +1924,14 @@ addScreen (CompDisplay *display,
 
     if (!s->bindTexImage)
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"glXBindTexImageEXT is missing");
 	return FALSE;
     }
 
     if (!s->releaseTexImage)
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"glXReleaseTexImageEXT is missing");
 	return FALSE;
     }
@@ -1938,7 +1941,7 @@ addScreen (CompDisplay *display,
 	!s->getFBConfigAttrib ||
 	!s->createPixmap)
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"fbconfig functions missing");
 	return FALSE;
     }
@@ -1965,7 +1968,7 @@ addScreen (CompDisplay *display,
     glExtensions = (const char *) glGetString (GL_EXTENSIONS);
     if (!glExtensions)
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"No valid GL extensions string found.");
 	return FALSE;
     }
@@ -1995,7 +1998,7 @@ addScreen (CompDisplay *display,
 
     if (!(s->textureRectangle || s->textureNonPowerOfTwo))
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"Support for non power of two textures missing");
 	return FALSE;
     }
@@ -2231,7 +2234,7 @@ addScreen (CompDisplay *display,
 
     if (!s->glxPixmapFBConfigs[defaultDepth].fbConfig)
     {
-	compLogMessage (display, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"No GLXFBConfig for default depth, "
 			"this isn't going to work.");
 	return FALSE;
@@ -2309,6 +2312,11 @@ addScreen (CompDisplay *display,
 	    w->invisible = WINDOW_INVISIBLE (w);
 	}
     }
+
+    /* enforce restack on all windows */
+    for (i = 0, w = s->reverseWindows; w && i < nchildren; i++, w = w->prev)
+	children[i] = w->id;
+    XRestackWindows (dpy, children, i);
 
     XFree (children);
 
@@ -2420,6 +2428,13 @@ damageScreenRegion (CompScreen *screen,
     XUnionRegion (screen->damage, region, screen->damage);
 
     screen->damageMask |= COMP_SCREEN_DAMAGE_REGION_MASK;
+
+    /* if the number of damage rectangles grows two much between repaints,
+       we have a lot of overhead just for doing the damage tracking -
+       in order to make sure we're not having too much overhead, damage
+       the whole screen if we have a lot of damage rects */
+    if (screen->damage->numRects > 100)
+	damageScreen (screen);
 }
 
 void
@@ -2456,11 +2471,38 @@ focusDefaultWindow (CompScreen *s)
     if (!d->opt[COMP_DISPLAY_OPTION_CLICK_TO_FOCUS].value.b)
     {
 	w = findTopLevelWindowAtDisplay (d, d->below);
-	if (w && !(w->type & (CompWindowTypeDesktopMask |
-			      CompWindowTypeDockMask)))
+
+	if (w && (*w->screen->focusWindow) (w))
 	{
-	    if ((*w->screen->focusWindow) (w))
+	    if (!(w->type & (CompWindowTypeDesktopMask |
+			    CompWindowTypeDockMask)))
 		focus = w;
+	}
+	else
+	{
+	    Bool         status;
+	    Window       rootReturn, childReturn;
+	    int          dummyInt;
+	    unsigned int dummyUInt;
+
+	    /* huh, we didn't find d->below ... perhaps it's out of date;
+	       try grabbing it through the server */
+
+	    status = XQueryPointer (d->display, s->root, &rootReturn,
+				    &childReturn, &dummyInt, &dummyInt,
+				    &dummyInt, &dummyInt, &dummyUInt);
+
+	    if (status && rootReturn == s->root)
+	    {
+		w = findTopLevelWindowAtDisplay (d, childReturn);
+
+		if (w && (*w->screen->focusWindow) (w))
+		{
+		    if (!(w->type & (CompWindowTypeDesktopMask |
+				     CompWindowTypeDockMask)))
+			focus = w;
+		}
+	    }
 	}
     }
 
@@ -3117,66 +3159,73 @@ computeWorkareaForBox (CompScreen *s,
 	if (!w->mapNum)
 	    continue;
 
-	if (w->struts)
+	if (!w->struts)
+	    continue;
+
+	r.extents.y1 = pBox->y1;
+	r.extents.y2 = pBox->y2;
+
+	x1 = w->struts->left.x;
+	y1 = w->struts->left.y;
+	x2 = x1 + w->struts->left.width;
+	y2 = y1 + w->struts->left.height;
+
+	if (y1 < pBox->y2 && y2 > pBox->y1)
 	{
-	    r.extents.y1 = pBox->y1;
-	    r.extents.y2 = pBox->y2;
+	    r.extents.x1 = x1;
+	    r.extents.x2 = x2;
 
-	    x1 = w->struts->left.x;
-	    y1 = w->struts->left.y;
-	    x2 = x1 + w->struts->left.width;
-	    y2 = y1 + w->struts->left.height;
-
-	    if (y1 < pBox->y2 && y2 > pBox->y1)
-	    {
-		r.extents.x1 = x1;
-		r.extents.x2 = x2;
-
-		XSubtractRegion (region, &r, region);
-	    }
-
-	    x1 = w->struts->right.x;
-	    y1 = w->struts->right.y;
-	    x2 = x1 + w->struts->right.width;
-	    y2 = y1 + w->struts->right.height;
-
-	    if (y1 < pBox->y2 && y2 > pBox->y1)
-	    {
-		r.extents.x1 = x1;
-		r.extents.x2 = x2;
-
-		XSubtractRegion (region, &r, region);
-	    }
-
-	    r.extents.x1 = pBox->x1;
-	    r.extents.x2 = pBox->x2;
-
-	    x1 = w->struts->top.x;
-	    y1 = w->struts->top.y;
-	    x2 = x1 + w->struts->top.width;
-	    y2 = y1 + w->struts->top.height;
-
-	    if (x1 < pBox->x2 && x2 > pBox->x1)
-	    {
-		r.extents.y1 = y1;
-		r.extents.y2 = y2;
-
-		XSubtractRegion (region, &r, region);
-	    }
-
-	    x1 = w->struts->bottom.x;
-	    y1 = w->struts->bottom.y;
-	    x2 = x1 + w->struts->bottom.width;
-	    y2 = y1 + w->struts->bottom.height;
-
-	    if (x1 < pBox->x2 && x2 > pBox->x1)
-	    {
-		r.extents.y1 = y1;
-		r.extents.y2 = y2;
-
-		XSubtractRegion (region, &r, region);
-	    }
+	    XSubtractRegion (region, &r, region);
 	}
+
+	x1 = w->struts->right.x;
+	y1 = w->struts->right.y;
+	x2 = x1 + w->struts->right.width;
+	y2 = y1 + w->struts->right.height;
+
+	if (y1 < pBox->y2 && y2 > pBox->y1)
+	{
+	    r.extents.x1 = x1;
+	    r.extents.x2 = x2;
+
+	    XSubtractRegion (region, &r, region);
+	}
+
+	r.extents.x1 = pBox->x1;
+	r.extents.x2 = pBox->x2;
+
+	x1 = w->struts->top.x;
+	y1 = w->struts->top.y;
+	x2 = x1 + w->struts->top.width;
+	y2 = y1 + w->struts->top.height;
+
+	if (x1 < pBox->x2 && x2 > pBox->x1)
+	{
+	    r.extents.y1 = y1;
+	    r.extents.y2 = y2;
+
+	    XSubtractRegion (region, &r, region);
+	}
+
+	x1 = w->struts->bottom.x;
+	y1 = w->struts->bottom.y;
+	x2 = x1 + w->struts->bottom.width;
+	y2 = y1 + w->struts->bottom.height;
+
+	if (x1 < pBox->x2 && x2 > pBox->x1)
+	{
+	    r.extents.y1 = y1;
+	    r.extents.y2 = y2;
+
+	    XSubtractRegion (region, &r, region);
+	}
+    }
+
+    if (XEmptyRegion (region))
+    {
+	compLogMessage ("core", CompLogLevelWarn,
+			"Empty box after applying struts, ignoring struts");
+	region->extents = *pBox;
     }
 
     area->x      = region->extents.x1;
@@ -3193,11 +3242,17 @@ updateWorkareaForScreen (CompScreen *s)
     XRectangle workArea;
     BoxRec     box;
     int        i;
+    Bool       workAreaChanged = FALSE;
 
     for (i = 0; i < s->nOutputDev; i++)
-	computeWorkareaForBox (s,
-			       &s->outputDev[i].region.extents,
-			       &s->outputDev[i].workArea);
+    {
+	computeWorkareaForBox (s, &s->outputDev[i].region.extents, &workArea);
+	if (memcmp (&workArea, &s->outputDev[i].workArea, sizeof (XRectangle)))
+	{
+	    workAreaChanged = TRUE;
+	    s->outputDev[i].workArea = workArea;
+	}
+    }
 
     box.x1 = 0;
     box.y1 = 0;
@@ -3208,11 +3263,15 @@ updateWorkareaForScreen (CompScreen *s)
 
     if (memcmp (&workArea, &s->workArea, sizeof (XRectangle)))
     {
-	CompWindow *w;
-
+	workAreaChanged = TRUE;
 	s->workArea = workArea;
 
 	setDesktopHints (s);
+    }
+
+    if (workAreaChanged)
+    {
+	CompWindow *w;
 
 	/* as work area changed, update all maximized windows on this
 	   screen to snap to the new work area */
@@ -3381,9 +3440,10 @@ getActiveWindow (CompDisplay *display,
 				 XA_WINDOW, &actual, &format,
 				 &n, &left, &data);
 
-    if (result == Success && n && data)
+    if (result == Success && data)
     {
-	memcpy (&w, data, sizeof (Window));
+	if (n)
+	    memcpy (&w, data, sizeof (Window));
 	XFree (data);
     }
 
@@ -3699,7 +3759,7 @@ applyStartupProperties (CompScreen *screen,
 
 	workspace = sn_startup_sequence_get_workspace (s->sequence);
 	if (workspace >= 0)
-	    window->desktop = workspace;
+	    setDesktopForWindow (window, workspace);
 
 	window->initialTimestamp    =
 	    sn_startup_sequence_get_timestamp (s->sequence);
@@ -3720,7 +3780,7 @@ sendWindowActivationRequest (CompScreen *s,
     xev.xclient.message_type = s->display->winActiveAtom;
     xev.xclient.window	     = id;
 
-    xev.xclient.data.l[0] = 2;
+    xev.xclient.data.l[0] = ClientTypePager;
     xev.xclient.data.l[1] = 0;
     xev.xclient.data.l[2] = 0;
     xev.xclient.data.l[3] = 0;
@@ -3977,8 +4037,7 @@ clearScreenOutput (CompScreen	*s,
    more than one viewport the most appropriate viewport is returned. How the
    most appropriate viewport is computed can be made optional if necessary. It
    is currently computed as the viewport where the center of the window is
-   located, except for when the window is visible in the current viewport as
-   the current viewport is then always returned. */
+   located. */
 void
 viewportForGeometry (CompScreen *s,
 		     int	x,
@@ -3994,18 +4053,6 @@ viewportForGeometry (CompScreen *s,
 
     width  += borderWidth * 2;
     height += borderWidth * 2;
-
-    if ((x < s->width  && x + width  > 0) &&
-	(y < s->height && y + height > 0))
-    {
-	if (viewportX)
-	    *viewportX = s->x;
-
-	if (viewportY)
-	    *viewportY = s->y;
-
-	return;
-    }
 
     if (viewportX)
     {
@@ -4067,17 +4114,26 @@ outputDeviceForGeometry (CompScreen *s,
 
     if (strategy == OUTPUT_OVERLAP_MODE_SMART)
     {
+	int centerX, centerY;
+
 	/* for smart mode, calculate the overlap of the whole rectangle
 	   with the output device rectangle */
 	geomRect.x2 = width + 2 * borderWidth;
 	geomRect.y2 = height + 2 * borderWidth;
 
 	geomRect.x1 = x % s->width;
-	if ((geomRect.x1 + geomRect.x2 / 2) < 0)
+	centerX = geomRect.x1 + (geomRect.x2 / 2);
+	if (centerX < 0)
 	    geomRect.x1 += s->width;
+	else if (centerX > s->width)
+	    geomRect.x1 -= s->width;
+
 	geomRect.y1 = y % s->height;
-	if ((geomRect.y1 + geomRect.y2 / 2) < 0)
+	centerY = geomRect.y1 + (geomRect.y2 / 2);
+	if (centerY < 0)
 	    geomRect.y1 += s->height;
+	else if (centerY > s->height)
+	    geomRect.y1 -= s->height;
 
 	geomRect.x2 += geomRect.x1;
 	geomRect.y2 += geomRect.y1;
@@ -4148,7 +4204,7 @@ outputDeviceForGeometry (CompScreen *s,
 		}
 	    }
     }
-    
+
     return highest;
 }
 

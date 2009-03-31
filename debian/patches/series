@@ -1,8 +1,5 @@
 012_snap-by-default.patch
 014_fix-no-border-window-shadow.patch
 015_optional-fbo.patch
-compiz-manager-posixly-correct.patch
 compiz-manager-nvidia-settings-optional.patch
-disable-libx11-xcb-support.patch
-xscreensaver-damage-fix.patch
 whitelist-fglrx.patch

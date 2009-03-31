@@ -87,7 +87,7 @@ KWD::Window::Window (WId  parentId,
     mMapped (false),
     mPendingMap (0),
     mPendingConfigure (0),
-    mProcessKiller (0),
+    mProcessKiller (this),
     mKeys (this),
     mResizeOpAction (0),
     mMoveOpAction (0),
@@ -117,18 +117,28 @@ KWD::Window::Window (WId  parentId,
 					 KWindowSystem::NETWM |
 					 KWindowSystem::WMHints );
 
-	    if (mIcon.isNull())
-		mIcon = KWindowSystem::icon (mClientId, 16, 16, true,
+	    mMiniIcon = KWindowSystem::icon (mClientId, 16, 16, true,
 					     KWindowSystem::NETWM |
 					     KWindowSystem::WMHints );
+
+	    if (mIcon.isNull ())
+	    {
+		mIcon = KWindowSystem::icon (mClientId, 32, 32, true,
+					     KWindowSystem::ClassHint |
+					     KWindowSystem::XApp );
+		mMiniIcon = KWindowSystem::icon (mClientId, 16, 16, true,
+						 KWindowSystem::ClassHint |
+						 KWindowSystem::XApp );
+	    }
 
 	    mOpacity = readPropertyShort (mClientId, Atoms::netWmWindowOpacity,
 					  0xffff);
 	}
 	else
 	{
-	    mIcon = QIcon ();
-	    mName = QString ("");
+	    mIcon     = QPixmap ();
+	    mMiniIcon = QPixmap ();
+	    mName     = QString ("");
 	}
 
 	updateFrame (frame);
@@ -139,7 +149,8 @@ KWD::Window::Window (WId  parentId,
     }
     else
     {
-	mIcon = QIcon ();
+	mIcon     = QPixmap ();
+	mMiniIcon = QPixmap ();
 	mName = QString ("");
 	mGeometry = QRect (50, 50, 30, 1);
     }
@@ -172,8 +183,16 @@ KWD::Window::~Window (void)
     if (mPopup)
 	delete mPopup;
 
-    if (mProcessKiller)
-	delete mProcessKiller;
+    if (mProcessKiller.state () == QProcess::Running)
+    {
+	mProcessKiller.terminate ();
+	mProcessKiller.waitForFinished (10000);
+	if (mProcessKiller.state () == QProcess::Running)
+	{
+	    mProcessKiller.kill ();
+	    mProcessKiller.waitForFinished (5000);
+	}
+    }
 }
 
 bool
@@ -335,7 +354,9 @@ KWD::Window::isResizable (void) const
 QIcon
 KWD::Window::icon (void) const
 {
-    return mIcon;
+    QIcon icon (mIcon);
+    icon.addPixmap (mMiniIcon);
+    return icon;
 }
 
 QString
@@ -743,6 +764,31 @@ KWD::Window::grabXServer (bool)
 }
 
 void
+KWD::Window::repaintShadow (void)
+{
+}
+
+bool
+KWD::Window::compositingActive (void) const
+{
+    return true;
+}
+
+bool
+KWD::Window::shadowsActive (void) const
+{
+    /* we are drawing the shadows ourselves, no need for the
+       decoration engine to do so */
+    return false;
+}
+
+double
+KWD::Window::opacity (void) const
+{
+    return 1.0;
+}
+
+void
 KWD::Window::createDecoration (void)
 {
     KDecoration *decor;
@@ -1147,7 +1193,7 @@ KWD::Window::setMask (const QRegion &reg, int)
 	mUniqueVertShape = uniqueVertShape;
 
 	if (mPixmap)
-	    updateShadow ();
+	    QTimer::singleShot (0, this, SLOT (updateShadow ()));
     }
 }
 
@@ -1288,8 +1334,6 @@ KWD::Window::rebindPixmap (void)
 				     xformat, 0, NULL);
 
     updateShadow ();
-
-    mDecor->widget ()->update ();
 }
 
 bool
@@ -1830,10 +1874,20 @@ KWD::Window::updateIcons (void)
 				 KWindowSystem::NETWM |
 				 KWindowSystem::WMHints);
 
-    if (mIcon.isNull())
-	mIcon = KWindowSystem::icon (mClientId, 16, 16, true,
+    mMiniIcon = KWindowSystem::icon (mClientId, 16, 16, true,
 				     KWindowSystem::NETWM |
 				     KWindowSystem::WMHints);
+
+    if (mIcon.isNull ())
+    {
+	mIcon = KWindowSystem::icon (mClientId, 32, 32, true,
+				     KWindowSystem::ClassHint |
+				     KWindowSystem::XApp );
+	mMiniIcon = KWindowSystem::icon (mClientId, 16, 16, true,
+					 KWindowSystem::ClassHint |
+					 KWindowSystem::XApp );
+    }
+
     mDecor->iconChange ();
 }
 
@@ -2127,16 +2181,6 @@ KWD::Window::processDamage (void)
 }
 
 void
-KWD::Window::handleProcessKillerExited (void)
-{
-    if (mProcessKiller)
-    {
-	delete mProcessKiller;
-	mProcessKiller = NULL;
-    }
-}
-
-void
 KWD::Window::showKillProcessDialog (Time timestamp)
 {
     KWindowInfo kWinInfo =
@@ -2148,7 +2192,7 @@ KWD::Window::showKillProcessDialog (Time timestamp)
     pid_t	     pid;
     char	     buf[257];
 
-    if (mProcessKiller)
+    if (mProcessKiller.state () == QProcess::Running)
 	return;
 
     clientMachine = kWinInfo.clientMachine ();
@@ -2161,25 +2205,21 @@ KWD::Window::showKillProcessDialog (Time timestamp)
 	    clientMachine = "localhost";
     }
 
-    mProcessKiller = new QProcess (this);
-
-    connect (mProcessKiller, SIGNAL (finished (int, QProcess::ExitStatus)),
-	     SLOT (handleProcessKillerExited ()));
-    connect (mProcessKiller, SIGNAL (error (QProcess::ProcessError)),
-	     SLOT (handleProcessKillerExited ()));
-    
-
-    mProcessKiller->start (KStandardDirs::findExe ("kwin_killer_helper"),
+    mProcessKiller.start (KStandardDirs::findExe ("kwin_killer_helper"),
 	QStringList () << "--pid" << QByteArray ().setNum (pid) <<
 	"--hostname" << clientMachine <<
 	"--windowname" << mName.toUtf8 () <<
 	"--applicationname" << resourceClass <<
 	"--wid" << QByteArray ().setNum ((unsigned int) mClientId) <<
-	"--timestamp" << QByteArray ().setNum ((unsigned int) timestamp));
+	"--timestamp" << QByteArray ().setNum ((unsigned int) timestamp),
+	QIODevice::NotOpen);
 }
 
 void
 KWD::Window::hideKillProcessDialog (void)
 {
-    handleProcessKillerExited ();
+    if (mProcessKiller.state () == QProcess::Running)
+    {
+	mProcessKiller.terminate ();
+    }
 }

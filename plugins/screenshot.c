@@ -181,7 +181,7 @@ shotSort (const void *_a,
 static void
 shotPaintScreen (CompScreen   *s,
 		 CompOutput   *outputs,
-		 int          numOutput,  
+		 int          numOutput,
 		 unsigned int mask)
 {
     SHOT_SCREEN (s);
@@ -245,7 +245,7 @@ shotPaintScreen (CompScreen   *s,
 			if (!writeImageToFile (s->display, dir, name, "png",
 					       w, h, buffer))
 			{
-			    compLogMessage (s->display, "screenshot", CompLogLevelError,
+			    compLogMessage ("screenshot", CompLogLevelError,
 					    "failed to write screenshot image");
 			}
 			else if (*app != '\0')
@@ -554,8 +554,9 @@ shotGetObjectOptions (CompPlugin *plugin,
 	(GetPluginObjectOptionsProc) shotGetDisplayOptions
     };
 
+    *count = 0;
     RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
-		     (void *) (*count = 0), (plugin, object, count));
+		     (void *) count, (plugin, object, count));
 }
 
 static CompBool
