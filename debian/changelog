@@ -1,3 +1,11 @@
+compiz (0.8.2-2) unstable; urgency=low
+
+  * upgrading compiz-manager backed out some locally modified but not
+    quilt-using changes in paths.  so, new patch compiz-debian-paths.patch
+    should fix this (closes: #522985).
+
+ -- Sean Finney <seanius@debian.org>  Wed, 08 Apr 2009 23:13:19 +0200
+
 compiz (0.8.2-1) unstable; urgency=low
 
   * new upstream release.

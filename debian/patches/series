@@ -3,3 +3,4 @@
 015_optional-fbo.patch
 compiz-manager-nvidia-settings-optional.patch
 whitelist-fglrx.patch
+compiz-debian-paths.patch
