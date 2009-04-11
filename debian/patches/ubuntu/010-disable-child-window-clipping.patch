@@ -1,0 +1,37 @@
+--- 0-compiz.orig/src/display.c
++++ 0-compiz/src/display.c
+@@ -2138,6 +2138,23 @@ addDisplay (const char *name)
+ 	lastScreen  = ScreenCount (dpy) - 1;
+     }
+ 
++    {
++	XSetWindowAttributes attr;
++	Atom atom;
++
++	attr.override_redirect = TRUE;
++	d->glIncludeInferiorsOwner =
++	    XCreateWindow (dpy, XRootWindow (dpy, 0),
++			   -100, -100, 1, 1, 0,
++			   CopyFromParent, CopyFromParent,
++			   CopyFromParent,
++			   CWOverrideRedirect,
++			   &attr);
++
++	atom = XInternAtom (dpy, "_COMPIZ_GL_INCLUDE_INFERIORS", False);
++	XSetSelectionOwner(dpy, atom, d->glIncludeInferiorsOwner, CurrentTime);
++    }
++
+     for (i = firstScreen; i <= lastScreen; i++)
+     {
+ 	Window		     newWmSnOwner = None, newCmSnOwner = None;
+--- 0-compiz.orig/include/compiz-core.h
++++ 0-compiz/include/compiz-core.h
+@@ -1025,6 +1025,8 @@ struct _CompDisplay {
+ 
+     GLenum textureFilter;
+ 
++    Window glIncludeInferiorsOwner;
++
+     Window activeWindow;
+ 
+     Window below;

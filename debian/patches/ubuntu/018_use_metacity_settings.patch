@@ -1,0 +1,11 @@
+--- 0-compiz.orig/gtk/gnome/compiz.desktop.in
++++ 0-compiz/gtk/gnome/compiz.desktop.in
+@@ -5,7 +5,7 @@ _Name=Compiz
+ Exec=compiz
+ NoDisplay=true
+ # name of loadable control center module
+-X-GNOME-WMSettingsModule=compiz
++X-GNOME-WMSettingsModule=metacity
+ # autostart phase
+ X-GNOME-Autostart-Phase=WindowManager
+ X-GNOME-Provides=windowmanager

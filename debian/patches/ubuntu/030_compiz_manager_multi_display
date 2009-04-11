@@ -1,0 +1,32 @@
+--- 0-compiz.orig/debian/compiz-manager
++++ 0-compiz/debian/compiz-manager
+@@ -241,16 +241,21 @@ check_nvidia()
+ # Check if the max texture size is large enough compared to the resolution
+ check_texture_size()
+ {
+-	TEXTURE_LIMIT=$(glxinfo -l | grep GL_MAX_TEXTURE_SIZE | sed 's/.*=[^0-9]//g')
+-	RESOLUTION=$(xdpyinfo  | grep -i dimensions: | sed 's/[^0-9]*pixels.*(.*).*//' | sed 's/[^0-9x]*//')
+-	VRES=$(echo $RESOLUTION | sed 's/.*x//')
+-	HRES=$(echo $RESOLUTION | sed 's/x.*//')
+-	verbose "Comparing resolution ($RESOLUTION) to maximum 3D texture size ($TEXTURE_LIMIT): ";
+-	if [ $VRES -gt $TEXTURE_LIMIT ] || [ $HRES -gt $TEXTURE_LIMIT ]; then
++	# Check how many screens we've got and iterate over them
++	N=$(xdpyinfo | grep -i "number of screens" | sed 's/.*[^0-9]//g')
++	for i in $(seq 1 $N); do
++	    verbose "Checking screen $i"
++	    TEXTURE_LIMIT=$(glxinfo -l | grep GL_MAX_TEXTURE_SIZE | sed -n "$i s/^.*=[^0-9]//g p")
++	    RESOLUTION=$(xdpyinfo | grep -i dimensions: | sed -n -e "$i s/^ *dimensions: *\([0-9]*x[0-9]*\) pixels.*/\1/ p")
++	    VRES=$(echo $RESOLUTION | sed 's/.*x//')
++	    HRES=$(echo $RESOLUTION | sed 's/x.*//')
++	    verbose "Comparing resolution ($RESOLUTION) to maximum 3D texture size ($TEXTURE_LIMIT): ";
++	    if [ $VRES -gt $TEXTURE_LIMIT ] || [ $HRES -gt $TEXTURE_LIMIT ]; then
+ 		verbose "Failed.\n"
+ 		return 1;
+-	fi
+-	verbose "Passed.\n"
++	    fi
++	    verbose "Passed.\n"
++	done
+ 	return 0
+ }
+ 

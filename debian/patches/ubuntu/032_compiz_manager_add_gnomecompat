@@ -1,0 +1,25 @@
+--- 0-compiz.orig/debian/compiz-manager
++++ 0-compiz/debian/compiz-manager
+@@ -398,6 +398,22 @@ elif [ -f ${PLUGIN_PATH}libgconf.so ]; t
+ 	COMPIZ_PLUGINS="$COMPIZ_PLUGINS glib gconf"
+ fi
+ 
++# enable gnomecompat if we run under gnome
++if [ x"$GNOME_DESKTOP_SESSION_ID" != x"" ] && [ ! -e ~/.compiz-gnomecompat ]; then 
++        verbose "running under gnome seesion, checking for gnomecompat\n"
++	if ! gconftool -g /apps/compiz/general/allscreens/options/active_plugins|grep -q gnomecompat; then
++	    verbose "adding missing gnomecompat\n"
++	    V=$(gconftool -g /apps/compiz/general/allscreens/options/active_plugins| sed -e 's/]$/,gnomecompat]/' -e 's/\[,/[/' )
++           if ! echo $V|grep -q gnomecompat; then
++               verbose "can not add gnomecompat\n"
++               #gconftool --unset /apps/compiz/general/allscreens/options/active_plugins
++           else
++	        gconftool -s /apps/compiz/general/allscreens/options/active_plugins --type list --list-type=string $V
++           fi
++           touch ~/.compiz-gnomecompat
++	fi
++fi
++
+ # get environment
+ build_env
+ build_args

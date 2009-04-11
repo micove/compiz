@@ -1,0 +1,15 @@
+Index: ubuntu/debian/compiz-manager
+===================================================================
+--- ubuntu.orig/debian/compiz-manager	2008-03-12 14:45:27.000000000 +0100
++++ ubuntu/debian/compiz-manager	2008-03-12 14:46:39.000000000 +0100
+@@ -199,6 +199,10 @@
+ # Check if the nVidia card has enough video ram to make sense
+ check_nvidia_memory()
+ {
++    if [ ! -x "$NVIDIA_SETTINGS" ]; then
++	return 0
++    fi
++
+ 	MEM=$(${NVIDIA_SETTINGS} -q VideoRam | egrep Attribute\ \'VideoRam\'\ .*: | cut -d: -f3 | sed 's/[^0-9]//g')
+ 	if [ $MEM -lt $NVIDIA_MEMORY ]; then
+ 		verbose "Less than ${NVIDIA_MEMORY}kb of memory and nVidia";

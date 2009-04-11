@@ -1,0 +1,77 @@
+--- 0-compiz.orig/src/event.c
++++ 0-compiz/src/event.c
+@@ -2293,32 +2293,50 @@ handleEvent (CompDisplay *d,
+ 
+ 	    if (w)
+ 	    {
++		XserverRegion parts = XFixesCreateRegion(de->display, NULL, 0);
++		XRectangle *rects;
++		int nRects;
++
+ 		w->texture->oldMipmaps = TRUE;
+ 
++		// Get the damage region
++		XDamageSubtract(de->display, de->damage, None, parts);
++		rects = XFixesFetchRegion(de->display, parts, &nRects);
++		XFixesDestroyRegion(de->display, parts);
++
+ 		if (w->syncWait)
+ 		{
+-		    if (w->nDamage == w->sizeDamage)
++		    int i;
++
++		    if (w->nDamage + nRects - 1 >= w->sizeDamage)
+ 		    {
+ 			w->damageRects = realloc (w->damageRects,
+-						  (w->sizeDamage + 1) *
++						  (w->sizeDamage + nRects) *
+ 						  sizeof (XRectangle));
+-			w->sizeDamage += 1;
++			w->sizeDamage += nRects;
+ 		    }
+ 
+-		    w->damageRects[w->nDamage].x      = de->area.x;
+-		    w->damageRects[w->nDamage].y      = de->area.y;
+-		    w->damageRects[w->nDamage].width  = de->area.width;
+-		    w->damageRects[w->nDamage].height = de->area.height;
+-		    w->nDamage++;
++		    for (i = 0; i < nRects; i++)
++		    {
++			w->damageRects[w->nDamage] = rects[i];
++			w->nDamage++;
++		    }
+ 		}
+ 		else
+ 		{
+-		    handleWindowDamageRect (w,
+-					    de->area.x,
+-					    de->area.y,
+-					    de->area.width,
+-					    de->area.height);
++		    int i;
++
++		    for (i = 0; i < nRects; i++)
++		    {
++			handleWindowDamageRect (w,
++						rects[i].x,
++						rects[i].y,
++						rects[i].width,
++						rects[i].height);
++		    }
+ 		}
++
++		XFree(rects);
+ 	    }
+ 	}
+ 	else if (d->shapeExtension &&
+--- 0-compiz.orig/src/window.c
++++ 0-compiz/src/window.c
+@@ -2204,7 +2204,7 @@ addWindow (CompScreen *screen,
+ 	XUnionRegion (&rect, w->region, w->region);
+ 
+ 	w->damage = XDamageCreate (d->display, id,
+-				   XDamageReportRawRectangles);
++				   XDamageReportNonEmpty);
+ 
+ 	/* need to check for DisplayModal state on all windows */
+ 	w->state = getWindowState (d, w->id);

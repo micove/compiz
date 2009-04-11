@@ -1,3 +1,14 @@
+compiz (0.8.2-3) unstable; urgency=low
+
+  * import of some ubuntu patches for 0.8.2 with some modifications
+    - see debian/patches/ubuntu for patches
+    - see debian/patches/series for which patches are used and which
+      are not.
+    - includes patch to copy gnome/metacity keyboard shortcuts
+      (Closes: #503442, #454922).
+
+ -- Sean Finney <seanius@debian.org>  Sat, 11 Apr 2009 14:26:06 +0200
+
 compiz (0.8.2-2) unstable; urgency=low
 
   * upgrading compiz-manager backed out some locally modified but not

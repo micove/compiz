@@ -1,0 +1,14 @@
+--- 0-compiz.orig/plugins/move.c
++++ 0-compiz/plugins/move.c
+@@ -123,6 +123,11 @@ moveInitiate (CompDisplay     *d,
+     xid = getIntOptionNamed (option, nOption, "window", 0);
+ 
+     w = findWindowAtDisplay (d, xid);
++
++    /* make window stay above fullscreen windows while moving */
++    if (w)
++	updateWindowAttributes (w, CompStackingUpdateModeAboveFullscreen);
++
+     if (w && (w->actions & CompWindowActionMoveMask))
+     {
+ 	XRectangle   workArea;

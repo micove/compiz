@@ -1,0 +1,118 @@
+Index: compiz-0.7.9+git20090211/src/main.c
+===================================================================
+--- compiz-0.7.9+git20090211.orig/src/main.c	2009-02-09 15:48:57.000000000 +0100
++++ compiz-0.7.9+git20090211/src/main.c	2009-02-25 20:03:33.000000000 +0100
+@@ -64,6 +64,25 @@
+ Bool useDesktopHints = FALSE;
+ Bool onlyCurrentScreen = FALSE;
+ 
++#include <time.h>
++clock_t profile_checkpoint = 0;
++
++void
++profile_msg(const char *format, ...)
++{
++    va_list ap;
++    char    msg[256];
++    va_start (ap, format);
++    vsnprintf (msg, sizeof(msg), format, ap);
++
++   clock_t now = clock();
++   clock_t delta = now-profile_checkpoint;
++   fprintf(stderr, "profile point: %s %i (%f) - delta: %i (%f)\n", msg, now, (float)now/CLOCKS_PER_SEC, delta, (float)delta/CLOCKS_PER_SEC);
++   profile_checkpoint = now;
++
++   va_end(ap);
++}
++
+ #ifdef USE_COW
+ Bool useCow = TRUE;
+ #endif
+@@ -252,6 +271,8 @@
+     char      *clientId = NULL;
+     char      *refreshRateArg = NULL;
+ 
++    profile_msg("startup");
++
+     programName = argv[0];
+     programArgc = argc;
+     programArgv = argv;
+@@ -428,6 +449,8 @@
+     if (ctx.pluginData)
+ 	free (ctx.pluginData);
+ 
++    profile_msg("before add metadata core");
++
+     compAddMetadataFromFile (&coreMetadata, "core");
+ 
+     if (!initCore ())
+@@ -438,11 +461,15 @@
+     if (!disableSm)
+ 	initSession (clientId);
+ 
++    profile_msg("before add display");
++
+     if (!addDisplay (displayName))
+ 	return 1;
++    profile_msg("after add display");
+ 
++    profile_msg("eventloop");
+     eventLoop ();
+-
++    profile_msg("/eventloop");
+     if (!disableSm)
+ 	closeSession ();
+ 
+Index: compiz-0.7.9+git20090211/src/display.c
+===================================================================
+--- compiz-0.7.9+git20090211.orig/src/display.c	2009-02-25 20:03:26.000000000 +0100
++++ compiz-0.7.9+git20090211/src/display.c	2009-02-25 20:03:33.000000000 +0100
+@@ -717,6 +717,8 @@
+ static void
+ updatePlugins (CompDisplay *d)
+ {
++   profile_msg("upatePlugins");
++
+     CompOption *o;
+     CompPlugin *p, **pop = 0;
+     int	       nPop, i, j;
+@@ -778,6 +780,7 @@
+ 
+ 	if (p == 0)
+ 	{
++	   profile_msg("loading plugin: %s", o->value.list.value[i].s);
+ 	    p = loadPlugin (o->value.list.value[i].s);
+ 	    if (p)
+ 	    {
+@@ -787,6 +790,7 @@
+ 		    p = 0;
+ 		}
+ 	    }
++	   profile_msg("/loading plugin: %s", o->value.list.value[i].s);
+ 	}
+ 
+ 	if (p)
+@@ -820,6 +824,7 @@
+ 	free (pop);
+ 
+     (*core.setOptionForPlugin) (&d->base, "core", o->name, &d->plugin);
++   profile_msg("/upatePlugins");
+ }
+ 
+ static void
+@@ -1424,6 +1429,15 @@
+ 		}
+ 		else
+ 		{
++		   {
++		      static Bool first_idle = TRUE;
++		      if (first_idle) {
++			 profile_msg("first idle");
++			 first_idle = FALSE;
++		      }
++		   }
++
++
+ 		    s->idle = TRUE;
+ 		}
+ 	    }

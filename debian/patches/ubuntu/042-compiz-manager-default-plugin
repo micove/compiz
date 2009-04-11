@@ -1,0 +1,11 @@
+--- 0-compiz.orig/debian/compiz-manager
++++ 0-compiz/debian/compiz-manager
+@@ -72,7 +72,7 @@ BLACKLIST_PCIIDS="$T"
+ unset T
+ 
+ COMPIZ_OPTIONS="--ignore-desktop-hints --replace"
+-COMPIZ_PLUGINS=""
++COMPIZ_PLUGINS="core"
+ ENV=""
+ 
+ # Use emerald by default if it exist

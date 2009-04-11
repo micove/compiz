@@ -4,3 +4,27 @@
 compiz-manager-nvidia-settings-optional.patch
 whitelist-fglrx.patch
 compiz-debian-paths.patch
+ubuntu/010-disable-child-window-clipping.patch
+ubuntu/013-add-cursor-theme-support.patch
+ubuntu/014-fix-gtk-window-decorator-no-argb-crash.patch
+ubuntu/018_use_metacity_settings.patch
+ubuntu/028_compiz_manager_blacklist
+# i don't think we want this one, it removes the auto-detection of decorators??
+ubuntu/029_compiz_manager_decoration.patch
+# we do this already above, with a slightly better fix
+#ubuntu/029_compiz_manager_nvidia_settings.patch
+ubuntu/029_default_options
+ubuntu/030_compiz_manager_multi_display
+ubuntu/031_compiz_manager_extra_blacklist_support
+ubuntu/032_compiz_manager_add_gnomecompat
+ubuntu/033_compiz_manager_xdg_dirs
+ubuntu/035_ignore_workspaces
+ubuntu/037_fullscreen_stacking_fixes.patch
+ubuntu/042-compiz-manager-default-plugin
+ubuntu/046_compiz_manager_second_screen.patch
+ubuntu/049-damage-report-non-empty.patch
+# this patch is disabled in the ubuntu patch series as well
+#ubuntu/090_profiling
+ubuntu/050_stacking.patch
+# this patch modifies ./configure but configure.ac already has this fix
+#ubuntu/099-autogen.patch
