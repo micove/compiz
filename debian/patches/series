@@ -4,7 +4,8 @@
 compiz-manager-nvidia-settings-optional.patch
 whitelist-fglrx.patch
 compiz-debian-paths.patch
-ubuntu/010-disable-child-window-clipping.patch
+# this one changes the abi, not sure if we need it...
+#ubuntu/010-disable-child-window-clipping.patch
 ubuntu/013-add-cursor-theme-support.patch
 ubuntu/014-fix-gtk-window-decorator-no-argb-crash.patch
 ubuntu/018_use_metacity_settings.patch
