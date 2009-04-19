@@ -41,8 +41,7 @@ confflags += --disable-static \
              --disable-kde \
              --enable-kde4 \
              --enable-librsvg \
-             --enable-gconf \
-             --enable-gconf-dump
+             --enable-gconf
 
 # the following files are modified in the build process, but shouldn't be.
 # UPSTREAM_PRESERVE:=po/Makefile.in.in

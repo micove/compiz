@@ -1,3 +1,11 @@
+compiz (0.8.2-5) unstable; urgency=low
+
+  * remove obsolete --enable-gconf-dump configure option
+  * add build-dependency on libgnomeui-dev to fix new FTBFS (Closes: #524446)
+  * add Vcs-Git and Vcs-Browser headers to debian/control
+
+ -- Sean Finney <seanius@debian.org>  Sun, 19 Apr 2009 18:45:39 +0200
+
 compiz (0.8.2-4) unstable; urgency=low
 
   * disable child window clipping patch: it breaks the abi
