@@ -6,7 +6,7 @@ Uploaders: Thierry Reding <thierry@gilfi.de>, David Nusinow <dnusinow@debian.org
 Build-Depends: autoconf, automake1.9, autotools-dev,
  debhelper (>= 5), intltool, 
  kdebase-workspace-dev,
- libcairo-dev, libdbus-qt-1-dev, 
+ libcairo2-dev, libdbus-qt-1-dev, 
  libdbus-glib-1-dev, libgconf2-dev, 
  libgl1-mesa-dev (>= 6.5.1) | libgl-dev, libglib2.0-dev, libgnome-desktop-dev, 
  libgnomeui-dev,
@@ -15,7 +15,9 @@ Build-Depends: autoconf, automake1.9, autotools-dev,
  libsm-dev (>= 1:1.0.1), libtool, libwnck-dev, libxcomposite-dev (>= 1:0.3-2), 
  libxdamage-dev (>=1:1.0.3), libxfixes-dev (>= 1:4.0.1), libxinerama-dev, 
  libxml-parser-perl, libxrandr-dev (>= 2:1.1.0.2), libxrender-dev (>= 1:0.9.1), 
- libxslt1-dev,
+ libxcursor-dev,
+ libxml2-dev, libxslt1-dev,
+ libstartup-notification0-dev (>= 0.7),
  quilt (>= 0.40), x11proto-gl-dev (>= 1.4.8), xsltproc
 Standards-Version: 3.8.1
 Vcs-Git: git://git.debian.org/git/pkg-xorg/app/compiz.git
@@ -39,9 +41,10 @@ Description: OpenGL window and compositing manager
 Package: compiz-core
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, mesa-utils
-Conflicts: libcompizconfig0 (<< 0.7.6)
+Breaks: libcompizconfig0 (<< 0.8.0)
 Recommends: compiz-plugins (= ${binary:Version})
 Suggests: nvidia-glx (>= 1.0.9625-1)
+Provides: compiz-core-abiversion-${coreabiversion}
 Description: OpenGL window and compositing manager
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
@@ -56,7 +59,7 @@ Description: OpenGL window and compositing manager
 
 Package: compiz-dev
 Architecture: any
-Depends: compiz-core (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}, libgl1-mesa-dev | libgl-dev, libpng-dev, libxcomposite-dev, libxdamage-dev, libxinerama-dev, libxrandr-dev, libice-dev, libsm-dev, libstartup-notification0-dev, libxslt1-dev, libxml2-dev
+Depends: compiz-core (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}, libgl1-mesa-dev | libgl-dev, libpng-dev, libxcomposite-dev (>= 1:0.3-2), libxfixes-dev (>= 1:4.0.1), libxdamage-dev (>= 1:1.0.3), libxinerama-dev, libxrandr-dev (>= 2:1.1.0.2), libxcursor-dev, libice-dev (>= 1:1.0.1), libsm-dev (>= 1:1.0.1), libstartup-notification0-dev (>= 0.7), libxslt1-dev, libxml2-dev
 Description: OpenGL window and compositing manager - development files
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
@@ -122,7 +125,7 @@ Description: Compiz window decoration library
 Package: libdecoration0-dev
 Section: libdevel
 Architecture: any
-Depends: libdecoration0 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}, libx11-dev, libxrender-dev
+Depends: libdecoration0 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}, libx11-dev, libxrender-dev (>= 1:0.9.1)
 Description: Compiz window decoration library - development files
  The window decoration library is responsible for drawing the window borders
  and title bar of windows managed by Compiz. It is used by window decorators

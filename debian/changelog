@@ -1,3 +1,25 @@
+compiz (0.8.2-6) unstable; urgency=low
+
+  * Add libxcursor-dev build-dep as required by patch
+    ubuntu/013-add-cursor-theme-support; also let compiz-dev pull it as it's
+    referenced in the .pc file; closes: #525240, #524943.
+  * Add a virtual compiz-core-abiversion-2009xxyy provides to compiz-core to
+    allow for strict dependencies of plugins on the compiz-core
+    CORE_ABIVERSION they were built with, as read from include/compiz-core.h.
+  * Use the new Breaks feature for the compiz-core -> libcompizconfig0 dep.
+    This makes upgrades smoother than Conflicts.
+  * Bump the compiz-core Breaks on libcompizconfig0 to 0.8.0 as the last
+    CORE_ABIVERSION bump happened between 0.7.8 and 0.8.0; closes: #523514.
+  * Add a missing libxml2-dev build-dep and update the compiz-dev deps to
+    match what compiz.pc requires and use the same versions as the build-deps.
+  * Build-dep on libcairo2-dev instead of libcairo-dev.
+  * Add missing libstartup-notification0-dev (>= 0.7) bdep and version the
+    compiz-dev dep to match.
+  * Use the same version in the libdecoration0-dev dep on libxrender-dev as
+    in the libxrender-dev bdep.
+
+ -- Loic Minier <lool@dooz.org>  Fri, 24 Apr 2009 15:15:24 +0200
+
 compiz (0.8.2-5) unstable; urgency=low
 
   * remove obsolete --enable-gconf-dump configure option

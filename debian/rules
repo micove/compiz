@@ -34,6 +34,8 @@ else
 	confflags += --build=$(DEB_BUILD_GNU_TYPE) --host=$(DEB_HOST_GNU_TYPE)
 endif
 
+CORE_ABIVERSION := $(shell sed -rn 's/^\#define[[:space:]]+CORE_ABIVERSION[[:space:]]+//p' include/compiz-core.h )
+
 INSTALL = /usr/bin/install
 
 confflags += --disable-static \
@@ -126,7 +128,7 @@ binary-arch: build install
 	dh_makeshlibs -plibdecoration0 -V'libdecoration0 (>= 0.8.2)'
 	dh_shlibdeps
 	dh_installdeb
-	dh_gencontrol
+	dh_gencontrol -- -Vcoreabiversion=$(CORE_ABIVERSION)
 	dh_md5sums
 	dh_builddeb
 
