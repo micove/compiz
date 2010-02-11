@@ -1,6 +1,12 @@
---- 0-compiz.orig/src/event.c
-+++ 0-compiz/src/event.c
-@@ -2293,32 +2293,50 @@ handleEvent (CompDisplay *d,
+Author: Michael Vogt <michael.vogt@ubuntu.com>
+Description: Workaround for problems with damage extension and refresh
+ Add workaround patch by Aaron Plattner to fix problems with the damage
+ extension and refresh (LP: #269904)
+Origin: vendor, ubuntu (1:0.7.8-0ubuntu4)
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/compiz/+bug/269904
+--- compiz.orig/src/event.c
++++ compiz/src/event.c
+@@ -2297,32 +2297,50 @@ handleEvent (CompDisplay *d,
  
  	    if (w)
  	    {
@@ -64,9 +70,9 @@
  	    }
  	}
  	else if (d->shapeExtension &&
---- 0-compiz.orig/src/window.c
-+++ 0-compiz/src/window.c
-@@ -2204,7 +2204,7 @@ addWindow (CompScreen *screen,
+--- compiz.orig/src/window.c
++++ compiz/src/window.c
+@@ -2205,7 +2205,7 @@ addWindow (CompScreen *screen,
  	XUnionRegion (&rect, w->region, w->region);
  
  	w->damage = XDamageCreate (d->display, id,

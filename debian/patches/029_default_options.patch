@@ -1,5 +1,29 @@
---- 0-compiz.orig/metadata/core.xml.in.in
-+++ 0-compiz/metadata/core.xml.in.in
+Author: Michael Vogt <michael.vogt@ubuntu.com>
+Description: Various default settings
+ Changes in various defaults.  From what I can tell (these were originally
+ from ubuntu, but I (the debian maintainer) will do my best to summarize
+ them below).
+ .
+ * Desktop Horizontal virtual size of 2 instead of 4.
+ * Sync to vblank: false by default.
+ * Make an exception to focus prevention matching for PolicyKit windows.
+ * Remove top-right hotcorner from scale plugin by default.
+ * Increase drop-shadow radius from 8 to 9.
+ * Set default decorator to /usr/bin/compiz-decorator.
+ * Change default colors for faces in cube plugin.
+ * Use "Smart" placement mode (2) by default for placement plugin.
+ * Use "Rectangle" resize mode (2) by default for resize plugin.
+ * Add exception to not fade notify-osd windows in fade plugin.
+ .
+ The following changes from the original Ubuntu patch were modified:
+ * Use slightly more Debianish/Gnomeish colors for the cube face top.
+ The following changes from the original Ubuntu patch were not included:
+ * Add Ubuntu logo for top face of cube.
+ The following changes were introduced to the Debian version of this patch:
+ * Add Debian logo for top face of cube.
+Origin: vendor, ubuntu (1:0.6.0+git20071006-0ubuntu1) or perhaps earlier.
+--- compiz.orig/metadata/core.xml.in.in
++++ compiz/metadata/core.xml.in.in
 @@ -211,7 +211,7 @@
  		<option name="hsize" type="int">
  		    <_short>Horizontal Virtual Size</_short>
@@ -18,17 +42,17 @@
  		</option>
  	    </group>
  	    <group>
-@@ -325,7 +325,7 @@
+@@ -319,7 +319,7 @@
+ 		<option name="focus_prevention_match" type="match">
+ 		    <_short>Focus Prevention Windows</_short>
+ 		    <_long>Focus prevention windows</_long>
+-		    <default>any</default>
++		    <default>!(class=Polkit-gnome-authentication-agent-1)</default>
+ 		</option>
+ 	    </group>
  	    <option name="unredirect_fullscreen_windows" type="bool">
- 		<_short>Unredirect Fullscreen Windows</_short>
- 		<_long>Allow drawing of fullscreen windows to not be redirected to offscreen pixmaps</_long>
--		<default>false</default>
-+		<default>true</default>
- 	    </option>
- 	    <option name="default_icon" type="string">
- 		<_short>Default Icon</_short>
---- 0-compiz.orig/metadata/scale.xml.in
-+++ 0-compiz/metadata/scale.xml.in
+--- compiz.orig/metadata/scale.xml.in
++++ compiz/metadata/scale.xml.in
 @@ -27,9 +27,6 @@
  		<option name="initiate_edge" type="edge">
  		    <_short>Initiate Window Picker</_short>
@@ -39,8 +63,8 @@
  		    <allowed edgednd="true"/>
  		</option>
  		<option name="initiate_key" type="key">
---- 0-compiz.orig/metadata/decoration.xml.in
-+++ 0-compiz/metadata/decoration.xml.in
+--- compiz.orig/metadata/decoration.xml.in
++++ compiz/metadata/decoration.xml.in
 @@ -16,7 +16,7 @@
  	    <option name="shadow_radius" type="float">
  		<_short>Shadow Radius</_short>
@@ -54,23 +78,12 @@
  	    <option name="command" type="string">
  		<_short>Command</_short>
  		<_long>Decorator command line that is executed if no decorator is already running</_long>
-+		<default>/usr/bin/gtk-window-decorator</default>
++		<default>/usr/bin/compiz-decorator</default>
  	    </option>
  	    <option name="mipmap" type="bool">
  		<_short>Mipmap</_short>
---- 0-compiz.orig/metadata/gnomecompat.xml.in
-+++ 0-compiz/metadata/gnomecompat.xml.in
-@@ -40,7 +40,7 @@
- 		<option name="command_terminal" type="string">
- 		    <_short>Terminal command line</_short>
- 		    <_long>Terminal command line</_long>
--		    <default></default>
-+		    <default>gnome-terminal</default>
- 		</option>
- 		<option name="run_command_terminal_key" type="key">
- 		    <_short>Open a terminal</_short>
---- 0-compiz.orig/metadata/cube.xml.in
-+++ 0-compiz/metadata/cube.xml.in
+--- compiz.orig/metadata/cube.xml.in
++++ compiz/metadata/cube.xml.in
 @@ -92,9 +92,9 @@
  		    <_short>Cube Color</_short>
  		    <_long>Color of top and bottom sides of the cube</_long>
@@ -78,9 +91,9 @@
 -			<red>0xfefe</red>
 -			<green>0xffff</green>
 -			<blue>0xc7c7</blue>
-+                       <red>0xcdcd</red>
-+                       <green>0xbebe</green>
-+                       <blue>0x7070</blue>     
++                       <red>0x4545</red>
++                       <green>0x9a9a</green>
++                       <blue>0xf4f4</blue>     
  		    </default>
  		</option>
  		<subgroup>
@@ -91,12 +104,12 @@
 -			<default>
 -			    <value>freedesktop</value>
 -			</default>
-+			<default><value>/usr/share/gdm/themes/Human/ubuntu.png</value></default>
++			<default><value>/usr/share/images/desktop-base/debian-blueish-wallpaper-640x480.png</value></default>
  		    </option>
  		    <option name="adjust_image" type="bool">
  			<_short>Adjust Image</_short>
---- 0-compiz.orig/metadata/place.xml.in
-+++ 0-compiz/metadata/place.xml.in
+--- compiz.orig/metadata/place.xml.in
++++ compiz/metadata/place.xml.in
 @@ -12,7 +12,7 @@
  	    <option name="mode" type="int">
  		<_short>Placement Mode</_short>
@@ -104,10 +117,10 @@
 -		<default>0</default>
 +		<default>2</default>
  		<min>0</min>
- 		<max>4</max>
+ 		<max>5</max>
  		<desc>
---- 0-compiz.orig/metadata/resize.xml.in
-+++ 0-compiz/metadata/resize.xml.in
+--- compiz.orig/metadata/resize.xml.in
++++ compiz/metadata/resize.xml.in
 @@ -40,7 +40,7 @@
  	    <option name="mode" type="int">
  		<_short>Default Resize Mode</_short>
@@ -117,8 +130,8 @@
  		<min>0</min>
  		<max>3</max>
  		<desc>
---- 0-compiz.orig/metadata/fade.xml.in
-+++ 0-compiz/metadata/fade.xml.in
+--- compiz.orig/metadata/fade.xml.in
++++ compiz/metadata/fade.xml.in
 @@ -51,7 +51,7 @@
  	    <option name="window_match" type="match">
  		<_short>Fade windows</_short>

@@ -1,5 +1,9 @@
---- 0-compiz.orig/configure.ac
-+++ 0-compiz/configure.ac
+Author: Sebastien Bacher <seb128@canonical.com>
+Description: add cursor theme and size support
+Origin: vendor, ubuntu (1:0.3.6-1ubuntu4)
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/compiz/+bug/86184
+--- compiz.orig/configure.ac
++++ compiz/configure.ac
 @@ -123,6 +123,7 @@ COMPIZ_REQUIRES="xcomposite \
  		 xdamage    \
  		 xrandr	    \
@@ -8,8 +12,8 @@
  		 ice	    \
  		 sm	    \
  		 libxml-2.0 \
---- 0-compiz.orig/gtk/window-decorator/gtk-window-decorator.c
-+++ 0-compiz/gtk/window-decorator/gtk-window-decorator.c
+--- compiz.orig/gtk/window-decorator/gtk-window-decorator.c
++++ compiz/gtk/window-decorator/gtk-window-decorator.c
 @@ -30,6 +30,7 @@
  #include <X11/cursorfont.h>
  #include <X11/extensions/Xrender.h>
@@ -126,8 +130,8 @@
  #elif USE_DBUS_GLIB
      DBusConnection *connection;
      DBusMessage	   *reply;
---- 0-compiz.orig/metadata/core.xml.in.in
-+++ 0-compiz/metadata/core.xml.in.in
+--- compiz.orig/metadata/core.xml.in.in
++++ compiz/metadata/core.xml.in.in
 @@ -35,6 +35,18 @@
  		<min>0</min>
  		<max>10000</max>
@@ -147,8 +151,8 @@
  	    <option name="ping_delay" type="int">
  		<_short>Ping Delay</_short>
  		<_long>Interval between ping messages</_long>
---- 0-compiz.orig/src/display.c
-+++ 0-compiz/src/display.c
+--- compiz.orig/src/display.c
++++ compiz/src/display.c
 @@ -41,6 +41,8 @@
  #include <X11/extensions/Xcomposite.h>
  #include <X11/extensions/Xrandr.h>
@@ -223,9 +227,9 @@
      default:
  	if (compSetDisplayOption (display, o, value))
  	    return TRUE;
---- 0-compiz.orig/include/compiz-core.h
-+++ 0-compiz/include/compiz-core.h
-@@ -773,7 +773,10 @@ removeFileWatch (CompFileWatchHandle han
+--- compiz.orig/include/compiz-core.h
++++ compiz/include/compiz-core.h
+@@ -776,7 +776,10 @@ removeFileWatch (CompFileWatchHandle han
  #define COMP_DISPLAY_OPTION_IGNORE_HINTS_WHEN_MAXIMIZED      31
  #define COMP_DISPLAY_OPTION_PING_DELAY			     32
  #define COMP_DISPLAY_OPTION_EDGE_DELAY                       33

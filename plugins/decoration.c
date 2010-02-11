@@ -113,6 +113,7 @@ typedef struct _DecorDisplay {
     DecorTexture	     *textures;
     Atom		     supportingDmCheckAtom;
     Atom		     winDecorAtom;
+    Atom		     requestFrameExtentsAtom;
     Atom		     decorAtom[DECOR_NUM];
 
     CompOption opt[DECOR_DISPLAY_OPTION_NUM];
@@ -128,6 +129,7 @@ typedef struct _DecorScreen {
     DrawWindowProc		  drawWindow;
     DamageWindowRectProc	  damageWindowRect;
     GetOutputExtentsForWindowProc getOutputExtentsForWindow;
+    AddSupportedAtomsProc         addSupportedAtoms;
 
     WindowMoveNotifyProc   windowMoveNotify;
     WindowResizeNotifyProc windowResizeNotify;
@@ -975,6 +977,14 @@ decorHandleEvent (CompDisplay *d,
 	if (w)
 	    decorWindowUpdate (w, TRUE);
 	break;
+    case ClientMessage:
+	if (event->xclient.message_type == dd->requestFrameExtentsAtom)
+	{
+	    w = findWindowAtDisplay (d, event->xclient.window);
+	    if (w)
+		decorWindowUpdate (w, TRUE);
+	}
+	break;
     default:
 	if (event->type == d->damageEvent + XDamageNotify)
 	{
@@ -1109,6 +1119,26 @@ decorDamageWindowRect (CompWindow *w,
     WRAP (ds, w->screen, damageWindowRect, decorDamageWindowRect);
 
     return status;
+}
+
+static unsigned int
+decorAddSupportedAtoms (CompScreen   *s,
+			Atom         *atoms,
+			unsigned int size)
+{
+    unsigned int count;
+
+    DECOR_DISPLAY (s->display);
+    DECOR_SCREEN (s);
+
+    UNWRAP (ds, s, addSupportedAtoms);
+    count = (*s->addSupportedAtoms) (s, atoms, size);
+    WRAP (ds, s, addSupportedAtoms, decorAddSupportedAtoms);
+
+    if (count < size)
+	atoms[count++] = dd->requestFrameExtentsAtom;
+
+    return count;
 }
 
 static void
@@ -1505,6 +1535,8 @@ decorInitDisplay (CompPlugin  *p,
 	XInternAtom (d->display, DECOR_NORMAL_ATOM_NAME, 0);
     dd->decorAtom[DECOR_ACTIVE] =
 	XInternAtom (d->display, DECOR_ACTIVE_ATOM_NAME, 0);
+    dd->requestFrameExtentsAtom =
+	XInternAtom (d->display, "_NET_REQUEST_FRAME_EXTENTS", 0);
 
     WRAP (dd, d, handleEvent, decorHandleEvent);
     WRAP (dd, d, matchPropertyChanged, decorMatchPropertyChanged);
@@ -1560,10 +1592,12 @@ decorInitScreen (CompPlugin *p,
     WRAP (ds, s, windowMoveNotify, decorWindowMoveNotify);
     WRAP (ds, s, windowResizeNotify, decorWindowResizeNotify);
     WRAP (ds, s, windowStateChangeNotify, decorWindowStateChangeNotify);
+    WRAP (ds, s, addSupportedAtoms, decorAddSupportedAtoms);
 
     s->base.privates[dd->screenPrivateIndex].ptr = ds;
 
     decorCheckForDmOnScreen (s, FALSE);
+    setSupportedWmHints (s);
 
     if (!ds->dmWin)
 	ds->decoratorStartHandle = compAddTimeout (0, -1,
@@ -1595,6 +1629,9 @@ decorFiniScreen (CompPlugin *p,
     UNWRAP (ds, s, windowMoveNotify);
     UNWRAP (ds, s, windowResizeNotify);
     UNWRAP (ds, s, windowStateChangeNotify);
+    UNWRAP (ds, s, addSupportedAtoms);
+
+    setSupportedWmHints (s);
 
     free (ds);
 }

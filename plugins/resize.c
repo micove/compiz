@@ -99,6 +99,8 @@ typedef struct _ResizeDisplay {
     int		 pointerDx;
     int		 pointerDy;
     KeyCode	 key[NUM_KEYS];
+
+    Bool offWorkAreaConstrained;
 } ResizeDisplay;
 
 typedef struct _ResizeScreen {
@@ -119,6 +121,8 @@ typedef struct _ResizeScreen {
     Cursor downRightCursor;
     Cursor middleCursor;
     Cursor cursor[NUM_KEYS];
+
+    const XRectangle *grabWindowWorkArea;
 } ResizeScreen;
 
 #define GET_RESIZE_DISPLAY(d)					    \
@@ -349,10 +353,10 @@ resizeInitiate (CompDisplay     *d,
 	}
 	else if (!mask)
 	{
-	    unsigned int sectorSizeX = w->serverWidth / 3;
-	    unsigned int sectorSizeY = w->serverHeight / 3;
-	    unsigned int posX        = x - w->serverX;
-	    unsigned int posY        = y - w->serverY;
+	    int sectorSizeX = w->serverWidth / 3;
+	    int sectorSizeY = w->serverHeight / 3;
+	    int posX        = x - w->serverX;
+	    int posY        = y - w->serverY;
 
 	    if (posX < sectorSizeX)
 		mask |= ResizeLeftMask;
@@ -365,12 +369,12 @@ resizeInitiate (CompDisplay     *d,
 		mask |= ResizeDownMask;
 
 	    /* if the pointer was in the middle of the window,
-	       do nothing */
+	       just prevent input to the window */
 	    if (!mask)
-		return FALSE;
+		return TRUE;
 	}
 
-	if (otherScreenGrabExist (w->screen, "resize", 0))
+	if (otherScreenGrabExist (w->screen, "resize", NULL))
 	    return FALSE;
 
 	if (rd->w)
@@ -456,13 +460,19 @@ resizeInitiate (CompDisplay     *d,
 
 	if (rs->grabIndex)
 	{
+	    unsigned int grabMask = CompWindowGrabResizeMask |
+				    CompWindowGrabButtonMask;
+	    Bool sourceExternalApp = getBoolOptionNamed (option, nOption,
+							 "external", FALSE);
+
+	    if (sourceExternalApp)
+		grabMask |= CompWindowGrabExternalAppMask;
+
 	    BoxRec box;
 
 	    rd->releaseButton = button;
 
-	    (w->screen->windowGrabNotify) (w, x, y, state,
-					   CompWindowGrabResizeMask |
-					   CompWindowGrabButtonMask);
+	    (w->screen->windowGrabNotify) (w, x, y, state, grabMask);
 
 	    if (d->opt[COMP_DISPLAY_OPTION_RAISE_ON_CLICK].value.b)
 		updateWindowAttributes (w,
@@ -481,6 +491,20 @@ resizeInitiate (CompDisplay     *d,
 		yRoot = w->serverY + (w->serverHeight / 2);
 
 		warpPointer (w->screen, xRoot - pointerX, yRoot - pointerY);
+	    }
+
+	    /* Update offWorkAreaConstrained and workArea at grab time */
+	    rd->offWorkAreaConstrained = FALSE;
+	    if (sourceExternalApp)
+	    {
+		int output = outputDeviceForWindow (w);
+
+		rs->grabWindowWorkArea = &w->screen->outputDev[output].workArea;
+
+		/* Prevent resizing beyond work area edges when resize is
+		   initiated externally (e.g. with window frame or menu)
+		   and not with a key (e.g. alt+button) */
+		rd->offWorkAreaConstrained = TRUE;
 	    }
 	}
     }
@@ -777,6 +801,45 @@ resizeHandleMotionEvent (CompScreen *s,
 
 	constrainNewWindowSize (rd->w, w, h, &w, &h);
 
+	/* constrain to work area */
+	if (rd->offWorkAreaConstrained)
+	{
+	    if (rd->mask & ResizeUpMask)
+	    {
+		int decorTop = rd->savedGeometry.y + rd->savedGeometry.height -
+		    (h + rd->w->input.top);
+
+		if (rs->grabWindowWorkArea->y > decorTop)
+		    h -= rs->grabWindowWorkArea->y - decorTop;
+	    }
+	    if (rd->mask & ResizeDownMask)
+	    {
+		int decorBottom = rd->savedGeometry.y + h + rd->w->input.bottom;
+
+		if (decorBottom >
+		    rs->grabWindowWorkArea->y + rs->grabWindowWorkArea->height)
+		    h -= decorBottom - (rs->grabWindowWorkArea->y +
+					rs->grabWindowWorkArea->height);
+	    }
+	    if (rd->mask & ResizeLeftMask)
+	    {
+		int decorLeft = rd->savedGeometry.x + rd->savedGeometry.width -
+		    (w + rd->w->input.left);
+
+		if (rs->grabWindowWorkArea->x > decorLeft)
+		    w -= rs->grabWindowWorkArea->x - decorLeft;
+	    }
+	    if (rd->mask & ResizeRightMask)
+	    {
+		int decorRight = rd->savedGeometry.x + w + rd->w->input.right;
+
+		if (decorRight >
+		    rs->grabWindowWorkArea->x + rs->grabWindowWorkArea->width)
+		    w -= decorRight - (rs->grabWindowWorkArea->x +
+				       rs->grabWindowWorkArea->width);
+	    }
+	}
+
 	if (rd->mode != RESIZE_MODE_NORMAL)
 	{
 	    if (rd->mode == RESIZE_MODE_STRETCH)
@@ -871,12 +934,16 @@ resizeHandleEvent (CompDisplay *d,
 		w = findWindowAtDisplay (d, event->xclient.window);
 		if (w)
 		{
-		    CompOption o[6];
+		    CompOption o[7];
 		    int	       option;
 
 		    o[0].type    = CompOptionTypeInt;
 		    o[0].name    = "window";
 		    o[0].value.i = event->xclient.window;
+
+		    o[1].type    = CompOptionTypeBool;
+		    o[1].name    = "external";
+		    o[1].value.b = TRUE;
 
 		    if (event->xclient.data.l[2] == WmMoveResizeSizeKeyboard)
 		    {
@@ -884,7 +951,7 @@ resizeHandleEvent (CompDisplay *d,
 
 			resizeInitiate (d, &rd->opt[option].value.action,
 					CompActionStateInitKey,
-					o, 1);
+					o, 2);
 		    }
 		    else
 		    {
@@ -911,31 +978,31 @@ resizeHandleEvent (CompDisplay *d,
 			/* TODO: not only button 1 */
 			if (mods & Button1Mask)
 			{
-			    o[1].type	 = CompOptionTypeInt;
-			    o[1].name	 = "modifiers";
-			    o[1].value.i = mods;
-
 			    o[2].type	 = CompOptionTypeInt;
-			    o[2].name	 = "x";
-			    o[2].value.i = event->xclient.data.l[0];
+			    o[2].name	 = "modifiers";
+			    o[2].value.i = mods;
 
 			    o[3].type	 = CompOptionTypeInt;
-			    o[3].name	 = "y";
-			    o[3].value.i = event->xclient.data.l[1];
+			    o[3].name	 = "x";
+			    o[3].value.i = event->xclient.data.l[0];
 
 			    o[4].type	 = CompOptionTypeInt;
-			    o[4].name	 = "direction";
-			    o[4].value.i = mask[event->xclient.data.l[2]];
+			    o[4].name	 = "y";
+			    o[4].value.i = event->xclient.data.l[1];
 
 			    o[5].type	 = CompOptionTypeInt;
-			    o[5].name	 = "button";
-			    o[5].value.i = event->xclient.data.l[3] ?
+			    o[5].name	 = "direction";
+			    o[5].value.i = mask[event->xclient.data.l[2]];
+
+			    o[6].type	 = CompOptionTypeInt;
+			    o[6].name	 = "button";
+			    o[6].value.i = event->xclient.data.l[3] ?
 				event->xclient.data.l[3] : -1;
 
 			    resizeInitiate (d,
 					    &rd->opt[option].value.action,
 					    CompActionStateInitButton,
-					    o, 6);
+					    o, 7);
 
 			    resizeHandleMotionEvent (w->screen, xRoot, yRoot);
 			}
@@ -1290,6 +1357,8 @@ resizeInitDisplay (CompPlugin  *p,
 	rd->key[i] = XKeysymToKeycode (d->display,
 				       XStringToKeysym (rKeys[i].name));
 
+    rd->offWorkAreaConstrained = TRUE;
+
     WRAP (rd, d, handleEvent, resizeHandleEvent);
 
     d->base.privates[displayPrivateIndex].ptr = rd;
@@ -1346,6 +1415,8 @@ resizeInitScreen (CompPlugin *p,
     rs->cursor[1] = rs->rightCursor;
     rs->cursor[2] = rs->upCursor;
     rs->cursor[3] = rs->downCursor;
+
+    rs->grabWindowWorkArea = NULL;
 
     WRAP (rs, s, windowResizeNotify, resizeWindowResizeNotify);
     WRAP (rs, s, paintOutput, resizePaintOutput);

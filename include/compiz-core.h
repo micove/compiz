@@ -28,7 +28,7 @@
 
 #include <compiz-plugin.h>
 
-#define CORE_ABIVERSION 20090207
+#define CORE_ABIVERSION 20090619
 
 #include <stdio.h>
 #include <sys/time.h>
@@ -219,6 +219,9 @@ extern Bool       useCow;
 extern Bool       noDetection;
 extern Bool	  useDesktopHints;
 extern Bool       onlyCurrentScreen;
+
+extern char	**initialPlugins;
+extern int 	nInitialPlugins;
 
 extern int  defaultRefreshRate;
 extern char *defaultTextureFilter;
@@ -1759,6 +1762,8 @@ typedef GLXPixmap (*GLXCreatePixmapProc) (Display     *display,
 					  GLXFBConfig config,
 					  Pixmap      pixmap,
 					  const int   *attribList);
+typedef void (*GLXDestroyPixmapProc) (Display   *display,
+				      GLXPixmap pixmap);
 
 typedef void (*GLActiveTextureProc) (GLenum texture);
 typedef void (*GLClientActiveTextureProc) (GLenum texture);
@@ -1850,10 +1855,11 @@ typedef void (*WindowMoveNotifyProc) (CompWindow *window,
 				      int	 dy,
 				      Bool	 immediate);
 
-#define CompWindowGrabKeyMask    (1 << 0)
-#define CompWindowGrabButtonMask (1 << 1)
-#define CompWindowGrabMoveMask   (1 << 2)
-#define CompWindowGrabResizeMask (1 << 3)
+#define CompWindowGrabKeyMask         (1 << 0)
+#define CompWindowGrabButtonMask      (1 << 1)
+#define CompWindowGrabMoveMask        (1 << 2)
+#define CompWindowGrabResizeMask      (1 << 3)
+#define CompWindowGrabExternalAppMask (1 << 4)
 
 typedef void (*WindowGrabNotifyProc) (CompWindow   *window,
 				      int	   x,
@@ -1867,6 +1873,10 @@ typedef void (*WindowStateChangeNotifyProc) (CompWindow   *window,
 					     unsigned int lastState);
 
 typedef void (*OutputChangeNotifyProc) (CompScreen *screen);
+
+typedef unsigned int (*AddSupportedAtomsProc) (CompScreen   *s,
+					       Atom         *atoms,
+					       unsigned int size);
 
 typedef void (*InitWindowWalkerProc) (CompScreen *screen,
 				      CompWalker *walker);
@@ -2129,6 +2139,7 @@ struct _CompScreen {
     GLXGetFBConfigsProc      getFBConfigs;
     GLXGetFBConfigAttribProc getFBConfigAttrib;
     GLXCreatePixmapProc      createPixmap;
+    GLXDestroyPixmapProc     destroyPixmap;
 
     GLActiveTextureProc       activeTexture;
     GLClientActiveTextureProc clientActiveTexture;
@@ -2187,6 +2198,7 @@ struct _CompScreen {
     WindowStateChangeNotifyProc windowStateChangeNotify;
 
     OutputChangeNotifyProc outputChangeNotify;
+    AddSupportedAtomsProc  addSupportedAtoms;
 
     InitWindowWalkerProc initWindowWalker;
 
@@ -2244,6 +2256,9 @@ configureScreen (CompScreen	 *s,
 void
 setCurrentOutput (CompScreen *s,
 		  int	     outputNum);
+
+void
+setSupportedWmHints (CompScreen *s);
 
 void
 updateScreenBackground (CompScreen  *screen,
@@ -2864,7 +2879,8 @@ unsigned int
 adjustConfigureRequestForGravity (CompWindow     *w,
 				  XWindowChanges *xwc,
 				  unsigned int   xwcm,
-				  int            gravity);
+				  int            gravity,
+				  int            direction);
 
 void
 moveResizeWindow (CompWindow     *w,

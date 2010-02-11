@@ -1,6 +1,11 @@
---- 0-compiz.orig/src/display.c
-+++ 0-compiz/src/display.c
-@@ -2138,6 +2138,23 @@ addDisplay (const char *name)
+Author: Matthew Garrett <mjg59@srcf.ucam.org>
+Description: Disable clipping of child windows 
+ * This patch was modified to apply cleanly in 0.8.4-1
+Last-Modified: Thu, 11 Feb 2010 20:06:12 +0100
+Origin: vendor, ubuntu (1:0.3.6-1ubuntu10)
+--- compiz.orig/src/display.c
++++ compiz/src/display.c
+@@ -2194,6 +2194,23 @@ addDisplay (const char *name)
  	lastScreen  = ScreenCount (dpy) - 1;
      }
  
@@ -24,9 +29,9 @@
      for (i = firstScreen; i <= lastScreen; i++)
      {
  	Window		     newWmSnOwner = None, newCmSnOwner = None;
---- 0-compiz.orig/include/compiz-core.h
-+++ 0-compiz/include/compiz-core.h
-@@ -1025,6 +1025,8 @@ struct _CompDisplay {
+--- compiz.orig/include/compiz-core.h
++++ compiz/include/compiz-core.h
+@@ -1028,6 +1028,8 @@ struct _CompDisplay {
  
      GLenum textureFilter;
  

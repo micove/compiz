@@ -100,8 +100,6 @@ install: build
 	dh_clean -k
 	dh_installdirs
 	$(MAKE) DESTDIR=$(DESTDIR) install
-	mv $(DESTDIR)/usr/bin/compiz $(DESTDIR)/usr/bin/compiz.real
-	$(INSTALL) --mode 0755 debian/compiz-manager $(DESTDIR)/usr/bin/compiz
 	# remove unneeded .la files
 	find $(DESTDIR)/usr/lib -type f -name '*.la' | xargs rm -f
 
@@ -125,7 +123,7 @@ binary-arch: build install
 	dh_strip
 	dh_compress
 	dh_fixperms
-	dh_makeshlibs -plibdecoration0 -V'libdecoration0 (>= 0.8.2)'
+	dh_makeshlibs -plibdecoration0 -V'libdecoration0 (>= 0.8.4)'
 	dh_shlibdeps
 	dh_installdeb
 	dh_gencontrol -- -Vcoreabiversion=$(CORE_ABIVERSION)

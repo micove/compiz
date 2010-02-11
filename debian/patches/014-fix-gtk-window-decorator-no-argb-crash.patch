@@ -1,5 +1,12 @@
---- 0-compiz.orig/gtk/window-decorator/gtk-window-decorator.c
-+++ 0-compiz/gtk/window-decorator/gtk-window-decorator.c
+Author: Sebastien Bacher <seb128@canonical.com>
+Description: Fix decorator crash when ARGB isn't enabled
+ Fix gtk-window-decorator crash when ARGB isn't enabled and only
+ that, in this case window-decoration are invisible
+Origin: vendor, ubuntu (1:0.3.6-1ubuntu9)
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/compiz/+bug/94140
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/compiz/+bug/82205
+--- compiz.orig/gtk/window-decorator/gtk-window-decorator.c
++++ compiz/gtk/window-decorator/gtk-window-decorator.c
 @@ -1918,10 +1918,8 @@ meta_draw_window_decoration (decor_t *d)
  
      size = MAX (fgeom.top_height, fgeom.bottom_height);

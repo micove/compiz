@@ -1,3 +1,72 @@
+compiz (0.8.4-2) unstable; urgency=low
+
+  * Bump the dh_makeshlibs call to (>= 0.8.4)
+
+ -- Sean Finney <seanius@debian.org>  Thu, 11 Feb 2010 23:08:16 +0100
+
+compiz (0.8.4-1) unstable; urgency=low
+
+  * New upstream release.
+
+  [ Sean Finney ]
+  * Fix FTBFS: "gconf/gconf-client.h: No such file or directory"
+    - thanks to Sebastian Harl <tokkee@debian.org> (Closes: #562027, #562438) 
+  * Add compiz-decorator symlink for compatibility with ubuntu systems.
+  * Make all patches DEP-3 formatted.
+  * No longer keep the ubuntu patches logically separated from ours
+  * Enable 010-disable-child-window-clipping.patch, as there's an ABI bump.
+    Also, massage the patch a little so that it applies cleanly.
+  * Synchronize ubuntu patches from 0.8.4-0ubuntu10
+    * 015_draw_dock_shadows_on_desktop.patch:
+      - change decoration plugin to draw dock shadows only on the
+        desktop window instead of on top of all other windows
+    * 016_call_glxwaitx_before_drawing.patch:
+      - Call glXWaitX before we start drawing to make sure X is done
+        handling rendering calls. Suggested by Michel Dänzer to ensure
+        we don't have any rendering glitches.
+    * 017_always_unredirect_screensaver_on_nvidia.patch:
+      - always unredirect gnome-screensaver when using nvidia, workaround
+        for LP #160264 while still disabling unredirect fullscreen
+        windows for nvidia users
+    * 020_fix_focus.patch:
+      - give back the focus to the previous focused window (LP: #455900)
+    * 030_from_git_crash_fix_multiscreen.patch:
+      - merge commit 24dea72a395071b533dcf66b2eef37b20522cbba to fix
+        crash with wobbly windows in a multi screen setup
+    * 031_from_git_fix_gnome_keybindings.patch:
+      - fix gnome keybindings (terminal key)
+    * 060_move_checks_to_compiz.patch:
+      - add all relevant checks from compiz-manager to compiz itself
+        Compiz already checks for almost everything it needs so there is no
+        need to check twice.
+    * 061_KWD_stubs.patch (updated locally to remove fuzz):
+      - Horrible hack to define empty stubs for some new pure virtual
+        functions in KWD::Window, to fix FTBFS.
+  * The following patches have been updated to cleanly apply:
+    * 014-fix-gtk-window-decorator-no-argb-crash.patch
+    * 015_optional-fbo.patch
+    * ubuntu/010-disable-child-window-clipping.patch
+    * ubuntu/013-add-cursor-theme-support.patch
+    * ubuntu/018_use_metacity_settings.patch
+    * ubuntu/029_default_options
+    * ubuntu/035_ignore_workspaces
+    * ubuntu/037_fullscreen_stacking_fixes.patch
+    * ubuntu/049-damage-report-non-empty.patch
+    * ubuntu/050_stacking.patch
+  * Transition from compiz-manager to compiz binary for /usr/bin/compiz
+  * Remove all patches to the embedded compiz-manager script
+    * 028_compiz_manager_blacklist
+    * 029_compiz_manager_decoration.patch
+    * 029_compiz_manager_nvidia_settings.patch
+    * 030_compiz_manager_multi_display
+    * 031_compiz_manager_extra_blacklist_support
+    * 032_compiz_manager_add_gnomecompat
+    * 033_compiz_manager_xdg_dirs
+    * 042-compiz-manager-default-plugin
+    * 046_compiz_manager_second_screen.patch
+
+ -- Sean Finney <seanius@debian.org>  Thu, 11 Feb 2010 20:17:39 +0100
+
 compiz (0.8.2-6) unstable; urgency=low
 
   * Add libxcursor-dev build-dep as required by patch

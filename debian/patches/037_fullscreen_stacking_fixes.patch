@@ -1,6 +1,9 @@
---- 0-compiz.orig/plugins/move.c
-+++ 0-compiz/plugins/move.c
-@@ -123,6 +123,11 @@ moveInitiate (CompDisplay     *d,
+Author: Travis Watkins <amaranth@ubuntu.com>
+Description: keep window on top of fullscreen windows during move
+Origin: vendor, ubuntu (1:0.7.2-0ubuntu2)
+--- compiz.orig/plugins/move.c
++++ compiz/plugins/move.c
+@@ -124,6 +124,11 @@ moveInitiate (CompDisplay     *d,
      xid = getIntOptionNamed (option, nOption, "window", 0);
  
      w = findWindowAtDisplay (d, xid);
