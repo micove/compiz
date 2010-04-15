@@ -2,7 +2,7 @@ Source: compiz
 Section: x11
 Priority: optional
 Maintainer: Debian X Strike Force <debian-x@lists.debian.org>
-Uploaders: Thierry Reding <thierry@gilfi.de>, David Nusinow <dnusinow@debian.org>, Sean Finney <seanius@debian.org>
+Uploaders: David Nusinow <dnusinow@debian.org>, Sean Finney <seanius@debian.org>, Cyril Brulebois <kibi@debian.org>
 Build-Depends: autoconf, automake1.9, autotools-dev,
  debhelper (>= 5), intltool, 
  kdebase-workspace-dev,

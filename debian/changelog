@@ -1,3 +1,16 @@
+compiz (0.8.4-3) unstable; urgency=high
+
+  [ Brice Goglin ]
+  * Remove Thierry Reding from Uploaders, closes: #572540.
+
+  [ Cyril Brulebois ]
+  * Add patch to prevent FTBFS due to deprecated GDK/GTK stuff:
+    * 020_disable_gdk_gtk_disable_deprecated (Closes: #577352).
+  * Add myself to Uploaders.
+  * Set urgency to high due to RC bugfix.
+
+ -- Cyril Brulebois <kibi@debian.org>  Thu, 15 Apr 2010 03:29:29 +0200
+
 compiz (0.8.4-2) unstable; urgency=low
 
   * Bump the dh_makeshlibs call to (>= 0.8.4)
