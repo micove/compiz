@@ -6,7 +6,7 @@ Uploaders: David Nusinow <dnusinow@debian.org>, Sean Finney <seanius@debian.org>
 Build-Depends: autoconf, automake1.9, autotools-dev,
  debhelper (>= 5), intltool, 
  kdebase-workspace-dev,
- libcairo2-dev, libdbus-qt-1-dev, 
+ libcairo2-dev,
  libdbus-glib-1-dev, libgconf2-dev, 
  libgl1-mesa-dev (>= 6.5.1) | libgl-dev, libglib2.0-dev, libgnome-desktop-dev, 
  libgnomeui-dev,
@@ -18,7 +18,8 @@ Build-Depends: autoconf, automake1.9, autotools-dev,
  libxcursor-dev,
  libxml2-dev, libxslt1-dev,
  libstartup-notification0-dev (>= 0.7),
- quilt (>= 0.40), x11proto-gl-dev (>= 1.4.8), xsltproc
+ quilt (>= 0.40), x11proto-gl-dev (>= 1.4.8), xsltproc,
+ libglu1-mesa-dev,
 Standards-Version: 3.8.1
 Vcs-Git: git://git.debian.org/git/pkg-xorg/app/compiz.git
 Vcs-Browser: http://git.debian.org/?p=pkg-xorg/app/compiz.git

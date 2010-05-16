@@ -1,3 +1,13 @@
+compiz (0.8.4-4) unstable; urgency=low
+
+  * Drop libdbus-qt-1-dev from Build-Depends, as kindly requested by
+    Michael Biebl (Closes: #581788). Qt3 is going away, we already use
+    --disable-kde and --enable-kde4 to that effect, so libdbus-qt-1-dev
+    can be kicked away.
+  * Add libglu1-mesa-dev, needed for <GL/glu.h>.
+
+ -- Cyril Brulebois <kibi@debian.org>  Sun, 16 May 2010 20:44:51 +0200
+
 compiz (0.8.4-3) unstable; urgency=high
 
   [ Brice Goglin ]
