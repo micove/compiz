@@ -38,7 +38,8 @@
 #include <QString>
 #include <QPainter>
 
-KWD::Switcher::Switcher (WId parentId, WId id):
+
+KWD::Switcher::Switcher (WId, WId id):
     mId (id),
     mX11Pixmap (0),
     mX11BackgroundPixmap (0)
@@ -48,15 +49,16 @@ KWD::Switcher::Switcher (WId parentId, WId id):
     QColor   color;
     color = Plasma::Theme::defaultTheme ()->color (Plasma::Theme::TextColor);
 
-    mBackground = new Plasma::FrameSvg();
+    mBackground = new Plasma::FrameSvg ();
     mBackground->setImagePath ("dialogs/background");
-    mBackground->setEnabledBorders(Plasma::FrameSvg::AllBorders);
+    mBackground->setEnabledBorders (Plasma::FrameSvg::AllBorders);
 
-    mBorder.left   = mBackground->marginSize(Plasma::LeftMargin);
-    mBorder.right  = mBackground->marginSize(Plasma::RightMargin);
-    mBorder.top    = mBackground->marginSize(Plasma::TopMargin);
-    mBorder.bottom = mBackground->marginSize(Plasma::BottomMargin) +
-		     Plasma::Theme::defaultTheme ()->fontMetrics ().height () + 10;
+    mBorder.left   = mBackground->marginSize (Plasma::LeftMargin);
+    mBorder.right  = mBackground->marginSize (Plasma::RightMargin);
+    mBorder.top    = mBackground->marginSize (Plasma::TopMargin);
+    mBorder.bottom = mBackground->marginSize (Plasma::BottomMargin) +
+		     Plasma::Theme::defaultTheme ()->fontMetrics ().height () +
+		     10;
 
     mContext.extents.left   = mBorder.left;
     mContext.extents.right  = mBorder.right;
@@ -115,6 +117,7 @@ KWD::Switcher::updateGeometry ()
     if (mX11BackgroundPixmap)
 	XFreePixmap (QX11Info::display (), mX11BackgroundPixmap);
 
+#ifdef QT_45
     mX11Pixmap = XCreatePixmap (QX11Info::display (),
 				QX11Info::appRootWindow (),
 				width + mBorder.left + mBorder.right,
@@ -126,7 +129,12 @@ KWD::Switcher::updateGeometry ()
 
     mPixmap = QPixmap::fromX11Pixmap (mX11Pixmap, QPixmap::ExplicitlyShared);
     mBackgroundPixmap = QPixmap::fromX11Pixmap (mX11BackgroundPixmap,
-	    					QPixmap::ExplicitlyShared);
+						QPixmap::ExplicitlyShared);
+#else
+    mPixmap = QPixmap (width + mBorder.left + mBorder.right,
+		       height + mBorder.top + mBorder.bottom);
+    mBackgroundPixmap = QPixmap (width, height);
+#endif
 
     redrawPixmap ();
     update ();
@@ -137,6 +145,12 @@ KWD::Switcher::updateGeometry ()
 			      &mDecorLayout);
 
     updateWindowProperties ();
+}
+
+const QRect &
+KWD::Switcher::geometry ()
+{
+    return mGeometry;
 }
 
 void
@@ -156,11 +170,16 @@ KWD::Switcher::redrawPixmap ()
     mBackground->resizeFrame (QSizeF (contentWidth, contentHeight));
     mBackground->paintFrame (&p, QRect (0, 0, contentWidth, contentHeight));
 
+    bp.setCompositionMode (QPainter::CompositionMode_Source);
     bp.drawPixmap (0, 0, mPixmap, mBorder.left, mBorder.top,
 		   mGeometry.width (), mGeometry.height ());
 
     XSetWindowBackgroundPixmap (QX11Info::display (), mId,
+#ifdef QT_45
 				mX11BackgroundPixmap);
+#else
+                                mBackgroundPixmap.handle ());
+#endif
 
     XClearWindow (QX11Info::display (), mId);
 }
@@ -188,14 +207,13 @@ KWD::Switcher::update ()
 
     p.setCompositionMode (QPainter::CompositionMode_Source);
 
-    mBackground->paintFrame (&p, QRect (mBorder.left,
-					mBorder.top +
-					mGeometry.height () + 5,
-					mGeometry.width (),
-					fm.height ()));
+
+    mBackground->paintFrame (&p, QRect (mBorder.left, mBorder.top +
+			     mGeometry.height () + 5, mGeometry.width (),
+			     fm.height ()));
 
     p.setFont (font);
-    p.setPen (Plasma::Theme::defaultTheme ()->color(Plasma::Theme::TextColor));
+    p.setPen (Plasma::Theme::defaultTheme ()->color (Plasma::Theme::TextColor));
 
     p.drawText ((mPixmap.width () - fm.width (name)) / 2,
                 mBorder.top + mGeometry.height () + 5 + fm.ascent (), name);
@@ -218,13 +236,19 @@ KWD::Switcher::updateWindowProperties ()
 
     nQuad = decor_set_lXrXtXbX_window_quads (quads, &mContext, &mDecorLayout,
 					     lh / 2, rh / 2, w, w / 2);
+#ifdef QT_45
     decor_quads_to_property (data, mX11Pixmap,
-			     &mBorder, &mBorder,
+			     &mBorder, &mBorder, &mBorder, &mBorder,
 			     0, 0,
 			     quads, nQuad);
-
+#else
+    decor_quads_to_property (data, mPixmap.handle (),
+			     &mBorder, &mBorder, &mBorder, &mBorder,
+			     0, 0,
+			     quads, nQuad);
+#endif
     KWD::trapXError ();
-    XChangeProperty (QX11Info::display(), mId, Atoms::netWindowDecor,
+    XChangeProperty (QX11Info::display (), mId, Atoms::netWindowDecor,
 		     XA_INTEGER, 32, PropModeReplace, (unsigned char *) data,
 		     BASE_PROP_SIZE + QUAD_PROP_SIZE * nQuad);
     KWD::popXError ();
@@ -245,15 +269,14 @@ KWD::Switcher::updateBlurProperty (int topOffset,
     Region  leftRegion = NULL;
     Region  rightRegion = NULL;
     int     size = 0;
-    int     w, h;
+    int     w;
 
     w = mGeometry.width () + mContext.extents.left + mContext.extents.right;
-    h = mGeometry.height () + mContext.extents.top + mContext.extents.bottom;
 
     if (blurType != BLUR_TYPE_NONE)
     {
 	QRegion r;
-	
+
 	topQRegion    = QRegion (-mContext.extents.left, -mContext.extents.top,
 				 w, mContext.extents.top);
 	topRegion     = topQRegion.handle ();

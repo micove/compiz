@@ -41,7 +41,10 @@ namespace KWD
 	extern Atom switchSelectWindow;
 	extern Atom switchFgColor;
 	extern Atom netWmWindowOpacity;
-	extern Atom netFrameWindow;
+	extern Atom netInputFrameWindow;
+	extern Atom netOutputFrameWindow;
+	extern Atom compizShadowInfo;
+	extern Atom compizShadowColor;
 	extern Atom netWindowDecor;
 	extern Atom netWindowDecorNormal;
 	extern Atom netWindowDecorActive;
@@ -53,6 +56,7 @@ namespace KWD
 	extern Atom toolkitActionWindowMenuAtom;
 	extern Atom toolkitActionForceQuitDialogAtom;
 	extern Atom compizWindowBlurDecor;
+	extern Atom enlightmentDesktop;
 
 	void init (void);
     }
@@ -62,6 +66,7 @@ namespace KWD
     bool eventFilter (void *message, long *result);
     void *readXProperty (WId window, Atom property, Atom type, int *items);
     bool readWindowProperty (long wId, long property, long *value);
+    QVector<QString> readPropertyString (Window WId, Atom property);
     unsigned short readPropertyShort (WId	     id,
 				      Atom	     property,
 				      unsigned short defaultValue);

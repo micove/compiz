@@ -50,6 +50,8 @@ class Switcher
 	void update ();
 	void updateGeometry ();
 
+	const QRect & geometry ();
+
 	WId xid () const
 	{
 	    return mId;
@@ -61,7 +63,7 @@ class Switcher
 				 int bottomOffset,
 				 int leftOffset,
 				 int rightOffset);
- 	void redrawPixmap ();
+	void redrawPixmap ();
 
     private:
 

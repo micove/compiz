@@ -26,155 +26,73 @@
 #ifndef _COMPIZ_H
 #define _COMPIZ_H
 
-#include <libxml/parser.h>
-
 #include <compiz-common.h>
 
-COMPIZ_BEGIN_DECLS
+#include <string>
+#include <list>
+#include <cstdarg>
 
-typedef int CompBool;
-typedef int CompTimeoutHandle;
-typedef int CompWatchFdHandle;
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY (x)
 
-typedef union _CompOptionValue CompOptionValue;
+#define RESTRICT_VALUE(value, min, max)				     \
+    (((value) < (min)) ? (min): ((value) > (max)) ? (max) : (value))
 
-typedef struct _CompObject   CompObject;
-typedef struct _CompCore     CompCore;
-typedef struct _CompDisplay  CompDisplay;
-typedef struct _CompMetadata CompMetadata;
-typedef struct _CompOption   CompOption;
-typedef struct _CompPlugin   CompPlugin;
-typedef struct _CompScreen   CompScreen;
-typedef struct _CompWindow   CompWindow;
+#define MOD(a,b) ((a) < 0 ? ((b) - ((-(a) - 1) % (b))) - 1 : (a) % (b))
 
-typedef CompBool (*CallBackProc) (void *closure);
+#define TIMEVALDIFF(tv1, tv2)						   \
+    ((tv1)->tv_sec == (tv2)->tv_sec || (tv1)->tv_usec >= (tv2)->tv_usec) ? \
+    ((((tv1)->tv_sec - (tv2)->tv_sec) * 1000000) +			   \
+     ((tv1)->tv_usec - (tv2)->tv_usec)) / 1000 :			   \
+    ((((tv1)->tv_sec - 1 - (tv2)->tv_sec) * 1000000) +			   \
+     (1000000 + (tv1)->tv_usec - (tv2)->tv_usec)) / 1000
+
+#define TIMESPECDIFF(ts1, ts2)						   \
+    ((ts1)->tv_sec == (ts2)->tv_sec || (ts1)->tv_nsec >= (ts2)->tv_nsec) ? \
+    ((((ts1)->tv_sec - (ts2)->tv_sec) * 1000000) +			   \
+     ((ts1)->tv_nsec - (ts2)->tv_nsec)) / 1000000 :			   \
+    ((((ts1)->tv_sec - 1 - (ts2)->tv_sec) * 1000000) +			   \
+     (1000000 + (ts1)->tv_nsec - (ts2)->tv_nsec)) / 1000000
+
+#define MULTIPLY_USHORT(us1, us2)		 \
+    (((GLuint) (us1) * (GLuint) (us2)) / 0xffff)
+
+#define DEG2RAD (M_PI / 180.0f)
+
+#if defined(HAVE_SCANDIR_POSIX)
+  // POSIX (2008) defines the comparison function like this:
+  #define scandir(a,b,c,d) scandir((a), (b), (c), (int(*)(const dirent **, const dirent **))(d));
+#else
+  #define scandir(a,b,c,d) scandir((a), (b), (c), (int(*)(const void*,const void*))(d));
+#endif
+
+typedef std::string CompString;
+typedef std::list<CompString> CompStringList;
+
+CompString compPrintf (const char *format, ...);
+CompString compPrintf (const char *format, va_list ap);
+
+
 
 typedef enum {
-    CompOptionTypeBool,
-    CompOptionTypeInt,
-    CompOptionTypeFloat,
-    CompOptionTypeString,
-    CompOptionTypeColor,
-    CompOptionTypeAction,
-    CompOptionTypeKey,
-    CompOptionTypeButton,
-    CompOptionTypeEdge,
-    CompOptionTypeBell,
-    CompOptionTypeMatch,
-    CompOptionTypeList
-} CompOptionType;
+    CompLogLevelFatal = 0,
+    CompLogLevelError,
+    CompLogLevelWarn,
+    CompLogLevelInfo,
+    CompLogLevelDebug
+} CompLogLevel;
 
 void
-compInitOptionValue (CompOptionValue *v);
+compLogMessage (const char   *componentName,
+		CompLogLevel level,
+		const char   *format,
+		...);
 
-void
-compFiniOptionValue (CompOptionValue *v,
-		     CompOptionType  type);
+const char *
+logLevelToString (CompLogLevel level);
 
-void
-compInitOption (CompOption *option);
-
-void
-compFiniOption (CompOption *option);
-
-CompOption *
-compFindOption (CompOption *option,
-		int	    nOption,
-		const char  *name,
-		int	    *index);
-
-CompBool
-compSetBoolOption (CompOption      *option,
-		   CompOptionValue *value);
-
-CompBool
-compSetIntOption (CompOption	  *option,
-		  CompOptionValue *value);
-
-CompBool
-compSetFloatOption (CompOption	    *option,
-		    CompOptionValue *value);
-
-CompBool
-compSetStringOption (CompOption	     *option,
-		     CompOptionValue *value);
-
-CompBool
-compSetColorOption (CompOption	    *option,
-		    CompOptionValue *value);
-
-CompBool
-compSetActionOption (CompOption      *option,
-		     CompOptionValue *value);
-
-CompBool
-compSetMatchOption (CompOption      *option,
-		    CompOptionValue *value);
-
-CompBool
-compSetOptionList (CompOption      *option,
-		   CompOptionValue *value);
-
-CompBool
-compSetOption (CompOption      *option,
-	       CompOptionValue *value);
-
-CompTimeoutHandle
-compAddTimeout (int	     minTime,
-		int	     maxTime,
-		CallBackProc callBack,
-		void	     *closure);
-
-void *
-compRemoveTimeout (CompTimeoutHandle handle);
-
-CompWatchFdHandle
-compAddWatchFd (int	     fd,
-		short int    events,
-		CallBackProc callBack,
-		void	     *closure);
-
-void
-compRemoveWatchFd (CompWatchFdHandle handle);
-
-short int
-compWatchFdEvents (CompWatchFdHandle handle);
-
-CompBool
-compInitMetadata (CompMetadata *metadata);
-
-CompBool
-compInitPluginMetadata (CompMetadata *metadata,
-			const char   *plugin);
-
-void
-compFiniMetadata (CompMetadata *metadata);
-
-CompBool
-compAddMetadataFromFile (CompMetadata *metadata,
-			 const char   *file);
-
-CompBool
-compAddMetadataFromString (CompMetadata *metadata,
-			   const char	*string);
-
-CompBool
-compAddMetadataFromIO (CompMetadata	     *metadata,
-		       xmlInputReadCallback  ioread,
-		       xmlInputCloseCallback ioclose,
-		       void		     *ioctx);
-
-char *
-compGetStringFromMetadataPath (CompMetadata *metadata,
-			       const char   *path);
-
-int
-compReadXmlChunk (const char *src,
-		  int	     *offset,
-		  char	     *buffer,
-		  int	     length);
-
-
-COMPIZ_END_DECLS
+extern char       *programName;
+extern char       **programArgv;
+extern int        programArgc;
 
 #endif

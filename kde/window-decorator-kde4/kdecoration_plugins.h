@@ -36,7 +36,7 @@ DEALINGS IN THE SOFTWARE.
 
 //
 // This header file is internal. I mean it.
-// 
+//
 
 
 #include <QtGui/QWidget>
@@ -84,7 +84,7 @@ class KDecorationPlugins
 
 */
 }
-    
+
 /** @} */
 
 #endif
