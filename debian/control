@@ -66,7 +66,7 @@ Description: OpenGL window and compositing manager
 
 Package: compiz-dev
 Architecture: any
-Depends: compiz-core (= ${binary:Version}), ${misc:Depends}, libgl1-mesa-dev | libgl-dev, libpng-dev, libxcomposite-dev (>= 1:0.3-2), libxfixes-dev (>=1:4.0.1), libxdamage-dev (>= 1:1.0.3), libxinerama-dev, libxrandr-dev (>=2:1.1.0.2), libxcursor-dev, libice-dev (>= 1:1.0.1), libsm-dev (>= 1:1.0.1), libstartup-notification0-dev (>= 0.7), libxslt1-dev, libxml2-dev, libx11-xcb-dev, libglib2.0-dev, compiz-plugins (= ${binary:Version})
+Depends: compiz-core (= ${binary:Version}), ${misc:Depends}, libgl1-mesa-dev | libgl-dev, libpng-dev, libxcomposite-dev (>= 1:0.3-2), libxfixes-dev (>=1:4.0.1), libxdamage-dev (>= 1:1.0.3), libxinerama-dev, libxrandr-dev (>=2:1.1.0.2), libxcursor-dev, libice-dev (>= 1:1.0.1), libsm-dev (>= 1:1.0.1), libstartup-notification0-dev (>= 0.7), libxslt1-dev, libxml2-dev, libx11-xcb-dev, libglib2.0-dev, libglibmm-2.4-dev, compiz-plugins (= ${binary:Version})
 Description: OpenGL window and compositing manager - development files
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users

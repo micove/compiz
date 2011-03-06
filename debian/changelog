@@ -1,3 +1,9 @@
+compiz (0.9.2.1+git20110226.f059fae9-2) experimental; urgency=low
+
+  * Add a Depends on libglibmm-2.4-dev to compiz-dev
+
+ -- Sean Finney <seanius@debian.org>  Sun, 06 Mar 2011 13:53:30 +0000
+
 compiz (0.9.2.1+git20110226.f059fae9-1) experimental; urgency=low
 
   [ Sean Finney ]
