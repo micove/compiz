@@ -49,6 +49,8 @@ Breaks: libcompizconfig0 (<< 0.9),
  compiz-fusion-plugins-main (<< 0.9),
  compiz-fusion-plugins-extra (<< 0.9),
  compiz-gtk (<< 0.9)
+Conflicts: compiz-gtk (<= 0.8.4-4)
+Replaces: compiz-gtk (<= 0.8.4-4)
 Recommends: compiz-plugins (= ${binary:Version})
 Suggests: nvidia-glx (>= 1.0.9625-1)
 Provides: compiz-core-abiversion-${coreabiversion}
@@ -78,7 +80,8 @@ Description: OpenGL window and compositing manager - development files
 Package: compiz-gtk
 Architecture: any
 Depends: compiz-core (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Replaces: compiz-plugins (<< 0.7.6-2)
+Replaces: compiz-plugins (<= 0.8.4-4)
+Conflicts: compiz-plugins (<= 0.8.4-4)
 Suggests: gnome-themes
 Description: OpenGL window and compositing manager - Gtk window decorator
  Compiz brings to life a variety of visual effects that make the Linux desktop
