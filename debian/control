@@ -117,7 +117,9 @@ Description: OpenGL window and compositing manager - GNOME window decorator
 
 Package: compiz-plugins
 Architecture: any
-Depends: compiz-core (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Depends: compiz-core (= ${binary:Version}), 
+ libdecoration0 (>= 0.9.0),
+ ${shlibs:Depends}, ${misc:Depends}
 Description: OpenGL window and compositing manager - plugins
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
