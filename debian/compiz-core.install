@@ -1,6 +1,7 @@
 usr/bin/compiz*
 debian/compiz-decorator usr/bin/
-usr/share/compiz/images/*.png
+usr/share/compiz/*.png
+usr/share/compiz/cube/images/*.png
 usr/share/compiz/*xml
 usr/share/locale
 usr/share/applications/compiz.desktop
