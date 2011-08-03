@@ -1,3 +1,11 @@
+compiz (0.9.5.0-0.1) experimental; urgency=low
+
+  * Non-maintainer upload.
+  * New upstream release.
+  * Remove 085_add_grid_plugin.patch and 086_new_grid_defaults.patch.
+
+ -- Janos Guljas <janos@resenje.org>  Tue, 02 Aug 2011 04:11:24 +0200
+
 compiz (0.9.4-1) experimental; urgency=low
 
   * Non-maintainer upload.
