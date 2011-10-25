@@ -27,7 +27,7 @@ Vcs-Browser: http://git.debian.org/?p=pkg-xorg/app/compiz.git
 
 Package: compiz
 Architecture: all
-Depends: compiz-core (>= ${source:Version}), compiz-plugins (>= ${source:Version}), compiz-gtk (>= ${source:Version}), compiz-gnome (>= ${source:Version}), ${misc:Depends}
+Depends: compiz-core (>= ${source:Version}), compiz-plugins (>= ${source:Version}), compiz-gtk (>= ${source:Version}), compiz-gnome (>= ${source:Version}), libcompizconfig0, ${misc:Depends}
 Suggests: compizconfig-settings-manager
 Description: OpenGL window and compositing manager
  Compiz brings to life a variety of visual effects that make the Linux desktop

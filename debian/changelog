@@ -1,3 +1,18 @@
+compiz (0.8.4-5) unstable; urgency=low
+
+  [ Sean Finney ]
+  * Update gbp.conf for new debian-wheezy branch
+  * Rebuild of the package should fix remaining libmetacity-private issues.
+    (Closes: #617763)
+  * Add dependency on libcompizconfig0 to compiz metapackage.
+    Thanks to Patricio Rojo <ss2@wasabi.das.uchile.cl> (Closes: #631129)
+
+  [ Michael Biebl ]
+  * Link against all necessary libraries.  (Closes: #639681, #554114)
+    Thanks: Loïc Minier <loic.minier@ubuntu.com>
+
+ -- Sean Finney <seanius@debian.org>  Tue, 25 Oct 2011 20:50:05 +0200
+
 compiz (0.8.4-4) unstable; urgency=low
 
   * Drop libdbus-qt-1-dev from Build-Depends, as kindly requested by

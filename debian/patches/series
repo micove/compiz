@@ -22,3 +22,4 @@
 061_KWD_stubs.patch
 # end of ubuntu-imported patches
 562027-fix-gconf-ftbfs.patch
+070_link_needed_libs.patch
