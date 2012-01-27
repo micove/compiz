@@ -8,9 +8,8 @@ Build-Depends: autoconf, automake1.9, autotools-dev,
  kdebase-workspace-dev,
  libcairo2-dev,
  libdbus-glib-1-dev, libgconf2-dev, 
- libgl1-mesa-dev (>= 6.5.1) | libgl-dev, libglib2.0-dev, libgnome-desktop-dev, 
- libgnomeui-dev,
- libgnome-window-settings-dev, libgtk2.0-dev, libice-dev (>= 1:1.0.1), 
+ libgl1-mesa-dev (>= 6.5.1) | libgl-dev, libglib2.0-dev,
+ libgtk2.0-dev, libice-dev (>= 1:1.0.1), 
  libmetacity-dev, libpango1.0-dev, libpng12-dev | libpng-dev, librsvg2-dev, 
  libsm-dev (>= 1:1.0.1), libtool, libwnck-dev, libxcomposite-dev (>= 1:0.3-2), 
  libxdamage-dev (>=1:1.0.3), libxfixes-dev (>= 1:4.0.1), libxinerama-dev, 
@@ -27,7 +26,7 @@ Vcs-Browser: http://git.debian.org/?p=pkg-xorg/app/compiz.git
 
 Package: compiz
 Architecture: all
-Depends: compiz-core (>= ${source:Version}), compiz-plugins (>= ${source:Version}), compiz-gtk (>= ${source:Version}), compiz-gnome (>= ${source:Version}), libcompizconfig0, ${misc:Depends}
+Depends: compiz-core (>= ${source:Version}), compiz-plugins (>= ${source:Version}), compiz-gtk (>= ${source:Version}), libcompizconfig0, ${misc:Depends}
 Suggests: compizconfig-settings-manager
 Description: OpenGL window and compositing manager
  Compiz brings to life a variety of visual effects that make the Linux desktop
@@ -92,17 +91,6 @@ Description: OpenGL window and compositing manager - KDE window decorator
  .
  This package contains a window decorator that uses KDE to provide a look and
  feel similar to that of the default KDE window manager.
-
-Package: compiz-gnome
-Architecture: any
-Depends: compiz-gtk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Description: OpenGL window and compositing manager - GNOME window decorator
- Compiz brings to life a variety of visual effects that make the Linux desktop
- easier to use, more powerful and intuitive, and more accessible for users
- with special needs.
- .
- This package contains files needed to integrate compiz with the GNOME desktop
- environment.
 
 Package: compiz-plugins
 Architecture: any

@@ -41,6 +41,7 @@ INSTALL = /usr/bin/install
 confflags += --disable-static \
              --disable-fuse \
              --disable-kde \
+             --disable-gnome \
              --enable-kde4 \
              --enable-librsvg \
              --enable-gconf
