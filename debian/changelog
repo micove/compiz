@@ -11,11 +11,13 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
   * Remove 085_add_grid_plugin.patch and 086_new_grid_defaults.patch.
 
   [ Miguel Colon ]
-  * Acknowledge NMU.
+  * Acknowledge NMU 0.8.4-5.1.
   * Update the watch file to find the tarball in launchpad.
-  * Refresh 017_always_unredirect_screensaver_on_nvidia.patch.
-  * Remove 2nd HUNK from 060_move_checks_to_compiz.patch since it was merged
-    upstream. Also refresh the 1st HUNK.
+  * Update compiz-core.install and remove the compiz.links file.
+  * debian/patches:
+    - Refresh 017_always_unredirect_screensaver_on_nvidia.patch.
+    - Remove 2nd HUNK from 060_move_checks_to_compiz.patch since it was merged
+      upstream. Also refresh the 1st HUNK.
   * debian/control:
     - Bump debhelper and the compatibility level to 9.
     - Organize the build dependency list:
@@ -23,8 +25,11 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
       + Change libpng12-dev | libpng-dev to libpng-dev.
       + Change libgnome-window-settings-dev to gnome-control-center-dev.
       + Add lcov, libgtest-dev and google-mock for building the tests.
+  * debian/rules:
+    - Find CORE_ABIVERSION in abiversion.h.
+    - Update the clean routine.
 
- -- Miguel Colon <debian.micove@gmail.com>  Fri, 09 Mar 2012 07:17:35 -0500
+ -- Miguel Colon <debian.micove@gmail.com>  Fri, 09 Mar 2012 09:46:26 -0500
 
 compiz (0.9.2.1+git20110226.f059fae9-4) experimental; urgency=low
 
