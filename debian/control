@@ -3,7 +3,7 @@ Section: x11
 Priority: optional
 Maintainer: Debian X Strike Force <debian-x@lists.debian.org>
 Uploaders: David Nusinow <dnusinow@debian.org>, Sean Finney <seanius@debian.org>, Cyril Brulebois <kibi@debian.org>
-Build-Depends: cmake (>= 2.6), debhelper (>= 7.0.50~), intltool, libtool,
+Build-Depends: cmake (>= 2.6), debhelper (>= 9), intltool, libtool,
  libcairo2-dev,
  libdbus-glib-1-dev, libgconf2-dev, 
  libgl1-mesa-dev (>= 6.5.1) | libgl-dev, libglib2.0-dev, libgnome-desktop-dev,
