@@ -29,10 +29,7 @@
 
 #include <compiz.h>
 
-#define SHOT_INITIATE_BUTTON_DEFAULT	       Button1
-#define SHOT_INITIATE_BUTTON_MODIFIERS_DEFAULT CompSuperMask
-
-#define SHOT_DIR_DEFAULT "Desktop"
+static CompMetadata shotMetadata;
 
 static int displayPrivateIndex;
 
@@ -49,6 +46,7 @@ typedef struct _ShotDisplay {
 } ShotDisplay;
 
 typedef struct _ShotScreen {
+    PaintOutputProc paintOutput;
     PaintScreenProc paintScreen;
     int		    grabIndex;
 
@@ -180,23 +178,19 @@ shotSort (const void *_a,
 	return al - bl;
 }
 
-static Bool
-shotPaintScreen (CompScreen		 *s,
-		 const ScreenPaintAttrib *sAttrib,
-		 const CompTransform	 *transform,
-		 Region			 region,
-		 int			 output,
-		 unsigned int		 mask)
+static void
+shotPaintScreen (CompScreen   *s,
+		 CompOutput   *outputs,
+		 int          numOutput,  
+		 unsigned int mask)
 {
-    Bool status;
-
     SHOT_SCREEN (s);
 
     UNWRAP (ss, s, paintScreen);
-    status = (*s->paintScreen) (s, sAttrib, transform, region, output, mask);
+    (*s->paintScreen) (s, outputs, numOutput, mask);
     WRAP (ss, s, paintScreen, shotPaintScreen);
 
-    if (status && ss->grab)
+    if (ss->grab)
     {
 	int x1, x2, y1, y2;
 
@@ -204,30 +198,8 @@ shotPaintScreen (CompScreen		 *s,
 	y1 = MIN (ss->y1, ss->y2);
 	x2 = MAX (ss->x1, ss->x2);
 	y2 = MAX (ss->y1, ss->y2);
-
-	if (ss->grabIndex)
-	{
-	    glPushMatrix ();
-
-	    prepareXCoords (s, output, -DEFAULT_Z_CAMERA);
-
-	    glDisableClientState (GL_TEXTURE_COORD_ARRAY);
-	    glEnable (GL_BLEND);
-	    glColor4us (0x2fff, 0x2fff, 0x4fff, 0x4fff);
-	    glRecti (x1, y2, x2, y1);
-	    glColor4us (0x2fff, 0x2fff, 0x4fff, 0x9fff);
-	    glBegin (GL_LINE_LOOP);
-	    glVertex2i (x1, y1);
-	    glVertex2i (x2, y1);
-	    glVertex2i (x2, y2);
-	    glVertex2i (x1, y2);
-	    glEnd ();
-	    glColor4usv (defaultColor);
-	    glDisable (GL_BLEND);
-	    glEnableClientState (GL_TEXTURE_COORD_ARRAY);
-	    glPopMatrix ();
-	}
-	else if (output == (s->nOutputDev - 1))
+	
+	if (!ss->grabIndex)
 	{
 	    int w = x2 - x1;
 	    int h = y2 - y1;
@@ -273,8 +245,8 @@ shotPaintScreen (CompScreen		 *s,
 			if (!writeImageToFile (s->display, dir, name, "png",
 					       w, h, buffer))
 			{
-			    fprintf (stderr, "%s: failed to write "
-				     "screenshot image", programName);
+			    compLogMessage (s->display, "screenshot", CompLogLevelError,
+					    "failed to write screenshot image");
 			}
 			else if (*app != '\0')
 			{
@@ -303,6 +275,56 @@ shotPaintScreen (CompScreen		 *s,
 	    }
 
 	    ss->grab = FALSE;
+	}
+    }
+}
+
+static Bool
+shotPaintOutput (CompScreen		 *s,
+		 const ScreenPaintAttrib *sAttrib,
+		 const CompTransform	 *transform,
+		 Region			 region,
+		 CompOutput		 *output,
+		 unsigned int		 mask)
+{
+    Bool status;
+
+    SHOT_SCREEN (s);
+
+    UNWRAP (ss, s, paintOutput);
+    status = (*s->paintOutput) (s, sAttrib, transform, region, output, mask);
+    WRAP (ss, s, paintOutput, shotPaintOutput);
+
+    if (status && ss->grab)
+    {
+	int x1, x2, y1, y2;
+
+	x1 = MIN (ss->x1, ss->x2);
+	y1 = MIN (ss->y1, ss->y2);
+	x2 = MAX (ss->x1, ss->x2);
+	y2 = MAX (ss->y1, ss->y2);
+
+	if (ss->grabIndex)
+	{
+	    glPushMatrix ();
+
+	    prepareXCoords (s, output, -DEFAULT_Z_CAMERA);
+
+	    glDisableClientState (GL_TEXTURE_COORD_ARRAY);
+	    glEnable (GL_BLEND);
+	    glColor4us (0x2fff, 0x2fff, 0x4fff, 0x4fff);
+	    glRecti (x1, y2, x2, y1);
+	    glColor4us (0x2fff, 0x2fff, 0x4fff, 0x9fff);
+	    glBegin (GL_LINE_LOOP);
+	    glVertex2i (x1, y1);
+	    glVertex2i (x2, y1);
+	    glVertex2i (x2, y2);
+	    glVertex2i (x1, y2);
+	    glEnd ();
+	    glColor4usv (defaultColor);
+	    glDisable (GL_BLEND);
+	    glEnableClientState (GL_TEXTURE_COORD_ARRAY);
+	    glPopMatrix ();
 	}
     }
 
@@ -374,46 +396,9 @@ shotHandleEvent (CompDisplay *d,
     WRAP (sd, d, handleEvent, shotHandleEvent);
 }
 
-static void
-shotDisplayInitOptions (ShotDisplay *sd)
-{
-    CompOption *o;
-
-    o = &sd->opt[SHOT_DISPLAY_OPTION_INITIATE];
-    o->name			     = "initiate";
-    o->shortDesc		     = N_("Initiate");
-    o->longDesc			     = N_("Initiate rectangle screenshot");
-    o->type			     = CompOptionTypeAction;
-    o->value.action.initiate	     = shotInitiate;
-    o->value.action.terminate	     = shotTerminate;
-    o->value.action.bell	     = FALSE;
-    o->value.action.edgeMask	     = 0;
-    o->value.action.type	     = CompBindingTypeButton;
-    o->value.action.state	     = CompActionStateInitButton;
-    o->value.action.button.modifiers = SHOT_INITIATE_BUTTON_MODIFIERS_DEFAULT;
-    o->value.action.button.button    = SHOT_INITIATE_BUTTON_DEFAULT;
-
-    o = &sd->opt[SHOT_DISPLAY_OPTION_DIR];
-    o->name	      = "directory";
-    o->shortDesc      = N_("Directory");
-    o->longDesc	      = N_("Put screenshot images in this directory");
-    o->type	      = CompOptionTypeString;
-    o->value.s	      = strdup (SHOT_DIR_DEFAULT);
-    o->rest.s.string  = 0;
-    o->rest.s.nString = 0;
-
-    o = &sd->opt[SHOT_DISPLAY_OPTION_LAUNCH_APP];
-    o->name           = "launch_app";
-    o->shortDesc      = N_("Launch Application");
-    o->longDesc       = N_("Automatically open screenshot in this application");
-    o->type           = CompOptionTypeString;
-    o->value.s        = strdup ("");
-    o->rest.s.string  = NULL;
-    o->rest.s.nString = 0;
-}
-
 static CompOption *
-shotGetDisplayOptions (CompDisplay *display,
+shotGetDisplayOptions (CompPlugin  *plugin,
+		       CompDisplay *display,
 		       int	   *count)
 {
     SHOT_DISPLAY (display);
@@ -423,37 +408,27 @@ shotGetDisplayOptions (CompDisplay *display,
 }
 
 static Bool
-shotSetDisplayOption (CompDisplay    *display,
+shotSetDisplayOption (CompPlugin  *plugin,
+		      CompDisplay    *display,
 		      char	     *name,
 		      CompOptionValue *value)
 {
     CompOption *o;
-    int	       index;
 
     SHOT_DISPLAY (display);
 
-    o = compFindOption (sd->opt, NUM_OPTIONS (sd), name, &index);
+    o = compFindOption (sd->opt, NUM_OPTIONS (sd), name, NULL);
     if (!o)
 	return FALSE;
 
-    switch (index) {
-    case SHOT_DISPLAY_OPTION_INITIATE:
-	if (setDisplayAction (display, o, value))
-	    return TRUE;
-	break;
-    case SHOT_DISPLAY_OPTION_DIR:
-	if (compSetStringOption (o, value))
-	    return TRUE;
-	break;
-    case SHOT_DISPLAY_OPTION_LAUNCH_APP:
-	if (compSetStringOption (o, value))
-	    return TRUE;
-    default:
-	break;
-    }
-
-    return FALSE;
+    return compSetDisplayOption (display, o, value);
 }
+
+static const CompMetadataOptionInfo shotDisplayOptionInfo[] = {
+    { "initiate", "action", 0, shotInitiate, shotTerminate },
+    { "directory", "string", 0, 0, 0 },
+    { "launch_app", "string", 0, 0, 0 }
+};
 
 static Bool
 shotInitDisplay (CompPlugin  *p,
@@ -465,16 +440,25 @@ shotInitDisplay (CompPlugin  *p,
     if (!sd)
 	return FALSE;
 
-    sd->screenPrivateIndex = allocateScreenPrivateIndex (d);
-    if (sd->screenPrivateIndex < 0)
+    if (!compInitDisplayOptionsFromMetadata (d,
+					     &shotMetadata,
+					     shotDisplayOptionInfo,
+					     sd->opt,
+					     SHOT_DISPLAY_OPTION_NUM))
     {
 	free (sd);
 	return FALSE;
     }
 
-    WRAP (sd, d, handleEvent, shotHandleEvent);
+    sd->screenPrivateIndex = allocateScreenPrivateIndex (d);
+    if (sd->screenPrivateIndex < 0)
+    {
+	compFiniDisplayOptions (d, sd->opt, SHOT_DISPLAY_OPTION_NUM);
+	free (sd);
+	return FALSE;
+    }
 
-    shotDisplayInitOptions (sd);
+    WRAP (sd, d, handleEvent, shotHandleEvent);
 
     d->privates[displayPrivateIndex].ptr = sd;
 
@@ -490,6 +474,8 @@ shotFiniDisplay (CompPlugin  *p,
     freeScreenPrivateIndex (d, sd->screenPrivateIndex);
 
     UNWRAP (sd, d, handleEvent);
+
+    compFiniDisplayOptions (d, sd->opt, SHOT_DISPLAY_OPTION_NUM);
 
     free (sd);
 }
@@ -509,9 +495,8 @@ shotInitScreen (CompPlugin *p,
     ss->grabIndex = 0;
     ss->grab	  = FALSE;
 
-    addScreenAction (s, &sd->opt[SHOT_DISPLAY_OPTION_INITIATE].value.action);
-
     WRAP (ss, s, paintScreen, shotPaintScreen);
+    WRAP (ss, s, paintOutput, shotPaintOutput);
 
     s->privates[sd->screenPrivateIndex].ptr = ss;
 
@@ -523,12 +508,9 @@ shotFiniScreen (CompPlugin *p,
 		CompScreen *s)
 {
     SHOT_SCREEN (s);
-    SHOT_DISPLAY (s->display);
-
-    removeScreenAction (s, 
-			&sd->opt[SHOT_DISPLAY_OPTION_INITIATE].value.action);
 
     UNWRAP (ss, s, paintScreen);
+    UNWRAP (ss, s, paintOutput);
 
     free (ss);
 }
@@ -536,9 +518,21 @@ shotFiniScreen (CompPlugin *p,
 static Bool
 shotInit (CompPlugin *p)
 {
+    if (!compInitPluginMetadataFromInfo (&shotMetadata,
+					 p->vTable->name,
+					 shotDisplayOptionInfo,
+					 SHOT_DISPLAY_OPTION_NUM,
+					 0, 0))
+	return FALSE;
+
     displayPrivateIndex = allocateDisplayPrivateIndex ();
     if (displayPrivateIndex < 0)
+    {
+	compFiniMetadata (&shotMetadata);
 	return FALSE;
+    }
+
+    compAddMetadataFromFile (&shotMetadata, p->vTable->name);
 
     return TRUE;
 }
@@ -546,8 +540,8 @@ shotInit (CompPlugin *p)
 static void
 shotFini (CompPlugin *p)
 {
-    if (displayPrivateIndex >= 0)
-	freeDisplayPrivateIndex (displayPrivateIndex);
+    freeDisplayPrivateIndex (displayPrivateIndex);
+    compFiniMetadata (&shotMetadata);
 }
 
 static int
@@ -557,11 +551,16 @@ shotGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
+static CompMetadata *
+shotGetMetadata (CompPlugin *plugin)
+{
+    return &shotMetadata;
+}
+
 static CompPluginVTable shotVTable = {
     "screenshot",
-    N_("Screenshot"),
-    N_("Screenshot plugin"),
     shotGetVersion,
+    shotGetMetadata,
     shotInit,
     shotFini,
     shotInitDisplay,
@@ -573,11 +572,7 @@ static CompPluginVTable shotVTable = {
     shotGetDisplayOptions,
     shotSetDisplayOption,
     0, /* GetScreenOptions */
-    0, /* SetScreenOption */
-    0, /* Deps */
-    0, /* nDeps */
-    0, /* Features */
-    0  /* nFeatures */
+    0  /* SetScreenOption */
 };
 
 CompPluginVTable *

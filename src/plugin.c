@@ -63,7 +63,8 @@ dlloaderLoadPlugin (CompPlugin *p,
 	error = dlerror ();
 	if (error)
 	{
-	    fprintf (stderr, "%s: dlsym: %s\n", programName, error);
+	    compLogMessage (NULL, "core", CompLogLevelError,
+			    "dlsym: %s", error);
 
 	    getInfo = 0;
 	}
@@ -73,8 +74,9 @@ dlloaderLoadPlugin (CompPlugin *p,
 	    p->vTable = (*getInfo) ();
 	    if (!p->vTable)
 	    {
-		fprintf (stderr, "%s: Couldn't get vtable from '%s' plugin\n",
-			 programName, file);
+		compLogMessage (NULL, "core", CompLogLevelError,
+				"Couldn't get vtable from '%s' plugin",
+				file);
 
 		dlclose (dlhand);
 		free (file);
@@ -84,8 +86,9 @@ dlloaderLoadPlugin (CompPlugin *p,
 	}
 	else
 	{
-	    fprintf (stderr, "%s: Failed to lookup getCompPluginInfo in '%s' "
-		     "plugin\n", programName, file);
+	    compLogMessage (NULL, "core", CompLogLevelError,
+			    "Failed to lookup getCompPluginInfo in '%s' "
+			    "plugin\n", file);
 
 	    dlclose (dlhand);
 	    free (file);
@@ -186,15 +189,27 @@ initPluginForDisplay (CompPlugin  *p,
     CompScreen *s, *failedScreen = d->screens;
     Bool       status = TRUE;
 
-    if (!(*p->vTable->initDisplay) (p, d))
-	return FALSE;
-
     for (s = d->screens; s; s = s->next)
     {
+	if (p->vTable->initScreen)
+	{
+	    if (!(*p->vTable->initScreen) (p, s))
+	    {
+		failedScreen = s;
+		status = FALSE;
+		break;
+	    }
+	}
+
 	if (!(*s->initPluginForScreen) (p, s))
 	{
-	    fprintf (stderr, "%s: Plugin '%s':initScreen failed\n",
-		     programName, p->vTable->name);
+	    compLogMessage (NULL, "core", CompLogLevelError,
+			    "Plugin '%s':initScreen failed",
+			    p->vTable->name);
+
+	    if (p->vTable->finiScreen)
+		(*p->vTable->finiScreen) (p, s);
+
 	    failedScreen = s;
 	    status = FALSE;
 	    break;
@@ -202,7 +217,12 @@ initPluginForDisplay (CompPlugin  *p,
     }
 
     for (s = d->screens; s != failedScreen; s = s->next)
+    {
 	(*s->finiPluginForScreen) (p, s);
+
+	if (p->vTable->finiScreen)
+	    (*p->vTable->finiScreen) (p, s);
+    }
 
     return status;
 }
@@ -214,9 +234,12 @@ finiPluginForDisplay (CompPlugin  *p,
     CompScreen  *s;
 
     for (s = d->screens; s; s = s->next)
+    {
 	(*s->finiPluginForScreen) (p, s);
 
-    (*p->vTable->finiDisplay) (p, d);
+	if (p->vTable->finiScreen)
+	    (*p->vTable->finiScreen) (p, s);
+    }
 }
 
 Bool
@@ -224,12 +247,6 @@ initPluginForScreen (CompPlugin *p,
 		     CompScreen *s)
 {
     Bool status = TRUE;
-
-    if (p->vTable->initScreen)
-    {
-	if (!(*p->vTable->initScreen) (p, s))
-	    return FALSE;
-    }
 
     if (p->vTable->initWindow)
     {
@@ -239,8 +256,9 @@ initPluginForScreen (CompPlugin *p,
 	{
 	    if (!(*p->vTable->initWindow) (p, w))
 	    {
-		fprintf (stderr, "%s: Plugin '%s':initWindow "
-			 "failed\n", programName, p->vTable->name);
+		compLogMessage (NULL, "core", CompLogLevelError,
+				"Plugin '%s':initWindow "
+				"failed", p->vTable->name);
 		failedWindow = w;
 		status = FALSE;
 		break;
@@ -268,9 +286,6 @@ finiPluginForScreen (CompPlugin *p,
 	for (w = s->windows; w; w = w->next)
 	    (*p->vTable->finiWindow) (p, w);
     }
-
-    if (p->vTable->finiScreen)
-	(*p->vTable->finiScreen) (p, s);
 }
 
 static Bool
@@ -282,25 +297,38 @@ initPlugin (CompPlugin *p)
     version = (*p->vTable->getVersion) (p, ABIVERSION);
     if (version != ABIVERSION)
     {
-	fprintf (stderr, "%s: can't load plugin '%s' because it is built for "
-		 "ABI version %d and actual version is %d\n",
-		 programName, p->vTable->name, version, ABIVERSION);
+	compLogMessage (NULL, "core", CompLogLevelError,
+			"Can't load plugin '%s' because it is built for "
+			"ABI version %d and actual version is %d",
+			p->vTable->name, version, ABIVERSION);
 	return FALSE;
     }
 
     if (!(*p->vTable->init) (p))
     {
-	fprintf (stderr, "%s: InitPlugin '%s' failed\n", programName,
-		 p->vTable->name);
+	compLogMessage (NULL, "core", CompLogLevelError,
+			"InitPlugin '%s' failed", p->vTable->name);
 	return FALSE;
     }
 
     if (d)
     {
+	if (p->vTable->initDisplay)
+	{
+	    if (!(*p->vTable->initDisplay) (p, d))
+	    {
+		(*p->vTable->fini) (p);
+
+		return FALSE;
+
+	    }
+	}
+
 	if (!(*d->initPluginForDisplay) (p, d))
 	{
-	    fprintf (stderr, "%s: Plugin '%s':initDisplay failed\n",
-		     programName, p->vTable->name);
+	    compLogMessage (NULL, "core", CompLogLevelError,
+			    "Plugin '%s':initDisplay failed",
+			    p->vTable->name);
 
 	    (*p->vTable->fini) (p);
 
@@ -317,7 +345,12 @@ finiPlugin (CompPlugin *p)
     CompDisplay *d = compDisplays;
 
     if (d)
+    {
 	(*d->finiPluginForDisplay) (p, d);
+
+	if (p->vTable->finiDisplay)
+	    (*p->vTable->finiDisplay) (p, d);
+    }
 
     (*p->vTable->fini) (p);
 }
@@ -392,41 +425,6 @@ findActivePlugin (char *name)
     return 0;
 }
 
-static CompPlugin *
-findActivePluginWithFeature (char	       *name,
-			     CompPluginFeature **feature)
-{
-    CompPlugin *p;
-    int	       i;
-
-    for (p = plugins; p; p = p->next)
-    {
-	for (i = 0; i < p->vTable->nFeatures; i++)
-	{
-	    if (strcmp (p->vTable->features[i].name, name) == 0)
-	    {
-		if (feature)
-		    *feature = &p->vTable->features[i];
-
-		return p;
-	    }
-	}
-    }
-
-    return 0;
-}
-
-CompPluginFeature *
-findActiveFeature (char *name)
-{
-    CompPluginFeature *feature;
-
-    if (findActivePluginWithFeature (name, &feature))
-	return feature;
-
-    return 0;
-}
-
 void
 unloadPlugin (CompPlugin *p)
 {
@@ -473,88 +471,19 @@ loadPlugin (char *name)
     if (status)
 	return p;
 
-    fprintf (stderr, "%s: Couldn't load plugin '%s'\n", programName, name);
+    compLogMessage (NULL, "core", CompLogLevelError, "Couldn't load plugin '%s'", name);
 
     return 0;
-}
-
-static Bool
-checkPluginDeps (CompPlugin *p)
-{
-    CompPluginDep *deps = p->vTable->deps;
-    int	          nDeps = p->vTable->nDeps;
-
-    while (nDeps--)
-    {
-	switch (deps->rule) {
-	case CompPluginRuleBefore:
-	    if (findActivePlugin (deps->name))
-	    {
-		fprintf (stderr, "%s: '%s' plugin must be loaded before '%s' "
-			 "plugin\n", programName, p->vTable->name, deps->name);
-
-		return FALSE;
-	    }
-	    break;
-	case CompPluginRuleAfter:
-	    if (!findActivePlugin (deps->name))
-	    {
-		fprintf (stderr, "%s: '%s' plugin must be loaded after '%s' "
-			 "plugin\n", programName, p->vTable->name, deps->name);
-
-		return FALSE;
-	    }
-	    break;
-	case CompPluginRuleRequire:
-	    if (!findActiveFeature (deps->name))
-	    {
-		fprintf (stderr, "%s: '%s' plugin needs feature '%s' which "
-			 "is currently not provided by any plugin\n",
-			 programName, p->vTable->name, deps->name);
-
-		return FALSE;
-	    }
-	    break;
-	}
-
-	deps++;
-    }
-
-    return TRUE;
 }
 
 Bool
 pushPlugin (CompPlugin *p)
 {
-    CompPlugin *plugin;
-    int	       i;
-
     if (findActivePlugin (p->vTable->name))
     {
-	fprintf (stderr, "%s: Plugin '%s' already active\n", programName,
-		 p->vTable->name);
-
-	return FALSE;
-    }
-
-    for (i = 0; i < p->vTable->nFeatures; i++)
-    {
-	plugin = findActivePluginWithFeature (p->vTable->features[i].name, 0);
-	if (plugin)
-	{
-	    fprintf (stderr, "%s: Plugin '%s' can't be activated because "
-		     "plugin '%s' is already providing feature '%s'\n",
-		     programName, p->vTable->name, plugin->vTable->name,
-		     p->vTable->features[i].name);
-
-	    return FALSE;
-	}
-    }
-
-    if (!checkPluginDeps (p))
-    {
-	fprintf (stderr, "%s: Can't activate '%s' plugin due to dependency "
-		 "problems\n", programName, p->vTable->name);
+	compLogMessage (NULL, "core", CompLogLevelWarn,
+			"Plugin '%s' already active",
+			p->vTable->name);
 
 	return FALSE;
     }
@@ -564,8 +493,8 @@ pushPlugin (CompPlugin *p)
 
     if (!initPlugin (p))
     {
-	fprintf (stderr, "%s: Couldn't activate plugin '%s'\n", programName,
-		 p->vTable->name);
+	compLogMessage (NULL, "core", CompLogLevelError,
+			"Couldn't activate plugin '%s'", p->vTable->name);
 	plugins = p->next;
 
 	return FALSE;

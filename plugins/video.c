@@ -35,8 +35,6 @@
 #include <compiz.h>
 #include <decoration.h>
 
-#define VIDEO_YV12_DEFAULT TRUE
-
 /*
  * compiz composited video
  *
@@ -67,6 +65,8 @@
  *   +---------------+
  *
  */
+
+static CompMetadata videoMetadata;
 
 typedef struct _VideoTexture {
     struct _VideoTexture *next;
@@ -196,7 +196,8 @@ videoSetSupportedHint (CompScreen *s)
 }
 
 static CompOption *
-videoGetDisplayOptions (CompDisplay *display,
+videoGetDisplayOptions (CompPlugin  *plugin,
+			CompDisplay *display,
 			int	    *count)
 {
     VIDEO_DISPLAY (display);
@@ -206,7 +207,8 @@ videoGetDisplayOptions (CompDisplay *display,
 }
 
 static Bool
-videoSetDisplayOption (CompDisplay     *display,
+videoSetDisplayOption (CompPlugin  *plugin,
+		       CompDisplay     *display,
 		       char	       *name,
 		       CompOptionValue *value)
 {
@@ -233,19 +235,6 @@ videoSetDisplayOption (CompDisplay     *display,
     }
 
     return FALSE;
-}
-
-static void
-videoDisplayInitOptions (VideoDisplay *vd)
-{
-    CompOption *o;
-
-    o = &vd->opt[VIDEO_DISPLAY_OPTION_YV12];
-    o->name	 = "yv12";
-    o->shortDesc = N_("YV12 colorspace");
-    o->longDesc	 = N_("Provide YV12 colorspace support");
-    o->type	 = CompOptionTypeBool;
-    o->value.b   = VIDEO_YV12_DEFAULT;
 }
 
 static int
@@ -451,7 +440,7 @@ videoDrawWindowTexture (CompWindow	     *w,
 		(*s->programEnvParameter4f) (GL_FRAGMENT_PROGRAM_ARB, param,
 					     minX, minY, maxX, maxY);
 
-		/* need tp provide plane offsets when texture coordinates
+		/* need to provide plane offsets when texture coordinates
 		   are not normalized */
 		if (texture->target != GL_TEXTURE_2D)
 		{
@@ -802,6 +791,8 @@ videoWindowUpdate (CompWindow *w)
     int		  aspectX = 0;
     int		  aspectY = 0;
     int		  panScan = 0;
+    int		  width = 0;
+    int		  height = 0;
 
     VIDEO_DISPLAY (w->screen->display);
     VIDEO_SCREEN (w->screen);
@@ -810,18 +801,21 @@ videoWindowUpdate (CompWindow *w)
     memset (p, 0, sizeof (p));
 
     result = XGetWindowProperty (w->screen->display->display, w->id,
-				 vd->videoAtom, 0L, 11L, FALSE,
+				 vd->videoAtom, 0L, 13L, FALSE,
 				 XA_INTEGER, &actual, &format,
 				 &n, &left, &propData);
 
     if (result == Success && n && propData)
     {
-	if (n == 11)
+	if (n == 13)
 	{
 	    long *data = (long *) propData;
 
 	    pixmap	= *data++;
 	    imageFormat = *data++;
+
+	    width  = *data++;
+	    height = *data++;
 
 	    aspectX = *data++;
 	    aspectY = *data++;
@@ -846,8 +840,8 @@ videoWindowUpdate (CompWindow *w)
     {
 	if (!vs->imageFormat[i])
 	{
-	    fprintf (stderr, "%s: video: image format not supported\n",
-		     programName);
+	    compLogMessage (w->screen->display, "video", CompLogLevelWarn,
+			    "Image format not supported");
 	    i = IMAGE_FORMAT_NUM;
 	}
     }
@@ -857,8 +851,9 @@ videoWindowUpdate (CompWindow *w)
 	texture = videoGetTexture (w->screen, pixmap);
 	if (!texture)
 	{
-	    fprintf (stderr, "%s: video: bad pixmap 0x%x\n",
-		     programName, (int) pixmap);
+	    compLogMessage (w->screen->display, "video", CompLogLevelWarn,
+			    "Bad pixmap 0x%x",
+			    (int) pixmap);
 	}
     }
 
@@ -877,16 +872,13 @@ videoWindowUpdate (CompWindow *w)
 	vw->source->format  = i;
 	vw->source->p1	    = p[0];
 	vw->source->p2	    = p[1];
-	vw->source->width   = texture->width;
-	vw->source->height  = texture->height;
+	vw->source->width   = width;
+	vw->source->height  = height;
 	vw->source->aspect  = aspectX && aspectY;
 	vw->source->panScan = panScan / 65536.0f;
 
 	if (vw->source->aspect)
 	    vw->source->aspectRatio = (float) aspectX / aspectY;
-
-	if (i == IMAGE_FORMAT_YV12)
-	    vw->source->height -= texture->height / 3;
 
 	updateWindowVideoContext (w, vw->source);
     }
@@ -1044,6 +1036,10 @@ videoWindowResizeNotify (CompWindow *w,
     WRAP (vs, w->screen, windowResizeNotify, videoWindowResizeNotify);
 }
 
+static const CompMetadataOptionInfo videoDisplayOptionInfo[] = {
+    { "yv12", "bool", 0, 0, 0 }
+};
+
 static Bool
 videoInitDisplay (CompPlugin  *p,
 		  CompDisplay *d)
@@ -1054,9 +1050,20 @@ videoInitDisplay (CompPlugin  *p,
     if (!vd)
 	return FALSE;
 
+    if (!compInitDisplayOptionsFromMetadata (d,
+					     &videoMetadata,
+					     videoDisplayOptionInfo,
+					     vd->opt,
+					     VIDEO_DISPLAY_OPTION_NUM))
+    {
+	free (vd);
+	return FALSE;
+    }
+
     vd->screenPrivateIndex = allocateScreenPrivateIndex (d);
     if (vd->screenPrivateIndex < 0)
     {
+	compFiniDisplayOptions (d, vd->opt, VIDEO_DISPLAY_OPTION_NUM);
 	free (vd);
 	return FALSE;
     }
@@ -1075,8 +1082,6 @@ videoInitDisplay (CompPlugin  *p,
 
     WRAP (vd, d, handleEvent, videoHandleEvent);
 
-    videoDisplayInitOptions (vd);
-
     d->privates[displayPrivateIndex].ptr = vd;
 
     return TRUE;
@@ -1091,6 +1096,8 @@ videoFiniDisplay (CompPlugin  *p,
     freeScreenPrivateIndex (d, vd->screenPrivateIndex);
 
     UNWRAP (vd, d, handleEvent);
+
+    compFiniDisplayOptions (d, vd->opt, VIDEO_DISPLAY_OPTION_NUM);
 
     free (vd);
 }
@@ -1127,9 +1134,9 @@ videoInitScreen (CompPlugin *p,
 	}
 	else
 	{
-	    fprintf (stderr, "%s: video: no 8 bit GLX pixmap format, "
-		     "disabling YV12 image format\n",
-		     programName);
+	    compLogMessage (s->display, "video", CompLogLevelWarn,
+			    "No 8 bit GLX pixmap format, "
+			    "disabling YV12 image format");
 	}
     }
 
@@ -1152,6 +1159,8 @@ videoFiniScreen (CompPlugin *p,
 {
     VIDEO_DISPLAY (s->display);
     VIDEO_SCREEN (s);
+
+    freeWindowPrivateIndex (s, vs->windowPrivateIndex);
 
     XDeleteProperty (s->display->display, s->root, vd->videoSupportedAtom);
 
@@ -1210,9 +1219,21 @@ videoFiniWindow (CompPlugin *p,
 static Bool
 videoInit (CompPlugin *p)
 {
+    if (!compInitPluginMetadataFromInfo (&videoMetadata,
+					 p->vTable->name,
+					 videoDisplayOptionInfo,
+					 VIDEO_DISPLAY_OPTION_NUM,
+					 0, 0))
+	return FALSE;
+
     displayPrivateIndex = allocateDisplayPrivateIndex ();
     if (displayPrivateIndex < 0)
+    {
+	compFiniMetadata (&videoMetadata);
 	return FALSE;
+    }
+
+    compAddMetadataFromFile (&videoMetadata, p->vTable->name);
 
     return TRUE;
 }
@@ -1220,8 +1241,8 @@ videoInit (CompPlugin *p)
 static void
 videoFini (CompPlugin *p)
 {
-    if (displayPrivateIndex >= 0)
-	freeDisplayPrivateIndex (displayPrivateIndex);
+    freeDisplayPrivateIndex (displayPrivateIndex);
+    compFiniMetadata (&videoMetadata);
 }
 
 static int
@@ -1231,15 +1252,16 @@ videoGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
-CompPluginFeature videoFeatures[] = {
-    { "video" }
-};
+static CompMetadata *
+videoGetMetadata (CompPlugin *plugin)
+{
+    return &videoMetadata;
+}
 
 static CompPluginVTable videoVTable = {
     "video",
-    N_("Video Playback"),
-    N_("Video playback"),
     videoGetVersion,
+    videoGetMetadata,
     videoInit,
     videoFini,
     videoInitDisplay,
@@ -1251,11 +1273,7 @@ static CompPluginVTable videoVTable = {
     videoGetDisplayOptions,
     videoSetDisplayOption,
     0, /* GetScreenOptions */
-    0, /* SetScreenOption */
-    0, /* Deps */
-    0, /* nDeps */
-    videoFeatures,
-    sizeof (videoFeatures) / sizeof (videoFeatures[0])
+    0  /* SetScreenOption */
 };
 
 CompPluginVTable *

@@ -357,7 +357,7 @@ KWD::Decorator::updateDefaultShadow (KWD::Window *w)
 }
 
 DBusMessage *
-KWD::Decorator::sendAndBlockForShadowOptionReply (char *path)
+KWD::Decorator::sendAndBlockForShadowOptionReply (const char *path)
 {
     DBusMessage *message;
 
@@ -735,7 +735,7 @@ KWD::Decorator::x11EventFilter (XEvent *xevent)
     case ClientMessage:
 	if (xevent->xclient.message_type == Atoms::toolkitActionAtom)
 	{
-	    long action;
+	    unsigned long action;
 
 	    action = xevent->xclient.data.l[0];
 	    if (action == Atoms::toolkitActionWindowMenuAtom)

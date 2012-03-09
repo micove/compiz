@@ -31,22 +31,7 @@
 
 #include <compiz.h>
 
-#define MIN_SPEED_DEFAULT   1.5f
-#define MIN_SPEED_MIN       0.1f
-#define MIN_SPEED_MAX       50.0f
-#define MIN_SPEED_PRECISION 0.1f
-
-#define MIN_TIMESTEP_DEFAULT   0.5f
-#define MIN_TIMESTEP_MIN       0.1f
-#define MIN_TIMESTEP_MAX       50.0f
-#define MIN_TIMESTEP_PRECISION 0.1f
-
-#define MIN_SHADE_RESISTANCE_DEFAULT   75
-#define MIN_SHADE_RESISTANCE_MIN       0
-#define MIN_SHADE_RESISTANCE_MAX       100
-
-#define MIN_WINDOW_MATCH_DEFAULT \
-    "Toolbar | Utility | Dialog | Normal"
+static CompMetadata minMetadata;
 
 static int displayPrivateIndex;
 
@@ -70,16 +55,12 @@ typedef struct _MinScreen {
 
     PreparePaintScreenProc preparePaintScreen;
     DonePaintScreenProc    donePaintScreen;
-    PaintScreenProc        paintScreen;
+    PaintOutputProc        paintOutput;
     PaintWindowProc        paintWindow;
     DamageWindowRectProc   damageWindowRect;
     FocusWindowProc	   focusWindow;
 
-    float speed;
-    float timestep;
-
     int shadeStep;
-
     int moreAdjust;
 } MinScreen;
 
@@ -123,7 +104,8 @@ typedef struct _MinWindow {
 #define NUM_OPTIONS(s) (sizeof ((s)->opt) / sizeof (CompOption))
 
 static CompOption *
-minGetScreenOptions (CompScreen *screen,
+minGetScreenOptions (CompPlugin *plugin,
+		     CompScreen *screen,
 		     int	*count)
 {
     MIN_SCREEN (screen);
@@ -133,7 +115,8 @@ minGetScreenOptions (CompScreen *screen,
 }
 
 static Bool
-minSetScreenOption (CompScreen      *screen,
+minSetScreenOption (CompPlugin      *plugin,
+		    CompScreen      *screen,
 		    char	    *name,
 		    CompOptionValue *value)
 {
@@ -147,83 +130,24 @@ minSetScreenOption (CompScreen      *screen,
 	return FALSE;
 
     switch (index) {
-    case MIN_SCREEN_OPTION_SPEED:
-	if (compSetFloatOption (o, value))
-	{
-	    ms->speed = o->value.f;
-	    return TRUE;
-	}
-	break;
-    case MIN_SCREEN_OPTION_TIMESTEP:
-	if (compSetFloatOption (o, value))
-	{
-	    ms->timestep = o->value.f;
-	    return TRUE;
-	}
-	break;
-    case MIN_SCREEN_OPTION_WINDOW_MATCH:
-	if (compSetMatchOption (o, value))
-	    return TRUE;
-	break;
     case MIN_SCREEN_OPTION_SHADE_RESISTANCE:
 	if (compSetIntOption (o, value))
 	{
 	    if (o->value.i)
-		ms->shadeStep = MIN_SHADE_RESISTANCE_MAX - o->value.i + 1;
+		ms->shadeStep = o->rest.i.max - o->value.i + 1;
 	    else
 		ms->shadeStep = 0;
 
 	    return TRUE;
 	}
+	break;
     default:
+	if (compSetOption (o, value))
+	    return TRUE;
 	break;
     }
 
     return FALSE;
-}
-
-static void
-minScreenInitOptions (MinScreen *ms)
-{
-    CompOption *o;
-
-    o = &ms->opt[MIN_SCREEN_OPTION_SPEED];
-    o->name		= "speed";
-    o->shortDesc	= N_("Speed");
-    o->longDesc		= N_("Minimize speed");
-    o->type		= CompOptionTypeFloat;
-    o->value.f		= MIN_SPEED_DEFAULT;
-    o->rest.f.min	= MIN_SPEED_MIN;
-    o->rest.f.max	= MIN_SPEED_MAX;
-    o->rest.f.precision = MIN_SPEED_PRECISION;
-
-    o = &ms->opt[MIN_SCREEN_OPTION_TIMESTEP];
-    o->name		= "timestep";
-    o->shortDesc	= N_("Timestep");
-    o->longDesc		= N_("Minimize timestep");
-    o->type		= CompOptionTypeFloat;
-    o->value.f		= MIN_TIMESTEP_DEFAULT;
-    o->rest.f.min	= MIN_TIMESTEP_MIN;
-    o->rest.f.max	= MIN_TIMESTEP_MAX;
-    o->rest.f.precision = MIN_TIMESTEP_PRECISION;
-
-    o = &ms->opt[MIN_SCREEN_OPTION_WINDOW_MATCH];
-    o->name	 = "window_match";
-    o->shortDesc = N_("Minimize Windows");
-    o->longDesc	 = N_("Windows that should be transformed when minimized");
-    o->type	 = CompOptionTypeMatch;
-
-    matchInit (&o->value.match);
-    matchAddFromString (&o->value.match, MIN_WINDOW_MATCH_DEFAULT);
-
-    o = &ms->opt[MIN_SCREEN_OPTION_SHADE_RESISTANCE];
-    o->name		= "shade_resistance";
-    o->shortDesc	= N_("Shade Resistance");
-    o->longDesc		= N_("Shade resistance");
-    o->type		= CompOptionTypeInt;
-    o->value.i		= MIN_SHADE_RESISTANCE_DEFAULT;
-    o->rest.i.min	= MIN_SHADE_RESISTANCE_MIN;
-    o->rest.i.max	= MIN_SHADE_RESISTANCE_MAX;
 }
 
 static void
@@ -419,8 +343,9 @@ minPreparePaintScreen (CompScreen *s,
 	int        steps, h;
 	float      amount, chunk;
 
-	amount = msSinceLastPaint * 0.05f * ms->speed;
-	steps  = amount / (0.5f * ms->timestep);
+	amount = msSinceLastPaint * 0.05f *
+	    ms->opt[MIN_SCREEN_OPTION_SPEED].value.f;
+	steps  = amount / (0.5f * ms->opt[MIN_SCREEN_OPTION_TIMESTEP].value.f);
 	if (!steps) steps = 1;
 	chunk  = amount / (float) steps;
 
@@ -570,11 +495,11 @@ minDonePaintScreen (CompScreen *s)
 }
 
 static Bool
-minPaintScreen (CompScreen		*s,
+minPaintOutput (CompScreen		*s,
 		const ScreenPaintAttrib *sAttrib,
 		const CompTransform	*transform,
 		Region		        region,
-		int			output,
+		CompOutput		*output,
 		unsigned int		mask)
 {
     Bool status;
@@ -584,9 +509,9 @@ minPaintScreen (CompScreen		*s,
     if (ms->moreAdjust)
 	mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS_MASK;
 
-    UNWRAP (ms, s, paintScreen);
-    status = (*s->paintScreen) (s, sAttrib, transform, region, output, mask);
-    WRAP (ms, s, paintScreen, minPaintScreen);
+    UNWRAP (ms, s, paintOutput);
+    status = (*s->paintOutput) (s, sAttrib, transform, region, output, mask);
+    WRAP (ms, s, paintOutput, minPaintOutput);
 
     return status;
 }
@@ -623,7 +548,7 @@ minPaintWindow (CompWindow		*w,
 	    mask |= PAINT_WINDOW_TRANSLUCENT_MASK;
 
 	matrixTranslate (&wTransform, w->attrib.x, w->attrib.y, 0.0f);
-	matrixScale (&wTransform, mw->xScale, mw->yScale, 0.0f);
+	matrixScale (&wTransform, mw->xScale, mw->yScale, 1.0f);
 	matrixTranslate (&wTransform,
 			 mw->tx / mw->xScale - w->attrib.x,
 			 mw->ty / mw->yScale - w->attrib.y,
@@ -913,6 +838,13 @@ minFiniDisplay (CompPlugin  *p,
     free (md);
 }
 
+static const CompMetadataOptionInfo minScreenOptionInfo[] = {
+    { "speed", "float", "<min>0.1</min>", 0, 0 },
+    { "timestep", "float", "<min>0.1</min>", 0, 0 },
+    { "window_match", "match", 0, 0, 0 },
+    { "shade_resistance", "int", "<min>0</min><max>100</max>", 0, 0 }
+};
+
 static Bool
 minInitScreen (CompPlugin *p,
 	       CompScreen *s)
@@ -925,27 +857,31 @@ minInitScreen (CompPlugin *p,
     if (!ms)
 	return FALSE;
 
-    ms->windowPrivateIndex = allocateWindowPrivateIndex (s);
-    if (ms->windowPrivateIndex < 0)
+    if (!compInitScreenOptionsFromMetadata (s,
+					    &minMetadata,
+					    minScreenOptionInfo,
+					    ms->opt,
+					    MIN_SCREEN_OPTION_NUM))
     {
 	free (ms);
 	return FALSE;
     }
 
+    ms->windowPrivateIndex = allocateWindowPrivateIndex (s);
+    if (ms->windowPrivateIndex < 0)
+    {
+	compFiniScreenOptions (s, ms->opt, MIN_SCREEN_OPTION_NUM);
+	free (ms);
+	return FALSE;
+    }
+
     ms->moreAdjust = FALSE;
-
-    ms->speed     = MIN_SPEED_DEFAULT;
-    ms->timestep  = MIN_TIMESTEP_DEFAULT;
-    ms->shadeStep = MIN_SHADE_RESISTANCE_MAX - MIN_SHADE_RESISTANCE_DEFAULT + 1;
-
-    minScreenInitOptions (ms);
-
-    matchUpdate (s->display,
-		 &ms->opt[MIN_SCREEN_OPTION_WINDOW_MATCH].value.match);
+    ms->shadeStep  = ms->opt[MIN_SCREEN_OPTION_SHADE_RESISTANCE].rest.i.max -
+	ms->opt[MIN_SCREEN_OPTION_SHADE_RESISTANCE].value.i + 1;
 
     WRAP (ms, s, preparePaintScreen, minPreparePaintScreen);
     WRAP (ms, s, donePaintScreen, minDonePaintScreen);
-    WRAP (ms, s, paintScreen, minPaintScreen);
+    WRAP (ms, s, paintOutput, minPaintOutput);
     WRAP (ms, s, paintWindow, minPaintWindow);
     WRAP (ms, s, damageWindowRect, minDamageWindowRect);
     WRAP (ms, s, focusWindow, minFocusWindow);
@@ -961,16 +897,16 @@ minFiniScreen (CompPlugin *p,
 {
     MIN_SCREEN (s);
 
-    matchFini (&ms->opt[MIN_SCREEN_OPTION_WINDOW_MATCH].value.match);
-
     freeWindowPrivateIndex (s, ms->windowPrivateIndex);
 
     UNWRAP (ms, s, preparePaintScreen);
     UNWRAP (ms, s, donePaintScreen);
-    UNWRAP (ms, s, paintScreen);
+    UNWRAP (ms, s, paintOutput);
     UNWRAP (ms, s, paintWindow);
     UNWRAP (ms, s, damageWindowRect);
     UNWRAP (ms, s, focusWindow);
+
+    compFiniScreenOptions (s, ms->opt, MIN_SCREEN_OPTION_NUM);
 
     free (ms);
 }
@@ -1040,9 +976,20 @@ minFiniWindow (CompPlugin *p,
 static Bool
 minInit (CompPlugin *p)
 {
+    if (!compInitPluginMetadataFromInfo (&minMetadata,
+					 p->vTable->name, 0, 0,
+					 minScreenOptionInfo,
+					 MIN_SCREEN_OPTION_NUM))
+	return FALSE;
+
     displayPrivateIndex = allocateDisplayPrivateIndex ();
     if (displayPrivateIndex < 0)
+    {
+	compFiniMetadata (&minMetadata);
 	return FALSE;
+    }
+
+    compAddMetadataFromFile (&minMetadata, p->vTable->name);
 
     return TRUE;
 }
@@ -1050,8 +997,8 @@ minInit (CompPlugin *p)
 static void
 minFini (CompPlugin *p)
 {
-    if (displayPrivateIndex >= 0)
-	freeDisplayPrivateIndex (displayPrivateIndex);
+    freeDisplayPrivateIndex (displayPrivateIndex);
+    compFiniMetadata (&minMetadata);
 }
 
 static int
@@ -1061,16 +1008,16 @@ minGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
-CompPluginDep minDeps[] = {
-    { CompPluginRuleBefore, "cube" },
-    { CompPluginRuleBefore, "scale" }
-};
+static CompMetadata *
+minGetMetadata (CompPlugin *plugin)
+{
+    return &minMetadata;
+}
 
 static CompPluginVTable minVTable = {
     "minimize",
-    N_("Minimize Effect"),
-    N_("Transform windows when they are minimized and unminimized"),
     minGetVersion,
+    minGetMetadata,
     minInit,
     minFini,
     minInitDisplay,
@@ -1082,11 +1029,7 @@ static CompPluginVTable minVTable = {
     0, /* GetDisplayOptions */
     0, /* SetDisplayOption */
     minGetScreenOptions,
-    minSetScreenOption,
-    minDeps,
-    sizeof (minDeps) / sizeof (minDeps[0]),
-    0, /* Features */
-    0  /* nFeatures */
+    minSetScreenOption
 };
 
 CompPluginVTable *

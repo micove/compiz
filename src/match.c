@@ -402,7 +402,7 @@ matchAddFromString (CompMatch  *match,
 	    int	level = 1;
 	    int length;
 
-	    j = i++;
+	    j = ++i;
 
 	    while (str[j] != '\0')
 	    {
@@ -662,6 +662,16 @@ matchEvalIdExp (CompDisplay *display,
     return (private.val == window->id);
 }
 
+static Bool
+matchEvalOverrideRedirectExp (CompDisplay *display,
+			      CompWindow  *window,
+			      CompPrivate private)
+{
+    Bool overrideRedirect = window->attrib.override_redirect;
+    return ((private.val == 1 && overrideRedirect) ||
+	    (private.val == 0 && !overrideRedirect));
+}
+
 void
 matchInitExp (CompDisplay  *display,
 	      CompMatchExp *exp,
@@ -676,6 +686,11 @@ matchInitExp (CompDisplay  *display,
     {
 	exp->eval      = matchEvalStateExp;
 	exp->priv.uval = windowStateFromString (value + 6);
+    }
+    else if (strncmp (value, "override_redirect=", 18) == 0)
+    {
+	exp->eval     = matchEvalOverrideRedirectExp;
+	exp->priv.val = strtol (value + 18, NULL, 0);
     }
     else
     {
@@ -729,7 +744,7 @@ matchExpHandlerChanged (CompDisplay *display)
     {
 	if (p->vTable->getDisplayOptions)
 	{
-	    option = (*p->vTable->getDisplayOptions) (display, &nOption);
+	    option = (*p->vTable->getDisplayOptions) (p, display, &nOption);
 	    matchUpdateMatchOptions (option, nOption);
 	}
     }
@@ -743,7 +758,7 @@ matchExpHandlerChanged (CompDisplay *display)
 	{
 	    if (p->vTable->getScreenOptions)
 	    {
-		option = (*p->vTable->getScreenOptions) (s, &nOption);
+		option = (*p->vTable->getScreenOptions) (p, s, &nOption);
 		matchUpdateMatchOptions (option, nOption);
 	    }
 	}

@@ -74,9 +74,6 @@ handleWindowDamageRect (CompWindow *w,
 	damageScreenRegion (w->screen, &region);
     }
 
-    if (!w->attrib.override_redirect)
-	w->placed = TRUE;
-
     if (initial)
 	damageWindowOutputExtents (w);
 }
@@ -195,7 +192,7 @@ autoRaiseTimeout (void *closure)
 
 	w = findWindowAtDisplay (display, display->autoRaiseWindow);
 	if (w)
-	    updateWindowAttributes (w, FALSE);
+	    updateWindowAttributes (w, CompStackingUpdateModeNormal);
     }
 
     return FALSE;
@@ -289,6 +286,7 @@ triggerButtonPressBindings (CompDisplay *d,
 	    if (edgeWindow == s->screenEdge[i].id)
 	    {
 		edge = 1 << i;
+		argument[1].value.i = d->activeWindow;
 		break;
 	    }
 	}
@@ -311,8 +309,8 @@ triggerButtonPressBindings (CompDisplay *d,
 
 	if (edge)
 	{
-	    if (isInitiateBinding (option, CompBindingTypeEdgeButton, state,
-				   &action))
+	    if (isInitiateBinding (option, CompBindingTypeEdgeButton,
+				   CompActionStateInitEdge, &action))
 	    {
 		if (action->edgeMask & edge)
 		{
@@ -411,7 +409,7 @@ triggerKeyPressBindings (CompDisplay *d,
 		if ((bindMods & modMask) == (event->xkey.state & modMask))
 		    if ((*action->initiate) (d, action, state,
 					     argument, nArgument))
-			break;
+			return TRUE;
 	    }
 	    else if (!d->xkbEvent && action->key.keycode == 0)
 	    {
@@ -688,143 +686,150 @@ handleActionEvent (CompDisplay *d,
     CompOption *option;
     int	       nOption;
     CompPlugin *p;
-    CompOption o[7];
+    CompOption o[8];
 
     o[0].type = CompOptionTypeInt;
-    o[0].name = "window";
+    o[0].name = "event_window";
 
     o[1].type = CompOptionTypeInt;
-    o[1].name = "modifiers";
+    o[1].name = "window";
 
     o[2].type = CompOptionTypeInt;
-    o[2].name = "x";
+    o[2].name = "modifiers";
 
     o[3].type = CompOptionTypeInt;
-    o[3].name = "y";
+    o[3].name = "x";
 
     o[4].type = CompOptionTypeInt;
-    o[4].name = "root";
+    o[4].name = "y";
+
+    o[5].type = CompOptionTypeInt;
+    o[5].name = "root";
 
     switch (event->type) {
     case ButtonPress:
 	o[0].value.i = event->xbutton.window;
-	o[1].value.i = event->xbutton.state;
-	o[2].value.i = event->xbutton.x_root;
-	o[3].value.i = event->xbutton.y_root;
-	o[4].value.i = event->xbutton.root;
-
-	o[5].type    = CompOptionTypeInt;
-	o[5].name    = "button";
-	o[5].value.i = event->xbutton.button;
+	o[1].value.i = event->xbutton.window;
+	o[2].value.i = event->xbutton.state;
+	o[3].value.i = event->xbutton.x_root;
+	o[4].value.i = event->xbutton.y_root;
+	o[5].value.i = event->xbutton.root;
 
 	o[6].type    = CompOptionTypeInt;
-	o[6].name    = "time";
-	o[6].value.i = event->xbutton.time;
+	o[6].name    = "button";
+	o[6].value.i = event->xbutton.button;
+
+	o[7].type    = CompOptionTypeInt;
+	o[7].name    = "time";
+	o[7].value.i = event->xbutton.time;
 
 	for (p = getPlugins (); p; p = p->next)
 	{
 	    if (p->vTable->getDisplayOptions)
 	    {
-		option = (*p->vTable->getDisplayOptions) (d, &nOption);
+		option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
 		if (triggerButtonPressBindings (d, option, nOption, event,
-						o, 7))
+						o, 8))
 		    return TRUE;
 	    }
 	}
 
 	option = compGetDisplayOptions (d, &nOption);
-	if (triggerButtonPressBindings (d, option, nOption, event, o, 7))
+	if (triggerButtonPressBindings (d, option, nOption, event, o, 8))
 	    return TRUE;
 
 	break;
     case ButtonRelease:
 	o[0].value.i = event->xbutton.window;
-	o[1].value.i = event->xbutton.state;
-	o[2].value.i = event->xbutton.x_root;
-	o[3].value.i = event->xbutton.y_root;
-	o[4].value.i = event->xbutton.root;
-
-	o[5].type    = CompOptionTypeInt;
-	o[5].name    = "button";
-	o[5].value.i = event->xbutton.button;
+	o[1].value.i = event->xbutton.window;
+	o[2].value.i = event->xbutton.state;
+	o[3].value.i = event->xbutton.x_root;
+	o[4].value.i = event->xbutton.y_root;
+	o[5].value.i = event->xbutton.root;
 
 	o[6].type    = CompOptionTypeInt;
-	o[6].name    = "time";
-	o[6].value.i = event->xbutton.time;
+	o[6].name    = "button";
+	o[6].value.i = event->xbutton.button;
+
+	o[7].type    = CompOptionTypeInt;
+	o[7].name    = "time";
+	o[7].value.i = event->xbutton.time;
 
 	for (p = getPlugins (); p; p = p->next)
 	{
 	    if (p->vTable->getDisplayOptions)
 	    {
-		option = (*p->vTable->getDisplayOptions) (d, &nOption);
+		option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
 		if (triggerButtonReleaseBindings (d, option, nOption, event,
-						  o, 7))
+						  o, 8))
 		    return TRUE;
 	    }
 	}
 
 	option = compGetDisplayOptions (d, &nOption);
-	if (triggerButtonReleaseBindings (d, option, nOption, event, o, 7))
+	if (triggerButtonReleaseBindings (d, option, nOption, event, o, 8))
 	    return TRUE;
 
 	break;
     case KeyPress:
-	o[0].value.i = d->activeWindow;
-	o[1].value.i = event->xkey.state;
-	o[2].value.i = event->xkey.x_root;
-	o[3].value.i = event->xkey.y_root;
-	o[4].value.i = event->xkey.root;
-
-	o[5].type    = CompOptionTypeInt;
-	o[5].name    = "keycode";
-	o[5].value.i = event->xkey.keycode;
+	o[0].value.i = event->xkey.window;
+	o[1].value.i = d->activeWindow;
+	o[2].value.i = event->xkey.state;
+	o[3].value.i = event->xkey.x_root;
+	o[4].value.i = event->xkey.y_root;
+	o[5].value.i = event->xkey.root;
 
 	o[6].type    = CompOptionTypeInt;
-	o[6].name    = "time";
-	o[6].value.i = event->xkey.time;
+	o[6].name    = "keycode";
+	o[6].value.i = event->xkey.keycode;
+
+	o[7].type    = CompOptionTypeInt;
+	o[7].name    = "time";
+	o[7].value.i = event->xkey.time;
 
 	for (p = getPlugins (); p; p = p->next)
 	{
 	    if (p->vTable->getDisplayOptions)
 	    {
-		option = (*p->vTable->getDisplayOptions) (d, &nOption);
-		if (triggerKeyPressBindings (d, option, nOption, event, o, 7))
+		option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
+		if (triggerKeyPressBindings (d, option, nOption, event, o, 8))
 		    return TRUE;
 	    }
 	}
 
 	option = compGetDisplayOptions (d, &nOption);
-	if (triggerKeyPressBindings (d, option, nOption, event, o, 7))
+	if (triggerKeyPressBindings (d, option, nOption, event, o, 8))
 	    return TRUE;
 
 	break;
     case KeyRelease:
-	o[0].value.i = d->activeWindow;
-	o[1].value.i = event->xkey.state;
-	o[2].value.i = event->xkey.x_root;
-	o[3].value.i = event->xkey.y_root;
-	o[4].value.i = event->xkey.root;
-
-	o[5].type    = CompOptionTypeInt;
-	o[5].name    = "keycode";
-	o[5].value.i = event->xkey.keycode;
+	o[0].value.i = event->xkey.window;
+	o[1].value.i = d->activeWindow;
+	o[2].value.i = event->xkey.state;
+	o[3].value.i = event->xkey.x_root;
+	o[4].value.i = event->xkey.y_root;
+	o[5].value.i = event->xkey.root;
 
 	o[6].type    = CompOptionTypeInt;
-	o[6].name    = "time";
-	o[6].value.i = event->xkey.time;
+	o[6].name    = "keycode";
+	o[6].value.i = event->xkey.keycode;
+
+	o[7].type    = CompOptionTypeInt;
+	o[7].name    = "time";
+	o[7].value.i = event->xkey.time;
 
 	for (p = getPlugins (); p; p = p->next)
 	{
 	    if (p->vTable->getDisplayOptions)
 	    {
-		option = (*p->vTable->getDisplayOptions) (d, &nOption);
-		if (triggerKeyReleaseBindings (d, option, nOption, event, o, 7))
+		option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
+		if (triggerKeyReleaseBindings (d, option, nOption, event, o, 8))
 		    return TRUE;
 	    }
 	}
 
 	option = compGetDisplayOptions (d, &nOption);
-	if (triggerKeyReleaseBindings (d, option, nOption, event, o, 7))
+	if (triggerKeyReleaseBindings (d, option, nOption, event, o, 8))
 	    return TRUE;
 
 	break;
@@ -857,30 +862,31 @@ handleActionEvent (CompDisplay *d,
 
 		edgeWindow = None;
 
-		o[0].value.i = d->activeWindow;
-		o[1].value.i = event->xcrossing.state;
-		o[2].value.i = event->xcrossing.x_root;
-		o[3].value.i = event->xcrossing.y_root;
-		o[4].value.i = event->xcrossing.root;
+		o[0].value.i = event->xcrossing.window;
+		o[1].value.i = d->activeWindow;
+		o[2].value.i = event->xcrossing.state;
+		o[3].value.i = event->xcrossing.x_root;
+		o[4].value.i = event->xcrossing.y_root;
+		o[5].value.i = event->xcrossing.root;
 
-		o[5].type    = CompOptionTypeInt;
-		o[5].name    = "time";
-		o[5].value.i = event->xcrossing.time;
+		o[6].type    = CompOptionTypeInt;
+		o[6].name    = "time";
+		o[6].value.i = event->xcrossing.time;
 
 		for (p = getPlugins (); p; p = p->next)
 		{
 		    if (p->vTable->getDisplayOptions)
 		    {
-			option = (*p->vTable->getDisplayOptions) (d, &nOption);
+			option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
 			if (triggerEdgeLeaveBindings (d, option, nOption, state,
-						      edge, o, 6))
+						      edge, o, 7))
 			    return TRUE;
 		    }
 		}
 
 		option = compGetDisplayOptions (d, &nOption);
 		if (triggerEdgeLeaveBindings (d, option, nOption, state,
-					      edge, o, 6))
+					      edge, o, 7))
 		    return TRUE;
 	    }
 
@@ -901,30 +907,31 @@ handleActionEvent (CompDisplay *d,
 
 		edgeWindow = event->xcrossing.window;
 
-		o[0].value.i = d->activeWindow;
-		o[1].value.i = event->xcrossing.state;
-		o[2].value.i = event->xcrossing.x_root;
-		o[3].value.i = event->xcrossing.y_root;
-		o[4].value.i = event->xcrossing.root;
+		o[0].value.i = event->xcrossing.window;
+		o[1].value.i = d->activeWindow;
+		o[2].value.i = event->xcrossing.state;
+		o[3].value.i = event->xcrossing.x_root;
+		o[4].value.i = event->xcrossing.y_root;
+		o[5].value.i = event->xcrossing.root;
 
-		o[5].type    = CompOptionTypeInt;
-		o[5].name    = "time";
-		o[5].value.i = event->xcrossing.time;
+		o[6].type    = CompOptionTypeInt;
+		o[6].name    = "time";
+		o[6].value.i = event->xcrossing.time;
 
 		for (p = getPlugins (); p; p = p->next)
 		{
 		    if (p->vTable->getDisplayOptions)
 		    {
-			option = (*p->vTable->getDisplayOptions) (d, &nOption);
+			option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
 			if (triggerEdgeEnterBindings (d, option, nOption, state,
-						      edge, o, 6))
+						      edge, o, 7))
 			    return TRUE;
 		    }
 		}
 
 		option = compGetDisplayOptions (d, &nOption);
 		if (triggerEdgeEnterBindings (d, option, nOption, state,
-					      edge, o, 6))
+					      edge, o, 7))
 		    return TRUE;
 	    }
 	} break;
@@ -965,26 +972,27 @@ handleActionEvent (CompDisplay *d,
 	    {
 		state = CompActionStateTermEdgeDnd;
 
-		o[0].value.i = d->activeWindow;
-		o[1].value.i = 0; /* fixme */
+		o[0].value.i = event->xclient.window;
+		o[1].value.i = d->activeWindow;
 		o[2].value.i = 0; /* fixme */
 		o[3].value.i = 0; /* fixme */
-		o[4].value.i = root;
+		o[4].value.i = 0; /* fixme */
+		o[5].value.i = root;
 
 		for (p = getPlugins (); p; p = p->next)
 		{
 		    if (p->vTable->getDisplayOptions)
 		    {
-			option = (*p->vTable->getDisplayOptions) (d, &nOption);
+			option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
 			if (triggerEdgeLeaveBindings (d, option, nOption, state,
-						      edge, o, 5))
+						      edge, o, 6))
 			    return TRUE;
 		    }
 		}
 
 		option = compGetDisplayOptions (d, &nOption);
 		if (triggerEdgeLeaveBindings (d, option, nOption, state,
-					      edge, o, 5))
+					      edge, o, 6))
 		    return TRUE;
 	    }
 	}
@@ -1020,26 +1028,27 @@ handleActionEvent (CompDisplay *d,
 	    {
 		state = CompActionStateInitEdgeDnd;
 
-		o[0].value.i = d->activeWindow;
-		o[1].value.i = 0; /* fixme */
-		o[2].value.i = event->xclient.data.l[2] >> 16;
-		o[3].value.i = event->xclient.data.l[2] & 0xffff;
-		o[4].value.i = root;
+		o[0].value.i = event->xclient.window;
+		o[1].value.i = d->activeWindow;
+		o[2].value.i = 0; /* fixme */
+		o[3].value.i = event->xclient.data.l[2] >> 16;
+		o[4].value.i = event->xclient.data.l[2] & 0xffff;
+		o[5].value.i = root;
 
 		for (p = getPlugins (); p; p = p->next)
 		{
 		    if (p->vTable->getDisplayOptions)
 		    {
-			option = (*p->vTable->getDisplayOptions) (d, &nOption);
+			option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
 			if (triggerEdgeEnterBindings (d, option, nOption, state,
-						      edge, o, 5))
+						      edge, o, 6))
 			    return TRUE;
 		    }
 		}
 
 		option = compGetDisplayOptions (d, &nOption);
 		if (triggerEdgeEnterBindings (d, option, nOption, state,
-					      edge, o, 5))
+					      edge, o, 6))
 		    return TRUE;
 	    }
 
@@ -1069,7 +1078,35 @@ handleActionEvent (CompDisplay *d,
 		option = compGetDisplayOptions (d, &nOption);
 
 		o[0].value.i = d->activeWindow;
-		o[1].value.i = stateEvent->mods;
+		o[1].value.i = d->activeWindow;
+		o[2].value.i = stateEvent->mods;
+
+		o[3].type    = CompOptionTypeInt;
+		o[3].name    = "time";
+		o[3].value.i = xkbEvent->time;
+
+		for (p = getPlugins (); p; p = p->next)
+		{
+		    if (p->vTable->getDisplayOptions)
+		    {
+			option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
+			if (triggerStateNotifyBindings (d, option, nOption,
+							stateEvent, o, 4))
+			    return TRUE;
+		    }
+		}
+
+		option = compGetDisplayOptions (d, &nOption);
+		if (triggerStateNotifyBindings (d, option, nOption, stateEvent,
+						o, 4))
+		    return TRUE;
+	    }
+	    else if (xkbEvent->xkb_type == XkbBellNotify)
+	    {
+		option = compGetDisplayOptions (d, &nOption);
+
+		o[0].value.i = d->activeWindow;
+		o[1].value.i = d->activeWindow;
 
 		o[2].type    = CompOptionTypeInt;
 		o[2].name    = "time";
@@ -1079,41 +1116,15 @@ handleActionEvent (CompDisplay *d,
 		{
 		    if (p->vTable->getDisplayOptions)
 		    {
-			option = (*p->vTable->getDisplayOptions) (d, &nOption);
-			if (triggerStateNotifyBindings (d, option, nOption,
-							stateEvent, o, 3))
-			    return TRUE;
-		    }
-		}
-
-		option = compGetDisplayOptions (d, &nOption);
-		if (triggerStateNotifyBindings (d, option, nOption, stateEvent,
-						o, 3))
-		    return TRUE;
-	    }
-	    else if (xkbEvent->xkb_type == XkbBellNotify)
-	    {
-		option = compGetDisplayOptions (d, &nOption);
-
-		o[0].value.i = d->activeWindow;
-
-		o[1].type    = CompOptionTypeInt;
-		o[1].name    = "time";
-		o[1].value.i = xkbEvent->time;
-
-		for (p = getPlugins (); p; p = p->next)
-		{
-		    if (p->vTable->getDisplayOptions)
-		    {
-			option = (*p->vTable->getDisplayOptions) (d, &nOption);
+			option = (*p->vTable->getDisplayOptions) (p, d, &nOption);
 			if (triggerBellNotifyBindings (d, option, nOption,
-						       o, 2))
+						       o, 3))
 			    return TRUE;
 		    }
 		}
 
 		option = compGetDisplayOptions (d, &nOption);
-		if (triggerBellNotifyBindings (d, option, nOption, o, 2))
+		if (triggerBellNotifyBindings (d, option, nOption, o, 3))
 		    return TRUE;
 	    }
 	}
@@ -1172,7 +1183,10 @@ handleEvent (CompDisplay *d,
 
     switch (event->type) {
     case Expose:
-	s = findScreenAtDisplay (d, event->xexpose.window);
+	for (s = d->screens; s; s = s->next)
+	    if (s->output == event->xexpose.window)
+		break;
+
 	if (s)
 	{
 	    int more = event->xexpose.count + 1;
@@ -1348,7 +1362,8 @@ handleEvent (CompDisplay *d,
 		if (w)
 		{
 		    if (d->opt[COMP_DISPLAY_OPTION_RAISE_ON_CLICK].value.b)
-			updateWindowAttributes (w, TRUE);
+			updateWindowAttributes (w, 
+					CompStackingUpdateModeAboveFullscreen);
 
 		    if (!(w->type & CompWindowTypeDockMask))
 			moveInputFocusToWindow (w);
@@ -1645,6 +1660,20 @@ handleEvent (CompDisplay *d,
 
 		if (wState != w->state)
 		{
+		    CompStackingUpdateMode stackingUpdateMode;
+		    unsigned long          dState = wState ^ w->state;
+
+		    stackingUpdateMode = CompStackingUpdateModeNone;
+
+		    /* raise the window whenever its fullscreen state,
+		       above/below state or maximization state changed */
+		    if (dState & (CompWindowStateFullscreenMask |
+				  CompWindowStateAboveMask |
+				  CompWindowStateBelowMask |
+				  CompWindowStateMaximizedHorzMask |
+				  CompWindowStateMaximizedVertMask))
+			stackingUpdateMode = CompStackingUpdateModeNormal;
+
 		    w->state = wState;
 
 		    recalcWindowType (w);
@@ -1652,7 +1681,7 @@ handleEvent (CompDisplay *d,
 
 		    changeWindowState (w, w->state);
 
-		    updateWindowAttributes (w, FALSE);
+		    updateWindowAttributes (w, stackingUpdateMode);
 		}
 	    }
 	}
@@ -1851,11 +1880,28 @@ handleEvent (CompDisplay *d,
 
 		applyStartupProperties (w->screen, w);
 
+		if (!w->placed)
+		{
+		    int newX, newY;
+
+		    if ((*w->screen->placeWindow) (w, w->serverX, w->serverY,
+						   &newX, &newY))
+		    {
+			moveWindow (w,
+				    newX - w->attrib.x,
+				    newY - w->attrib.y,
+				    FALSE, TRUE);
+			syncWindowPosition (w);
+		    }
+
+		    w->placed   = TRUE;
+		}
+
 		w->pendingMaps++;
 
 		XMapWindow (d->display, event->xmaprequest.window);
 
-		updateWindowAttributes (w, FALSE);
+		updateWindowAttributes (w, CompStackingUpdateModeNormal);
 
 		if (focusWindowOnMap (w))
 		{
@@ -1996,7 +2042,12 @@ handleEvent (CompDisplay *d,
 				    compAddTimeout (delay, autoRaiseTimeout, d);
 			    }
 			    else
-				updateWindowAttributes (w, FALSE);
+			    {
+				CompStackingUpdateMode mode =
+				    CompStackingUpdateModeNormal;
+
+				updateWindowAttributes (w, mode);
+			    }
 			}
 		    }
 		}
@@ -2078,7 +2129,8 @@ handleEvent (CompDisplay *d,
 		}
 	    }
 	}
-	else if (event->type == d->randrEvent + RRScreenChangeNotify)
+	else if (d->randrExtension &&
+		 event->type == d->randrEvent + RRScreenChangeNotify)
 	{
 	    XRRScreenChangeNotifyEvent *rre;
 

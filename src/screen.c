@@ -45,38 +45,6 @@
 
 #include <compiz.h>
 
-#define DETECT_REFRESH_RATE_DEFAULT TRUE
-
-#define SCREEN_HSIZE_DEFAULT 4
-#define SCREEN_HSIZE_MIN     1
-#define SCREEN_HSIZE_MAX     32
-
-#define SCREEN_VSIZE_DEFAULT 1
-#define SCREEN_VSIZE_MIN     1
-#define SCREEN_VSIZE_MAX     32
-
-#define LIGHTING_DEFAULT TRUE
-
-#define OPACITY_STEP_DEFAULT 10
-#define OPACITY_STEP_MIN     1
-#define OPACITY_STEP_MAX     50
-
-#define UNREDIRECT_FS_DEFAULT FALSE
-
-#define DEFAULT_ICON_DEFAULT "icon"
-
-#define SYNC_TO_VBLANK_DEFAULT TRUE
-
-#define SCREEN_NUMBER_OF_DESKTOPS_DEFAULT 1
-#define SCREEN_NUMBER_OF_DESKTOPS_MIN     1
-#define SCREEN_NUMBER_OF_DESKTOPS_MAX     MAX_DESKTOPS
-
-#define DETECT_OUTPUTS_DEFAULT TRUE
-
-#define OUTPUTS_DEFAULT "640x480+0+0"
-
-#define FOCUS_PREVENTION_MATCH_DEFAULT "any"
-
 #define NUM_OPTIONS(s) (sizeof ((s)->opt) / sizeof (CompOption))
 
 static int
@@ -313,6 +281,7 @@ updateOutputDevices (CompScreen	*s)
 	output[i].workArea.width  = output[i].width;
 	output[i].workArea.height = output[i].height;
 
+	output[i].id = i;
     }
 
     if (s->outputDev)
@@ -459,16 +428,6 @@ setScreenOption (CompScreen      *screen,
 	return FALSE;
 
     switch (index) {
-    case COMP_SCREEN_OPTION_LIGHTING:
-    case COMP_SCREEN_OPTION_UNREDIRECT_FS:
-    case COMP_SCREEN_OPTION_SYNC_TO_VBLANK:
-	if (compSetBoolOption (o, value))
-	    return TRUE;
-	break;
-    case COMP_SCREEN_OPTION_FOCUS_PREVENTION_MATCH:
-	if (compSetMatchOption (o, value))
-	    return TRUE;
-	break;
     case COMP_SCREEN_OPTION_DETECT_REFRESH_RATE:
 	if (compSetBoolOption (o, value))
 	{
@@ -506,6 +465,9 @@ setScreenOption (CompScreen      *screen,
 	    vsize = compFindOption (screen->opt, NUM_OPTIONS (screen),
 				    "vsize", NULL);
 
+	    if (!vsize)
+		return FALSE;
+
 	    if (o->value.i * screen->width > MAXSHORT)
 		return FALSE;
 
@@ -521,6 +483,9 @@ setScreenOption (CompScreen      *screen,
 	    hsize = compFindOption (screen->opt, NUM_OPTIONS (screen),
 				    "hsize", NULL);
 
+	    if (!hsize)
+		return FALSE;
+
 	    if (o->value.i * screen->height > MAXSHORT)
 		return FALSE;
 
@@ -532,13 +497,6 @@ setScreenOption (CompScreen      *screen,
 	if (compSetIntOption (o, value))
 	{
 	    setNumberOfDesktops (screen, o->value.i);
-	    return TRUE;
-	}
-	break;
-    case COMP_SCREEN_OPTION_OPACITY_STEP:
-	if (compSetIntOption (o, value))
-	{
-	    screen->opacityStep = o->value.i;
 	    return TRUE;
 	}
 	break;
@@ -582,7 +540,10 @@ setScreenOption (CompScreen      *screen,
 
 	    return TRUE;
 	}
+	break;
     default:
+	if (compSetScreenOption (screen, o, value))
+	    return TRUE;
 	break;
     }
 
@@ -599,153 +560,28 @@ setScreenOptionForPlugin (CompScreen      *screen,
 
     p = findActivePlugin (plugin);
     if (p && p->vTable->setScreenOption)
-	return (*p->vTable->setScreenOption) (screen, name, value);
+	return (*p->vTable->setScreenOption) (p, screen, name, value);
 
     return FALSE;
 }
 
-static void
-compScreenInitOptions (CompScreen *screen)
-{
-    CompOption *o;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_DETECT_REFRESH_RATE];
-    o->name       = "detect_refresh_rate";
-    o->shortDesc  = N_("Detect Refresh Rate");
-    o->longDesc   = N_("Automatic detection of refresh rate");
-    o->type       = CompOptionTypeBool;
-    o->value.b    = DETECT_REFRESH_RATE_DEFAULT;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_LIGHTING];
-    o->name       = "lighting";
-    o->shortDesc  = N_("Lighting");
-    o->longDesc   = N_("Use diffuse light when screen is transformed");
-    o->type       = CompOptionTypeBool;
-    o->value.b    = LIGHTING_DEFAULT;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_REFRESH_RATE];
-    o->name       = "refresh_rate";
-    o->shortDesc  = N_("Refresh Rate");
-    o->longDesc   = N_("The rate at which the screen is redrawn "
-		       "(times/second)");
-    o->type       = CompOptionTypeInt;
-    o->value.i    = defaultRefreshRate;
-    o->rest.i.min = 1;
-    o->rest.i.max = 200;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_HSIZE];
-    o->name	  = "hsize";
-    o->shortDesc  = N_("Horizontal Virtual Size");
-    o->longDesc	  = N_("Screen size multiplier for horizontal virtual size");
-    o->type	  = CompOptionTypeInt;
-    o->value.i    = SCREEN_HSIZE_DEFAULT;
-    o->rest.i.min = SCREEN_HSIZE_MIN;
-    o->rest.i.max = SCREEN_HSIZE_MAX;
-
-    o = &(screen->opt[COMP_SCREEN_OPTION_VSIZE]);
-    o->name	      = "vsize";
-    o->shortDesc      = N_("Vertical Virtual Size");
-    o->longDesc	      = N_("Screen size multiplier for vertical virtual size");
-    o->type	      = CompOptionTypeInt;
-    o->value.i	      = SCREEN_VSIZE_DEFAULT;
-    o->rest.i.min     = SCREEN_VSIZE_MIN;
-    o->rest.i.max     = SCREEN_VSIZE_MAX;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_OPACITY_STEP];
-    o->name		= "opacity_step";
-    o->shortDesc	= N_("Opacity Step");
-    o->longDesc		= N_("Opacity change step");
-    o->type		= CompOptionTypeInt;
-    o->value.i		= OPACITY_STEP_DEFAULT;
-    o->rest.i.min	= OPACITY_STEP_MIN;
-    o->rest.i.max	= OPACITY_STEP_MAX;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_UNREDIRECT_FS];
-    o->name       = "unredirect_fullscreen_windows";
-    o->shortDesc  = N_("Unredirect Fullscreen Windows");
-    o->longDesc   = N_("Allow drawing of fullscreen windows to not be "
-		       "redirected to offscreen pixmaps");
-    o->type       = CompOptionTypeBool;
-    o->value.b    = UNREDIRECT_FS_DEFAULT;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_DEFAULT_ICON];
-    o->name	      = "default_icon";
-    o->shortDesc      = N_("Default Icon");
-    o->longDesc	      = N_("Default window icon image");
-    o->type	      = CompOptionTypeString;
-    o->value.s	      = strdup (DEFAULT_ICON_DEFAULT);
-    o->rest.s.string  = 0;
-    o->rest.s.nString = 0;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_SYNC_TO_VBLANK];
-    o->name       = "sync_to_vblank";
-    o->shortDesc  = N_("Sync To VBlank");
-    o->longDesc   = N_("Only perform screen updates during vertical "
-		       "blanking period");
-    o->type       = CompOptionTypeBool;
-    o->value.b    = SYNC_TO_VBLANK_DEFAULT;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_NUMBER_OF_DESKTOPS];
-    o->name	      = "number_of_desktops";
-    o->shortDesc      = N_("Number of Desktops");
-    o->longDesc	      = N_("Number of virtual desktops");
-    o->type	      = CompOptionTypeInt;
-    o->value.i	      = SCREEN_NUMBER_OF_DESKTOPS_DEFAULT;
-    o->rest.i.min     = SCREEN_NUMBER_OF_DESKTOPS_MIN;
-    o->rest.i.max     = SCREEN_NUMBER_OF_DESKTOPS_MAX;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_DETECT_OUTPUTS];
-    o->name       = "detect_outputs";
-    o->shortDesc  = N_("Detect Outputs");
-    o->longDesc   = N_("Automatic detection of output devices");
-    o->type       = CompOptionTypeBool;
-    o->value.b    = DETECT_OUTPUTS_DEFAULT;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_OUTPUTS];
-    o->name	           = "outputs";
-    o->shortDesc           = N_("Outputs");
-    o->longDesc	           = N_("List of strings describing output devices");
-    o->type	           = CompOptionTypeList;
-    o->value.list.type     = CompOptionTypeString;
-    o->value.list.nValue   = 1;
-    o->value.list.value    = malloc (sizeof (CompOptionValue));
-    o->value.list.value->s = strdup (OUTPUTS_DEFAULT);
-    o->rest.s.string       = NULL;
-    o->rest.s.nString      = 0;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_FOCUS_PREVENTION_MATCH];
-    o->name      = "focus_prevention_match";
-    o->shortDesc = N_("Focus Prevention Windows");
-    o->longDesc  = N_("Focus prevention windows");
-    o->type      = CompOptionTypeMatch;
-
-    matchInit (&o->value.match);
-    matchAddFromString (&o->value.match, FOCUS_PREVENTION_MATCH_DEFAULT);
-
-    o = &screen->opt[COMP_SCREEN_OPTION_OPACITY_MATCHES];
-    o->name	         = "opacity_matches";
-    o->shortDesc         = N_("Opacity windows");
-    o->longDesc	         = N_("Windows that should be translucent by "
-				"default");
-    o->type	         = CompOptionTypeList;
-    o->value.list.type   = CompOptionTypeMatch;
-    o->value.list.nValue = 0;
-    o->value.list.value  = NULL;
-    o->rest.s.string     = NULL;
-    o->rest.s.nString    = 0;
-
-    o = &screen->opt[COMP_SCREEN_OPTION_OPACITY_VALUES];
-    o->name	         = "opacity_values";
-    o->shortDesc         = N_("Opacity window values");
-    o->longDesc	         = N_("Opacity values for windows that should be "
-				"translucent by default");
-    o->type	         = CompOptionTypeList;
-    o->value.list.type   = CompOptionTypeInt;
-    o->value.list.nValue = 0;
-    o->value.list.value  = NULL;
-    o->rest.i.min	 = 0;
-    o->rest.i.max	 = 100;
-}
+const CompMetadataOptionInfo coreScreenOptionInfo[COMP_SCREEN_OPTION_NUM] = {
+    { "detect_refresh_rate", "bool", 0, 0, 0 },
+    { "lighting", "bool", 0, 0, 0 },
+    { "refresh_rate", "int", "<min>1</min>", 0, 0 },
+    { "hsize", "int", "<min>1</min><max>32</max>", 0, 0 },
+    { "vsize", "int", "<min>1</min><max>32</max>", 0, 0 },
+    { "opacity_step", "int", "<min>1</min>", 0, 0 },
+    { "unredirect_fullscreen_windows", "bool", 0, 0, 0 },
+    { "default_icon", "string", 0, 0, 0 },
+    { "sync_to_vblank", "bool", 0, 0, 0 },
+    { "number_of_desktops", "int", "<min>1</min>", 0, 0 },
+    { "detect_outputs", "bool", 0, 0, 0 },
+    { "outputs", "list", "<type>string</type>", 0, 0 },
+    { "focus_prevention_match", "match", 0, 0, 0 },
+    { "opacity_matches", "list", "<type>match</type>", 0, 0 },
+    { "opacity_values", "list", "<type>int</type>", 0, 0 }
+};
 
 static void
 updateStartupFeedback (CompScreen *s)
@@ -992,6 +828,16 @@ reshape (CompScreen *s,
     s->width  = w;
     s->height = h;
 
+    s->fullscreenOutput.name             = "fullscreen";
+    s->fullscreenOutput.id               = ~0;
+    s->fullscreenOutput.width            = w;
+    s->fullscreenOutput.height           = h;
+    s->fullscreenOutput.region           = s->region;
+    s->fullscreenOutput.workArea.x       = 0;
+    s->fullscreenOutput.workArea.y       = 0;
+    s->fullscreenOutput.workArea.width   = w;
+    s->fullscreenOutput.workArea.height  = h;
+ 
     updateScreenEdges (s);
 }
 
@@ -1103,8 +949,9 @@ updateScreenBackground (CompScreen  *screen,
 	if (!bindPixmapToTexture (screen, texture, pixmap,
 				  width, height, depth))
 	{
-	    fprintf (stderr, "%s: Couldn't bind background pixmap 0x%x to "
-		     "texture\n", programName, (int) pixmap);
+	    compLogMessage (NULL, "core", CompLogLevelWarn,
+			    "Couldn't bind background pixmap 0x%x to "
+			    "texture", (int) pixmap);
 	}
     }
     else
@@ -1130,14 +977,23 @@ detectRefreshRateOfScreen (CompScreen *s)
 {
     if (!noDetection && s->opt[COMP_SCREEN_OPTION_DETECT_REFRESH_RATE].value.b)
     {
-	XRRScreenConfiguration *config;
-	char		       *name;
-	CompOptionValue	       value;
+	char		*name;
+	CompOptionValue	value;
 
-	config  = XRRGetScreenInfo (s->display->display, s->root);
-	value.i = (int) XRRConfigCurrentRate (config);
+	value.i = 0;
 
-	XRRFreeScreenConfigInfo (config);
+	if (s->display->randrExtension)
+	{
+	    XRRScreenConfiguration *config;
+
+	    config  = XRRGetScreenInfo (s->display->display, s->root);
+	    value.i = (int) XRRConfigCurrentRate (config);
+
+	    XRRFreeScreenConfigInfo (config);
+	}
+
+	if (value.i == 0)
+	    value.i = defaultRefreshRate;
 
 	name = s->opt[COMP_SCREEN_OPTION_REFRESH_RATE].name;
 
@@ -1254,6 +1110,8 @@ setSupported (CompScreen *s)
     data[i++] = d->winActionCloseAtom;
     data[i++] = d->winActionShadeAtom;
     data[i++] = d->winActionChangeDesktopAtom;
+    data[i++] = d->winActionAboveAtom;
+    data[i++] = d->winActionBelowAtom;
 
     data[i++] = d->winTypeAtom;
     data[i++] = d->winTypeDesktopAtom;
@@ -1331,7 +1189,7 @@ getDesktopHints (CompScreen *s)
 	memcpy (data, propData, sizeof (unsigned long));
 	XFree (propData);
 
-	if (data[0] >= 0 && data[0] < s->nDesktop)
+	if (data[0] < s->nDesktop)
 	    s->currentDesktop = data[0];
     }
 
@@ -1423,6 +1281,8 @@ makeOutputWindow (CompScreen *s)
     {
 	s->overlay = XCompositeGetOverlayWindow (s->display->display, s->root);
 	s->output  = s->overlay;
+
+	XSelectInput (s->display->display, s->output, ExposureMask);
     }
     else
 #endif
@@ -1506,12 +1366,51 @@ leaveShowDesktopMode (CompScreen *s,
 	    w->inShowDesktopMode = FALSE;
 	    showWindow (w);
 	}
+
+	/* focus default window - most likely this will be the window
+	   which had focus before entering showdesktop mode */
+	focusDefaultWindow (s->display);
     }
 
     XChangeProperty (s->display->display, s->root,
 		     s->display->showingDesktopAtom,
 		     XA_CARDINAL, 32, PropModeReplace,
 		     (unsigned char *) &data, 1);
+}
+
+static CompWindow *
+walkFirst (CompScreen *s)
+{
+    return s->windows;
+}
+
+static CompWindow *
+walkLast (CompScreen *s)
+{
+    return s->reverseWindows;
+}
+
+static CompWindow *
+walkNext (CompWindow *w)
+{
+    return w->next;
+}
+
+static CompWindow *
+walkPrev (CompWindow *w)
+{
+    return w->prev;
+}
+
+static void
+initWindowWalker (CompScreen *screen,
+		  CompWalker *walker)
+{
+    walker->fini  = NULL;
+    walker->first = walkFirst;
+    walker->last  = walkLast;
+    walker->next  = walkNext;
+    walker->prev  = walkPrev;
 }
 
 Bool
@@ -1540,7 +1439,6 @@ addScreen (CompDisplay *display,
     GLfloat		 diffuseLight[]   = { 0.9f, 0.9f,  0.9f, 0.9f };
     GLfloat		 light0Position[] = { -0.5f, 0.5f, -9.0f, 1.0f };
     CompWindow		 *w;
-    GLXContext		 shareList = 0;
 
     s = malloc (sizeof (CompScreen));
     if (!s)
@@ -1564,7 +1462,12 @@ addScreen (CompDisplay *display,
 
     s->display = display;
 
-    compScreenInitOptions (s);
+    if (!compInitScreenOptionsFromMetadata (s,
+					    &coreMetadata,
+					    coreScreenOptionInfo,
+					    s->opt,
+					    COMP_SCREEN_OPTION_NUM))
+	return FALSE;
 
     s->damage = XCreateRegion ();
     if (!s->damage)
@@ -1572,8 +1475,8 @@ addScreen (CompDisplay *display,
 
     s->x     = 0;
     s->y     = 0;
-    s->hsize = SCREEN_HSIZE_DEFAULT;
-    s->vsize = SCREEN_VSIZE_DEFAULT;
+    s->hsize = s->opt[COMP_SCREEN_OPTION_HSIZE].value.i;
+    s->vsize = s->opt[COMP_SCREEN_OPTION_VSIZE].value.i;
 
     s->nDesktop	      = 1;
     s->currentDesktop = 0;
@@ -1635,8 +1538,6 @@ addScreen (CompDisplay *display,
     s->windows = 0;
     s->reverseWindows = 0;
 
-    s->opacityStep = OPACITY_STEP_DEFAULT;
-
     s->nextRedraw  = 0;
     s->frameStatus = 0;
     s->timeMult    = 1;
@@ -1677,7 +1578,8 @@ addScreen (CompDisplay *display,
     s->preparePaintScreen	  = preparePaintScreen;
     s->donePaintScreen		  = donePaintScreen;
     s->paintScreen		  = paintScreen;
-    s->paintTransformedScreen	  = paintTransformedScreen;
+    s->paintOutput		  = paintOutput;
+    s->paintTransformedOutput	  = paintTransformedOutput;
     s->applyScreenTransform	  = applyScreenTransform;
     s->paintBackground		  = paintBackground;
     s->paintWindow		  = paintWindow;
@@ -1688,10 +1590,12 @@ addScreen (CompDisplay *display,
     s->getOutputExtentsForWindow  = getOutputExtentsForWindow;
     s->getAllowedActionsForWindow = getAllowedActionsForWindow;
     s->focusWindow		  = focusWindow;
+    s->placeWindow                = placeWindow;
 
     s->paintCursor      = paintCursor;
     s->damageCursorRect	= damageCursorRect;
 
+    s->windowAddNotify    = windowAddNotify;
     s->windowResizeNotify = windowResizeNotify;
     s->windowMoveNotify	  = windowMoveNotify;
     s->windowGrabNotify   = windowGrabNotify;
@@ -1703,6 +1607,8 @@ addScreen (CompDisplay *display,
     s->windowStateChangeNotify = windowStateChangeNotify;
 
     s->outputChangeNotify = outputChangeNotify;
+
+    s->initWindowWalker = initWindowWalker;
 
     s->getProcAddress = 0;
 
@@ -1723,8 +1629,8 @@ addScreen (CompDisplay *display,
     visinfo = XGetVisualInfo (dpy, VisualIDMask, &templ, &nvisinfo);
     if (!nvisinfo)
     {
-	fprintf (stderr, "%s: Couldn't get visual info for default visual\n",
-		 programName);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"Couldn't get visual info for default visual");
 	return FALSE;
     }
 
@@ -1734,14 +1640,16 @@ addScreen (CompDisplay *display,
 
     if (!XAllocColor (dpy, s->colormap, &black))
     {
-	fprintf (stderr, "%s: Couldn't allocate color\n", programName);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"Couldn't allocate color");
 	return FALSE;
     }
 
     bitmap = XCreateBitmapFromData (dpy, s->root, &data, 1, 1);
     if (!bitmap)
     {
-	fprintf (stderr, "%s: Couldn't create bitmap\n", programName);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"Couldn't create bitmap");
 	return FALSE;
     }
 
@@ -1749,8 +1657,8 @@ addScreen (CompDisplay *display,
 					      &black, &black, 0, 0);
     if (!s->invisibleCursor)
     {
-	fprintf (stderr, "%s: Couldn't create invisible cursor\n",
-		 programName);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"Couldn't create invisible cursor");
 	return FALSE;
     }
 
@@ -1760,71 +1668,45 @@ addScreen (CompDisplay *display,
     glXGetConfig (dpy, visinfo, GLX_USE_GL, &value);
     if (!value)
     {
-	fprintf (stderr, "%s: Root visual is not a GL visual\n",
-		 programName);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"Root visual is not a GL visual");
 	return FALSE;
     }
 
     glXGetConfig (dpy, visinfo, GLX_DOUBLEBUFFER, &value);
     if (!value)
     {
-	fprintf (stderr,
-		 "%s: Root visual is not a double buffered GL visual\n",
-		 programName);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"Root visual is not a double buffered GL visual");
 	return FALSE;
     }
 
-    if (display->screens)
-	shareList = display->screens->ctx;
-
-    /* try both direct and indirect rendering contexts in case one of them
-       fail to support GLX_EXT_texture_from_pixmap */
-    for (i = 0; i < 2; i++)
+    s->ctx = glXCreateContext (dpy, visinfo, NULL, !indirectRendering);
+    if (!s->ctx)
     {
-	s->ctx = glXCreateContext (dpy, visinfo, shareList, !indirectRendering);
-	if (!s->ctx)
-	{
-	    fprintf (stderr, "%s: glXCreateContext failed\n", programName);
-	    XFree (visinfo);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"glXCreateContext failed");
+	XFree (visinfo);
 
-	    return FALSE;
-	}
+	return FALSE;
+    }
 
-	if (glXIsDirect (dpy, s->ctx) == indirectRendering)
-	    i++;
+    glxExtensions = glXQueryExtensionsString (dpy, screenNum);
+    if (!strstr (glxExtensions, "GLX_EXT_texture_from_pixmap"))
+    {
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"GLX_EXT_texture_from_pixmap is missing");
+	XFree (visinfo);
 
-	glxExtensions = glXQueryExtensionsString (dpy, screenNum);
-	if (!strstr (glxExtensions, "GLX_EXT_texture_from_pixmap"))
-	{
-	    if (i > 0)
-	    {
-		fprintf (stderr, "%s: GLX_EXT_texture_from_pixmap is missing\n",
-			 programName);
-		XFree (visinfo);
-
-		return FALSE;
-	    }
-	    else
-	    {
-		fprintf (stderr, "%s: GLX_EXT_texture_from_pixmap is not "
-			 "supported by %s rendering context, trying %s "
-			 "rendering context instead\n", programName,
-			 indirectRendering ? "indirect" : "direct",
-			 indirectRendering ? "direct" : "indirect");
-
-		indirectRendering = !indirectRendering;
-
-		glXDestroyContext (dpy, s->ctx);
-	    }
-	}
+	return FALSE;
     }
 
     XFree (visinfo);
 
     if (!strstr (glxExtensions, "GLX_SGIX_fbconfig"))
     {
-	fprintf (stderr, "%s: GLX_SGIX_fbconfig is missing\n",
-		 programName);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"GLX_SGIX_fbconfig is missing");
 	return FALSE;
     }
 
@@ -1845,14 +1727,15 @@ addScreen (CompDisplay *display,
 
     if (!s->bindTexImage)
     {
-	fprintf (stderr, "%s: glXBindTexImageEXT is missing\n", programName);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"glXBindTexImageEXT is missing");
 	return FALSE;
     }
 
     if (!s->releaseTexImage)
     {
-	fprintf (stderr, "%s: glXReleaseTexImageEXT is missing\n",
-		 programName);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"glXReleaseTexImageEXT is missing");
 	return FALSE;
     }
 
@@ -1861,7 +1744,8 @@ addScreen (CompDisplay *display,
 	!s->getFBConfigAttrib ||
 	!s->createPixmap)
     {
-	fprintf (stderr, "%s: fbconfig functions missing\n", programName);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"fbconfig functions missing");
 	return FALSE;
     }
 
@@ -1911,8 +1795,8 @@ addScreen (CompDisplay *display,
 
     if (!(s->textureRectangle || s->textureNonPowerOfTwo))
     {
-	fprintf (stderr, "%s: Support for non power of two textures missing\n",
-		 programName);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"Support for non power of two textures missing");
 	return FALSE;
     }
 
@@ -2003,10 +1887,11 @@ addScreen (CompDisplay *display,
     {
 	int j, db, stencil, depth, alpha, mipmap, rgba;
 
-	s->glxPixmapFBConfigs[i].fbConfig      = NULL;
-	s->glxPixmapFBConfigs[i].mipmap        = 0;
-	s->glxPixmapFBConfigs[i].yInverted     = 0;
-	s->glxPixmapFBConfigs[i].textureFormat = 0;
+	s->glxPixmapFBConfigs[i].fbConfig       = NULL;
+	s->glxPixmapFBConfigs[i].mipmap         = 0;
+	s->glxPixmapFBConfigs[i].yInverted      = 0;
+	s->glxPixmapFBConfigs[i].textureFormat  = 0;
+	s->glxPixmapFBConfigs[i].textureTargets = 0;
 
 	db      = MAXSHORT;
 	stencil = MAXSHORT;
@@ -2119,8 +2004,16 @@ addScreen (CompDisplay *display,
 				     &value);
 
 	    s->glxPixmapFBConfigs[i].yInverted = value;
-	    s->glxPixmapFBConfigs[i].fbConfig  = fbConfigs[j];
-	    s->glxPixmapFBConfigs[i].mipmap    = mipmap;
+
+	    (*s->getFBConfigAttrib) (dpy,
+				     fbConfigs[j],
+				     GLX_BIND_TO_TEXTURE_TARGETS_EXT,
+				     &value);
+
+	    s->glxPixmapFBConfigs[i].textureTargets = value;
+
+	    s->glxPixmapFBConfigs[i].fbConfig = fbConfigs[j];
+	    s->glxPixmapFBConfigs[i].mipmap   = mipmap;
 	}
     }
 
@@ -2129,9 +2022,9 @@ addScreen (CompDisplay *display,
 
     if (!s->glxPixmapFBConfigs[defaultDepth].fbConfig)
     {
-	fprintf (stderr, "%s: No GLXFBConfig for default depth, "
-		 "this isn't going to work.\n",
-		 programName);
+	compLogMessage (display, "core", CompLogLevelFatal,
+			"No GLXFBConfig for default depth, "
+			"this isn't going to work.");
 	return FALSE;
     }
 
@@ -2201,12 +2094,7 @@ addScreen (CompDisplay *display,
 	{
 	    w->activeNum = s->activeNum++;
 	    w->damaged   = TRUE;
-	    w->placed    = TRUE;
 	    w->invisible = WINDOW_INVISIBLE (w);
-	}
-	else if (w->state & CompWindowStateHiddenMask)
-	{
-	    w->placed = TRUE;
 	}
     }
 
@@ -2256,9 +2144,6 @@ addScreen (CompDisplay *display,
     s->filter[NOTHING_TRANS_FILTER] = COMP_TEXTURE_FILTER_FAST;
     s->filter[SCREEN_TRANS_FILTER]  = COMP_TEXTURE_FILTER_GOOD;
     s->filter[WINDOW_TRANS_FILTER]  = COMP_TEXTURE_FILTER_GOOD;
-
-    matchUpdate (s->display,
-		 &s->opt[COMP_SCREEN_OPTION_FOCUS_PREVENTION_MATCH].value.match);
 
     return TRUE;
 }
@@ -2574,7 +2459,7 @@ removeScreenGrab (CompScreen *s,
 	else
 	{
 	    if (restorePointer)
-		warpPointer (s->display,
+		warpPointer (s,
 			     restorePointer->x - pointerX,
 			     restorePointer->y - pointerY);
 
@@ -2585,6 +2470,10 @@ removeScreenGrab (CompScreen *s,
 	s->maxGrab = maxGrab;
     }
 }
+
+/* otherScreenGrabExist takes a series of strings terminated by a NULL.
+   It returns TRUE if a grab exists but it is NOT held by one of the
+   plugins listed, returns FALSE otherwise. */
 
 Bool
 otherScreenGrabExist (CompScreen *s, ...)
@@ -2633,7 +2522,9 @@ grabUngrabOneKey (CompScreen   *s,
 		  TRUE,
 		  GrabModeAsync,
 		  GrabModeAsync);
-    } else {
+    }
+    else
+    {
 	XUngrabKey (s->display->display,
 		    keycode,
 		    modifiers,
@@ -3349,18 +3240,32 @@ moveScreenViewport (CompScreen *s,
 void
 moveWindowToViewportPosition (CompWindow *w,
 			      int	 x,
+			      int        y,
 			      Bool       sync)
 {
     int	tx, vWidth = w->screen->width * w->screen->hsize;
+    int ty, vHeight = w->screen->height * w->screen->vsize;
 
-    x += w->screen->x * w->screen->width;
-    x = MOD (x, vWidth);
-    x -= w->screen->x * w->screen->width;
+    if (w->screen->hsize != 1)
+    {
+	x += w->screen->x * w->screen->width;
+	x = MOD (x, vWidth);
+	x -= w->screen->x * w->screen->width;
+    }
+
+    if (w->screen->vsize != 1)
+    {
+	y += w->screen->y * w->screen->height;
+	y = MOD (y, vHeight);
+	y -= w->screen->y * w->screen->height;
+    }
 
     tx = x - w->attrib.x;
-    if (tx)
+    ty = y - w->attrib.y;
+
+    if (tx || ty)
     {
-	int m, wx;
+	int m, wx, wy;
 
 	if (!w->managed)
 	    return;
@@ -3371,18 +3276,36 @@ moveWindowToViewportPosition (CompWindow *w,
 	if (w->state & CompWindowStateStickyMask)
 	    return;
 
-	m = w->attrib.x + tx;
-	if (m - w->output.left < w->screen->width - vWidth)
-	    wx = tx + vWidth;
-	else if (m + w->width + w->output.right > vWidth)
-	    wx = tx - vWidth;
-	else
-	    wx = tx;
+	wx = tx;
+	wy = ty;
+
+	if (w->screen->hsize != 1)
+	{
+	    m = w->attrib.x + tx;
+
+	    if (m - w->output.left < w->screen->width - vWidth)
+		wx = tx + vWidth;
+	    else if (m + w->width + w->output.right > vWidth)
+		wx = tx - vWidth;
+	}
+
+	if (w->screen->vsize != 1)
+	{
+	    m = w->attrib.y + ty;
+
+	    if (m - w->output.top < w->screen->height - vHeight)
+		wy = ty + vHeight;
+	    else if (m + w->height + w->output.bottom > vHeight)
+		wy = ty - vHeight;
+	}
 
 	if (w->saveMask & CWX)
 	    w->saveWc.x += wx;
 
-	moveWindow (w, wx, 0, sync, TRUE);
+	if (w->saveMask & CWY)
+	    w->saveWc.y += wy;
+
+	moveWindow (w, wx, wy, sync, TRUE);
 
 	if (sync)
 	    syncWindowPosition (w);
@@ -3480,10 +3403,14 @@ applyStartupProperties (CompScreen *screen,
 
     if (s)
     {
+	int workspace;
+
 	window->initialViewportX = s->viewportX;
 	window->initialViewportY = s->viewportY;
 
-	window->desktop	= sn_startup_sequence_get_workspace (s->sequence);
+	workspace = sn_startup_sequence_get_workspace (s->sequence);
+	if (workspace >= 0)
+	    window->desktop = workspace;
 
 	window->initialTimestamp    =
 	    sn_startup_sequence_get_timestamp (s->sequence);
@@ -3688,7 +3615,7 @@ setCurrentDesktop (CompScreen   *s,
     unsigned long data;
     CompWindow    *w;
 
-    if (desktop < 0 || desktop >= s->nDesktop)
+    if (desktop >= s->nDesktop)
 	return;
 
     if (desktop == s->currentDesktop)
@@ -3726,10 +3653,15 @@ getWorkareaForOutput (CompScreen *s,
 void
 setDefaultViewport (CompScreen *s)
 {
-    glViewport (s->outputDev->region.extents.x1,
-		s->height - s->outputDev->region.extents.y2,
-		s->outputDev->width,
-		s->outputDev->height);
+    s->lastViewport.x	   = s->outputDev->region.extents.x1;
+    s->lastViewport.y	   = s->height - s->outputDev->region.extents.y2;
+    s->lastViewport.width  = s->outputDev->width;
+    s->lastViewport.height = s->outputDev->height;
+
+    glViewport (s->lastViewport.x,
+		s->lastViewport.y,
+		s->lastViewport.width,
+		s->lastViewport.height);
 }
 
 void
@@ -3739,10 +3671,10 @@ outputChangeNotify (CompScreen *s)
 
 void
 clearScreenOutput (CompScreen	*s,
-		   int		output,
+		   CompOutput	*output,
 		   unsigned int mask)
 {
-    BoxPtr pBox = &s->outputDev[output].region.extents;
+    BoxPtr pBox = &output->region.extents;
 
     if (pBox->x1 != 0	     ||
 	pBox->y1 != 0	     ||
@@ -3838,10 +3770,10 @@ outputDeviceForGeometry (CompScreen *s,
     x2 = s->outputDev[output].region.extents.x2;
     y2 = s->outputDev[output].region.extents.y2;
 
-    if (x1 > x + width  ||
-	y1 > y + height ||
-	x2 < x		||
-	y2 < y)
+    if (x1 >= x + width  ||
+	y1 >= y + height ||
+	x2 <= x		 ||
+	y2 <= y)
     {
 	output = outputDeviceForPoint (s, x + width  / 2, y + height / 2);
     }

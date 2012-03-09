@@ -33,6 +33,8 @@
 
 #include <compiz.h>
 
+static CompMetadata regexMetadata;
+
 static int displayPrivateIndex;
 
 typedef struct _RegexDisplay {
@@ -40,6 +42,7 @@ typedef struct _RegexDisplay {
     HandleEventProc  handleEvent;
     MatchInitExpProc matchInitExp;
     Atom	     roleAtom;
+    Atom             visibleNameAtom;
 } RegexDisplay;
 
 typedef struct _RegexScreen {
@@ -166,11 +169,16 @@ regexMatchInitExp (CompDisplay  *d,
 	char		     *s;
 	int		     len;
 	CompMatchExpEvalProc eval;
+	unsigned int         flags;
     } prefix[] = {
-	{ "title=", 6, regexMatchExpEvalTitle },
-	{ "role=",  5, regexMatchExpEvalRole  },
-	{ "class=", 6, regexMatchExpEvalClass },
-	{ "name=",  5, regexMatchExpEvalName  }
+	{ "title=", 6, regexMatchExpEvalTitle, 0 },
+	{ "role=",  5, regexMatchExpEvalRole, 0  },
+	{ "class=", 6, regexMatchExpEvalClass, 0 },
+	{ "name=",  5, regexMatchExpEvalName, 0  },
+	{ "ititle=", 7, regexMatchExpEvalTitle, REG_ICASE },
+	{ "irole=",  6, regexMatchExpEvalRole, REG_ICASE  },
+	{ "iclass=", 7, regexMatchExpEvalClass, REG_ICASE },
+	{ "iname=",  6, regexMatchExpEvalName, REG_ICASE  },
     };
     int	i;
 
@@ -191,15 +199,15 @@ regexMatchInitExp (CompDisplay  *d,
 
 	    value += prefix[i].len;
 
-	    status = regcomp (preg, value, REG_NOSUB);
+	    status = regcomp (preg, value, REG_NOSUB | prefix[i].flags);
 	    if (status)
 	    {
 		char errMsg[1024];
 
 		regerror (status, preg, errMsg, sizeof (errMsg));
 
-		fprintf (stderr, "%s: regex: %s = %s\n",
-			 programName, errMsg, value);
+		compLogMessage (d, "regex", CompLogLevelWarn,
+				"%s = %s", errMsg, value);
 
 		regfree (preg);
 		free (preg);
@@ -221,8 +229,9 @@ regexMatchInitExp (CompDisplay  *d,
 }
 
 static char *
-regexGetStringPropertyLatin1 (CompWindow *w,
-			      Atom       atom)
+regexGetStringProperty (CompWindow *w,
+			Atom       propAtom,
+			Atom       formatAtom)
 {
     Atom	  type;
     unsigned long nItems;
@@ -232,15 +241,14 @@ regexGetStringPropertyLatin1 (CompWindow *w,
     char	  *retval;
 
     result = XGetWindowProperty (w->screen->display->display,
-				 w->id, atom,
-				 0, LONG_MAX,
-				 FALSE, XA_STRING, &type, &format, &nItems,
+				 w->id, propAtom, 0, LONG_MAX,
+				 FALSE, formatAtom, &type, &format, &nItems,
 				 &bytesAfter, (unsigned char **) &str);
 
     if (result != Success)
 	return NULL;
 
-    if (type != XA_STRING)
+    if (type != formatAtom)
     {
 	XFree (str);
 	return NULL;
@@ -251,6 +259,25 @@ regexGetStringPropertyLatin1 (CompWindow *w,
     XFree (str);
 
     return retval;
+}
+
+static char *
+regexGetWindowTitle (CompWindow *w)
+{
+    CompDisplay *d = w->screen->display;
+    char	*title;
+
+    REGEX_DISPLAY (d);
+
+    title = regexGetStringProperty (w, rd->visibleNameAtom, d->utf8StringAtom);
+    if (title)
+	return title;
+
+    title = regexGetStringProperty (w, d->wmNameAtom, d->utf8StringAtom);
+    if (title)
+	return title;
+
+    return regexGetStringProperty (w, XA_WM_NAME, XA_STRING);
 }
 
 static void
@@ -277,7 +304,7 @@ regexHandleEvent (CompDisplay *d,
 		if (rw->title)
 		    free (rw->title);
 
-		rw->title = regexGetStringPropertyLatin1 (w, XA_WM_NAME);
+		rw->title = regexGetWindowTitle (w);
 
 		(*d->matchPropertyChanged) (d, w);
 	    }
@@ -292,7 +319,7 @@ regexHandleEvent (CompDisplay *d,
 		if (rw->role)
 		    free (rw->role);
 
-		rw->role = regexGetStringPropertyLatin1 (w, rd->roleAtom);
+		rw->role = regexGetStringProperty (w, rd->roleAtom, XA_STRING);
 
 		(*d->matchPropertyChanged) (d, w);
 	    }
@@ -307,7 +334,7 @@ regexHandleEvent (CompDisplay *d,
 }
 
 static Bool
-regexRegisterExpHanlder (void *closure)
+regexRegisterExpHandler (void *closure)
 {
     CompDisplay *display = (CompDisplay *) closure;
 
@@ -333,7 +360,8 @@ regexInitDisplay (CompPlugin  *p,
 	return FALSE;
     }
 
-    rd->roleAtom = XInternAtom (d->display, "WM_WINDOW_ROLE", 0);
+    rd->roleAtom        = XInternAtom (d->display, "WM_WINDOW_ROLE", 0);
+    rd->visibleNameAtom = XInternAtom (d->display, "_NET_WM_VISIBLE_NAME", 0);
 
     WRAP (rd, d, handleEvent, regexHandleEvent);
     WRAP (rd, d, matchInitExp, regexMatchInitExp);
@@ -342,7 +370,7 @@ regexInitDisplay (CompPlugin  *p,
 
     /* one shot timeout to which will register the expression handler
        after all screens and windows have been initialized */
-    compAddTimeout (0, regexRegisterExpHanlder, (void *) d);
+    compAddTimeout (0, regexRegisterExpHandler, (void *) d);
 
     return TRUE;
 }
@@ -411,8 +439,8 @@ regexInitWindow (CompPlugin *p,
     if (!rw)
 	return FALSE;
 
-    rw->title = regexGetStringPropertyLatin1 (w, XA_WM_NAME);
-    rw->role  = regexGetStringPropertyLatin1 (w, rd->roleAtom);
+    rw->title = regexGetWindowTitle (w);
+    rw->role  = regexGetStringProperty (w, rd->roleAtom, XA_STRING);
 
     w->privates[rs->windowPrivateIndex].ptr = rw;
 
@@ -437,9 +465,18 @@ regexFiniWindow (CompPlugin *p,
 static Bool
 regexInit (CompPlugin *p)
 {
+    if (!compInitPluginMetadataFromInfo (&regexMetadata, p->vTable->name,
+					 0, 0, 0, 0))
+	return FALSE;
+
     displayPrivateIndex = allocateDisplayPrivateIndex ();
     if (displayPrivateIndex < 0)
+    {
+	compFiniMetadata (&regexMetadata);
 	return FALSE;
+    }
+
+    compAddMetadataFromFile (&regexMetadata, p->vTable->name);
 
     return TRUE;
 }
@@ -447,8 +484,8 @@ regexInit (CompPlugin *p)
 static void
 regexFini (CompPlugin *p)
 {
-    if (displayPrivateIndex >= 0)
-	freeDisplayPrivateIndex (displayPrivateIndex);
+    freeDisplayPrivateIndex (displayPrivateIndex);
+    compFiniMetadata (&regexMetadata);
 }
 
 static int
@@ -458,11 +495,16 @@ regexGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
+static CompMetadata *
+regexGetMetadata (CompPlugin *plugin)
+{
+    return &regexMetadata;
+}
+
 static CompPluginVTable regexVTable = {
     "regex",
-    N_("Regex Matching"),
-    N_("Regex window matching"),
     regexGetVersion,
+    regexGetMetadata,
     regexInit,
     regexFini,
     regexInitDisplay,
@@ -474,11 +516,7 @@ static CompPluginVTable regexVTable = {
     0, /* GetDisplayOptions */
     0, /* SetDisplayOption */
     0, /* GetScreenOptions */
-    0, /* SetScreenOption */
-    0, /* Deps */
-    0, /* nDeps */
-    0, /* Features */
-    0  /* nFeatures */
+    0  /* SetScreenOption */
 };
 
 CompPluginVTable *

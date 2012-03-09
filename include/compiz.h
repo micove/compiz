@@ -26,7 +26,7 @@
 #ifndef _COMPIZ_H
 #define _COMPIZ_H
 
-#define ABIVERSION 20070328
+#define ABIVERSION 20070708
 
 #include <stdio.h>
 #include <sys/time.h>
@@ -39,6 +39,8 @@
 #include <X11/extensions/sync.h>
 #include <X11/Xregion.h>
 #include <X11/XKBlib.h>
+
+#include <libxml/parser.h>
 
 #define SN_API_NOT_YET_FROZEN
 #include <libsn/sn.h>
@@ -69,10 +71,6 @@ extern "C" {
 #  define BITMAP_BIT_ORDER LSBFirst
 #endif
 
-/* For now, we never actually translate strings inside compiz */
-#define  _(x) x
-#define N_(x) x
-
 typedef struct _CompPlugin	  CompPlugin;
 typedef struct _CompDisplay	  CompDisplay;
 typedef struct _CompScreen	  CompScreen;
@@ -86,6 +84,9 @@ typedef struct _CompFunctionData  CompFunctionData;
 typedef struct _FragmentAttrib    FragmentAttrib;
 typedef struct _CompCursor	  CompCursor;
 typedef struct _CompMatch	  CompMatch;
+typedef struct _CompMetadata      CompMetadata;
+typedef struct _CompOutput        CompOutput;
+typedef struct _CompWalker        CompWalker;
 
 /* virtual modifiers */
 
@@ -158,6 +159,8 @@ typedef struct _CompMatch	  CompMatch;
 #define CompWindowActionCloseMask	  (1 << 7)
 #define CompWindowActionShadeMask	  (1 << 8)
 #define CompWindowActionChangeDesktopMask (1 << 9)
+#define CompWindowActionAboveMask	  (1 << 10)
+#define CompWindowActionBelowMask	  (1 << 11)
 
 #define MwmFuncAll      (1L << 0)
 #define MwmFuncResize   (1L << 1)
@@ -223,13 +226,12 @@ extern Bool       onlyCurrentScreen;
 extern int  defaultRefreshRate;
 extern char *defaultTextureFilter;
 
-extern char *windowTypeString[];
-extern int  nWindowTypeString;
-
 extern int lastPointerX;
 extern int lastPointerY;
 extern int pointerX;
 extern int pointerY;
+
+extern CompMetadata coreMetadata;
 
 #define RESTRICT_VALUE(value, min, max)				     \
     (((value) < (min)) ? (min): ((value) > (max)) ? (max) : (value))
@@ -298,8 +300,18 @@ typedef enum {
     CompActionStateInitEdgeDnd = 1 <<  7,
     CompActionStateTermEdgeDnd = 1 <<  8,
     CompActionStateCommit      = 1 <<  9,
-    CompActionStateCancel      = 1 << 10
+    CompActionStateCancel      = 1 << 10,
+    CompActionStateAutoGrab    = 1 << 11
 } CompActionState;
+
+typedef enum {
+    CompLogLevelFatal = 0,
+    CompLogLevelError,
+    CompLogLevelWarn,
+    CompLogLevelInfo,
+    CompLogLevelDebug
+
+} CompLogLevel;
 
 typedef struct _CompKeyBinding {
     int		 keycode;
@@ -336,6 +348,8 @@ struct _CompAction {
 
     unsigned int edgeMask;
     int		 edgeButton;
+
+    CompPrivate priv;
 };
 
 typedef union _CompMatchOp CompMatchOp;
@@ -374,21 +388,13 @@ typedef struct _CompOptionFloatRestriction {
     float precision;
 } CompOptionFloatRestriction;
 
-typedef struct _CompOptionStringRestriction {
-    char **string;
-    int  nString;
-} CompOptionStringRestriction;
-
 typedef union {
     CompOptionIntRestriction    i;
     CompOptionFloatRestriction  f;
-    CompOptionStringRestriction s;
 } CompOptionRestriction;
 
 struct _CompOption {
     char		  *name;
-    char		  *shortDesc;
-    char		  *longDesc;
     CompOptionType	  type;
     CompOptionValue	  value;
     CompOptionRestriction rest;
@@ -396,6 +402,12 @@ struct _CompOption {
 
 typedef CompOption *(*DisplayOptionsProc) (CompDisplay *display, int *count);
 typedef CompOption *(*ScreenOptionsProc) (CompScreen *screen, int *count);
+
+void
+compInitOption (CompOption *option);
+
+void
+compFiniOption (CompOption *option);
 
 CompOption *
 compFindOption (CompOption *option,
@@ -434,6 +446,10 @@ compSetMatchOption (CompOption      *option,
 Bool
 compSetOptionList (CompOption      *option,
 		   CompOptionValue *value);
+
+Bool
+compSetOption (CompOption      *option,
+	       CompOptionValue *value);
 
 unsigned int
 compWindowTypeMaskFromStringList (CompOptionValue *value);
@@ -575,9 +591,20 @@ typedef int CompFileWatchHandle;
 
 typedef CompOption *(*GetDisplayOptionsProc) (CompDisplay *display,
 					      int	  *count);
+
 typedef Bool (*SetDisplayOptionProc) (CompDisplay     *display,
 				      char	      *name,
 				      CompOptionValue *value);
+
+typedef CompOption *(*GetPluginDisplayOptionsProc) (CompPlugin  *plugin,
+						    CompDisplay *display,
+						    int	        *count);
+
+typedef Bool (*SetPluginDisplayOptionProc) (CompPlugin      *plugin,
+					    CompDisplay     *display,
+					    char	    *name,
+					    CompOptionValue *value);
+
 typedef Bool (*SetDisplayOptionForPluginProc) (CompDisplay     *display,
 					       char	       *plugin,
 					       char	       *name,
@@ -699,6 +726,11 @@ typedef void (*MatchExpHandlerChangedProc) (CompDisplay *display);
 typedef void (*MatchPropertyChangedProc) (CompDisplay *display,
 					  CompWindow  *window);
 
+typedef void (*LogMessageProc) (CompDisplay  *d,
+				char         *componentName,
+				CompLogLevel level,
+				char         *message);
+
 struct _CompDisplay {
     Display    *display;
     CompScreen *screens;
@@ -708,9 +740,11 @@ struct _CompDisplay {
 
     int compositeEvent, compositeError, compositeOpcode;
     int damageEvent, damageError;
-    int randrEvent, randrError;
     int syncEvent, syncError;
     int fixesEvent, fixesError, fixesVersion;
+
+    Bool randrExtension;
+    int randrEvent, randrError;
 
     Bool shapeExtension;
     int  shapeEvent, shapeError;
@@ -787,6 +821,8 @@ struct _CompDisplay {
     Atom winActionCloseAtom;
     Atom winActionShadeAtom;
     Atom winActionChangeDesktopAtom;
+    Atom winActionAboveAtom;
+    Atom winActionBelowAtom;
 
     Atom wmAllowedActionsAtom;
 
@@ -894,8 +930,11 @@ struct _CompDisplay {
     MatchExpHandlerChangedProc matchExpHandlerChanged;
     MatchPropertyChangedProc   matchPropertyChanged;
 
+    LogMessageProc logMessage;
+
     CompPrivate *privates;
 };
+
 
 extern CompDisplay *compDisplays;
 
@@ -914,7 +953,7 @@ compAddTimeout (int	     time,
 		CallBackProc callBack,
 		void	     *closure);
 
-void
+void *
 compRemoveTimeout (CompTimeoutHandle handle);
 
 CompWatchFdHandle
@@ -925,6 +964,9 @@ compAddWatchFd (int	     fd,
 
 void
 compRemoveWatchFd (CompWatchFdHandle handle);
+
+short int
+compWatchFdEvents (CompWatchFdHandle handle);
 
 CompFileWatchHandle
 addFileWatch (CompDisplay	    *display,
@@ -945,6 +987,22 @@ void
 fileWatchRemoved (CompDisplay   *display,
 		  CompFileWatch *fileWatch);
 
+void
+compLogMessage (CompDisplay  *d,
+		char         *componentName,
+		CompLogLevel level,
+		char         *format,
+		...);
+
+void
+logMessage (CompDisplay  *d,
+	    char         *componentName,
+	    CompLogLevel level,
+	    char         *message);
+
+const char *
+logLevelToString (CompLogLevel level);
+
 int
 compCheckForError (Display *dpy);
 
@@ -953,9 +1011,7 @@ addScreenToDisplay (CompDisplay *display,
 		    CompScreen *s);
 
 Bool
-addDisplay (char *name,
-	    char **plugin,
-	    int  nPlugin);
+addDisplay (char *name);
 
 Time
 getCurrentTimeFromDisplay (CompDisplay *d);
@@ -1003,7 +1059,7 @@ handleSelectionClear (CompDisplay *display,
 		      XEvent      *event);
 
 void
-warpPointer (CompDisplay *display,
+warpPointer (CompScreen *screen,
 	     int	 dx,
 	     int	 dy);
 
@@ -1144,25 +1200,46 @@ typedef void (*DonePaintScreenProc) (CompScreen *screen);
 #define PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS_MASK (1 << 3)
 #define PAINT_SCREEN_CLEAR_MASK			   (1 << 4)
 
-typedef Bool (*PaintScreenProc) (CompScreen		 *screen,
+typedef void (*PaintScreenProc) (CompScreen   *screen,
+				 CompOutput   *outputs,
+				 int          numOutput,
+				 unsigned int mask);
+
+typedef Bool (*PaintOutputProc) (CompScreen		 *screen,
 				 const ScreenPaintAttrib *sAttrib,
 				 const CompTransform	 *transform,
 				 Region			 region,
-				 int		         output,
+				 CompOutput		 *output,
 				 unsigned int		 mask);
 
-typedef void (*PaintTransformedScreenProc) (CompScreen		    *screen,
+typedef void (*PaintTransformedOutputProc) (CompScreen		    *screen,
 					    const ScreenPaintAttrib *sAttrib,
 					    const CompTransform	    *transform,
 					    Region		    region,
-					    int			    output,
+					    CompOutput		    *output,
 					    unsigned int	    mask);
 
 /* XXX: ApplyScreenTransformProc will be removed */
 typedef void (*ApplyScreenTransformProc) (CompScreen		  *screen,
 					  const ScreenPaintAttrib *sAttrib,
-					  int			  output,
+					  CompOutput		  *output,
 					  CompTransform	          *transform);
+
+typedef void (*WalkerFiniProc) (CompScreen *screen,
+				CompWalker *walker);
+
+typedef CompWindow *(*WalkInitProc) (CompScreen *screen);
+typedef CompWindow *(*WalkStepProc) (CompWindow *window);
+
+struct _CompWalker {
+    WalkerFiniProc fini;
+    CompPrivate	   priv;
+
+    WalkInitProc first;
+    WalkInitProc last;
+    WalkStepProc next;
+    WalkStepProc prev;
+};
 
 /*
   window paint flags
@@ -1254,37 +1331,43 @@ donePaintScreen (CompScreen *screen);
 
 void
 transformToScreenSpace (CompScreen    *screen,
-			int	      output,
+			CompOutput    *output,
 			float         z,
 			CompTransform *transform);
 
 /* XXX: prepareXCoords will be removed */
 void
 prepareXCoords (CompScreen *screen,
-		int	   output,
+		CompOutput *output,
 		float      z);
 
 void
-paintTransformedScreen (CompScreen		*screen,
+paintTransformedOutput (CompScreen		*screen,
 			const ScreenPaintAttrib *sAttrib,
 			const CompTransform	*transform,
 			Region			region,
-			int			output,
+			CompOutput		*output,
 			unsigned int	        mask);
 
 /* XXX: applyScreenTransform will be removed */
 void
 applyScreenTransform (CompScreen	      *screen,
 		      const ScreenPaintAttrib *sAttrib,
-		      int		      output,
+		      CompOutput	      *output,
 		      CompTransform	      *transform);
 
+void
+paintScreen (CompScreen   *screen,
+	     CompOutput   *outputs,
+	     int          numOutput,
+	     unsigned int mask);
+
 Bool
-paintScreen (CompScreen		     *screen,
+paintOutput (CompScreen		     *screen,
 	     const ScreenPaintAttrib *sAttrib,
 	     const CompTransform     *transform,
 	     Region		     region,
-	     int		     output,
+	     CompOutput		     *output,
 	     unsigned int	     mask);
 
 Bool
@@ -1555,6 +1638,13 @@ typedef CompOption *(*GetScreenOptionsProc) (CompScreen *screen,
 typedef Bool (*SetScreenOptionProc) (CompScreen      *screen,
 				     char	     *name,
 				     CompOptionValue *value);
+typedef CompOption *(*GetPluginScreenOptionsProc) (CompPlugin *plugin,
+						   CompScreen *screen,
+						   int	      *count);
+typedef Bool (*SetPluginScreenOptionProc) (CompPlugin      *plugin,
+					   CompScreen      *screen,
+					   char	           *name,
+					   CompOptionValue *value);
 typedef Bool (*SetScreenOptionForPluginProc) (CompScreen      *screen,
 					      char	      *plugin,
 					      char	      *name,
@@ -1590,6 +1680,12 @@ typedef unsigned int (*GetAllowedActionsForWindowProc) (CompWindow *w);
 
 typedef Bool (*FocusWindowProc) (CompWindow *window);
 
+typedef Bool (*PlaceWindowProc) (CompWindow *window,
+				 int        x,
+				 int        y,
+				 int        *newX,
+				 int        *newY);
+
 typedef void (*WindowResizeNotifyProc) (CompWindow *window,
 					int        dx,
 					int        dy,
@@ -1616,7 +1712,12 @@ typedef void (*WindowUngrabNotifyProc) (CompWindow *window);
 
 typedef void (*WindowStateChangeNotifyProc) (CompWindow *window);
 
+typedef void (*WindowAddNotifyProc) (CompWindow *window);
+
 typedef void (*OutputChangeNotifyProc) (CompScreen *screen);
+
+typedef void (*InitWindowWalkerProc) (CompScreen *screen,
+				      CompWalker *walker);
 
 #define COMP_SCREEN_DAMAGE_PENDING_MASK (1 << 0)
 #define COMP_SCREEN_DAMAGE_REGION_MASK  (1 << 1)
@@ -1658,6 +1759,7 @@ typedef struct _CompFBConfig {
     int         yInverted;
     int         mipmap;
     int         textureFormat;
+    int         textureTargets;
 } CompFBConfig;
 
 #define NOTHING_TRANS_FILTER 0
@@ -1685,13 +1787,14 @@ struct _CompIcon {
     int		height;
 };
 
-typedef struct _CompOutput {
+struct _CompOutput {
     char       *name;
+    int        id;
     REGION     region;
     int        width;
     int        height;
     XRectangle workArea;
-} CompOutput;
+};
 
 typedef struct _CompCursorImage {
     struct _CompCursorImage *next;
@@ -1778,6 +1881,9 @@ struct _CompScreen {
     CompOutput *outputDev;
     int	       nOutputDev;
     int	       currentOutputDev;
+    CompOutput fullscreenOutput;
+
+    XRectangle lastViewport;
 
     CompActiveWindowHistory history[ACTIVE_WINDOW_HISTORY_NUM];
     int			    currentHistory;
@@ -1844,8 +1950,6 @@ struct _CompScreen {
     Bool lighting;
     Bool slowAnimations;
 
-    int opacityStep;
-
     XRectangle workArea;
 
     unsigned int showingDesktopMask;
@@ -1897,7 +2001,8 @@ struct _CompScreen {
     PreparePaintScreenProc	   preparePaintScreen;
     DonePaintScreenProc		   donePaintScreen;
     PaintScreenProc		   paintScreen;
-    PaintTransformedScreenProc	   paintTransformedScreen;
+    PaintOutputProc		   paintOutput;
+    PaintTransformedOutputProc	   paintTransformedOutput;
     ApplyScreenTransformProc	   applyScreenTransform;
     PaintBackgroundProc		   paintBackground;
     PaintWindowProc		   paintWindow;
@@ -1908,10 +2013,12 @@ struct _CompScreen {
     GetOutputExtentsForWindowProc  getOutputExtentsForWindow;
     GetAllowedActionsForWindowProc getAllowedActionsForWindow;
     FocusWindowProc		   focusWindow;
+    PlaceWindowProc                placeWindow;
 
     PaintCursorProc      paintCursor;
     DamageCursorRectProc damageCursorRect;
 
+    WindowAddNotifyProc    windowAddNotify;
     WindowResizeNotifyProc windowResizeNotify;
     WindowMoveNotifyProc   windowMoveNotify;
     WindowGrabNotifyProc   windowGrabNotify;
@@ -1923,6 +2030,8 @@ struct _CompScreen {
     WindowStateChangeNotifyProc windowStateChangeNotify;
 
     OutputChangeNotifyProc outputChangeNotify;
+
+    InitWindowWalkerProc initWindowWalker;
 
     CompPrivate *privates;
 };
@@ -2059,6 +2168,7 @@ moveScreenViewport (CompScreen *s,
 void
 moveWindowToViewportPosition (CompWindow *w,
 			      int	 x,
+			      int        y,
 			      Bool       sync);
 
 CompGroup *
@@ -2138,7 +2248,7 @@ outputChangeNotify (CompScreen *s);
 
 void
 clearScreenOutput (CompScreen   *s,
-		   int	        output,
+		   CompOutput	*output,
 		   unsigned int mask);
 
 void
@@ -2193,6 +2303,12 @@ typedef Bool (*InitPluginForWindowProc) (CompPlugin *plugin,
 					 CompWindow *window);
 typedef void (*FiniPluginForWindowProc) (CompPlugin *plugin,
 					 CompWindow *window);
+
+typedef enum {
+    CompStackingUpdateModeNone = 0,
+    CompStackingUpdateModeNormal,
+    CompStackingUpdateModeAboveFullscreen
+} CompStackingUpdateMode;
 
 struct _CompWindowExtents {
     int left;
@@ -2251,6 +2367,7 @@ struct _CompWindow {
     Bool	      redirected;
     Bool	      managed;
     Bool	      bindFailed;
+    Bool	      added;
     int		      destroyRefCnt;
     int		      unmapRefCnt;
 
@@ -2565,6 +2682,13 @@ damageTransformedWindowRect (CompWindow *w,
 Bool
 focusWindow (CompWindow *w);
 
+Bool
+placeWindow (CompWindow *w,
+	     int        x,
+	     int        y,
+	     int        *newX,
+	     int        *newY);
+
 void
 windowResizeNotify (CompWindow *w,
 		    int	       dx,
@@ -2612,8 +2736,8 @@ restackWindowBelow (CompWindow *w,
 		    CompWindow *sibling);
 
 void
-updateWindowAttributes (CompWindow *w,
-			Bool	   aboveFs);
+updateWindowAttributes (CompWindow             *w,
+			CompStackingUpdateMode stackingMode);
 
 void
 activateWindow (CompWindow *w);
@@ -2621,10 +2745,6 @@ activateWindow (CompWindow *w);
 void
 closeWindow (CompWindow *w,
 	     Time	serverTime);
-
-void
-getOuterRectOfWindow (CompWindow *w,
-		      XRectangle *r);
 
 Bool
 constrainNewWindowSize (CompWindow *w,
@@ -2693,6 +2813,9 @@ int
 compareWindowActiveness (CompWindow *w1,
 			 CompWindow *w2);
 
+void
+windowAddNotify (CompWindow *w);
+
 
 /* plugin.c */
 
@@ -2704,27 +2827,13 @@ typedef int (*GetVersionProc) (CompPlugin *plugin,
 typedef Bool (*InitPluginProc) (CompPlugin *plugin);
 typedef void (*FiniPluginProc) (CompPlugin *plugin);
 
-typedef enum {
-    CompPluginRuleBefore,
-    CompPluginRuleAfter,
-    CompPluginRuleRequire
-} CompPluginRule;
-
-typedef struct _CompPluginDep {
-    CompPluginRule rule;
-    char	   *name;
-} CompPluginDep;
-
-typedef struct _CompPluginFeature {
-    char *name;
-} CompPluginFeature;
+typedef CompMetadata *(*GetMetadataProc) (CompPlugin *plugin);
 
 typedef struct _CompPluginVTable {
     char *name;
-    char *shortDesc;
-    char *longDesc;
 
-    GetVersionProc getVersion;
+    GetVersionProc  getVersion;
+    GetMetadataProc getMetadata;
 
     InitPluginProc init;
     FiniPluginProc fini;
@@ -2738,16 +2847,10 @@ typedef struct _CompPluginVTable {
     InitPluginForWindowProc initWindow;
     FiniPluginForWindowProc finiWindow;
 
-    GetDisplayOptionsProc getDisplayOptions;
-    SetDisplayOptionProc  setDisplayOption;
-    GetScreenOptionsProc  getScreenOptions;
-    SetScreenOptionProc   setScreenOption;
-
-    CompPluginDep *deps;
-    int		  nDeps;
-
-    CompPluginFeature *features;
-    int		      nFeatures;
+    GetPluginDisplayOptionsProc getDisplayOptions;
+    SetPluginDisplayOptionProc  setDisplayOption;
+    GetPluginScreenOptionsProc  getScreenOptions;
+    SetPluginScreenOptionProc   setScreenOption;
 } CompPluginVTable;
 
 typedef CompPluginVTable *(*PluginGetInfoProc) (void);
@@ -2805,9 +2908,6 @@ windowFiniPlugins (CompWindow *w);
 
 CompPlugin *
 findActivePlugin (char *name);
-
-CompPluginFeature *
-findActiveFeature (char *name);
 
 CompPlugin *
 loadPlugin (char *plugin);
@@ -2886,11 +2986,13 @@ addColorOpToFunctionData (CompFunctionData *data,
 
 Bool
 addDataOpToFunctionData (CompFunctionData *data,
-			 char		  *str);
+			 char		  *str,
+			 ...);
 
 Bool
 addBlendOpToFunctionData (CompFunctionData *data,
-			  char		   *str);
+			  char		   *str,
+			  ...);
 
 int
 createFragmentFunction (CompScreen	 *s,
@@ -3030,6 +3132,159 @@ matchExpHandlerChanged (CompDisplay *display);
 void
 matchPropertyChanged (CompDisplay *display,
 		      CompWindow  *window);
+
+
+/* metadata.c */
+
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY (x)
+#define MINTOSTRING(x) "<min>" TOSTRING (x) "</min>"
+#define MAXTOSTRING(x) "<max>" TOSTRING (x) "</max>"
+#define RESTOSTRING(min, max) MINTOSTRING (min) MAXTOSTRING (max)
+
+typedef struct _CompMetadataOptionInfo {
+    char		   *name;
+    char		   *type;
+    char		   *data;
+    CompActionCallBackProc initiate;
+    CompActionCallBackProc terminate;
+} CompMetadataOptionInfo;
+
+extern const CompMetadataOptionInfo
+coreDisplayOptionInfo[COMP_DISPLAY_OPTION_NUM];
+extern const CompMetadataOptionInfo
+coreScreenOptionInfo[COMP_SCREEN_OPTION_NUM];
+
+struct _CompMetadata {
+    char   *path;
+    xmlDoc **doc;
+    int    nDoc;
+};
+
+Bool
+compInitMetadata (CompMetadata *metadata);
+
+Bool
+compInitPluginMetadata (CompMetadata *metadata,
+			const char   *plugin);
+
+Bool
+compInitPluginMetadataFromInfo (CompMetadata		     *metadata,
+				const char		     *plugin,
+				const CompMetadataOptionInfo *displayOptionInfo,
+				int			     nDisplayOptionInfo,
+				const CompMetadataOptionInfo *screenOptionInfo,
+				int			     nScreenOptionInfo);
+
+void
+compFiniMetadata (CompMetadata *metadata);
+
+Bool
+compAddMetadataFromFile (CompMetadata *metadata,
+			 const char   *file);
+
+Bool
+compAddMetadataFromString (CompMetadata *metadata,
+			   const char	*string);
+
+Bool
+compAddMetadataFromIO (CompMetadata	     *metadata,
+		       xmlInputReadCallback  ioread,
+		       xmlInputCloseCallback ioclose,
+		       void		     *ioctx);
+
+Bool
+compInitScreenOptionFromMetadata (CompScreen   *screen,
+				  CompMetadata *metadata,
+				  CompOption   *option,
+				  const char   *name);
+
+void
+compFiniScreenOption (CompScreen *screen,
+		      CompOption *option);
+
+Bool
+compInitScreenOptionsFromMetadata (CompScreen			*screen,
+				   CompMetadata			*metadata,
+				   const CompMetadataOptionInfo *info,
+				   CompOption			*option,
+				   int				n);
+
+void
+compFiniScreenOptions (CompScreen *screen,
+		       CompOption *option,
+		       int	  n);
+
+Bool
+compSetScreenOption (CompScreen      *screen,
+		     CompOption      *option,
+		     CompOptionValue *value);
+
+Bool
+compInitDisplayOptionFromMetadata (CompDisplay  *display,
+				   CompMetadata *metadata,
+				   CompOption   *option,
+				   const char   *name);
+
+void
+compFiniDisplayOption (CompDisplay *display,
+		       CompOption  *option);
+
+Bool
+compInitDisplayOptionsFromMetadata (CompDisplay			 *display,
+				    CompMetadata		 *metadata,
+				    const CompMetadataOptionInfo *info,
+				    CompOption			 *option,
+				    int				 n);
+
+void
+compFiniDisplayOptions (CompDisplay *display,
+			CompOption  *option,
+			int	    n);
+
+Bool
+compSetDisplayOption (CompDisplay     *display,
+		      CompOption      *option,
+		      CompOptionValue *value);
+
+char *
+compGetStringFromMetadataPath (CompMetadata *metadata,
+			       const char   *path);
+
+char *
+compGetShortPluginDescription (CompMetadata *metadata);
+
+char *
+compGetLongPluginDescription (CompMetadata *metadata);
+
+char *
+compGetShortScreenOptionDescription (CompMetadata *metadata,
+				     CompOption   *option);
+
+char *
+compGetLongScreenOptionDescription (CompMetadata *metadata,
+				    CompOption   *option);
+
+char *
+compGetShortDisplayOptionDescription (CompMetadata *metadata,
+				      CompOption   *option);
+
+char *
+compGetLongDisplayOptionDescription (CompMetadata *metadata,
+				     CompOption   *option);
+
+
+int
+compReadXmlChunk (const char *src,
+		  int	     *offset,
+		  char	     *buffer,
+		  int	     length);
+
+int
+compReadXmlChunkFromMetadataOptionInfo (const CompMetadataOptionInfo *info,
+					int			     *offset,
+					char			     *buffer,
+					int			     length);
 
 
 #ifdef  __cplusplus
