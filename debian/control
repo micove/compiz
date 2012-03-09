@@ -22,6 +22,7 @@ Build-Depends: cmake (>= 2.6),
  libglu1-mesa-dev,
  libgtest-dev,
  libgtk2.0-dev,
+ libgtk-3-dev,
  libice-dev (>= 1:1.0.1),
  libmetacity-dev (>= 1:2.30.0),
  libpango1.0-dev,
@@ -57,10 +58,10 @@ Architecture: all
 Provides: x-window-manager
 Depends: ${misc:Depends},
  compiz-core (>= ${source:Version}),
- compiz-fusion-plugins-main (>= 0.9),
+ compiz-fusion-plugins-main (>= 0.9.7.0),
  compiz-gtk | compiz-kde,
  compiz-plugins (>= ${source:Version}),
- libcompizconfig0 (>= 0.9)
+ libcompizconfig0 (>= 0.9.7.0)
 Suggests: compizconfig-settings-manager
 Description: OpenGL window and compositing manager - metapackage
  Compiz brings to life a variety of visual effects that make the Linux desktop
@@ -76,10 +77,10 @@ Package: compiz-core
 Architecture: any
 Depends: ${shlibs:Depends},
  ${misc:Depends}
-Breaks: compiz-fusion-plugins-extra (<< 0.9),
- compiz-fusion-plugins-main (<< 0.9),
- compiz-gtk (<< 0.9),
- libcompizconfig0 (<< 0.9)
+Breaks: compiz-fusion-plugins-extra (<< 0.9.7.0),
+ compiz-fusion-plugins-main (<< 0.9.7.0),
+ compiz-gtk (<< 0.9.7.0),
+ libcompizconfig0 (<< 0.9.7.0)
 Conflicts: compiz-gtk (<= 0.8.4-4)
 Replaces: compiz-gtk (<= 0.8.4-4)
 Recommends: compiz-plugins (= ${binary:Version})
@@ -102,9 +103,11 @@ Architecture: any
 Depends: ${misc:Depends},
  compiz-core (= ${binary:Version}),
  compiz-plugins (= ${binary:Version}),
+ libdecoration0-dev (= ${binary:Version}),
  libgl1-mesa-dev | libgl-dev,
  libglib2.0-dev,
- libglibmm-2.4-dev
+ libglibmm-2.4-dev,
+ libgtk-3-dev,
  libice-dev (>= 1:1.0.1),
  libpng-dev,
  libsm-dev (>= 1:1.0.1),
@@ -130,7 +133,8 @@ Package: compiz-gtk
 Architecture: any
 Depends: ${shlibs:Depends},
  ${misc:Depends},
- compiz-core (= ${binary:Version})
+ compiz-core (= ${binary:Version}),
+ compiz-plugins (= ${binary:Version})
 Replaces: compiz-plugins (<= 0.8.4-4)
 Conflicts: compiz-plugins (<= 0.8.4-4)
 Suggests: gnome-themes
@@ -162,7 +166,7 @@ Architecture: any
 Depends: ${shlibs:Depends},
  ${misc:Depends}
  compiz-core (= ${binary:Version}),
- libdecoration0 (>= 0.9.0)
+ libdecoration0 (= ${binary:Version})
 Description: OpenGL window and compositing manager - plugins
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
