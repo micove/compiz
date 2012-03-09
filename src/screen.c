@@ -255,6 +255,72 @@ setVirtualScreenSize (CompScreen *screen,
 		      int	 hsize,
 		      int	 vsize)
 {
+    /* if hsize or vsize is being reduced */
+    if (hsize < screen->hsize ||
+	vsize < screen->vsize)
+    {
+	CompWindow *w;
+	int        tx = 0;
+	int        ty = 0;
+
+	if (screen->x >= hsize)
+	    tx = screen->x - (hsize - 1);
+	if (screen->y >= vsize)
+	    ty = screen->y - (vsize - 1);
+
+	if (tx != 0 || ty != 0)
+	    moveScreenViewport (screen, tx, ty, TRUE);
+
+	/* Move windows that were in one of the deleted viewports into the
+	   closest viewport */
+	for (w = screen->windows; w; w = w->next)
+	{
+	    int moveX = 0;
+	    int moveY = 0;
+
+	    if (windowOnAllViewports (w))
+		continue;
+
+	    /* Find which viewport the (inner) window's top-left corner falls
+	       in, and check if it's outside the new viewport horizontal and
+	       vertical index range */
+	    if (hsize < screen->hsize)
+	    {
+		int vpX;   /* x index of a window's vp */
+
+		vpX = w->serverX / screen->width;
+		if (w->serverX < 0)
+		    vpX -= 1;
+
+		vpX += screen->x; /* Convert relative to absolute vp index */
+
+		/* Move windows too far right to left */
+		if (vpX >= hsize)
+		    moveX = ((hsize - 1) - vpX) * screen->width;
+	    }
+	    if (vsize < screen->vsize)
+	    {
+		int vpY;   /* y index of a window's vp */
+
+		vpY = w->serverY / screen->height;
+		if (w->serverY < 0)
+		    vpY -= 1;
+
+		vpY += screen->y; /* Convert relative to absolute vp index */
+
+		/* Move windows too far right to left */
+		if (vpY >= vsize)
+		    moveY = ((vsize - 1) - vpY) * screen->height;
+	    }
+
+	    if (moveX != 0 || moveY != 0)
+	    {
+		moveWindow (w, moveX, moveY, TRUE, TRUE);
+		syncWindowPosition (w);
+	    }
+	}
+    }
+
     screen->hsize = hsize;
     screen->vsize = vsize;
 
@@ -704,9 +770,10 @@ addSequence (CompScreen        *screen,
     screen->startupSequences = s;
 
     if (!screen->startupSequenceTimeoutHandle)
-	compAddTimeout (1000, 1500,
-			startupSequenceTimeout,
-			screen);
+	screen->startupSequenceTimeoutHandle =
+	    compAddTimeout (1000, 1500,
+			    startupSequenceTimeout,
+			    screen);
 
     updateStartupFeedback (screen);
 }
@@ -743,6 +810,28 @@ removeSequence (CompScreen        *screen,
 	screen->startupSequenceTimeoutHandle = 0;
     }
 
+    updateStartupFeedback (screen);
+}
+
+static void
+removeAllSequences (CompScreen *screen)
+{
+    CompStartupSequence *s;
+    CompStartupSequence *sNext;
+
+    for (s = screen->startupSequences; s; s = sNext)
+    {
+	sNext = s->next;
+	sn_startup_sequence_unref (s->sequence);
+	free (s);
+    }
+    screen->startupSequences = NULL;
+
+    if (screen->startupSequenceTimeoutHandle)
+    {
+	compRemoveTimeout (screen->startupSequenceTimeoutHandle);
+	screen->startupSequenceTimeoutHandle = 0;
+    }
     updateStartupFeedback (screen);
 }
 
@@ -1110,106 +1199,114 @@ setSupportingWmCheck (CompScreen *s)
 		     (unsigned char *) &s->grabWindow, 1);
 }
 
-static void
-setSupported (CompScreen *s)
+static unsigned int
+addSupportedAtoms (CompScreen   *s,
+		   Atom         *atoms,
+		   unsigned int size)
 {
-    CompDisplay *d = s->display;
-    Atom	data[256];
-    int		i = 0;
+    CompDisplay  *d = s->display;
+    unsigned int count = 0;
 
-    data[i++] = d->supportedAtom;
-    data[i++] = d->supportingWmCheckAtom;
+    atoms[count++] = d->utf8StringAtom;
 
-    data[i++] = d->utf8StringAtom;
+    atoms[count++] = d->clientListAtom;
+    atoms[count++] = d->clientListStackingAtom;
 
-    data[i++] = d->clientListAtom;
-    data[i++] = d->clientListStackingAtom;
+    atoms[count++] = d->winActiveAtom;
 
-    data[i++] = d->winActiveAtom;
+    atoms[count++] = d->desktopViewportAtom;
+    atoms[count++] = d->desktopGeometryAtom;
+    atoms[count++] = d->currentDesktopAtom;
+    atoms[count++] = d->numberOfDesktopsAtom;
+    atoms[count++] = d->showingDesktopAtom;
 
-    data[i++] = d->desktopViewportAtom;
-    data[i++] = d->desktopGeometryAtom;
-    data[i++] = d->currentDesktopAtom;
-    data[i++] = d->numberOfDesktopsAtom;
-    data[i++] = d->showingDesktopAtom;
+    atoms[count++] = d->workareaAtom;
 
-    data[i++] = d->workareaAtom;
+    atoms[count++] = d->wmNameAtom;
 
-    data[i++] = d->wmNameAtom;
-/*
-    data[i++] = d->wmVisibleNameAtom;
-*/
+    atoms[count++] = d->wmStrutAtom;
+    atoms[count++] = d->wmStrutPartialAtom;
 
-    data[i++] = d->wmStrutAtom;
-    data[i++] = d->wmStrutPartialAtom;
+    atoms[count++] = d->wmUserTimeAtom;
+    atoms[count++] = d->frameExtentsAtom;
+    atoms[count++] = d->frameWindowAtom;
 
-/*
-    data[i++] = d->wmPidAtom;
-*/
+    atoms[count++] = d->winStateAtom;
+    atoms[count++] = d->winStateModalAtom;
+    atoms[count++] = d->winStateStickyAtom;
+    atoms[count++] = d->winStateMaximizedVertAtom;
+    atoms[count++] = d->winStateMaximizedHorzAtom;
+    atoms[count++] = d->winStateShadedAtom;
+    atoms[count++] = d->winStateSkipTaskbarAtom;
+    atoms[count++] = d->winStateSkipPagerAtom;
+    atoms[count++] = d->winStateHiddenAtom;
+    atoms[count++] = d->winStateFullscreenAtom;
+    atoms[count++] = d->winStateAboveAtom;
+    atoms[count++] = d->winStateBelowAtom;
+    atoms[count++] = d->winStateDemandsAttentionAtom;
 
-    data[i++] = d->wmUserTimeAtom;
-    data[i++] = d->frameExtentsAtom;
-    data[i++] = d->frameWindowAtom;
-
-    data[i++] = d->winStateAtom;
-    data[i++] = d->winStateModalAtom;
-    data[i++] = d->winStateStickyAtom;
-    data[i++] = d->winStateMaximizedVertAtom;
-    data[i++] = d->winStateMaximizedHorzAtom;
-    data[i++] = d->winStateShadedAtom;
-    data[i++] = d->winStateSkipTaskbarAtom;
-    data[i++] = d->winStateSkipPagerAtom;
-    data[i++] = d->winStateHiddenAtom;
-    data[i++] = d->winStateFullscreenAtom;
-    data[i++] = d->winStateAboveAtom;
-    data[i++] = d->winStateBelowAtom;
-    data[i++] = d->winStateDemandsAttentionAtom;
-
-    data[i++] = d->winOpacityAtom;
-    data[i++] = d->winBrightnessAtom;
+    atoms[count++] = d->winOpacityAtom;
+    atoms[count++] = d->winBrightnessAtom;
 
     if (s->canDoSaturated)
     {
-	data[i++] = d->winSaturationAtom;
-	data[i++] = d->winStateDisplayModalAtom;
+	atoms[count++] = d->winSaturationAtom;
+	atoms[count++] = d->winStateDisplayModalAtom;
     }
 
-    data[i++] = d->wmAllowedActionsAtom;
+    atoms[count++] = d->wmAllowedActionsAtom;
 
-    data[i++] = d->winActionMoveAtom;
-    data[i++] = d->winActionResizeAtom;
-    data[i++] = d->winActionStickAtom;
-    data[i++] = d->winActionMinimizeAtom;
-    data[i++] = d->winActionMaximizeHorzAtom;
-    data[i++] = d->winActionMaximizeVertAtom;
-    data[i++] = d->winActionFullscreenAtom;
-    data[i++] = d->winActionCloseAtom;
-    data[i++] = d->winActionShadeAtom;
-    data[i++] = d->winActionChangeDesktopAtom;
-    data[i++] = d->winActionAboveAtom;
-    data[i++] = d->winActionBelowAtom;
+    atoms[count++] = d->winActionMoveAtom;
+    atoms[count++] = d->winActionResizeAtom;
+    atoms[count++] = d->winActionStickAtom;
+    atoms[count++] = d->winActionMinimizeAtom;
+    atoms[count++] = d->winActionMaximizeHorzAtom;
+    atoms[count++] = d->winActionMaximizeVertAtom;
+    atoms[count++] = d->winActionFullscreenAtom;
+    atoms[count++] = d->winActionCloseAtom;
+    atoms[count++] = d->winActionShadeAtom;
+    atoms[count++] = d->winActionChangeDesktopAtom;
+    atoms[count++] = d->winActionAboveAtom;
+    atoms[count++] = d->winActionBelowAtom;
 
-    data[i++] = d->winTypeAtom;
-    data[i++] = d->winTypeDesktopAtom;
-    data[i++] = d->winTypeDockAtom;
-    data[i++] = d->winTypeToolbarAtom;
-    data[i++] = d->winTypeMenuAtom;
-    data[i++] = d->winTypeSplashAtom;
-    data[i++] = d->winTypeDialogAtom;
-    data[i++] = d->winTypeUtilAtom;
-    data[i++] = d->winTypeNormalAtom;
+    atoms[count++] = d->winTypeAtom;
+    atoms[count++] = d->winTypeDesktopAtom;
+    atoms[count++] = d->winTypeDockAtom;
+    atoms[count++] = d->winTypeToolbarAtom;
+    atoms[count++] = d->winTypeMenuAtom;
+    atoms[count++] = d->winTypeSplashAtom;
+    atoms[count++] = d->winTypeDialogAtom;
+    atoms[count++] = d->winTypeUtilAtom;
+    atoms[count++] = d->winTypeNormalAtom;
 
-    data[i++] = d->wmDeleteWindowAtom;
-    data[i++] = d->wmPingAtom;
+    atoms[count++] = d->wmDeleteWindowAtom;
+    atoms[count++] = d->wmPingAtom;
 
-    data[i++] = d->wmMoveResizeAtom;
-    data[i++] = d->moveResizeWindowAtom;
-    data[i++] = d->restackWindowAtom;
+    atoms[count++] = d->wmMoveResizeAtom;
+    atoms[count++] = d->moveResizeWindowAtom;
+    atoms[count++] = d->restackWindowAtom;
 
-    data[i++] = d->wmFullscreenMonitorsAtom;
+    atoms[count++] = d->wmFullscreenMonitorsAtom;
+
+    assert (count < size);
+
+    return count;
+}
+
+void
+setSupportedWmHints (CompScreen *s)
+{
+    CompDisplay  *d = s->display;
+    Atom	 data[256];
+    unsigned int count = 0;
+
+    data[count++] = d->supportedAtom;
+    data[count++] = d->supportingWmCheckAtom;
+
+    count += (*s->addSupportedAtoms) (s, data + count, 256 - count);
 
     XChangeProperty (d->display, s->root, d->supportedAtom, XA_ATOM, 32,
-		     PropModeReplace, (unsigned char *) data, i);
+		     PropModeReplace, (unsigned char *) data, count);
 }
 
 static void
@@ -1802,6 +1899,7 @@ addScreen (CompDisplay *display,
     s->windowStateChangeNotify = windowStateChangeNotify;
 
     s->outputChangeNotify = outputChangeNotify;
+    s->addSupportedAtoms  = addSupportedAtoms;
 
     s->initWindowWalker = initWindowWalker;
 
@@ -1921,6 +2019,8 @@ addScreen (CompDisplay *display,
 	getProcAddress (s, "glXGetFBConfigAttrib");
     s->createPixmap = (GLXCreatePixmapProc)
 	getProcAddress (s, "glXCreatePixmap");
+    s->destroyPixmap = (GLXDestroyPixmapProc)
+	getProcAddress (s, "glXDestroyPixmap");
 
     if (!s->bindTexImage)
     {
@@ -1939,7 +2039,8 @@ addScreen (CompDisplay *display,
     if (!s->queryDrawable     ||
 	!s->getFBConfigs      ||
 	!s->getFBConfigAttrib ||
-	!s->createPixmap)
+	!s->createPixmap      ||
+	!s->destroyPixmap)
     {
 	compLogMessage ("core", CompLogLevelFatal,
 			"fbconfig functions missing");
@@ -2020,6 +2121,10 @@ addScreen (CompDisplay *display,
 	strstr (glExtensions, "GL_SGIS_texture_border_clamp"))
 	s->textureBorderClamp = 1;
 
+    s->activeTexture       = NULL;
+    s->clientActiveTexture = NULL;
+    s->multiTexCoord2f     = NULL;
+
     s->maxTextureUnits = 1;
     if (strstr (glExtensions, "GL_ARB_multitexture"))
     {
@@ -2033,6 +2138,14 @@ addScreen (CompDisplay *display,
 	if (s->activeTexture && s->clientActiveTexture && s->multiTexCoord2f)
 	    glGetIntegerv (GL_MAX_TEXTURE_UNITS_ARB, &s->maxTextureUnits);
     }
+
+    s->genPrograms             = NULL;
+    s->deletePrograms          = NULL;
+    s->bindProgram             = NULL;
+    s->programString           = NULL;
+    s->programEnvParameter4f   = NULL;
+    s->programLocalParameter4f = NULL;
+    s->getProgramiv            = NULL;
 
     s->fragmentProgram = 0;
     if (strstr (glExtensions, "GL_ARB_fragment_program"))
@@ -2061,6 +2174,13 @@ addScreen (CompDisplay *display,
 	    s->getProgramiv)
 	    s->fragmentProgram = 1;
     }
+
+    s->genFramebuffers        = NULL;
+    s->deleteFramebuffers     = NULL;
+    s->bindFramebuffer        = NULL;
+    s->checkFramebufferStatus = NULL;
+    s->framebufferTexture2D   = NULL;
+    s->generateMipmap         = NULL;
 
     s->fbo = 0;
     if (strstr (glExtensions, "GL_EXT_framebuffer_object"))
@@ -2354,7 +2474,7 @@ addScreen (CompDisplay *display,
 
     setDesktopHints (s);
     setSupportingWmCheck (s);
-    setSupported (s);
+    setSupportedWmHints (s);
 
     s->normalCursor = XCreateFontCursor (dpy, XC_left_ptr);
     s->busyCursor   = XCreateFontCursor (dpy, XC_watch);
@@ -2383,6 +2503,8 @@ removeScreen (CompScreen *s)
 	p->next = s->next;
     else
 	d->screens = NULL;
+
+    removeAllSequences (s);
 
     while (s->windows)
 	removeWindow (s->windows);

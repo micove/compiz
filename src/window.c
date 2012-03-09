@@ -1697,7 +1697,7 @@ updateWindowRegion (CompWindow *w)
 					  ShapeBounding, &n, &order);
     }
 
-    if (n < 2)
+    if (n < 1)
     {
 	r.x      = -w->attrib.border_width;
 	r.y      = -w->attrib.border_width;
@@ -2083,8 +2083,6 @@ addWindow (CompScreen *screen,
     w->paint.xTranslate	= 0.0f;
     w->paint.yTranslate	= 0.0f;
 
-    w->lastPaint = w->paint;
-
     w->alive = TRUE;
 
     w->mwmDecor = MwmDecorAll;
@@ -2268,6 +2266,8 @@ addWindow (CompScreen *screen,
 	w->paint.saturation = getWindowProp32 (d, w->id,
 					       d->winSaturationAtom, COLOR);
 	
+    w->lastPaint = w->paint;
+
     if (w->attrib.map_state == IsViewable)
     {
 	w->placed = TRUE;
@@ -2553,6 +2553,28 @@ unmapWindow (CompWindow *w)
     w->unmapRefCnt--;
     if (w->unmapRefCnt > 0)
 	return;
+
+    if (w->managed && !w->placed) /* only for managed and closed windows */
+    {
+	XWindowChanges xwc;
+	unsigned int   xwcm;
+	int            gravity = w->sizeHints.win_gravity;
+
+	/* revert gravity adjustment made at MapRequest time */
+	xwc.x      = w->serverX;
+	xwc.y      = w->serverY;
+	xwc.width  = w->serverWidth;
+	xwc.height = w->serverHeight;
+
+	xwcm = adjustConfigureRequestForGravity (w, &xwc,
+						 CWX | CWY,
+						 gravity, -1);
+
+	if (xwcm)
+	    configureXWindow (w, xwcm, &xwc);
+
+	w->managed = FALSE;
+    }
 
     if (w->struts)
 	updateWorkareaForScreen (w->screen);
@@ -2971,13 +2993,21 @@ validateWindowResizeRequest (CompWindow     *w,
 	min = s->workArea.y + w->input.top;
 	max = s->workArea.y + s->workArea.height;
 
-	min -= s->y * s->height;
-	max += (s->vsize - s->y - 1) * s->height;
+	if (w->state & CompWindowStateStickyMask &&
+	    (xwc->y < min || xwc->y > max))
+	{
+	    xwc->y = w->serverY;
+	}
+	else
+	{
+	    min -= s->y * s->height;
+	    max += (s->vsize - s->y - 1) * s->height;
 
-	if (xwc->y < min)
-	    xwc->y = min;
-	else if (xwc->y > max)
-	    xwc->y = max;
+	    if (xwc->y < min)
+		xwc->y = min;
+	    else if (xwc->y > max)
+		xwc->y = max;
+	}
     }
 
     if (*mask & CWX)
@@ -2987,13 +3017,21 @@ validateWindowResizeRequest (CompWindow     *w,
 	min = s->workArea.x + w->input.left;
 	max = s->workArea.x + s->workArea.width;
 
-	min -= s->x * s->width;
-	max += (s->hsize - s->x - 1) * s->width;
+	if (w->state & CompWindowStateStickyMask &&
+	    (xwc->x < min || xwc->x > max))
+	{
+	    xwc->x = w->serverX;
+	}
+	else
+	{
+	    min -= s->x * s->width;
+	    max += (s->hsize - s->x - 1) * s->width;
 
-	if (xwc->x < min)
-	    xwc->x = min;
-	else if (xwc->x > max)
-	    xwc->x = max;
+	    if (xwc->x < min)
+		xwc->x = min;
+	    else if (xwc->x > max)
+		xwc->x = max;
+	}
     }
 }
 
@@ -3034,6 +3072,26 @@ void
 windowStateChangeNotify (CompWindow   *w,
 			 unsigned int lastState)
 {
+    /* if being made sticky */
+    if (!(lastState & CompWindowStateStickyMask) &&
+	(w->state & CompWindowStateStickyMask))
+    {
+	CompScreen *s = w->screen;
+	int vpX;   /* x index of the window's vp */
+	int vpY;   /* y index of the window's vp */
+
+	/* Find which viewport the window falls in,
+	   and check if it's the current viewport */
+	defaultViewportForWindow (w, &vpX, &vpY);
+	if (s->x != vpX || s->y != vpY)
+	{
+	    int moveX = (s->x - vpX) * s->width;
+	    int moveY = (s->y - vpY) * s->height;
+
+	    moveWindow (w, moveX, moveY, TRUE, TRUE);
+	    syncWindowPosition (w);
+	}
+    }
 }
 
 static Bool
@@ -3860,7 +3918,8 @@ unsigned int
 adjustConfigureRequestForGravity (CompWindow     *w,
 				  XWindowChanges *xwc,
 				  unsigned int   xwcm,
-				  int            gravity)
+				  int            gravity,
+				  int            direction)
 {
     int          newX, newY;
     unsigned int mask = 0;
@@ -3875,23 +3934,23 @@ adjustConfigureRequestForGravity (CompWindow     *w,
 	case WestGravity:
 	case SouthWestGravity:
 	    if (xwcm & CWX)
-		newX += w->input.left;
+		newX += w->input.left * direction;
 	    break;
 
 	case NorthGravity:
 	case CenterGravity:
 	case SouthGravity:
 	    if (!(xwcm & CWX))
-		newX += (w->serverWidth - xwc->width) / 2;
+		newX += ((w->serverWidth - xwc->width) / 2) * direction;
 	    break;
 
 	case NorthEastGravity:
 	case EastGravity:
 	case SouthEastGravity:
 	    if (xwcm & CWX)
-		newX -= w->input.right;
+		newX -= w->input.right * direction;
 	    else
-		newX += w->serverWidth - xwc->width;
+		newX += (w->serverWidth - xwc->width) * direction;
 	    break;
 
 	case StaticGravity:
@@ -3907,23 +3966,23 @@ adjustConfigureRequestForGravity (CompWindow     *w,
 	case NorthGravity:
 	case NorthEastGravity:
 	    if (xwcm & CWY)
-		newY += w->input.top;
+		newY += w->input.top * direction;
 	    break;
 
 	case WestGravity:
 	case CenterGravity:
 	case EastGravity:
 	    if (!(xwcm & CWY))
-		newY += (w->serverHeight - xwc->height) / 2;
+		newY += ((w->serverHeight - xwc->height) / 2) * direction;
 	    break;
 
 	case SouthWestGravity:
 	case SouthGravity:
 	case SouthEastGravity:
 	    if (xwcm & CWY)
-		newY -= w->input.bottom;
+		newY -= w->input.bottom * direction;
 	    else
-		newY += w->serverHeight - xwc->height;
+		newY += (w->serverHeight - xwc->height) * direction;
 	    break;
 
 	case StaticGravity:
@@ -3999,7 +4058,7 @@ moveResizeWindow (CompWindow     *w,
 	}
     }
 
-    xwcm |= adjustConfigureRequestForGravity (w, xwc, xwcm, gravity);
+    xwcm |= adjustConfigureRequestForGravity (w, xwc, xwcm, gravity, 1);
 
     (*w->screen->validateWindowResizeRequest) (w, &xwcm, xwc, source);
 
@@ -4086,8 +4145,9 @@ addWindowStackChanges (CompWindow     *w,
     {
 	CompWindow *prev = w->prev;
 
-	/* the frame window is always our next sibling window in the stack, although
-	   we're searching for the next 'real' sibling, so skip the frame window */
+	/* the frame window is always our next sibling window in the stack,
+	   although we're searching for the next 'real' sibling, so skip
+	   the frame window */
 	if (prev && prev->id == w->frame)
 		prev = prev->prev;
 
@@ -4160,15 +4220,63 @@ raiseWindow (CompWindow *w)
 	configureXWindow (w, mask, &xwc);
 }
 
+static CompWindow *
+focusTopmostWindow (CompScreen *s)
+{
+    CompDisplay *d = s->display;
+    CompWindow  *w;
+    CompWindow  *focus = NULL;
+
+    for (w = s->reverseWindows; w; w = w->prev)
+    {
+	if (w->type & CompWindowTypeDockMask)
+	    continue;
+
+	if ((*s->focusWindow) (w))
+	{
+	    focus = w;
+	    break;
+	}
+    }
+
+    if (focus)
+    {
+	if (focus->id != d->activeWindow)
+	    moveInputFocusToWindow (focus);
+    }
+    else
+	XSetInputFocus (d->display, s->root, RevertToPointerRoot,
+			CurrentTime);
+
+    return focus;
+}
+
 void
 lowerWindow (CompWindow *w)
 {
     XWindowChanges xwc;
     int		   mask;
+    CompDisplay    *d = w->screen->display;
 
     mask = addWindowStackChanges (w, &xwc, findLowestSiblingBelow (w));
     if (mask)
 	configureXWindow (w, mask, &xwc);
+
+    /* when lowering a window, focus the topmost window if the click-to-focus option is on */
+    if (d->opt[COMP_DISPLAY_OPTION_CLICK_TO_FOCUS].value.b)
+    {
+	Window     aboveId = w->prev ? w->prev->id : None;
+	CompWindow *focusedWindow;
+
+	unhookWindowFromScreen (w->screen, w);
+	focusedWindow = focusTopmostWindow (w->screen);
+	insertWindowIntoScreen (w->screen, w, aboveId);
+
+	/* if the newly focused window is a desktop window,
+	   give the focus back to w */
+	if (focusedWindow && focusedWindow->type & CompWindowTypeDesktopMask)
+	    moveInputFocusToWindow (w);
+    }
 }
 
 void
@@ -4196,6 +4304,20 @@ findValidStackSiblingBelow (CompWindow *w,
 			    CompWindow *sibling)
 {
     CompWindow *lowest, *last, *p;
+
+    /* check whether we're actually allowed to stack under sibling by
+       finding the sibling above 'sibling' and checking whether we're
+       allowed to stack under that - if not, there's no valid sibling
+       under it */
+    for (p = sibling; p; p = p->next)
+    {
+	if (!avoidStackingRelativeTo (p))
+	{
+	    if (!validSiblingBelow (p, w))
+		return NULL;
+	    break;
+	}
+    }
 
     /* get lowest sibling we're allowed to stack above */
     lowest = last = findLowestSiblingBelow (w);
@@ -4272,12 +4394,15 @@ updateWindowAttributes (CompWindow             *w,
 	{
 	    /* put active or soon-to-be-active fullscreen windows over
 	       all others in their layer */
-	    if (w->id == w->screen->display->activeWindow ||
-		stackingMode == CompStackingUpdateModeInitialMap)
+	    if (w->id == w->screen->display->activeWindow)
 	    {
 		aboveFs = TRUE;
 	    }
 	}
+
+	/* put windows that are just mapped, over fullscreen windows */
+	if (stackingMode == CompStackingUpdateModeInitialMap)
+	    aboveFs = TRUE;
 
 	sibling = findSiblingBelow (w, aboveFs);
 

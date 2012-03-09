@@ -1381,7 +1381,6 @@ handleEvent (CompDisplay *d,
 		    setWmState (d, WithdrawnState, w->id);
 
 		w->placed  = FALSE;
-		w->managed = FALSE;
 	    }
 
 	    unmapWindow (w);
@@ -2049,7 +2048,7 @@ handleEvent (CompDisplay *d,
 
 		    xwcm = adjustConfigureRequestForGravity (w, &xwc,
 							     CWX | CWY,
-							     gravity);
+							     gravity, 1);
 
 		    source = ClientTypeApplication;
 		    (*w->screen->validateWindowResizeRequest) (w, &xwcm, &xwc,

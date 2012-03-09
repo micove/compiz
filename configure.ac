@@ -5,7 +5,7 @@ dnl An odd micro number indicates in-progress development.
 dnl An even micro number indicates a released version.
 m4_define(compiz_version_major, 0)
 m4_define(compiz_version_minor, 8)
-m4_define(compiz_version_micro, 2)
+m4_define(compiz_version_micro, 4)
 
 AC_INIT([compiz],
 	[compiz_version_major().compiz_version_minor().compiz_version_micro()],
@@ -331,7 +331,7 @@ if test "x$use_gtk" = "xyes"; then
 
     if test "x$use_gnome" = "xyes"; then
       PKG_CHECK_MODULES(GNOME_WINDOW_SETTINGS,
-			gnome-window-settings-2.0 gnome-desktop-2.0,
+			gnome-window-settings-2.0 gnome-desktop-2.0 gconf-2.0,
 			[use_gnome=yes], [use_gnome=no])
     fi
 
@@ -513,7 +513,7 @@ if test "x$use_kde4" = "xyes"; then
 
   if test -d "$kde4libs"; then
     PKG_CHECK_MODULES(KDE4_WINDOW_DECORATOR,
-		      dbus-1 xdamage xcomposite QtCore >= 4.0.0 QtGui QtDBus,
+		      dbus-1 xdamage xcomposite QtCore >= 4.5.0 QtGui QtDBus,
 			[use_kde4=yes], [use_kde4=no])
 
     KDE4_CFLAGS="-I$kde4incs"

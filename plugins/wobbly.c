@@ -124,6 +124,8 @@ typedef struct _WobblyDisplay {
     CompOption opt[WOBBLY_DISPLAY_OPTION_NUM];
 
     Bool snapping;
+
+    Bool yConstrained;
 } WobblyDisplay;
 
 #define WOBBLY_SCREEN_OPTION_FRICTION	        0
@@ -161,6 +163,8 @@ typedef struct _WobblyScreen {
     unsigned int grabMask;
     CompWindow	 *grabWindow;
     Bool         moveWindow;
+
+    const XRectangle *grabWindowWorkArea;
 } WobblyScreen;
 
 #define WobblyInitial  (1L << 0)
@@ -253,6 +257,8 @@ findNextWestEdge (CompWindow *w,
     int e, end;
     int x;
     int output;
+    const XRectangle *workArea;
+    int workAreaEdge;
 
     start = -65535.0f;
     end   =  65535.0f;
@@ -263,12 +269,14 @@ findNextWestEdge (CompWindow *w,
     x = object->position.x + w->output.left - w->input.left;
 
     output = outputDeviceForPoint (w->screen, x, object->position.y);
+    workArea = &w->screen->outputDev[output].workArea;
+    workAreaEdge = workArea->x;
 
-    if (x >= w->screen->outputDev[output].region.extents.x1)
+    if (x >= workAreaEdge)
     {
 	CompWindow *p;
 
-	v1 = w->screen->outputDev[output].region.extents.x1;
+	v1 = workAreaEdge;
 
 	for (p = w->screen->windows; p; p = p->next)
 	{
@@ -330,7 +338,7 @@ findNextWestEdge (CompWindow *w,
     }
     else
     {
-	v2 = w->screen->outputDev[output].region.extents.x1;
+	v2 = workAreaEdge;
     }
 
     v1 = v1 - w->output.left + w->input.left;
@@ -358,6 +366,8 @@ findNextEastEdge (CompWindow *w,
     int e, end;
     int x;
     int output;
+    const XRectangle *workArea;
+    int workAreaEdge;
 
     start = -65535.0f;
     end   =  65535.0f;
@@ -368,12 +378,14 @@ findNextEastEdge (CompWindow *w,
     x = object->position.x - w->output.right + w->input.right;
 
     output = outputDeviceForPoint (w->screen, x, object->position.y);
+    workArea = &w->screen->outputDev[output].workArea;
+    workAreaEdge = workArea->x + workArea->width;
 
-    if (x <= w->screen->outputDev[output].region.extents.x2)
+    if (x <= workAreaEdge)
     {
 	CompWindow *p;
 
-	v1 = w->screen->outputDev[output].region.extents.x2;
+	v1 = workAreaEdge;
 
 	for (p = w->screen->windows; p; p = p->next)
 	{
@@ -435,7 +447,7 @@ findNextEastEdge (CompWindow *w,
     }
     else
     {
-	v2 = w->screen->outputDev[output].region.extents.x2;
+	v2 = workAreaEdge;
     }
 
     v1 = v1 + w->output.right - w->input.right;
@@ -463,6 +475,8 @@ findNextNorthEdge (CompWindow *w,
     int e, end;
     int y;
     int output;
+    const XRectangle *workArea;
+    int workAreaEdge;
 
     start = -65535.0f;
     end   =  65535.0f;
@@ -473,12 +487,14 @@ findNextNorthEdge (CompWindow *w,
     y = object->position.y + w->output.top - w->input.top;
 
     output = outputDeviceForPoint (w->screen, object->position.x, y);
+    workArea = &w->screen->outputDev[output].workArea;
+    workAreaEdge = workArea->y;
 
-    if (y >= w->screen->outputDev[output].region.extents.y1)
+    if (y >= workAreaEdge)
     {
 	CompWindow *p;
 
-	v1 = w->screen->outputDev[output].region.extents.y1;
+	v1 = workAreaEdge;
 
 	for (p = w->screen->windows; p; p = p->next)
 	{
@@ -538,7 +554,7 @@ findNextNorthEdge (CompWindow *w,
     }
     else
     {
-	v2 = w->screen->outputDev[output].region.extents.y1;
+	v2 = workAreaEdge;
     }
 
     v1 = v1 - w->output.top + w->input.top;
@@ -566,6 +582,8 @@ findNextSouthEdge (CompWindow *w,
     int e, end;
     int y;
     int output;
+    const XRectangle *workArea;
+    int workAreaEdge;
 
     start = -65535.0f;
     end   =  65535.0f;
@@ -576,12 +594,14 @@ findNextSouthEdge (CompWindow *w,
     y = object->position.y - w->output.bottom + w->input.bottom;
 
     output = outputDeviceForPoint (w->screen, object->position.x, y);
+    workArea = &w->screen->outputDev[output].workArea;
+    workAreaEdge = workArea->y + workArea->height;
 
-    if (y <= w->screen->outputDev[output].region.extents.y2)
+    if (y <= workAreaEdge)
     {
 	CompWindow *p;
 
-	v1 = w->screen->outputDev[output].region.extents.y2;
+	v1 = workAreaEdge;
 
 	for (p = w->screen->windows; p; p = p->next)
 	{
@@ -642,7 +662,7 @@ findNextSouthEdge (CompWindow *w,
     }
     else
     {
-	v2 = w->screen->outputDev[output].region.extents.y2;
+	v2 = workAreaEdge;
     }
 
     v1 = v1 + w->output.bottom - w->input.bottom;
@@ -1679,12 +1699,41 @@ wobblyPreparePaintScreen (CompScreen *s,
 
 		    if (ww->wobbly)
 		    {
+			WOBBLY_DISPLAY (s->display);
+
 			/* snapped to more than one edge, we have to reduce
 			   edge escape velocity until only one edge is snapped */
 			if (ww->wobbly == WobblyForce && !ww->grabbed)
 			{
 			    modelReduceEdgeEscapeVelocity (ww->model);
 			    ww->wobbly |= WobblyInitial;
+			}
+
+			if (!ww->grabbed && wd->yConstrained)
+			{
+			    float bottommostYPos = MINSHORT;
+			    int i;
+
+			    /* find the bottommost top-row object */
+			    for (i = 0; i < GRID_WIDTH; i++)
+			    {
+				if (model->objects[i].position.y >
+				    bottommostYPos)
+				    bottommostYPos =
+					model->objects[i].position.y;
+			    }
+
+			    int decorTop = bottommostYPos +
+				w->output.top - w->input.top;
+
+			    if (ws->grabWindowWorkArea->y > decorTop)
+			    {
+				/* constrain to work area */
+				modelMove (model, 0,
+					   ws->grabWindowWorkArea->y -
+					   decorTop);
+				modelCalcBounds (model);
+			    }
 			}
 		    }
 		    else
@@ -2486,6 +2535,9 @@ wobblyWindowGrabNotify (CompWindow   *w,
 	{
 	    Spring *s;
 	    int	   i;
+	    CompPlugin *pMove;
+
+	    WOBBLY_DISPLAY (w->screen->display);
 
 	    if (ws->opt[WOBBLY_SCREEN_OPTION_MAXIMIZE_EFFECT].value.b)
 	    {
@@ -2516,10 +2568,32 @@ wobblyWindowGrabNotify (CompWindow   *w,
 
 	    ww->grabbed = TRUE;
 
+	    /* Update yConstrained and workArea at grab time */
+	    wd->yConstrained = FALSE;
+	    if (mask & CompWindowGrabExternalAppMask)
+	    {
+		pMove = findActivePlugin ("move");
+		if (pMove && pMove->vTable->getObjectOptions)
+		{
+		    int        nOption = 0;
+		    CompOption *moveOptions;
+
+		    moveOptions = (*pMove->vTable->getObjectOptions)
+			(pMove, &core.displays->base, &nOption);
+
+		    wd->yConstrained = getBoolOptionNamed (moveOptions, nOption,
+							   "constrain_y", TRUE);
+		}
+	    }
+
+	    if (wd->yConstrained)
+	    {
+		int output = outputDeviceForWindow (w);
+		ws->grabWindowWorkArea = &w->screen->outputDev[output].workArea;
+	    }
+
 	    if (mask & CompWindowGrabMoveMask)
 	    {
-		WOBBLY_DISPLAY (w->screen->display);
-
 		modelDisableSnapping (w, ww->model);
 		if (wd->snapping)
 		    modelUpdateSnapping (w, ww->model);
@@ -2651,6 +2725,16 @@ wobblySetDisplayOption (CompPlugin      *plugin,
 	return FALSE;
 
     switch (index) {
+    case WOBBLY_DISPLAY_OPTION_SNAP_INVERTED:
+	if (compSetBoolOption (o, value))
+	{
+	    if (value->b)
+		wobblyEnableSnapping (display, NULL, 0, NULL, 0);
+	    else
+		wobblyDisableSnapping (display, NULL, 0, NULL, 0);
+	    return TRUE;
+	}
+	break;
     case WOBBLY_DISPLAY_OPTION_SNAP_KEY:
 	/* ignore the key */
 	value->action.key.keycode = 0;
@@ -2706,6 +2790,7 @@ wobblyInitDisplay (CompPlugin  *p,
     WRAP (wd, d, handleEvent, wobblyHandleEvent);
 
     wd->snapping = FALSE;
+    wd->yConstrained = FALSE;
 
     d->base.privates[displayPrivateIndex].ptr = wd;
 
@@ -2762,6 +2847,8 @@ wobblyInitScreen (CompPlugin *p,
     ws->grabMask   = 0;
     ws->grabWindow = NULL;
     ws->moveWindow = FALSE;
+
+    ws->grabWindowWorkArea = NULL;
 
     WRAP (ws, s, preparePaintScreen, wobblyPreparePaintScreen);
     WRAP (ws, s, donePaintScreen, wobblyDonePaintScreen);
