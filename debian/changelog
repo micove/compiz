@@ -14,8 +14,15 @@ compiz (0.9.7.0-0.1) experimental; urgency=low
   * Refresh 017_always_unredirect_screensaver_on_nvidia.patch.
   * Remove 2nd HUNK from 060_move_checks_to_compiz.patch since it was merged
     upstream. Also refresh the 1st HUNK.
+  * debian/control:
+    - Bump debhelper and the compatibility level to 9.
+    - Organize the build dependency list:
+      + Change kdebase-workspace-dev to kde-workspace-dev.
+      + Change libpng12-dev | libpng-dev to libpng-dev.
+      + Change libgnome-window-settings-dev to gnome-control-center-dev.
+      + Add lcov, libgtest-dev and google-mock for building the tests.
 
- -- Miguel Colon <debian.micove@gmail.com>  Fri, 09 Mar 2012 03:35:03 -0500
+ -- Miguel Colon <debian.micove@gmail.com>  Fri, 09 Mar 2012 07:17:35 -0500
 
 compiz (0.9.2.1+git20110226.f059fae9-4) experimental; urgency=low
 
