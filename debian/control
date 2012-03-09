@@ -20,8 +20,6 @@ Build-Depends: cmake (>= 2.6),
  libglib2.0-dev,
  libglibmm-2.4-dev,
  libglu1-mesa-dev,
- libgnome-desktop-dev,
- libgnomeui-dev,
  libgtest-dev,
  libgtk2.0-dev,
  libice-dev (>= 1:1.0.1),
@@ -57,7 +55,7 @@ Vcs-Browser: http://git.debian.org/?p=pkg-xorg/app/compiz.git
 Package: compiz
 Architecture: all
 Provides: x-window-manager
-Depends: compiz-core (>= ${source:Version}), compiz-plugins (>= ${source:Version}), compiz-gnome | compiz-kde, compiz-fusion-plugins-main (>= 0.9), libcompizconfig0 (>= 0.9), ${misc:Depends}
+Depends: compiz-core (>= ${source:Version}), compiz-plugins (>= ${source:Version}), compiz-gtk | compiz-kde, compiz-fusion-plugins-main (>= 0.9), libcompizconfig0 (>= 0.9), ${misc:Depends}
 Suggests: compizconfig-settings-manager
 Description: OpenGL window and compositing manager - metapackage
  Compiz brings to life a variety of visual effects that make the Linux desktop
@@ -130,17 +128,6 @@ Description: OpenGL window and compositing manager - KDE window decorator
  .
  This package contains a window decorator that uses KDE to provide a look and
  feel similar to that of the default KDE window manager.
-
-Package: compiz-gnome
-Architecture: any
-Depends: compiz-gtk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Description: OpenGL window and compositing manager - GNOME window decorator
- Compiz brings to life a variety of visual effects that make the Linux desktop
- easier to use, more powerful and intuitive, and more accessible for users
- with special needs.
- .
- This package contains files needed to integrate compiz with the GNOME desktop
- environment.
 
 Package: compiz-plugins
 Architecture: any

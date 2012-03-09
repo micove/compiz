@@ -13,7 +13,7 @@ override_dh_clean:
 
 override_dh_auto_configure:
 	# currently, segfault if CMAKE_BUILD_TYPE=Release
-	dh_auto_configure -- -DCOMPIZ_BUILD_WITH_RPATH=FALSE -DCOMPIZ_DEFAULT_PLUGINS=\"$(DEFAULT_PLUGINS)\" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCOMPIZ_PACKAGING_ENABLED=TRUE
+	dh_auto_configure -- -DCOMPIZ_BUILD_WITH_RPATH=FALSE -DCOMPIZ_DEFAULT_PLUGINS=\"$(DEFAULT_PLUGINS)\" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCOMPIZ_PACKAGING_ENABLED=TRUE -DUSE_GNOME=OFF
 
 override_dh_install:
 	# cmake findcompiz_install use COMPIZ_DESTDIR and using COMPIZ_DESTDIR and
