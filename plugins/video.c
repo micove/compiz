@@ -805,7 +805,7 @@ videoWindowUpdate (CompWindow *w)
 				 XA_INTEGER, &actual, &format,
 				 &n, &left, &propData);
 
-    if (result == Success && n && propData)
+    if (result == Success && propData)
     {
 	if (n == 13)
 	{
@@ -840,7 +840,7 @@ videoWindowUpdate (CompWindow *w)
     {
 	if (!vs->imageFormat[i])
 	{
-	    compLogMessage (w->screen->display, "video", CompLogLevelWarn,
+	    compLogMessage ("video", CompLogLevelWarn,
 			    "Image format not supported");
 	    i = IMAGE_FORMAT_NUM;
 	}
@@ -851,9 +851,8 @@ videoWindowUpdate (CompWindow *w)
 	texture = videoGetTexture (w->screen, pixmap);
 	if (!texture)
 	{
-	    compLogMessage (w->screen->display, "video", CompLogLevelWarn,
-			    "Bad pixmap 0x%x",
-			    (int) pixmap);
+	    compLogMessage ("video", CompLogLevelWarn,
+			    "Bad pixmap 0x%x", (int) pixmap);
 	}
     }
 
@@ -1137,7 +1136,7 @@ videoInitScreen (CompPlugin *p,
 	}
 	else
 	{
-	    compLogMessage (s->display, "video", CompLogLevelWarn,
+	    compLogMessage ("video", CompLogLevelWarn,
 			    "No 8 bit GLX pixmap format, "
 			    "disabling YV12 image format");
 	}
@@ -1257,8 +1256,9 @@ videoGetObjectOptions (CompPlugin *plugin,
 	(GetPluginObjectOptionsProc) videoGetDisplayOptions
     };
 
+    *count = 0;
     RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
-		     (void *) (*count = 0), (plugin, object, count));
+		     (void *) count, (plugin, object, count));
 }
 
 static CompBool

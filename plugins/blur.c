@@ -716,7 +716,7 @@ blurWindowUpdate (CompWindow *w,
 				 XA_INTEGER, &actual, &format,
 				 &n, &left, &propData);
 
-    if (result == Success && n && propData)
+    if (result == Success && propData)
     {
 	bw->propSet[state] = TRUE;
 
@@ -1220,7 +1220,6 @@ getDstBlurFragmentFunction (CompScreen  *s,
 		ok &= addTempHeaderOpToFunctionData (data, str);
 	    }
 
-	    
 	    ok &= addFetchOpToFunctionData (data, "output", NULL, target);
 	    ok &= addColorOpToFunctionData (data, "output", "output");
 
@@ -1426,7 +1425,7 @@ loadFragmentProgram (CompScreen *s,
     glGetIntegerv (GL_PROGRAM_ERROR_POSITION_ARB, &errorPos);
     if (glGetError () != GL_NO_ERROR || errorPos != -1)
     {
-	compLogMessage (s->display, "blur", CompLogLevelError,
+	compLogMessage ("blur", CompLogLevelError,
 			"Failed to load blur program %s", string);
 
 	(*s->deletePrograms) (1, program);
@@ -1553,7 +1552,7 @@ fboPrologue (CompScreen *s)
 	bs->fboStatus = (*s->checkFramebufferStatus) (GL_FRAMEBUFFER_EXT);
 	if (bs->fboStatus != GL_FRAMEBUFFER_COMPLETE_EXT)
 	{
-	    compLogMessage (s->display, "blur", CompLogLevelError,
+	    compLogMessage ("blur", CompLogLevelError,
 			    "Framebuffer incomplete");
 
 	    (*s->bindFramebuffer) (GL_FRAMEBUFFER_EXT, 0);
@@ -1623,7 +1622,7 @@ fboUpdate (CompScreen *s,
 
     BLUR_SCREEN (s);
 
-    if (s->maxTextureUnits && 
+    if (s->maxTextureUnits &&
 	bs->opt[BLUR_SCREEN_OPTION_INDEPENDENT_TEX].value.b)
 	iTC = MIN ((s->maxTextureUnits - 1) / 2, bs->numTexop);
 
@@ -1994,7 +1993,7 @@ blurUpdateDstTexture (CompWindow	  *w,
 		(*s->genFramebuffers) (1, &bs->fbo);
 
 	    if (!bs->fbo)
-		compLogMessage (s->display, "blur", CompLogLevelError,
+		compLogMessage ("blur", CompLogLevelError,
 				"Failed to create framebuffer object");
 
 	    textures = 2;
@@ -2029,15 +2028,15 @@ blurUpdateDstTexture (CompWindow	  *w,
 	    {
 		if (!s->fbo)
 		{
-		    compLogMessage (s->display, "blur", CompLogLevelWarn,
-			     "GL_EXT_framebuffer_object extension "
-			     "is required for mipmap filter");
+		    compLogMessage ("blur", CompLogLevelWarn,
+				    "GL_EXT_framebuffer_object extension "
+				    "is required for mipmap filter");
 		}
 		else if (bs->target != GL_TEXTURE_2D)
 		{
-		    compLogMessage (s->display, "blur", CompLogLevelWarn,
-			     "GL_ARB_texture_non_power_of_two "
-			     "extension is required for mipmap filter");
+		    compLogMessage ("blur", CompLogLevelWarn,
+				    "GL_ARB_texture_non_power_of_two "
+				    "extension is required for mipmap filter");
 		}
 		else
 		{
@@ -2294,7 +2293,7 @@ blurDrawWindowTexture (CompWindow	    *w,
 		param = allocFragmentParameters (&dstFa, 3);
 		unit  = allocFragmentTextureUnits (&dstFa, 1);
 
-		function = 
+		function =
 		    getDstBlurFragmentFunction (s, texture, param, unit, 0, 0);
 		if (function)
 		{
@@ -2329,8 +2328,8 @@ blurDrawWindowTexture (CompWindow	    *w,
 		param = allocFragmentParameters (&dstFa, 2);
 		unit  = allocFragmentTextureUnits (&dstFa, 2);
 
-		function = 
-		    getDstBlurFragmentFunction (s, texture, param, unit, 
+		function =
+		    getDstBlurFragmentFunction (s, texture, param, unit,
 						iTC, w->texUnits);
 		if (function)
 		{
@@ -2454,7 +2453,7 @@ blurDrawWindowTexture (CompWindow	    *w,
 		param = allocFragmentParameters (&dstFa, 2);
 		unit  = allocFragmentTextureUnits (&dstFa, 1);
 
-		function = 
+		function =
 		    getDstBlurFragmentFunction (s, texture, param, unit, 0, 0);
 		if (function)
 		{
@@ -2994,7 +2993,7 @@ blurInitScreen (CompPlugin *p,
 
     glGetIntegerv (GL_STENCIL_BITS, &bs->stencilBits);
     if (!bs->stencilBits)
-	compLogMessage (s->display, "blur", CompLogLevelWarn,
+	compLogMessage ("blur", CompLogLevelWarn,
 			"No stencil buffer. Region based blur disabled");
 
     /* We need GL_ARB_fragment_program for blur */
@@ -3176,8 +3175,9 @@ blurGetObjectOptions (CompPlugin *plugin,
 	(GetPluginObjectOptionsProc) blurGetScreenOptions
     };
 
+    *count = 0;
     RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
-		     (void *) (*count = 0), (plugin, object, count));
+		     (void *) count, (plugin, object, count));
 }
 
 static CompBool

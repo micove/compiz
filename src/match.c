@@ -672,6 +672,15 @@ matchEvalOverrideRedirectExp (CompDisplay *display,
 	    (private.val == 0 && !overrideRedirect));
 }
 
+static Bool
+matchEvalAlphaExp (CompDisplay *display,
+		   CompWindow  *window,
+		   CompPrivate private)
+{
+    return ((private.val && window->alpha) ||
+	    (!private.val && !window->alpha));
+}
+
 void
 matchInitExp (CompDisplay  *display,
 	      CompMatchExp *exp,
@@ -691,6 +700,11 @@ matchInitExp (CompDisplay  *display,
     {
 	exp->eval     = matchEvalOverrideRedirectExp;
 	exp->priv.val = strtol (value + 18, NULL, 0);
+    }
+    else if (strncmp (value, "rgba=", 5) == 0)
+    {
+	exp->eval     = matchEvalAlphaExp;
+	exp->priv.val = strtol (value + 5, NULL, 0);
     }
     else
     {
@@ -738,7 +752,6 @@ matchExpHandlerChanged (CompDisplay *display)
     int	       nOption;
     CompPlugin *p;
     CompScreen *s;
-    CompWindow *w;
 
     for (p = getPlugins (); p; p = p->next)
     {
@@ -759,9 +772,6 @@ matchExpHandlerChanged (CompDisplay *display)
 	    option = (*p->vTable->getObjectOptions) (p, &s->base, &nOption);
 	    matchUpdateMatchOptions (option, nOption);
 	}
-
-	for (w = s->windows; w; w = w->next)
-	    updateWindowOpacity (w);
     }
 }
 
@@ -769,5 +779,4 @@ void
 matchPropertyChanged (CompDisplay *display,
 		      CompWindow  *w)
 {
-    updateWindowOpacity (w);
 }

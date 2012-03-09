@@ -321,11 +321,11 @@ setScaledPaintAttributes (CompWindow        *w,
 	    ss->opacity != OPAQUE		  &&
 	    ss->state   != SCALE_STATE_IN)
 	{
-    	    /* modify opacity of windows that are not active */
+	    /* modify opacity of windows that are not active */
 	    attrib->opacity = (attrib->opacity * ss->opacity) >> 16;
 	}
 
-     	drawScaled = TRUE;
+	drawScaled = TRUE;
     }
     else if (ss->state != SCALE_STATE_IN)
     {
@@ -335,7 +335,7 @@ setScaledPaintAttributes (CompWindow        *w,
 	    attrib->brightness = attrib->brightness / 2;
 	}
 
-     	/* hide windows on the outputs used for scaling 
+	/* hide windows on the outputs used for scaling
 	   that are not in scale mode */
 	if (!isNeverScaleWin (w))
 	{
@@ -344,11 +344,11 @@ setScaledPaintAttributes (CompWindow        *w,
 
 	    switch (moMode) {
 	    case SCALE_MOMODE_CURRENT:
-    		if (outputDeviceForWindow (w) == w->screen->currentOutputDev)
+		if (outputDeviceForWindow (w) == w->screen->currentOutputDev)
 		    attrib->opacity = 0;
 		break;
 	    default:
-	      	attrib->opacity = 0;
+		attrib->opacity = 0;
 		break;
 	    }
 	}
@@ -440,9 +440,9 @@ compareWindowsDistance (const void *elem1,
 	GET_SCALE_WINDOW (w2, ss)->distance;
 }
 
-static void 
-layoutSlotsForArea (CompScreen * s, 
-		    XRectangle workArea, 
+static void
+layoutSlotsForArea (CompScreen *s,
+		    XRectangle workArea,
 		    int        nWindows)
 {
     int i, j;
@@ -575,7 +575,7 @@ layoutSlots (CompScreen *s)
 
     moMode  = ss->opt[SCALE_SCREEN_OPTION_MULTIOUTPUT_MODE].value.i;
 
-    /* if we have only one head, we don't need the 
+    /* if we have only one head, we don't need the
        additional effort of the all outputs mode */
     if (s->nOutputDev == 1)
 	moMode = SCALE_MOMODE_CURRENT;
@@ -591,8 +591,8 @@ layoutSlots (CompScreen *s)
 	    if (slotAreas)
 	    {
 		for (i = 0; i < s->nOutputDev; i++)
-		    layoutSlotsForArea (s, 
-					slotAreas[i].workArea, 
+		    layoutSlotsForArea (s,
+					slotAreas[i].workArea,
 					slotAreas[i].nWindows);
 		free (slotAreas);
 	    }
@@ -1011,6 +1011,31 @@ sendDndStatusMessage (CompScreen *s,
 }
 
 static Bool
+scaleActionShouldToggle (CompDisplay     *d,
+			 CompAction      *action,
+			 CompActionState state)
+{
+    SCALE_DISPLAY (d);
+
+    if (state & EDGE_STATE)
+	return TRUE;
+
+    if (state & (CompActionStateInitKey | CompActionStateTermKey))
+    {
+	if (sd->opt[SCALE_DISPLAY_OPTION_KEY_BINDINGS_TOGGLE].value.b)
+	    return TRUE;
+	else if (!action->key.modifiers)
+	    return TRUE;
+    }
+
+    if (state & (CompActionStateInitButton | CompActionStateTermButton))
+	if (sd->opt[SCALE_DISPLAY_OPTION_BUTTON_BINDINGS_TOGGLE].value.b)
+	    return TRUE;
+
+    return FALSE;
+}
+
+static Bool
 scaleTerminate (CompDisplay     *d,
 		CompAction      *action,
 		CompActionState state,
@@ -1022,17 +1047,20 @@ scaleTerminate (CompDisplay     *d,
 
     SCALE_DISPLAY (d);
 
-    xid = getIntOptionNamed (option, nOption, "root", 0);
-
-    for (s = d->screens; s; s = s->next)
+    if (!scaleActionShouldToggle (d, action, state))
     {
-	SCALE_SCREEN (s);
+	xid = getIntOptionNamed (option, nOption, "root", 0);
 
-	if (xid && s->root != xid)
-	    continue;
-
-	if (ss->grab)
+	for (s = d->screens; s; s = s->next)
 	{
+	    SCALE_SCREEN (s);
+
+	    if (xid && s->root != xid)
+		continue;
+
+	    if (!ss->grab)
+		continue;
+
 	    if (ss->grabIndex)
 	    {
 		removeScreenGrab (s, ss->grabIndex, 0);
@@ -1217,7 +1245,7 @@ scaleInitiate (CompDisplay     *d,
 	    ss->type = ScaleTypeNormal;
 	    return scaleInitiateCommon (s, action, state, option, nOption);
 	}
-	else if ((state & EDGE_STATE) && ss->state == SCALE_STATE_WAIT)
+	else if (scaleActionShouldToggle (d, action, state))
 	{
 	    if (ss->type == ScaleTypeNormal)
 		return scaleTerminate (s->display, action,
@@ -1250,7 +1278,7 @@ scaleInitiateAll (CompDisplay     *d,
 	    ss->type = ScaleTypeAll;
 	    return scaleInitiateCommon (s, action, state, option, nOption);
 	}
-	else if ((state & EDGE_STATE) && ss->state == SCALE_STATE_WAIT)
+	else if (scaleActionShouldToggle (d, action, state))
 	{
 	    if (ss->type == ScaleTypeAll)
 		return scaleTerminate (s->display, action,
@@ -1292,7 +1320,7 @@ scaleInitiateGroup (CompDisplay     *d,
 		return scaleInitiateCommon (s, action, state, option, nOption);
 	    }
 	}
-	else if ((state & EDGE_STATE) && ss->state == SCALE_STATE_WAIT)
+	else if (scaleActionShouldToggle (d, action, state))
 	{
 	    if (ss->type == ScaleTypeGroup)
 		return scaleTerminate (s->display, action,
@@ -1325,7 +1353,7 @@ scaleInitiateOutput (CompDisplay     *d,
 	    ss->type = ScaleTypeOutput;
 	    return scaleInitiateCommon (s, action, state, option, nOption);
 	}
-	else if ((state & EDGE_STATE) && ss->state == SCALE_STATE_WAIT)
+	else if (scaleActionShouldToggle (d, action, state))
 	{
 	    if (ss->type == ScaleTypeOutput)
 		return scaleTerminate (s->display, action,
@@ -1610,6 +1638,7 @@ scaleHandleEvent (CompDisplay *d,
 		  XEvent      *event)
 {
     CompScreen *s;
+    Bool       consumeEvent = FALSE;
 
     SCALE_DISPLAY (d);
 
@@ -1623,13 +1652,25 @@ scaleHandleEvent (CompDisplay *d,
 	    if (ss->grabIndex)
 	    {
 		if (event->xkey.keycode == sd->leftKeyCode)
+		{
 		    scaleMoveFocusWindow (s, -1, 0);
+		    consumeEvent = TRUE;
+		}
 		else if (event->xkey.keycode == sd->rightKeyCode)
+		{
 		    scaleMoveFocusWindow (s, 1, 0);
+		    consumeEvent = TRUE;
+		}
 		else if (event->xkey.keycode == sd->upKeyCode)
+		{
 		    scaleMoveFocusWindow (s, 0, -1);
+		    consumeEvent = TRUE;
+		}
 		else if (event->xkey.keycode == sd->downKeyCode)
+		{
 		    scaleMoveFocusWindow (s, 0, 1);
+		    consumeEvent = TRUE;
+		}
 	    }
 	}
 	break;
@@ -1752,7 +1793,7 @@ scaleHandleEvent (CompDisplay *d,
 
 			if (!ss->hoverHandle)
 			    ss->hoverHandle =
-				compAddTimeout (time,
+				compAddTimeout (time, (float) time * 1.2,
 						scaleHoverTimeout,
 						s);
 
@@ -1803,9 +1844,12 @@ scaleHandleEvent (CompDisplay *d,
 	break;
     }
 
-    UNWRAP (sd, d, handleEvent);
-    (*d->handleEvent) (d, event);
-    WRAP (sd, d, handleEvent, scaleHandleEvent);
+    if (!consumeEvent)
+    {
+	UNWRAP (sd, d, handleEvent);
+	(*d->handleEvent) (d, event);
+	WRAP (sd, d, handleEvent, scaleHandleEvent);
+    }
 
     switch (event->type) {
     case UnmapNotify:
@@ -1917,7 +1961,9 @@ static const CompMetadataOptionInfo scaleDisplayOptionInfo[] = {
       scaleInitiateOutput, scaleTerminate },
     { "initiate_output_key", "key", 0, scaleInitiateOutput, scaleTerminate },
     { "show_desktop", "bool", 0, 0, 0 },
-    { "relayout_slots", "action", 0, scaleRelayoutSlots, 0 }
+    { "relayout_slots", "action", 0, scaleRelayoutSlots, 0 },
+    { "key_bindings_toggle", "bool", 0, 0, 0 },
+    { "button_bindings_toggle", "bool", 0, 0, 0 }
 };
 
 static Bool
@@ -2085,7 +2131,7 @@ scaleFiniScreen (CompPlugin *p,
     if (ss->slotsSize)
 	free (ss->slots);
 
-    if (ss->windowsSize)
+    if (ss->windows)
 	free (ss->windows);
 
     freeWindowPrivateIndex (s, ss->windowPrivateIndex);
@@ -2169,8 +2215,9 @@ scaleGetObjectOptions (CompPlugin *plugin,
 	(GetPluginObjectOptionsProc) scaleGetScreenOptions
     };
 
+    *count = 0;
     RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
-		     (void *) (*count = 0), (plugin, object, count));
+		     (void *) count, (plugin, object, count));
 }
 
 static CompBool

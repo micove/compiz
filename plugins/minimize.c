@@ -39,7 +39,6 @@ typedef struct _MinDisplay {
     int		    screenPrivateIndex;
     HandleEventProc handleEvent;
     Atom	    winChangeStateAtom;
-    Atom	    winIconGeometryAtom;
 } MinDisplay;
 
 #define MIN_SCREEN_OPTION_SPEED		   0
@@ -71,14 +70,14 @@ typedef struct _MinWindow {
 
     Bool adjust;
 
-    XRectangle icon;
-
     int state, newState;
 
     int    shade;
     Region region;
 
     int unmapCnt;
+
+    Bool ignoreDamage;
 } MinWindow;
 
 #define GET_MIN_DISPLAY(d)					 \
@@ -181,44 +180,6 @@ minSetShade (CompWindow *w,
     (*w->screen->windowResizeNotify) (w, 0, 0, 0, 0);
 }
 
-static Bool
-minGetWindowIconGeometry (CompWindow *w,
-			  XRectangle *rect)
-{
-    Atom	  actual;
-    int		  result, format;
-    unsigned long n, left;
-    unsigned char *data;
-
-    MIN_DISPLAY (w->screen->display);
-
-    result = XGetWindowProperty (w->screen->display->display, w->id,
-				 md->winIconGeometryAtom,
-				 0L, 4L, FALSE, XA_CARDINAL, &actual, &format,
-				 &n, &left, &data);
-
-    if (result == Success && n && data)
-    {
-	if (n == 4)
-	{
-	    unsigned long *geometry = (unsigned long *) data;
-
-	    rect->x	 = geometry[0];
-	    rect->y	 = geometry[1];
-	    rect->width  = geometry[2];
-	    rect->height = geometry[3];
-
-	    XFree (data);
-
-	    return TRUE;
-	}
-
-	XFree (data);
-    }
-
-    return FALSE;
-}
-
 static int
 minGetWindowState (CompWindow *w)
 {
@@ -226,23 +187,22 @@ minGetWindowState (CompWindow *w)
     int		  result, format;
     unsigned long n, left;
     unsigned char *data;
+    int           retval = WithdrawnState;
 
     result = XGetWindowProperty (w->screen->display->display, w->id,
 				 w->screen->display->wmStateAtom, 0L, 1L, FALSE,
 				 w->screen->display->wmStateAtom,
 				 &actual, &format, &n, &left, &data);
 
-    if (result == Success && n && data)
+    if (result == Success && data)
     {
-	int state;
+	if (n)
+	    memcpy (&retval, data, sizeof (int));
 
-	memcpy (&state, data, sizeof (int));
 	XFree ((void *) data);
-
-	return state;
     }
 
-    return WithdrawnState;
+    return retval;
 }
 
 static int
@@ -255,10 +215,10 @@ adjustMinVelocity (CompWindow *w)
 
     if (mw->newState == IconicState)
     {
-	x1 = mw->icon.x;
-	y1 = mw->icon.y;
-	xScale = (float) mw->icon.width  / w->width;
-	yScale = (float) mw->icon.height / w->height;
+	x1 = w->iconGeometry.x;
+	y1 = w->iconGeometry.y;
+	xScale = (float) w->iconGeometry.width  / w->width;
+	yScale = (float) w->iconGeometry.height / w->height;
     }
     else
     {
@@ -372,11 +332,13 @@ minPreparePaintScreen (CompScreen *s,
 		    {
 			mw->state = mw->newState;
 
+			mw->ignoreDamage = TRUE;
 			while (mw->unmapCnt)
 			{
 			    unmapWindow (w);
 			    mw->unmapCnt--;
 			}
+			mw->ignoreDamage = FALSE;
 		    }
 		}
 		else if (mw->region && w->damaged)
@@ -395,11 +357,13 @@ minPreparePaintScreen (CompScreen *s,
 			    {
 				mw->shade = 0;
 
+				mw->ignoreDamage = TRUE;
 				while (mw->unmapCnt)
 				{
 				    unmapWindow (w);
 				    mw->unmapCnt--;
 				}
+				mw->ignoreDamage = FALSE;
 			    }
 			}
 		    }
@@ -597,11 +561,13 @@ minHandleEvent (CompDisplay *d,
 	    if (mw->region)
 		w->height = 0;
 
+	    mw->ignoreDamage = TRUE;
 	    while (mw->unmapCnt)
 	    {
 		unmapWindow (w);
 		mw->unmapCnt--;
 	    }
+	    mw->ignoreDamage = FALSE;
 	}
 	break;
     case UnmapNotify:
@@ -643,7 +609,7 @@ minHandleEvent (CompDisplay *d,
 		}
 		else if (!w->invisible && matchEval (match, w))
 		{
-		    if (minGetWindowIconGeometry (w, &mw->icon))
+		    if (w->iconGeometrySet)
 		    {
 			mw->newState = IconicState;
 
@@ -712,6 +678,9 @@ minDamageWindowRect (CompWindow *w,
     MIN_SCREEN (w->screen);
     MIN_WINDOW (w);
 
+    if (mw->ignoreDamage)
+	return TRUE;
+
     if (initial)
     {
 	if (mw->state == IconicState)
@@ -721,19 +690,19 @@ minDamageWindowRect (CompWindow *w,
 
 	    mw->state = NormalState;
 
-	    if (!w->invisible	     &&
-		matchEval (match, w) &&
-		minGetWindowIconGeometry (w, &mw->icon))
+	    if (!w->invisible	   &&
+		w->iconGeometrySet &&
+		matchEval (match, w))
 	    {
 		if (!mw->adjust)
 		{
 		    mw->adjust     = TRUE;
 		    ms->moreAdjust = TRUE;
 
-		    mw->tx     = mw->icon.x - w->serverX;
-		    mw->ty     = mw->icon.y - w->serverY;
-		    mw->xScale = (float) mw->icon.width  / w->width;
-		    mw->yScale = (float) mw->icon.height / w->height;
+		    mw->tx     = w->iconGeometry.x - w->serverX;
+		    mw->ty     = w->iconGeometry.y - w->serverY;
+		    mw->xScale = (float) w->iconGeometry.width  / w->width;
+		    mw->yScale = (float) w->iconGeometry.height / w->height;
 
 		    addWindowDamage (w);
 		}
@@ -818,8 +787,6 @@ minInitDisplay (CompPlugin  *p,
     }
 
     md->winChangeStateAtom  = XInternAtom (d->display, "WM_CHANGE_STATE", 0);
-    md->winIconGeometryAtom =
-	XInternAtom (d->display, "_NET_WM_ICON_GEOMETRY", 0);
 
     WRAP (md, d, handleEvent, minHandleEvent);
 
@@ -934,6 +901,8 @@ minInitWindow (CompPlugin *p,
 
     mw->unmapCnt = 0;
 
+    mw->ignoreDamage = FALSE;
+
     if (w->state & CompWindowStateHiddenMask)
     {
 	if (w->shaded)
@@ -967,8 +936,10 @@ minFiniWindow (CompPlugin *p,
 {
     MIN_WINDOW (w);
 
+    mw->ignoreDamage = TRUE;
     while (mw->unmapCnt--)
 	unmapWindow (w);
+    mw->ignoreDamage = FALSE;
 
     if (mw->region)
 	XDestroyRegion (mw->region);
@@ -1015,8 +986,9 @@ minGetObjectOptions (CompPlugin *plugin,
 	(GetPluginObjectOptionsProc) minGetScreenOptions
     };
 
+    *count = 0;
     RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
-		     (void *) (*count = 0), (plugin, object, count));
+		     (void *) count, (plugin, object, count));
 }
 
 static CompBool

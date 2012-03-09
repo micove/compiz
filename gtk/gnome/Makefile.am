@@ -8,9 +8,13 @@ libcompiz_la_SOURCES = 		\
 	compiz-window-manager.h
 libcompiz_module     = libcompiz.la
 
-desktopfilesdir	      = $(DESTDIR)$(windowsettingsdatadir)/gnome/wm-properties
+desktopfilesdir	      = $(DESTDIR)$(datadir)/applications
 desktopfiles_in_files = compiz.desktop.in
 desktopfiles_files    = $(desktopfiles_in_files:.desktop.in=.desktop)
+
+wmpropertiesdir	      = $(DESTDIR)$(windowsettingsdatadir)/gnome/wm-properties
+wmproperties_in_files = compiz-wm.desktop.in
+wmproperties_files    = $(wmproperties_in_files:.desktop.in=.desktop)
 
 @INTLTOOL_DESKTOP_RULE@
 
@@ -37,6 +41,12 @@ install-data-local:
 		$(desktopfilesdir) \
 		); \
 	fi
+	if mkdir -p $(wmpropertiesdir) && test -w $(wmpropertiesdir); then ( \
+		$(INSTALL) -m 644 $(wmproperties_files) \
+		$(wmpropertiesdir) \
+		); \
+	fi
+
 if USE_GNOME_KEYBINDINGS
 	if mkdir -p $(xmldir) && test -w $(xmldir); then ( \
 		$(INSTALL) -m 644 $(xml_files) \
@@ -54,6 +64,10 @@ uninstall-local:
 		rm -f $(desktopfilesdir)/compiz.desktop \
 		); \
 	fi
+	if test -w $(wmpropertiesdir); then ( \
+		rm -f $(wmpropertiesdir)/compiz-wm.desktop \
+		); \
+	fi
 if USE_GNOME_KEYBINDINGS
 	if test -w $(xmldir); then ( \
 		rm -f $(xmldir)/50-compiz*key.xml \
@@ -63,19 +77,20 @@ endif
 endif
 
 INCLUDES = @GNOME_WINDOW_SETTINGS_CFLAGS@			   \
-	-DMETACITY_THEME_DIR=\""$(windowsettingsdatadir)/themes"\"
+	-DMETACITY_THEME_DIR=\""$(windowsettingsdatadir)/themes"\" \
+	-DLOCALEDIR="\"@datadir@/locale"\"
 
 noinst_LTLIBRARIES = \
 	$(libcompiz_module)
 
 noinst_DATA =		      \
 	$(desktopfiles_files) \
+	$(wmproperties_files) \
 	$(xml_files)
 
 EXTRA_DIST =			 \
-	$(desktopfiles_files) 	 \
 	$(desktopfiles_in_files) \
-	$(xml_files)		 \
+	$(wmproperties_in_files) \
 	$(xml_in_files)
 
 DISTCLEANFILES = \

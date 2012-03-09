@@ -196,6 +196,10 @@ moveInitiate (CompDisplay     *d,
 					   CompWindowGrabMoveMask |
 					   CompWindowGrabButtonMask);
 
+	    if (d->opt[COMP_DISPLAY_OPTION_RAISE_ON_CLICK].value.b)
+		updateWindowAttributes (w,
+					CompStackingUpdateModeAboveFullscreen);
+
 	    if (state & CompActionStateInitKey)
 	    {
 		int xRoot, yRoot;
@@ -692,6 +696,22 @@ moveHandleEvent (CompDisplay *d,
 		    }
 		}
 	    }
+	    else if (md->w && event->xclient.data.l[2] == WmMoveResizeCancel)
+	    {
+		if (md->w->id == event->xclient.window)
+		{
+		    int option;
+
+		    option = MOVE_DISPLAY_OPTION_INITIATE_BUTTON;
+		    moveTerminate (d,
+				   &md->opt[option].value.action,
+				   CompActionStateCancel, NULL, 0);
+		    option = MOVE_DISPLAY_OPTION_INITIATE_KEY;
+		    moveTerminate (d,
+				   &md->opt[option].value.action,
+				   CompActionStateCancel, NULL, 0);
+		}
+	    }
 	}
 	break;
     case DestroyNotify:
@@ -955,8 +975,9 @@ moveGetObjectOptions (CompPlugin *plugin,
 	(GetPluginObjectOptionsProc) moveGetDisplayOptions
     };
 
+    *count = 0;
     RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
-		     (void *) (*count = 0), (plugin, object, count));
+		     (void *) count, (plugin, object, count));
 }
 
 static CompBool

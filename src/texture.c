@@ -246,7 +246,7 @@ bindPixmapToTexture (CompScreen  *screen,
 
     if (!config->fbConfig)
     {
-	compLogMessage (NULL, "core", CompLogLevelWarn,
+	compLogMessage ("core", CompLogLevelWarn,
 			"No GLXFBConfig for depth %d",
 			depth);
 
@@ -268,7 +268,7 @@ bindPixmapToTexture (CompScreen  *screen,
     else if (config->textureTargets & GLX_TEXTURE_RECTANGLE_BIT_EXT)
 	target = GLX_TEXTURE_RECTANGLE_EXT;
 
-    /* Workaround for broken texture from pixmap implementations, 
+    /* Workaround for broken texture from pixmap implementations,
        that don't advertise any texture target in the fbconfig. */
     if (!target)
     {
@@ -292,7 +292,7 @@ bindPixmapToTexture (CompScreen  *screen,
 					       attribs);
     if (!texture->pixmap)
     {
-	compLogMessage (NULL, "core", CompLogLevelWarn,
+	compLogMessage ("core", CompLogLevelWarn,
 			"glXCreatePixmap failed");
 
 	return FALSE;
@@ -338,7 +338,7 @@ bindPixmapToTexture (CompScreen  *screen,
 	texture->mipmap = FALSE;
 	break;
     default:
-	compLogMessage (NULL, "core", CompLogLevelWarn,
+	compLogMessage ("core", CompLogLevelWarn,
 			"pixmap 0x%x can't be bound to texture",
 			(int) pixmap);
 

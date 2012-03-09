@@ -253,12 +253,12 @@ isTerminateBinding (CompOption	    *option,
 }
 
 static Bool
-triggerButtonPressBindings (CompDisplay *d,
-			    CompOption  *option,
-			    int		nOption,
-			    XEvent	*event,
-			    CompOption  *argument,
-			    int		nArgument)
+triggerButtonPressBindings (CompDisplay  *d,
+			    CompOption   *option,
+			    int		 nOption,
+			    XButtonEvent *event,
+			    CompOption   *argument,
+			    int		 nArgument)
 {
     CompActionState state = CompActionStateInitButton;
     CompAction	    *action;
@@ -271,13 +271,13 @@ triggerButtonPressBindings (CompDisplay *d,
 	CompScreen   *s;
 	unsigned int i;
 
-	s = findScreenAtDisplay (d, event->xbutton.root);
+	s = findScreenAtDisplay (d, event->root);
 	if (!s)
 	    return FALSE;
 
-	if (event->xbutton.window != edgeWindow)
+	if (event->window != edgeWindow)
 	{
-	    if (!s->maxGrab || event->xbutton.window != s->root)
+	    if (!s->maxGrab || event->window != s->root)
 		return FALSE;
 	}
 
@@ -296,11 +296,11 @@ triggerButtonPressBindings (CompDisplay *d,
     {
 	if (isInitiateBinding (option, CompBindingTypeButton, state, &action))
 	{
-	    if (action->button.button == event->xbutton.button)
+	    if (action->button.button == event->button)
 	    {
 		bindMods = virtualToRealModMask (d, action->button.modifiers);
 
-		if ((bindMods & modMask) == (event->xbutton.state & modMask))
+		if ((bindMods & modMask) == (event->state & modMask))
 		    if ((*action->initiate) (d, action, state,
 					     argument, nArgument))
 			return TRUE;
@@ -312,14 +312,13 @@ triggerButtonPressBindings (CompDisplay *d,
 	    if (isInitiateBinding (option, CompBindingTypeEdgeButton,
 				   state | CompActionStateInitEdge, &action))
 	    {
-		if ((action->button.button == event->xbutton.button) &&
+		if ((action->button.button == event->button) &&
 		    (action->edgeMask & edge))
 		{
 		    bindMods = virtualToRealModMask (d,
 						     action->button.modifiers);
 
-		    if ((bindMods & modMask) ==
-			(event->xbutton.state & modMask))
+		    if ((bindMods & modMask) == (event->state & modMask))
 			if ((*action->initiate) (d, action, state |
 						 CompActionStateInitEdge,
 						 argument, nArgument))
@@ -335,12 +334,12 @@ triggerButtonPressBindings (CompDisplay *d,
 }
 
 static Bool
-triggerButtonReleaseBindings (CompDisplay *d,
-			      CompOption  *option,
-			      int	  nOption,
-			      XEvent	  *event,
-			      CompOption  *argument,
-			      int	  nArgument)
+triggerButtonReleaseBindings (CompDisplay  *d,
+			      CompOption   *option,
+			      int	   nOption,
+			      XButtonEvent *event,
+			      CompOption   *argument,
+			      int	   nArgument)
 {
     CompActionState state = CompActionStateTermButton;
     CompBindingType type  = CompBindingTypeButton | CompBindingTypeEdgeButton;
@@ -350,7 +349,7 @@ triggerButtonReleaseBindings (CompDisplay *d,
     {
 	if (isTerminateBinding (option, type, state, &action))
 	{
-	    if (action->button.button == event->xbutton.button)
+	    if (action->button.button == event->button)
 	    {
 		if ((*action->terminate) (d, action, state,
 					  argument, nArgument))
@@ -368,7 +367,7 @@ static Bool
 triggerKeyPressBindings (CompDisplay *d,
 			 CompOption  *option,
 			 int	     nOption,
-			 XEvent	     *event,
+			 XKeyEvent   *event,
 			 CompOption  *argument,
 			 int	     nArgument)
 {
@@ -377,9 +376,9 @@ triggerKeyPressBindings (CompDisplay *d,
     unsigned int    modMask = REAL_MOD_MASK & ~d->ignoredModMask;
     unsigned int    bindMods;
 
-    if (event->xkey.keycode == d->escapeKeyCode)
+    if (event->keycode == d->escapeKeyCode)
 	state = CompActionStateCancel;
-    else if (event->xkey.keycode == d->returnKeyCode)
+    else if (event->keycode == d->returnKeyCode)
 	state = CompActionStateCommit;
 
     if (state)
@@ -410,16 +409,16 @@ triggerKeyPressBindings (CompDisplay *d,
 	{
 	    bindMods = virtualToRealModMask (d, action->key.modifiers);
 
-	    if (action->key.keycode == event->xkey.keycode)
+	    if (action->key.keycode == event->keycode)
 	    {
-		if ((bindMods & modMask) == (event->xkey.state & modMask))
+		if ((bindMods & modMask) == (event->state & modMask))
 		    if ((*action->initiate) (d, action, state,
 					     argument, nArgument))
 			return TRUE;
 	    }
 	    else if (!d->xkbEvent && action->key.keycode == 0)
 	    {
-		if (bindMods == (event->xkey.state & modMask))
+		if (bindMods == (event->state & modMask))
 		    if ((*action->initiate) (d, action, state,
 					     argument, nArgument))
 			return TRUE;
@@ -436,38 +435,44 @@ static Bool
 triggerKeyReleaseBindings (CompDisplay *d,
 			   CompOption  *option,
 			   int	       nOption,
-			   XEvent      *event,
+			   XKeyEvent   *event,
 			   CompOption  *argument,
 			   int	       nArgument)
 {
-    if (!d->xkbEvent)
+    CompActionState state = CompActionStateTermKey;
+    CompAction	    *action;
+    unsigned int    modMask = REAL_MOD_MASK & ~d->ignoredModMask;
+    unsigned int    bindMods;
+    unsigned int    mods;
+
+    mods = keycodeToModifiers (d, event->keycode);
+    if (!d->xkbEvent && !mods)
+	return FALSE;
+
+    while (nOption--)
     {
-	CompActionState state = CompActionStateTermKey;
-	CompAction	*action;
-	unsigned int	modMask = REAL_MOD_MASK & ~d->ignoredModMask;
-	unsigned int	bindMods;
-	unsigned int	mods;
-
-	mods = keycodeToModifiers (d, event->xkey.keycode);
-	if (mods == 0)
-	    return FALSE;
-
-	while (nOption--)
+	if (isTerminateBinding (option, CompBindingTypeKey, state, &action))
 	{
-	    if (isTerminateBinding (option, CompBindingTypeKey, state, &action))
-	    {
-		bindMods = virtualToRealModMask (d, action->key.modifiers);
+	    bindMods = virtualToRealModMask (d, action->key.modifiers);
 
-		if ((mods & modMask & bindMods) != bindMods)
+	    if ((bindMods & modMask) == 0)
+	    {
+		if (action->key.keycode == event->keycode)
 		{
 		    if ((*action->terminate) (d, action, state,
 					      argument, nArgument))
 			return TRUE;
 		}
 	    }
-
-	    option++;
+	    else if (!d->xkbEvent && ((mods & modMask & bindMods) != bindMods))
+	    {
+		if ((*action->terminate) (d, action, state,
+					  argument, nArgument))
+		    return TRUE;
+	    }
 	}
+
+	option++;
     }
 
     return FALSE;
@@ -783,7 +788,7 @@ triggerEdgeEnter (CompDisplay     *d,
 	for (i = 0; i < nArgument; i++)
 	    delayedSettings->option[i] = argument[i];
 
-	d->edgeDelayHandle = compAddTimeout (delay,
+	d->edgeDelayHandle = compAddTimeout (delay, (float) delay * 1.2,
 					     delayedEdgeTimeout,
 					     delayedSettings);
 
@@ -853,7 +858,8 @@ handleActionEvent (CompDisplay *d,
 		continue;
 
 	    option = (*p->vTable->getObjectOptions) (p, obj, &nOption);
-	    if (triggerButtonPressBindings (d, option, nOption, event, o, 8))
+	    if (triggerButtonPressBindings (d, option, nOption,
+					    &event->xbutton, o, 8))
 		return TRUE;
 	}
 	break;
@@ -879,7 +885,8 @@ handleActionEvent (CompDisplay *d,
 		continue;
 
 	    option = (*p->vTable->getObjectOptions) (p, obj, &nOption);
-	    if (triggerButtonReleaseBindings (d, option, nOption, event, o, 8))
+	    if (triggerButtonReleaseBindings (d, option, nOption,
+					      &event->xbutton, o, 8))
 		return TRUE;
 	}
 	break;
@@ -905,7 +912,8 @@ handleActionEvent (CompDisplay *d,
 		continue;
 
 	    option = (*p->vTable->getObjectOptions) (p, obj, &nOption);
-	    if (triggerKeyPressBindings (d, option, nOption, event, o, 8))
+	    if (triggerKeyPressBindings (d, option, nOption,
+					 &event->xkey, o, 8))
 		return TRUE;
 	}
 	break;
@@ -930,7 +938,8 @@ handleActionEvent (CompDisplay *d,
 	    if (!p->vTable->getObjectOptions)
 		continue;
 	    option = (*p->vTable->getObjectOptions) (p, obj, &nOption);
-	    if (triggerKeyReleaseBindings (d, option, nOption, event, o, 8))
+	    if (triggerKeyReleaseBindings (d, option, nOption,
+					   &event->xkey, o, 8))
 		return TRUE;
 	}
 	break;
@@ -1332,7 +1341,7 @@ handleEvent (CompDisplay *d,
 	w = findWindowAtDisplay (d, event->xmap.window);
 	if (w)
 	{
-	    if (!w->attrib.override_redirect)
+	    if (w->pendingMaps)
 		w->managed = TRUE;
 
 	    /* been shaded */
@@ -1422,8 +1431,10 @@ handleEvent (CompDisplay *d,
 			updateWindowAttributes (w,
 					CompStackingUpdateModeAboveFullscreen);
 
-		    if (!(w->type & CompWindowTypeDockMask))
-			moveInputFocusToWindow (w);
+		    if (w->id != d->activeWindow)
+			if (!(w->type & CompWindowTypeDockMask))
+			    if ((*s->focusWindow) (w))
+				moveInputFocusToWindow (w);
 		}
 	    }
 
@@ -1479,17 +1490,19 @@ handleEvent (CompDisplay *d,
 		state = getWindowState (d, w->id);
 		state = constrainWindowState (state, w->actions);
 
+		/* EWMH suggests that we ignore changes
+		   to _NET_WM_STATE_HIDDEN */
+		if (w->state & CompWindowStateHiddenMask)
+		    state |= CompWindowStateHiddenMask;
+		else
+		    state &= ~CompWindowStateHiddenMask;
+
 		if (state != w->state)
 		{
-		    w->state = state;
-
-		    recalcWindowType (w);
-		    recalcWindowActions (w);
-
 		    if (w->type & CompWindowTypeDesktopMask)
 			w->paint.opacity = OPAQUE;
 
-		    (*d->matchPropertyChanged) (d, w);
+		    changeWindowState (w, state);
 		}
 	    }
 	}
@@ -1523,16 +1536,25 @@ handleEvent (CompDisplay *d,
 	    if (w)
 		w->clientLeader = getClientLeader (w);
 	}
+	else if (event->xproperty.atom == d->wmIconGeometryAtom)
+	{
+	    w = findWindowAtDisplay (d, event->xproperty.window);
+	    if (w)
+		updateIconGeometry (w);
+	}
 	else if (event->xproperty.atom == d->winOpacityAtom)
 	{
 	    w = findWindowAtDisplay (d, event->xproperty.window);
-	    if (w && (w->type & CompWindowTypeDesktopMask) == 0)
+	    if (w && !(w->type & CompWindowTypeDesktopMask))
 	    {
-		w->opacity	  = OPAQUE;
-		w->opacityPropSet =
-		    readWindowProp32 (d, w->id, d->winOpacityAtom, &w->opacity);
+		int opacity;
 
-		updateWindowOpacity (w);
+		opacity = getWindowProp32 (d, w->id, d->winOpacityAtom, OPAQUE);
+		if (opacity != w->paint.opacity)
+		{
+		    w->paint.opacity = opacity;
+		    addWindowDamage (w);
+		}
 	    }
 	}
 	else if (event->xproperty.atom == d->winBrightnessAtom)
@@ -1540,19 +1562,14 @@ handleEvent (CompDisplay *d,
 	    w = findWindowAtDisplay (d, event->xproperty.window);
 	    if (w)
 	    {
-		GLushort brightness;
+		int brightness;
 
 		brightness = getWindowProp32 (d, w->id,
-					      d->winBrightnessAtom,
-					      BRIGHT);
-		if (brightness != w->brightness)
+	     				      d->winBrightnessAtom, BRIGHT);
+		if (brightness != w->paint.brightness)
 		{
-		    w->brightness = brightness;
-		    if (w->alive)
-		    {
-			w->paint.brightness = w->brightness;
-			addWindowDamage (w);
-		    }
+		    w->paint.brightness = brightness;
+		    addWindowDamage (w);
 		}
 	    }
 	}
@@ -1561,19 +1578,14 @@ handleEvent (CompDisplay *d,
 	    w = findWindowAtDisplay (d, event->xproperty.window);
 	    if (w && w->screen->canDoSaturated)
 	    {
-		GLushort saturation;
+		int saturation;
 
 		saturation = getWindowProp32 (d, w->id,
-					      d->winSaturationAtom,
-					      COLOR);
-		if (saturation != w->saturation)
+					      d->winSaturationAtom, COLOR);
+		if (saturation != w->paint.saturation)
 		{
-		    w->saturation = saturation;
-		    if (w->alive)
-		    {
-			w->paint.saturation = w->saturation;
-			addWindowDamage (w);
-		    }
+		    w->paint.saturation = saturation;
+		    addWindowDamage (w);
 		}
 	    }
 	}
@@ -1632,8 +1644,39 @@ handleEvent (CompDisplay *d,
 	    {
 		if (w->startupId)
 		    free (w->startupId);
-
+		
 		w->startupId = getStartupId (w);
+
+		if (w->managed && w->startupId)
+		{
+		    Time            timestamp = 0;
+		    int             vx, vy, x, y;
+		    CompScreen      *s = w->screen;
+		    CompFocusResult focus;
+
+		    w->initialTimestampSet = FALSE;
+		    applyStartupProperties (w->screen, w);
+
+		    if (w->initialTimestampSet)
+			timestamp = w->initialTimestamp;
+
+		    /* as the viewport can't be transmitted via startup
+		       notification, assume the client changing the ID
+		       wanted to activate the window on the current viewport */
+
+		    defaultViewportForWindow (w, &vx, &vy);
+		    x = w->attrib.x + (s->x - vx) * s->width;
+		    y = w->attrib.y + (s->y - vy) * s->height;
+		    moveWindowToViewportPosition (w, x, y, TRUE);
+
+		    focus = allowWindowFocus (w, 0,
+					      w->initialViewportX,
+					      w->initialViewportY,
+					      timestamp);
+
+		    if (focus == CompFocusAllowed)
+			(*w->screen->activateWindow) (w);
+		}
 	    }
 	}
 	else if (event->xproperty.atom == XA_WM_CLASS)
@@ -1651,19 +1694,24 @@ handleEvent (CompDisplay *d,
 	    w = findWindowAtDisplay (d, event->xclient.window);
 	    if (w)
 	    {
-		/* use focus stealing prevention if request came from an
-		   application (which means data.l[0] is 1 */
-		if (event->xclient.data.l[0] != 1 ||
-		    allowWindowFocus (w, 0, event->xclient.data.l[1]))
-		{
+		CompFocusResult focus = CompFocusAllowed;
+
+		/* use focus stealing prevention if request came
+		   from an application */
+		if (event->xclient.data.l[0] == ClientTypeApplication)
+		    focus = allowWindowFocus (w, 0,
+					      w->screen->x,
+					      w->screen->y,
+					      event->xclient.data.l[1]);
+
+		if (focus == CompFocusAllowed)
 		    (*w->screen->activateWindow) (w);
-		}
 	    }
 	}
 	else if (event->xclient.message_type == d->winOpacityAtom)
 	{
 	    w = findWindowAtDisplay (d, event->xclient.window);
-	    if (w && (w->type & CompWindowTypeDesktopMask) == 0)
+	    if (w && !(w->type & CompWindowTypeDesktopMask))
 	    {
 		GLushort opacity = event->xclient.data.l[0] >> 16;
 
@@ -1737,11 +1785,12 @@ handleEvent (CompDisplay *d,
 
 		    /* raise the window whenever its fullscreen state,
 		       above/below state or maximization state changed */
-		    if (dState & (CompWindowStateFullscreenMask |
-				  CompWindowStateAboveMask |
-				  CompWindowStateBelowMask |
-				  CompWindowStateMaximizedHorzMask |
-				  CompWindowStateMaximizedVertMask))
+		    if (dState & CompWindowStateFullscreenMask)
+			stackingUpdateMode = CompStackingUpdateModeAboveFullscreen;
+		    else if (dState & (CompWindowStateAboveMask         |
+				       CompWindowStateBelowMask         |
+				       CompWindowStateMaximizedHorzMask |
+				       CompWindowStateMaximizedVertMask))
 			stackingUpdateMode = CompStackingUpdateModeNormal;
 
 		    changeWindowState (w, wState);
@@ -1759,9 +1808,7 @@ handleEvent (CompDisplay *d,
 		{
 		    if (!w->alive)
 		    {
-			w->alive	    = TRUE;
-			w->paint.saturation = w->saturation;
-			w->paint.brightness = w->brightness;
+			w->alive = TRUE;
 
 			if (w->lastCloseRequestTime)
 			{
@@ -1775,8 +1822,6 @@ handleEvent (CompDisplay *d,
 
 			    w->lastCloseRequestTime = 0;
 			}
-
-			addWindowDamage (w);
 		    }
 		    w->lastPong = d->lastPing;
 		}
@@ -1812,6 +1857,7 @@ handleEvent (CompDisplay *d,
 		unsigned int   xwcm = 0;
 		XWindowChanges xwc;
 		int            gravity;
+		unsigned int   source;
 
 		memset (&xwc, 0, sizeof (xwc));
 
@@ -1840,8 +1886,9 @@ handleEvent (CompDisplay *d,
 		}
 
 		gravity = event->xclient.data.l[0] & 0xFF;
+		source  = (event->xclient.data.l[0] >> 12) & 0xF;
 
-		moveResizeWindow (w, &xwc, xwcm, gravity);
+		moveResizeWindow (w, &xwc, xwcm, gravity, source);
 	    }
 	}
 	else if (event->xclient.message_type == d->restackWindowAtom)
@@ -1926,6 +1973,21 @@ handleEvent (CompDisplay *d,
 	    if (w)
 		setDesktopForWindow (w, event->xclient.data.l[0]);
 	}
+	else if (event->xclient.message_type == d->wmFullscreenMonitorsAtom)
+	{
+	    w = findWindowAtDisplay (d, event->xclient.window);
+	    if (w)
+	    {
+		CompFullscreenMonitorSet monitors;
+
+		monitors.top    = event->xclient.data.l[0];
+		monitors.bottom = event->xclient.data.l[1];
+		monitors.left   = event->xclient.data.l[2];
+		monitors.right  = event->xclient.data.l[3];
+
+		setWindowFullscreenMonitors (w, &monitors);
+	    }
+	}
 	break;
     case MappingNotify:
 	updateModifierMappings (d);
@@ -1951,30 +2013,33 @@ handleEvent (CompDisplay *d,
 		}
 	    }
 
-	    w->managed = TRUE;
-
 	    if (w->state & CompWindowStateHiddenMask)
 		if (!w->minimized && !w->inShowDesktopMode)
 		    doMapProcessing = FALSE;
 
 	    if (doMapProcessing)
 	    {
-		Bool                   allowFocus;
-		CompStackingUpdateMode stackingMode;
-
 		w->initialViewportX = w->screen->x;
 		w->initialViewportY = w->screen->y;
 
 		w->initialTimestampSet = FALSE;
 
 		applyStartupProperties (w->screen, w);
+	    }
+
+	    w->managed = TRUE;
+
+	    if (doMapProcessing)
+	    {
+		CompFocusResult        focus;
+		CompStackingUpdateMode stackingMode;
 
 		if (!w->placed)
 		{
 		    int            newX, newY;
 		    int            gravity = w->sizeHints.win_gravity;
 		    XWindowChanges xwc;
-		    unsigned int   xwcm;
+		    unsigned int   xwcm, source;
 
 		    /* adjust for gravity */
 		    xwc.x      = w->serverX;
@@ -1986,23 +2051,28 @@ handleEvent (CompDisplay *d,
 							     CWX | CWY,
 							     gravity);
 
+		    source = ClientTypeApplication;
+		    (*w->screen->validateWindowResizeRequest) (w, &xwcm, &xwc,
+							       source);
+
+		    if (xwcm)
+			configureXWindow (w, xwcm, &xwc);
+
 		    if ((*w->screen->placeWindow) (w, xwc.x, xwc.y,
 						   &newX, &newY))
 		    {
 			xwc.x = newX;
 			xwc.y = newY;
-			xwcm |= CWX | CWY;
+			configureXWindow (w, CWX | CWY, &xwc);
 		    }
-
-		    if (xwcm)
-			configureXWindow (w, xwcm, &xwc);
 
 		    w->placed   = TRUE;
 		}
 
-		allowFocus = allowWindowFocus (w, NO_FOCUS_MASK, 0);
+		focus = allowWindowFocus (w, NO_FOCUS_MASK,
+					  w->screen->x, w->screen->y, 0);
 
-		if (!allowFocus && (w->type & ~NO_FOCUS_MASK))
+		if (focus == CompFocusDenied)
 		    stackingMode = CompStackingUpdateModeInitialMapDeniedFocus;
 		else
 		    stackingMode = CompStackingUpdateModeInitialMap;
@@ -2014,13 +2084,13 @@ handleEvent (CompDisplay *d,
 
 		(*w->screen->leaveShowDesktopMode) (w->screen, w);
 
-		if (!(w->state & CompWindowStateHiddenMask))
-		{
-		    w->pendingMaps++;
-		    XMapWindow (d->display, w->id);
-		}
+		if (focus == CompFocusAllowed && !onCurrentDesktop (w))
+		    setCurrentDesktop (w->screen, w->desktop);
 
-		if (allowFocus)
+		if (!(w->state & CompWindowStateHiddenMask))
+		    showWindow (w);
+
+		if (focus == CompFocusAllowed)
 		    moveInputFocusToWindow (w);
 	    }
 
@@ -2045,12 +2115,14 @@ handleEvent (CompDisplay *d,
 	    xwc.height       = event->xconfigurerequest.height;
 	    xwc.border_width = event->xconfigurerequest.border_width;
 
-	    moveResizeWindow (w, &xwc, event->xconfigurerequest.value_mask, 0);
+	    moveResizeWindow (w, &xwc, event->xconfigurerequest.value_mask,
+			      0, ClientTypeUnknown);
 
 	    if (event->xconfigurerequest.value_mask & CWStackMode)
 	    {
-		Window     above    = None;
-		CompWindow *sibling = NULL;
+		Window          above    = None;
+		CompWindow      *sibling = NULL;
+		CompFocusResult focus;
 
 		if (event->xconfigurerequest.value_mask & CWSibling)
 		{
@@ -2060,7 +2132,9 @@ handleEvent (CompDisplay *d,
 
 		switch (event->xconfigurerequest.detail) {
 		case Above:
-		    if (allowWindowFocus (w, NO_FOCUS_MASK, 0))
+		    focus = allowWindowFocus (w, NO_FOCUS_MASK,
+					      w->screen->x, w->screen->y, 0);
+		    if (focus == CompFocusAllowed)
 		    {
 			if (above)
 			{
@@ -2137,58 +2211,57 @@ handleEvent (CompDisplay *d,
 	}
 	break;
     case EnterNotify:
-	if (!d->screens->maxGrab		    &&
-	    event->xcrossing.mode   != NotifyGrab   &&
-	    event->xcrossing.mode   != NotifyUngrab &&
-	    event->xcrossing.detail != NotifyInferior)
+	s = findScreenAtDisplay (d, event->xcrossing.root);
+	if (s)
+	    w = findTopLevelWindowAtScreen (s, event->xcrossing.window);
+	else
+	    w = NULL;
+
+	if (w && w->id != d->below)
 	{
-	    Bool raise;
-	    int  delay;
+	    d->below = w->id;
 
-	    raise = d->opt[COMP_DISPLAY_OPTION_AUTORAISE].value.b;
-	    delay = d->opt[COMP_DISPLAY_OPTION_AUTORAISE_DELAY].value.i;
-
-	    s = findScreenAtDisplay (d, event->xcrossing.root);
-	    if (s)
+	    if (!d->opt[COMP_DISPLAY_OPTION_CLICK_TO_FOCUS].value.b &&
+		!s->maxGrab				            &&
+		event->xcrossing.mode   != NotifyGrab		    &&
+		event->xcrossing.detail != NotifyInferior)
 	    {
-		w = findTopLevelWindowAtScreen (s, event->xcrossing.window);
-	    }
-	    else
-		w = NULL;
+		Bool raise, focus;
+		int  delay;
 
-	    if (w && w->id != d->below)
-	    {
-		d->below = w->id;
+		raise = d->opt[COMP_DISPLAY_OPTION_AUTORAISE].value.b;
+		delay = d->opt[COMP_DISPLAY_OPTION_AUTORAISE_DELAY].value.i;
 
-		if (!d->opt[COMP_DISPLAY_OPTION_CLICK_TO_FOCUS].value.b)
+		if (d->autoRaiseHandle && d->autoRaiseWindow != w->id)
 		{
-		    if (d->autoRaiseHandle &&
-			d->autoRaiseWindow != w->id)
-		    {
-			compRemoveTimeout (d->autoRaiseHandle);
-			d->autoRaiseHandle = 0;
-		    }
+		    compRemoveTimeout (d->autoRaiseHandle);
+		    d->autoRaiseHandle = 0;
+		}
 
-		    if (w->type & ~(CompWindowTypeDockMask |
-				    CompWindowTypeDesktopMask))
-		    {
-			moveInputFocusToWindow (w);
+		if (w->type & NO_FOCUS_MASK)
+		    focus = FALSE;
+		else
+		    focus = (*w->screen->focusWindow) (w);
 
-			if (raise)
+		if (focus)
+		{
+		    moveInputFocusToWindow (w);
+
+		    if (raise)
+		    {
+			if (delay > 0)
 			{
-			    if (delay > 0)
-			    {
-				d->autoRaiseWindow = w->id;
-				d->autoRaiseHandle =
-				    compAddTimeout (delay, autoRaiseTimeout, d);
-			    }
-			    else
-			    {
-				CompStackingUpdateMode mode =
-				    CompStackingUpdateModeNormal;
+			    d->autoRaiseWindow = w->id;
+			    d->autoRaiseHandle =
+				compAddTimeout (delay, (float) delay * 1.2,
+						autoRaiseTimeout, d);
+			}
+			else
+			{
+			    CompStackingUpdateMode mode =
+				CompStackingUpdateModeNormal;
 
-				updateWindowAttributes (w, mode);
-			    }
+			    updateWindowAttributes (w, mode);
 			}
 		    }
 		}
@@ -2279,15 +2352,22 @@ handleEvent (CompDisplay *d,
 
 	    sa = (XSyncAlarmNotifyEvent *) event;
 
-	    w = NULL;
-
 	    for (s = d->screens; s; s = s->next)
+	    {
 		for (w = s->windows; w; w = w->next)
+		{
 		    if (w->syncAlarm == sa->alarm)
 			break;
+		}
 
-	    if (w)
-		handleSyncAlarm (w);
+		if (w)
+		{
+		    handleSyncAlarm (w);
+		    /* it makes no sense to search for the already
+		       found window on other screens, so leave screen loop */
+		    break;
+		}
+	    }
 	}
 	break;
     }

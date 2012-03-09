@@ -4,8 +4,8 @@ dnl compiz package version number
 dnl An odd micro number indicates in-progress development.
 dnl An even micro number indicates a released version.
 m4_define(compiz_version_major, 0)
-m4_define(compiz_version_minor, 7)
-m4_define(compiz_version_micro, 6)
+m4_define(compiz_version_minor, 8)
+m4_define(compiz_version_micro, 2)
 
 AC_INIT([compiz],
 	[compiz_version_major().compiz_version_minor().compiz_version_micro()],
@@ -118,8 +118,7 @@ AC_SUBST(imagedir)
 metadatadir=$datadir/compiz
 AC_SUBST(metadatadir)
 
-COMPIZ_REQUIRES="x11-xcb    \
-		 xcomposite \
+COMPIZ_REQUIRES="xcomposite \
 		 xfixes	    \
 		 xdamage    \
 		 xrandr	    \
@@ -326,6 +325,8 @@ if test "x$use_gtk" = "xyes"; then
 		       [have_metacity_2_15_21=yes], [have_metacity_2_15_21=no])
       PKG_CHECK_EXISTS(libmetacity-private >= 2.17.0,
 		       [have_metacity_2_17_0=yes], [have_metacity_2_17_0=no])
+      PKG_CHECK_EXISTS(libmetacity-private >= 2.23.2,
+		       [have_metacity_2_23_2=yes], [have_metacity_2_23_2=no])
     fi
 
     if test "x$use_gnome" = "xyes"; then
@@ -378,6 +379,10 @@ if test "$use_metacity" = yes; then
   if test "$have_metacity_2_17_0" = yes; then
     AC_DEFINE(HAVE_METACITY_2_17_0, 1,
 	      [Define to 1 if metacity version >= 2.17.0])
+  fi
+  if test "$have_metacity_2_23_2" = yes; then
+    AC_DEFINE(HAVE_METACITY_2_23_2, 1,
+	      [Define to 1 if metacity version >= 2.23.2])
   fi
 fi
 
@@ -481,7 +486,7 @@ if test "x$use_kde4" = "xyes"; then
   kde4libs=`kde4-config --install lib --expandvars 2>/dev/null`
   kde4incs=`kde4-config --install include --expandvars 2>/dev/null`
 
-  kde4_test_includes="kdecoration.h kcommondecoration.h kdecorationbridge.h"
+  kde4_test_includes="kdecoration.h kcommondecoration.h kdecorationbridge.h plasma/framesvg.h"
 
   dnl Check for KWin headers
   AC_MSG_CHECKING([for KWin headers])

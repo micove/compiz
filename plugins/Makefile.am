@@ -65,6 +65,15 @@ libvideo_la_SOURCES = video.c
 libini_la_LDFLAGS = -module -avoid-version -no-undefined
 libini_la_SOURCES = ini.c
 
+libobs_la_LDFLAGS = -module -avoid-version -no-undefined
+libobs_la_SOURCES = obs.c
+
+libcommands_la_LDFLAGS = -module -avoid-version -no-undefined
+libcommands_la_SOURCES = commands.c
+
+libgnomecompat_la_LDFLAGS = -module -avoid-version -no-undefined
+libgnomecompat_la_SOURCES = gnomecompat.c
+
 if USE_LIBRSVG
 libsvg_la_DEPENDENCIES = $(top_builddir)/libdecoration/libdecoration.la
 libsvg_la_LDFLAGS = -module -avoid-version -no-undefined
@@ -131,6 +140,7 @@ INCLUDES =					\
 	@GCONF_CFLAGS@				\
 	@KCONFIG_CFLAGS@			\
 	@DBUS_CFLAGS@				\
+	@GLIB_CFLAGS@				\
 	@FUSE_CFLAGS@				\
 	-DFUSE_USE_VERSION=26			\
 	-DALL_LINGUAS="\"@ALL_LINGUAS@\""	\
@@ -168,6 +178,9 @@ module_LTLIBRARIES =		\
 	libregex.la		\
 	libvideo.la		\
 	libini.la		\
+	libobs.la		\
+	libcommands.la		\
+	libgnomecompat.la	\
 	$(libsvg_module)	\
 	$(libannotate_module)	\
 	$(libinotify_module)	\

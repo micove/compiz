@@ -52,6 +52,7 @@ char *defaultTextureFilter = "Good";
 
 Bool shutDown = FALSE;
 Bool restartSignal = FALSE;
+Bool coreInitialized = FALSE;
 
 CompWindow *lastFoundWindow = 0;
 CompWindow *lastDamagedWindow = 0;
@@ -60,8 +61,9 @@ Bool replaceCurrentWm = FALSE;
 Bool indirectRendering = FALSE;
 Bool strictBinding = TRUE;
 Bool noDetection = FALSE;
-Bool useDesktopHints = TRUE;
+Bool useDesktopHints = FALSE;
 Bool onlyCurrentScreen = FALSE;
+static Bool debugOutput = FALSE;
 
 #ifdef USE_COW
 Bool useCow = TRUE;
@@ -72,26 +74,25 @@ CompMetadata coreMetadata;
 static void
 usage (void)
 {
-    printf ("Usage: %s "
+    printf ("Usage: %s\n       "
 	    "[--display DISPLAY] "
 	    "[--bg-image PNG] "
 	    "[--refresh-rate RATE]\n       "
 	    "[--fast-filter] "
 	    "[--indirect-rendering] "
+	    "[--no-detection]\n       "
+	    "[--keep-desktop-hints] "
 	    "[--loose-binding] "
 	    "[--replace]\n       "
 	    "[--sm-disable] "
 	    "[--sm-client-id ID] "
-	    "[--no-detection]\n       "
-	    "[--ignore-desktop-hints] "
-	    "[--only-current-screen]"
+	    "[--only-current-screen]\n      "
 
 #ifdef USE_COW
-	    " [--use-root-window]\n       "
-#else
-	    "\n       "
+	    " [--use-root-window] "
 #endif
 
+	    "[--debug] "
 	    "[--version] "
 	    "[--help] "
 	    "[PLUGIN]...\n",
@@ -99,8 +100,7 @@ usage (void)
 }
 
 void
-compLogMessage (CompDisplay *d,
-		const char   *componentName,
+compLogMessage (const char   *componentName,
 		CompLogLevel level,
 		const char   *format,
 		...)
@@ -112,20 +112,22 @@ compLogMessage (CompDisplay *d,
 
     vsnprintf (message, 2048, format, args);
 
-    if (d)
-	(*d->logMessage) (d, componentName, level, message);
+    if (coreInitialized)
+	(*core.logMessage) (componentName, level, message);
     else
-	logMessage (d, componentName, level, message);
+	logMessage (componentName, level, message);
 
     va_end (args);
 }
 
 void
-logMessage (CompDisplay	 *d,
-	    const char	 *componentName,
+logMessage (const char	 *componentName,
 	    CompLogLevel level,
 	    const char	 *message)
 {
+    if (!debugOutput && level >= CompLogLevelDebug)
+	return;
+
     fprintf (stderr, "%s (%s) - %s: %s\n",
 	      programName, componentName,
 	      logLevelToString (level), message);
@@ -293,6 +295,10 @@ main (int argc, char **argv)
 	    printf (PACKAGE_STRING "\n");
 	    return 0;
 	}
+	else if (!strcmp (argv[i], "--debug"))
+	{
+	    debugOutput = TRUE;
+	}
 	else if (!strcmp (argv[i], "--display"))
 	{
 	    if (i + 1 < argc)
@@ -315,6 +321,9 @@ main (int argc, char **argv)
 	}
 	else if (!strcmp (argv[i], "--indirect-rendering"))
 	{
+	    /* force Mesa libGL into indirect rendering mode, because
+	       glXQueryExtensionsString is context-independant */
+	    setenv ("LIBGL_ALWAYS_INDIRECT", "1", True);
 	    indirectRendering = TRUE;
 	}
 	else if (!strcmp (argv[i], "--loose-binding"))
@@ -323,7 +332,12 @@ main (int argc, char **argv)
 	}
 	else if (!strcmp (argv[i], "--ignore-desktop-hints"))
 	{
+	    /* keep command line parameter for backward compatibility */
 	    useDesktopHints = FALSE;
+	}
+	else if (!strcmp (argv[i], "--keep-desktop-hints"))
+	{
+	    useDesktopHints = TRUE;
 	}
 	else if (!strcmp (argv[i], "--only-current-screen"))
 	{
@@ -361,7 +375,7 @@ main (int argc, char **argv)
 	}
 	else if (*argv[i] == '-')
 	{
-	    compLogMessage (NULL, "core", CompLogLevelWarn,
+	    compLogMessage ("core", CompLogLevelWarn,
 			    "Unknown option '%s'\n", argv[i]);
 	}
 	else
@@ -407,7 +421,7 @@ main (int argc, char **argv)
 
     if (!compInitMetadata (&coreMetadata))
     {
-	compLogMessage (NULL, "core", CompLogLevelFatal,
+	compLogMessage ("core", CompLogLevelFatal,
 			"Couldn't initialize core metadata");
 	return 1;
     }
@@ -428,6 +442,8 @@ main (int argc, char **argv)
     if (!initCore ())
 	return 1;
 
+    coreInitialized = TRUE;
+
     if (!disableSm)
 	initSession (clientId);
 
@@ -439,7 +455,10 @@ main (int argc, char **argv)
     if (!disableSm)
 	closeSession ();
 
+    coreInitialized = FALSE;
+
     finiCore ();
+    compFiniMetadata (&coreMetadata);
 
     xmlCleanupParser ();
 

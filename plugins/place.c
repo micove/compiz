@@ -32,6 +32,8 @@ static int displayPrivateIndex;
 
 typedef struct _PlaceDisplay {
     int		    screenPrivateIndex;
+
+    HandleEventProc handleEvent;
 } PlaceDisplay;
 
 #define PLACE_MODE_CASCADE  0
@@ -47,17 +49,18 @@ typedef struct _PlaceDisplay {
 #define PLACE_MOMODE_FULLSCREEN 3
 #define PLACE_MOMODE_LAST       PLACE_MOMODE_FULLSCREEN
 
-#define PLACE_SCREEN_OPTION_WORKAROUND        0
-#define PLACE_SCREEN_OPTION_MODE              1
-#define PLACE_SCREEN_OPTION_MULTIOUTPUT_MODE  2
-#define PLACE_SCREEN_OPTION_FORCE_PLACEMENT   3
-#define PLACE_SCREEN_OPTION_POSITION_MATCHES  4
-#define PLACE_SCREEN_OPTION_POSITION_X_VALUES 5
-#define PLACE_SCREEN_OPTION_POSITION_Y_VALUES 6
-#define PLACE_SCREEN_OPTION_VIEWPORT_MATCHES  7
-#define PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES 8
-#define PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES 9
-#define PLACE_SCREEN_OPTION_NUM               10
+#define PLACE_SCREEN_OPTION_WORKAROUND         0
+#define PLACE_SCREEN_OPTION_MODE               1
+#define PLACE_SCREEN_OPTION_MULTIOUTPUT_MODE   2
+#define PLACE_SCREEN_OPTION_FORCE_PLACEMENT    3
+#define PLACE_SCREEN_OPTION_POSITION_MATCHES   4
+#define PLACE_SCREEN_OPTION_POSITION_X_VALUES  5
+#define PLACE_SCREEN_OPTION_POSITION_Y_VALUES  6
+#define PLACE_SCREEN_OPTION_POSITION_CONSTRAIN 7
+#define PLACE_SCREEN_OPTION_VIEWPORT_MATCHES   8
+#define PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES  9
+#define PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES  10
+#define PLACE_SCREEN_OPTION_NUM                11
 
 typedef struct _PlaceScreen {
     CompOption opt[PLACE_SCREEN_OPTION_NUM];
@@ -110,8 +113,10 @@ placeMatchXYValue (CompWindow *w,
 		   CompOption *matches,
 		   CompOption *xValues,
 		   CompOption *yValues,
+		   CompOption *constrain,
 		   int	      *x,
-		   int	      *y)
+		   int	      *y,
+		   Bool       *keepInWorkarea)
 {
     int i, min;
 
@@ -128,6 +133,14 @@ placeMatchXYValue (CompWindow *w,
 	    *x = xValues->value.list.value[i].i;
 	    *y = yValues->value.list.value[i].i;
 
+	    if (keepInWorkarea)
+	    {
+		if (constrain && constrain->value.list.nValue > i)
+		    *keepInWorkarea = constrain->value.list.value[i].b;
+		else
+		    *keepInWorkarea = TRUE;
+	    }
+
 	    return TRUE;
 	}
     }
@@ -138,7 +151,8 @@ placeMatchXYValue (CompWindow *w,
 static Bool
 placeMatchPosition (CompWindow *w,
 		    int	       *x,
-		    int	       *y)
+		    int	       *y,
+		    Bool       *keepInWorkarea)
 {
     PLACE_SCREEN (w->screen);
 
@@ -146,8 +160,10 @@ placeMatchPosition (CompWindow *w,
 			      &ps->opt[PLACE_SCREEN_OPTION_POSITION_MATCHES],
 			      &ps->opt[PLACE_SCREEN_OPTION_POSITION_X_VALUES],
 			      &ps->opt[PLACE_SCREEN_OPTION_POSITION_Y_VALUES],
+			      &ps->opt[PLACE_SCREEN_OPTION_POSITION_CONSTRAIN],
 			      x,
-			      y);
+			      y,
+			      keepInWorkarea);
 }
 
 static Bool
@@ -161,8 +177,10 @@ placeMatchViewport (CompWindow *w,
 			   &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_MATCHES],
 			   &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES],
 			   &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES],
+			   NULL,
 			   x,
-			   y))
+			   y,
+			   NULL))
     {
 	/* Viewport matches are given 1-based, so we need to adjust that */
 	*x -= 1;
@@ -347,8 +365,8 @@ compareTopmost (const void *a,
     CompWindow *bw = *((CompWindow **) b);
     int	       ay, by;
 
-    ay = WIN_FULL_X (aw);
-    by = WIN_FULL_X (bw);
+    ay = WIN_FULL_Y (aw);
+    by = WIN_FULL_Y (bw);
 
     if (ay < by)
 	return -1;
@@ -971,7 +989,9 @@ placeGetStrategyForWindow (CompWindow *w)
 	(w->type & (CompWindowTypeDialogMask |
 		    CompWindowTypeModalDialogMask)))
     {
-	return PlaceOverParent;
+	CompWindow *parent = findWindowAtScreen (w->screen, w->transientFor);
+	if (parent && parent->managed)
+	    return PlaceOverParent;
     }
 
     if (w->type & (CompWindowTypeDialogMask |
@@ -1069,21 +1089,31 @@ placeConstrainToWorkarea (CompWindow *w,
 			  int        *y)
 {
     CompWindowExtents extents;
+    int               delta;
 
     extents.left   = *x - w->input.left;
     extents.top    = *y - w->input.top;
     extents.right  = *x + w->serverWidth + w->input.right;
     extents.bottom = *y + w->serverHeight + w->input.bottom;
 
-    if (extents.left < workArea->x)
-	*x += workArea->x - extents.left;
-    else if (extents.right > workArea->x + workArea->width)
-	*x += workArea->x + workArea->width - extents.right;
+    delta = workArea->x + workArea->width - extents.right;
+    if (delta < 0)
+	extents.left += delta;
 
-    if (extents.top < workArea->y)
-	*y += workArea->y - extents.top;
-    else if (extents.bottom > workArea->y + workArea->height)
-	*y += workArea->y + workArea->height - extents.bottom;
+    delta = workArea->x - extents.left;
+    if (delta > 0)
+	extents.left  += delta;
+
+    delta = workArea->y + workArea->height - extents.bottom;
+    if (delta < 0)
+	extents.top += delta;
+
+    delta = workArea->y - extents.top;
+    if (delta > 0)
+	extents.top += delta;
+
+    *x = extents.left + w->input.left;
+    *y = extents.top  + w->input.top;
 }
 
 static Bool
@@ -1098,18 +1128,19 @@ placeDoWindowPlacement (CompWindow *w,
     int               targetVpX, targetVpY;
     CompOutput        *output;
     PlacementStrategy strategy;
+    Bool	      keepInWorkarea;
 
     PLACE_SCREEN (s);
 
-    strategy = placeGetStrategyForWindow (w);
-
-    if (strategy == NoPlacement)
-	return FALSE;
-
-    if (placeMatchPosition (w, &x, &y))
+    if (placeMatchPosition (w, &x, &y, &keepInWorkarea))
     {
-	/* FIXME: perhaps ConstrainOnly? */
-	strategy = NoPlacement;
+	strategy = keepInWorkarea ? ConstrainOnly : NoPlacement;
+    }
+    else
+    {
+	strategy = placeGetStrategyForWindow (w);
+	if (strategy == NoPlacement)
+	    return FALSE;
     }
 
     output   = placeGetPlacementOutput (w, strategy, x, y);
@@ -1233,31 +1264,33 @@ placeDoWindowPlacement (CompWindow *w,
 static void
 placeValidateWindowResizeRequest (CompWindow     *w,
 				  unsigned int   *mask,
-				  XWindowChanges *xwc)
+				  XWindowChanges *xwc,
+				  unsigned int   source)
 {
     CompScreen *s = w->screen;
     XRectangle workArea;
     int        x, y, left, right, top, bottom;
     int        output;
+    Bool       sizeOnly = FALSE;
 
     PLACE_SCREEN (s);
 
     UNWRAP (ps, s, validateWindowResizeRequest);
-    (*s->validateWindowResizeRequest) (w, mask, xwc);
+    (*s->validateWindowResizeRequest) (w, mask, xwc, source);
     WRAP (ps, s, validateWindowResizeRequest,
 	  placeValidateWindowResizeRequest);
+
+    if (*mask == 0)
+	return;
+
+    if (source == ClientTypePager)
+	return;
 
     if (w->state & CompWindowStateFullscreenMask)
 	return;
 
     if (w->wmType & (CompWindowTypeDockMask |
 		     CompWindowTypeDesktopMask))
-	return;
-
-    if (!(w->type & (CompWindowTypeNormalMask |
-		     CompWindowTypeSplashMask |
-		     CompWindowTypeDialogMask |
-		     CompWindowTypeModalDialogMask)))
 	return;
 
     if (w->sizeHints.flags & USPosition)
@@ -1267,7 +1300,9 @@ placeValidateWindowResizeRequest (CompWindow     *w,
 	if (ps->opt[PLACE_SCREEN_OPTION_WORKAROUND].value.b ||
 	    (w->type & CompWindowTypeNormalMask))
 	{
-	    return;
+	    /* try to keep the window position intact for USPosition -
+	       obviously we can't do that if we need to change the size */
+	    sizeOnly = TRUE;
 	}
     }
 
@@ -1275,11 +1310,11 @@ placeValidateWindowResizeRequest (CompWindow     *w,
        sizes as we don't need to validate movements to other viewports;
        we are only interested in inner-viewport movements */
     x = xwc->x % s->width;
-    if (x < 0)
+    if ((x + xwc->width) < 0)
 	x += s->width;
 
     y = xwc->y % s->height;
-    if (y < 0)
+    if ((y + xwc->height) < 0)
 	y += s->height;
 
     left   = x - w->input.left;
@@ -1297,7 +1332,12 @@ placeValidateWindowResizeRequest (CompWindow     *w,
     if (xwc->width >= workArea.width &&
 	xwc->height >= workArea.height)
     {
-	placeSendWindowMaximizationRequest (w);
+	if ((w->actions & MAXIMIZE_STATE) == MAXIMIZE_STATE &&
+	    (w->mwmDecor & (MwmDecorAll | MwmDecorTitle))   &&
+	    !(w->state & CompWindowStateFullscreenMask))
+	{
+	    placeSendWindowMaximizationRequest (w);
+	}
     }
 
     if ((right - left) > workArea.width)
@@ -1346,28 +1386,33 @@ placeValidateWindowResizeRequest (CompWindow     *w,
     top    += w->input.top;
     bottom -= w->input.bottom;
 
-    if (left != x)
-    {
-	xwc->x += left - x;
-	*mask  |= CWX;
-    }
-
-    if (top != y)
-    {
-	xwc->y += top - y;
-	*mask  |= CWY;
-    }
-
     if ((right - left) != xwc->width)
     {
 	xwc->width = right - left;
 	*mask      |= CWWidth;
+	sizeOnly   = FALSE;
     }
 
     if ((bottom - top) != xwc->height)
     {
 	xwc->height = bottom - top;
 	*mask       |= CWHeight;
+	sizeOnly    = FALSE;
+    }
+
+    if (!sizeOnly)
+    {
+	if (left != x)
+	{
+	    xwc->x += left - x;
+	    *mask  |= CWX;
+	}
+
+	if (top != y)
+	{
+	    xwc->y += top - y;
+	    *mask  |= CWY;
+	}
     }
 }
 
@@ -1417,6 +1462,95 @@ placePlaceWindow (CompWindow *w,
     return TRUE;
 }
 
+static void
+placeHandleScreenSizeChange (CompScreen *s,
+			     int        width,
+			     int        height)
+{
+    CompWindow     *w;
+    int            vpX, vpY, shiftX, shiftY;
+    XRectangle     extents;
+    unsigned int   mask;
+    XWindowChanges xwc;
+
+    for (w = s->windows; w; w = w->next)
+    {
+	if (!w->managed)
+	    continue;
+
+	if (w->wmType & (CompWindowTypeDockMask |
+			 CompWindowTypeDesktopMask))
+	    continue;
+
+	mask = 0;
+	getWindowExtentsRect (w, &extents);
+
+	vpX = extents.x / s->width;
+	if (extents.x < 0)
+	    vpX -= 1;
+	vpY = extents.y / s->height;
+	if (extents.y < 0)
+	    vpY -= 1;
+
+	shiftX = vpX * (width - s->width);
+	shiftY = vpY * (height - s->height);
+
+	extents.x = extents.x % s->width;
+	if (extents.x < 0)
+	    extents.x += s->width;
+	extents.y = extents.y % s->height;
+	if (extents.y < 0)
+	    extents.y += s->height;
+
+	if (extents.x + extents.width > width)
+	    shiftX += width - extents.x - extents.width;
+	if (extents.y + extents.height > height)
+	    shiftY += height - extents.y - extents.height;
+
+	if (shiftX)
+	{
+	    mask |= CWX;
+	    xwc.x = w->serverX + shiftX;
+	}
+
+	if (shiftY)
+	{
+	    mask |= CWY;
+	    xwc.y = w->serverY + shiftY;
+	}
+
+	if (mask)
+	    configureXWindow (w, mask, &xwc);
+    }
+}
+
+static void
+placeHandleEvent (CompDisplay *d,
+		  XEvent      *event)
+{
+    PLACE_DISPLAY (d);
+
+    switch (event->type) {
+    case ConfigureNotify:
+	{
+	    CompScreen *s;
+
+	    s = findScreenAtDisplay (d, event->xconfigure.window);
+	    if (s)
+		placeHandleScreenSizeChange (s,
+					     event->xconfigure.width,
+					     event->xconfigure.height);
+	}
+	break;
+    default:
+	break;
+    }
+
+    UNWRAP (pd, d, handleEvent);
+    (*d->handleEvent) (d, event);
+    WRAP (pd, d, handleEvent, placeHandleEvent);
+}
+
 static Bool
 placeInitDisplay (CompPlugin  *p,
 		  CompDisplay *d)
@@ -1439,6 +1573,8 @@ placeInitDisplay (CompPlugin  *p,
 
     d->base.privates[displayPrivateIndex].ptr = pd;
 
+    WRAP (pd, d, handleEvent, placeHandleEvent);
+
     return TRUE;
 }
 
@@ -1447,6 +1583,8 @@ placeFiniDisplay (CompPlugin  *p,
 		  CompDisplay *d)
 {
     PLACE_DISPLAY (d);
+
+    UNWRAP (pd, d, handleEvent);
 
     freeScreenPrivateIndex (d, pd->screenPrivateIndex);
 
@@ -1461,6 +1599,7 @@ static const CompMetadataOptionInfo placeScreenOptionInfo[] = {
     { "position_matches", "list", "<type>match</type>", 0, 0 },
     { "position_x_values", "list", "<type>int</type>", 0, 0 },
     { "position_y_values", "list", "<type>int</type>", 0, 0 },
+    { "position_constrain_workarea", "list", "<type>bool</type>", 0, 0 },
     { "viewport_matches", "list", "<type>match</type>", 0, 0 },
     { "viewport_x_values", "list",
 	"<type>int</type><min>1</min><max>32</max>", 0, 0 },
@@ -1550,8 +1689,9 @@ placeGetObjectOptions (CompPlugin *plugin,
 	(GetPluginObjectOptionsProc) placeGetScreenOptions
     };
 
+    *count = 0;
     RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
-		     (void *) (*count = 0), (plugin, object, count));
+		     (void *) count, (plugin, object, count));
 }
 
 static CompBool
