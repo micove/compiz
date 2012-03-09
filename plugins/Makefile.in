@@ -61,7 +61,9 @@ am__libannotate_la_SOURCES_DIST = annotate.c
 @ANNOTATE_PLUGIN_TRUE@am_libannotate_la_OBJECTS = annotate.lo
 libannotate_la_OBJECTS = $(am_libannotate_la_OBJECTS)
 @ANNOTATE_PLUGIN_TRUE@am_libannotate_la_rpath = -rpath $(moduledir)
-libclone_la_DEPENDENCIES =
+am_libblur_la_OBJECTS = blur.lo
+libblur_la_OBJECTS = $(am_libblur_la_OBJECTS)
+libclone_la_LIBADD =
 am_libclone_la_OBJECTS = clone.lo
 libclone_la_OBJECTS = $(am_libclone_la_OBJECTS)
 libcube_la_DEPENDENCIES =
@@ -74,9 +76,14 @@ libdbus_la_OBJECTS = $(am_libdbus_la_OBJECTS)
 @DBUS_PLUGIN_TRUE@am_libdbus_la_rpath = -rpath $(moduledir)
 am_libdecoration_la_OBJECTS = decoration.lo
 libdecoration_la_OBJECTS = $(am_libdecoration_la_OBJECTS)
-libfade_la_DEPENDENCIES =
+libfade_la_LIBADD =
 am_libfade_la_OBJECTS = fade.lo
 libfade_la_OBJECTS = $(am_libfade_la_OBJECTS)
+libfs_la_DEPENDENCIES =
+am__libfs_la_SOURCES_DIST = fuse.c
+@FUSE_PLUGIN_TRUE@am_libfs_la_OBJECTS = fuse.lo
+libfs_la_OBJECTS = $(am_libfs_la_OBJECTS)
+@FUSE_PLUGIN_TRUE@am_libfs_la_rpath = -rpath $(moduledir)
 libgconf_dump_la_DEPENDENCIES =
 am__libgconf_dump_la_SOURCES_DIST = gconf-dump.c
 @GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@am_libgconf_dump_la_OBJECTS =  \
@@ -89,15 +96,18 @@ am__libgconf_la_SOURCES_DIST = gconf.c
 @USE_GCONF_TRUE@am_libgconf_la_OBJECTS = gconf.lo
 libgconf_la_OBJECTS = $(am_libgconf_la_OBJECTS)
 @USE_GCONF_TRUE@am_libgconf_la_rpath = -rpath $(moduledir)
-libinotify_la_DEPENDENCIES =
+libini_la_LIBADD =
+am_libini_la_OBJECTS = ini.lo
+libini_la_OBJECTS = $(am_libini_la_OBJECTS)
+libinotify_la_LIBADD =
 am__libinotify_la_SOURCES_DIST = inotify.c
 @INOTIFY_PLUGIN_TRUE@am_libinotify_la_OBJECTS = inotify.lo
 libinotify_la_OBJECTS = $(am_libinotify_la_OBJECTS)
 @INOTIFY_PLUGIN_TRUE@am_libinotify_la_rpath = -rpath $(moduledir)
-libminimize_la_DEPENDENCIES =
+libminimize_la_LIBADD =
 am_libminimize_la_OBJECTS = minimize.lo
 libminimize_la_OBJECTS = $(am_libminimize_la_OBJECTS)
-libmove_la_DEPENDENCIES =
+libmove_la_LIBADD =
 am_libmove_la_OBJECTS = move.lo
 libmove_la_OBJECTS = $(am_libmove_la_OBJECTS)
 libplace_la_DEPENDENCIES =
@@ -105,22 +115,25 @@ am__libplace_la_SOURCES_DIST = place.c
 @PLACE_PLUGIN_TRUE@am_libplace_la_OBJECTS = place.lo
 libplace_la_OBJECTS = $(am_libplace_la_OBJECTS)
 @PLACE_PLUGIN_TRUE@am_libplace_la_rpath = -rpath $(moduledir)
-libplane_la_DEPENDENCIES =
+libplane_la_LIBADD =
 am_libplane_la_OBJECTS = plane.lo
 libplane_la_OBJECTS = $(am_libplane_la_OBJECTS)
-libpng_la_DEPENDENCIES =
+libpng_la_LIBADD =
 am_libpng_la_OBJECTS = png.lo
 libpng_la_OBJECTS = $(am_libpng_la_OBJECTS)
-libresize_la_DEPENDENCIES =
+libregex_la_LIBADD =
+am_libregex_la_OBJECTS = regex.lo
+libregex_la_OBJECTS = $(am_libregex_la_OBJECTS)
+libresize_la_LIBADD =
 am_libresize_la_OBJECTS = resize.lo
 libresize_la_OBJECTS = $(am_libresize_la_OBJECTS)
-librotate_la_DEPENDENCIES =
+librotate_la_LIBADD =
 am_librotate_la_OBJECTS = rotate.lo
 librotate_la_OBJECTS = $(am_librotate_la_OBJECTS)
-libscale_la_DEPENDENCIES =
+libscale_la_LIBADD =
 am_libscale_la_OBJECTS = scale.lo
 libscale_la_OBJECTS = $(am_libscale_la_OBJECTS)
-libscreenshot_la_DEPENDENCIES =
+libscreenshot_la_LIBADD =
 am_libscreenshot_la_OBJECTS = screenshot.lo
 libscreenshot_la_OBJECTS = $(am_libscreenshot_la_OBJECTS)
 libsvg_la_DEPENDENCIES =
@@ -128,16 +141,18 @@ am__libsvg_la_SOURCES_DIST = svg.c
 @USE_LIBRSVG_TRUE@am_libsvg_la_OBJECTS = svg.lo
 libsvg_la_OBJECTS = $(am_libsvg_la_OBJECTS)
 @USE_LIBRSVG_TRUE@am_libsvg_la_rpath = -rpath $(moduledir)
-libswitcher_la_DEPENDENCIES =
+libswitcher_la_LIBADD =
 am_libswitcher_la_OBJECTS = switcher.lo
 libswitcher_la_OBJECTS = $(am_libswitcher_la_OBJECTS)
-libwater_la_DEPENDENCIES =
+am_libvideo_la_OBJECTS = video.lo
+libvideo_la_OBJECTS = $(am_libvideo_la_OBJECTS)
+libwater_la_LIBADD =
 am_libwater_la_OBJECTS = water.lo
 libwater_la_OBJECTS = $(am_libwater_la_OBJECTS)
-libwobbly_la_DEPENDENCIES =
+libwobbly_la_LIBADD =
 am_libwobbly_la_OBJECTS = wobbly.lo
 libwobbly_la_OBJECTS = $(am_libwobbly_la_OBJECTS)
-libzoom_la_DEPENDENCIES =
+libzoom_la_LIBADD =
 am_libzoom_la_OBJECTS = zoom.lo
 libzoom_la_OBJECTS = $(am_libzoom_la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
@@ -151,29 +166,34 @@ LTCOMPILE = $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) \
 CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(libannotate_la_SOURCES) $(libclone_la_SOURCES) \
-	$(libcube_la_SOURCES) $(libdbus_la_SOURCES) \
-	$(libdecoration_la_SOURCES) $(libfade_la_SOURCES) \
+SOURCES = $(libannotate_la_SOURCES) $(libblur_la_SOURCES) \
+	$(libclone_la_SOURCES) $(libcube_la_SOURCES) \
+	$(libdbus_la_SOURCES) $(libdecoration_la_SOURCES) \
+	$(libfade_la_SOURCES) $(libfs_la_SOURCES) \
 	$(libgconf_dump_la_SOURCES) $(libgconf_la_SOURCES) \
-	$(libinotify_la_SOURCES) $(libminimize_la_SOURCES) \
-	$(libmove_la_SOURCES) $(libplace_la_SOURCES) \
-	$(libplane_la_SOURCES) $(libpng_la_SOURCES) \
+	$(libini_la_SOURCES) $(libinotify_la_SOURCES) \
+	$(libminimize_la_SOURCES) $(libmove_la_SOURCES) \
+	$(libplace_la_SOURCES) $(libplane_la_SOURCES) \
+	$(libpng_la_SOURCES) $(libregex_la_SOURCES) \
 	$(libresize_la_SOURCES) $(librotate_la_SOURCES) \
 	$(libscale_la_SOURCES) $(libscreenshot_la_SOURCES) \
 	$(libsvg_la_SOURCES) $(libswitcher_la_SOURCES) \
-	$(libwater_la_SOURCES) $(libwobbly_la_SOURCES) \
-	$(libzoom_la_SOURCES)
+	$(libvideo_la_SOURCES) $(libwater_la_SOURCES) \
+	$(libwobbly_la_SOURCES) $(libzoom_la_SOURCES)
 DIST_SOURCES = $(am__libannotate_la_SOURCES_DIST) \
-	$(libclone_la_SOURCES) $(libcube_la_SOURCES) \
-	$(am__libdbus_la_SOURCES_DIST) $(libdecoration_la_SOURCES) \
-	$(libfade_la_SOURCES) $(am__libgconf_dump_la_SOURCES_DIST) \
-	$(am__libgconf_la_SOURCES_DIST) \
+	$(libblur_la_SOURCES) $(libclone_la_SOURCES) \
+	$(libcube_la_SOURCES) $(am__libdbus_la_SOURCES_DIST) \
+	$(libdecoration_la_SOURCES) $(libfade_la_SOURCES) \
+	$(am__libfs_la_SOURCES_DIST) \
+	$(am__libgconf_dump_la_SOURCES_DIST) \
+	$(am__libgconf_la_SOURCES_DIST) $(libini_la_SOURCES) \
 	$(am__libinotify_la_SOURCES_DIST) $(libminimize_la_SOURCES) \
 	$(libmove_la_SOURCES) $(am__libplace_la_SOURCES_DIST) \
 	$(libplane_la_SOURCES) $(libpng_la_SOURCES) \
-	$(libresize_la_SOURCES) $(librotate_la_SOURCES) \
-	$(libscale_la_SOURCES) $(libscreenshot_la_SOURCES) \
-	$(am__libsvg_la_SOURCES_DIST) $(libswitcher_la_SOURCES) \
+	$(libregex_la_SOURCES) $(libresize_la_SOURCES) \
+	$(librotate_la_SOURCES) $(libscale_la_SOURCES) \
+	$(libscreenshot_la_SOURCES) $(am__libsvg_la_SOURCES_DIST) \
+	$(libswitcher_la_SOURCES) $(libvideo_la_SOURCES) \
 	$(libwater_la_SOURCES) $(libwobbly_la_SOURCES) \
 	$(libzoom_la_SOURCES)
 schemaDATA_INSTALL = $(INSTALL_DATA)
@@ -233,6 +253,10 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 F77 = @F77@
 FFLAGS = @FFLAGS@
+FUSE_CFLAGS = @FUSE_CFLAGS@
+FUSE_LIBS = @FUSE_LIBS@
+FUSE_PLUGIN_FALSE = @FUSE_PLUGIN_FALSE@
+FUSE_PLUGIN_TRUE = @FUSE_PLUGIN_TRUE@
 GCONFTOOL = @GCONFTOOL@
 GCONF_CFLAGS = @GCONF_CFLAGS@
 GCONF_DUMP_PLUGIN_FALSE = @GCONF_DUMP_PLUGIN_FALSE@
@@ -280,6 +304,7 @@ METACITY_CFLAGS = @METACITY_CFLAGS@
 METACITY_LIBS = @METACITY_LIBS@
 MKINSTALLDIRS = @MKINSTALLDIRS@
 MSGFMT = @MSGFMT@
+MSGFMT_OPTS = @MSGFMT_OPTS@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -300,6 +325,7 @@ PO_IN_DATADIR_TRUE = @PO_IN_DATADIR_TRUE@
 QT_MOC = @QT_MOC@
 RANLIB = @RANLIB@
 SCALE_CORNER = @SCALE_CORNER@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
@@ -370,88 +396,87 @@ target_alias = @target_alias@
 windowsettingsdatadir = @windowsettingsdatadir@
 windowsettingslibdir = @windowsettingslibdir@
 libfade_la_LDFLAGS = -module -avoid-version -no-undefined
-libfade_la_LIBADD = @COMPIZ_LIBS@
 libfade_la_SOURCES = fade.c
 libcube_la_LDFLAGS = -module -avoid-version -no-undefined
-libcube_la_LIBADD = @COMPIZ_LIBS@ @LIBRSVG_LIBS@
+libcube_la_LIBADD = @LIBRSVG_LIBS@
 libcube_la_SOURCES = cube.c
 librotate_la_LDFLAGS = -module -avoid-version -no-undefined
-librotate_la_LIBADD = @COMPIZ_LIBS@
 librotate_la_SOURCES = rotate.c
 libzoom_la_LDFLAGS = -module -avoid-version -no-undefined
-libzoom_la_LIBADD = @COMPIZ_LIBS@
 libzoom_la_SOURCES = zoom.c
 libscale_la_LDFLAGS = -module -avoid-version -no-undefined
-libscale_la_LIBADD = @COMPIZ_LIBS@
 libscale_la_SOURCES = scale.c
 libwobbly_la_LDFLAGS = -module -avoid-version -no-undefined
-libwobbly_la_LIBADD = @COMPIZ_LIBS@
 libwobbly_la_SOURCES = wobbly.c
 libminimize_la_LDFLAGS = -module -avoid-version -no-undefined
-libminimize_la_LIBADD = @COMPIZ_LIBS@
 libminimize_la_SOURCES = minimize.c
 libmove_la_LDFLAGS = -module -avoid-version -no-undefined
-libmove_la_LIBADD = @COMPIZ_LIBS@
 libmove_la_SOURCES = move.c
 libresize_la_LDFLAGS = -module -avoid-version -no-undefined
-libresize_la_LIBADD = @COMPIZ_LIBS@
 libresize_la_SOURCES = resize.c
 libdecoration_la_DEPENDENCIES = $(top_builddir)/libdecoration/libdecoration.la
 libdecoration_la_LDFLAGS = -module -avoid-version -no-undefined
-libdecoration_la_LIBADD = @COMPIZ_LIBS@		       \
-	$(top_builddir)/libdecoration/libdecoration.la
-
+libdecoration_la_LIBADD = $(top_builddir)/libdecoration/libdecoration.la
 libdecoration_la_SOURCES = decoration.c
 libswitcher_la_LDFLAGS = -module -avoid-version -no-undefined
-libswitcher_la_LIBADD = @COMPIZ_LIBS@
 libswitcher_la_SOURCES = switcher.c
 libwater_la_LDFLAGS = -module -avoid-version -no-undefined
-libwater_la_LIBADD = @COMPIZ_LIBS@
 libwater_la_SOURCES = water.c
 libscreenshot_la_LDFLAGS = -module -avoid-version -no-undefined
-libscreenshot_la_LIBADD = @COMPIZ_LIBS@
 libscreenshot_la_SOURCES = screenshot.c
 libplane_la_LDFLAGS = -module -avoid-version -no-undefined
-libplane_la_LIBADD = @COMPIZ_LIBS@
 libplane_la_SOURCES = plane.c
 libclone_la_LDFLAGS = -module -avoid-version -no-undefined
-libclone_la_LIBADD = @COMPIZ_LIBS@
 libclone_la_SOURCES = clone.c
 libpng_la_LDFLAGS = -module -avoid-version -no-undefined
-libpng_la_LIBADD = @COMPIZ_LIBS@
 libpng_la_SOURCES = png.c
+libblur_la_DEPENDENCIES = $(top_builddir)/libdecoration/libdecoration.la
+libblur_la_LDFLAGS = -module -avoid-version -no-undefined
+libblur_la_LIBADD = $(top_builddir)/libdecoration/libdecoration.la -lGLU
+libblur_la_SOURCES = blur.c
+libregex_la_LDFLAGS = -module -avoid-version -no-undefined
+libregex_la_SOURCES = regex.c
+libvideo_la_DEPENDENCIES = $(top_builddir)/libdecoration/libdecoration.la
+libvideo_la_LDFLAGS = -module -avoid-version -no-undefined
+libvideo_la_LIBADD = $(top_builddir)/libdecoration/libdecoration.la
+libvideo_la_SOURCES = video.c
+libini_la_LDFLAGS = -module -avoid-version -no-undefined
+libini_la_SOURCES = ini.c
 @USE_LIBRSVG_TRUE@libsvg_la_LDFLAGS = -module -avoid-version -no-undefined
-@USE_LIBRSVG_TRUE@libsvg_la_LIBADD = @COMPIZ_LIBS@ @LIBRSVG_LIBS@
+@USE_LIBRSVG_TRUE@libsvg_la_LIBADD = @LIBRSVG_LIBS@
 @USE_LIBRSVG_TRUE@libsvg_la_SOURCES = svg.c
 @USE_LIBRSVG_TRUE@libsvg_module = libsvg.la
 @ANNOTATE_PLUGIN_TRUE@libannotate_la_LDFLAGS = -module -avoid-version -no-undefined
-@ANNOTATE_PLUGIN_TRUE@libannotate_la_LIBADD = @COMPIZ_LIBS@ @ANNOTATE_LIBS@
+@ANNOTATE_PLUGIN_TRUE@libannotate_la_LIBADD = @ANNOTATE_LIBS@
 @ANNOTATE_PLUGIN_TRUE@libannotate_la_SOURCES = annotate.c
 @ANNOTATE_PLUGIN_TRUE@libannotate_module = libannotate.la
 @USE_GCONF_TRUE@libgconf_la_LDFLAGS = -module -avoid-version -no-undefined
-@USE_GCONF_TRUE@libgconf_la_LIBADD = @COMPIZ_LIBS@ @GCONF_LIBS@
+@USE_GCONF_TRUE@libgconf_la_LIBADD = @GCONF_LIBS@
 @USE_GCONF_TRUE@libgconf_la_SOURCES = gconf.c
 @USE_GCONF_TRUE@libgconf_module = libgconf.la
 @GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@libgconf_dump_la_LDFLAGS = -module -avoid-version -no-undefined
-@GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@libgconf_dump_la_LIBADD = @COMPIZ_LIBS@ @GCONF_LIBS@
+@GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@libgconf_dump_la_LIBADD = @GCONF_LIBS@
 @GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@libgconf_dump_la_SOURCES = gconf-dump.c
 @GCONF_DUMP_PLUGIN_TRUE@@USE_GCONF_TRUE@libgconf_dump_module = libgconf-dump.la
 @USE_GCONF_TRUE@schemadir = $(GCONF_SCHEMA_FILE_DIR)
 @USE_GCONF_TRUE@schema_in_files = compiz.schemas.in
 @USE_GCONF_TRUE@schema_DATA = $(schema_in_files:.schemas.in=.schemas)
-@USE_GCONF_TRUE@schema_modules = $(patsubst gconf%,,$(subst rotate,,$(subst zoom,,$(subst lib,,$(subst .la,,$(module_LTLIBRARIES))))))
+@USE_GCONF_TRUE@schema_modules = $(patsubst gconf%,,$(subst ini,,$(subst minimize,,$(subst rotate,,$(subst zoom,,$(subst lib,,$(subst .la,,$(module_LTLIBRARIES))))))))
 @PLACE_PLUGIN_TRUE@libplace_la_LDFLAGS = -module -avoid-version -no-undefined
-@PLACE_PLUGIN_TRUE@libplace_la_LIBADD = @COMPIZ_LIBS@ @PLACE_LIBS@
+@PLACE_PLUGIN_TRUE@libplace_la_LIBADD = @PLACE_LIBS@
 @PLACE_PLUGIN_TRUE@libplace_la_SOURCES = place.c
 @PLACE_PLUGIN_TRUE@libplace_module = libplace.la
 @DBUS_PLUGIN_TRUE@libdbus_la_LDFLAGS = -module -avoid-version -no-undefined
-@DBUS_PLUGIN_TRUE@libdbus_la_LIBADD = @COMPIZ_LIBS@ @DBUS_LIBS@
+@DBUS_PLUGIN_TRUE@libdbus_la_LIBADD = @DBUS_LIBS@
 @DBUS_PLUGIN_TRUE@libdbus_la_SOURCES = dbus.c
 @DBUS_PLUGIN_TRUE@libdbus_module = libdbus.la
 @INOTIFY_PLUGIN_TRUE@libinotify_la_LDFLAGS = -module -avoid-version -no-undefined
-@INOTIFY_PLUGIN_TRUE@libinotify_la_LIBADD = @COMPIZ_LIBS@
 @INOTIFY_PLUGIN_TRUE@libinotify_la_SOURCES = inotify.c
 @INOTIFY_PLUGIN_TRUE@libinotify_module = libinotify.la
+@FUSE_PLUGIN_TRUE@libfs_la_LDFLAGS = -module -avoid-version -no-undefined
+@FUSE_PLUGIN_TRUE@libfs_la_LIBADD = @FUSE_LIBS@
+@FUSE_PLUGIN_TRUE@libfs_la_SOURCES = fuse.c
+@FUSE_PLUGIN_TRUE@libfs_module = libfs.la
 INCLUDES = \
 	@COMPIZ_CFLAGS@				\
 	@LIBRSVG_CFLAGS@			\
@@ -459,6 +484,8 @@ INCLUDES = \
 	@GCONF_CFLAGS@				\
 	@PLACE_CFLAGS@				\
 	@DBUS_CFLAGS@				\
+	@FUSE_CFLAGS@				\
+	-DFUSE_USE_VERSION=26			\
 	-DALL_LINGUAS="\"@ALL_LINGUAS@\""	\
 	-DLOCALEDIR="\"@datadir@/locale\""	\
 	-DPLUGINDIR=\"$(plugindir)\"		\
@@ -486,10 +513,15 @@ module_LTLIBRARIES = \
 	libplane.la		\
 	libclone.la		\
 	libpng.la		\
+	libblur.la		\
+	libregex.la		\
+	libvideo.la		\
+	libini.la		\
 	$(libsvg_module)	\
 	$(libannotate_module)	\
 	$(libgconf_dump_module) \
-	$(libinotify_module)
+	$(libinotify_module)	\
+	$(libfs_module)
 
 EXTRA_DIST = $(schema_in_files)
 all: all-am
@@ -556,6 +588,8 @@ clean-moduleLTLIBRARIES:
 	done
 libannotate.la: $(libannotate_la_OBJECTS) $(libannotate_la_DEPENDENCIES) 
 	$(LINK) $(am_libannotate_la_rpath) $(libannotate_la_LDFLAGS) $(libannotate_la_OBJECTS) $(libannotate_la_LIBADD) $(LIBS)
+libblur.la: $(libblur_la_OBJECTS) $(libblur_la_DEPENDENCIES) 
+	$(LINK) -rpath $(moduledir) $(libblur_la_LDFLAGS) $(libblur_la_OBJECTS) $(libblur_la_LIBADD) $(LIBS)
 libclone.la: $(libclone_la_OBJECTS) $(libclone_la_DEPENDENCIES) 
 	$(LINK) -rpath $(moduledir) $(libclone_la_LDFLAGS) $(libclone_la_OBJECTS) $(libclone_la_LIBADD) $(LIBS)
 libcube.la: $(libcube_la_OBJECTS) $(libcube_la_DEPENDENCIES) 
@@ -566,10 +600,14 @@ libdecoration.la: $(libdecoration_la_OBJECTS) $(libdecoration_la_DEPENDENCIES)
 	$(LINK) -rpath $(moduledir) $(libdecoration_la_LDFLAGS) $(libdecoration_la_OBJECTS) $(libdecoration_la_LIBADD) $(LIBS)
 libfade.la: $(libfade_la_OBJECTS) $(libfade_la_DEPENDENCIES) 
 	$(LINK) -rpath $(moduledir) $(libfade_la_LDFLAGS) $(libfade_la_OBJECTS) $(libfade_la_LIBADD) $(LIBS)
+libfs.la: $(libfs_la_OBJECTS) $(libfs_la_DEPENDENCIES) 
+	$(LINK) $(am_libfs_la_rpath) $(libfs_la_LDFLAGS) $(libfs_la_OBJECTS) $(libfs_la_LIBADD) $(LIBS)
 libgconf-dump.la: $(libgconf_dump_la_OBJECTS) $(libgconf_dump_la_DEPENDENCIES) 
 	$(LINK) $(am_libgconf_dump_la_rpath) $(libgconf_dump_la_LDFLAGS) $(libgconf_dump_la_OBJECTS) $(libgconf_dump_la_LIBADD) $(LIBS)
 libgconf.la: $(libgconf_la_OBJECTS) $(libgconf_la_DEPENDENCIES) 
 	$(LINK) $(am_libgconf_la_rpath) $(libgconf_la_LDFLAGS) $(libgconf_la_OBJECTS) $(libgconf_la_LIBADD) $(LIBS)
+libini.la: $(libini_la_OBJECTS) $(libini_la_DEPENDENCIES) 
+	$(LINK) -rpath $(moduledir) $(libini_la_LDFLAGS) $(libini_la_OBJECTS) $(libini_la_LIBADD) $(LIBS)
 libinotify.la: $(libinotify_la_OBJECTS) $(libinotify_la_DEPENDENCIES) 
 	$(LINK) $(am_libinotify_la_rpath) $(libinotify_la_LDFLAGS) $(libinotify_la_OBJECTS) $(libinotify_la_LIBADD) $(LIBS)
 libminimize.la: $(libminimize_la_OBJECTS) $(libminimize_la_DEPENDENCIES) 
@@ -582,6 +620,8 @@ libplane.la: $(libplane_la_OBJECTS) $(libplane_la_DEPENDENCIES)
 	$(LINK) -rpath $(moduledir) $(libplane_la_LDFLAGS) $(libplane_la_OBJECTS) $(libplane_la_LIBADD) $(LIBS)
 libpng.la: $(libpng_la_OBJECTS) $(libpng_la_DEPENDENCIES) 
 	$(LINK) -rpath $(moduledir) $(libpng_la_LDFLAGS) $(libpng_la_OBJECTS) $(libpng_la_LIBADD) $(LIBS)
+libregex.la: $(libregex_la_OBJECTS) $(libregex_la_DEPENDENCIES) 
+	$(LINK) -rpath $(moduledir) $(libregex_la_LDFLAGS) $(libregex_la_OBJECTS) $(libregex_la_LIBADD) $(LIBS)
 libresize.la: $(libresize_la_OBJECTS) $(libresize_la_DEPENDENCIES) 
 	$(LINK) -rpath $(moduledir) $(libresize_la_LDFLAGS) $(libresize_la_OBJECTS) $(libresize_la_LIBADD) $(LIBS)
 librotate.la: $(librotate_la_OBJECTS) $(librotate_la_DEPENDENCIES) 
@@ -594,6 +634,8 @@ libsvg.la: $(libsvg_la_OBJECTS) $(libsvg_la_DEPENDENCIES)
 	$(LINK) $(am_libsvg_la_rpath) $(libsvg_la_LDFLAGS) $(libsvg_la_OBJECTS) $(libsvg_la_LIBADD) $(LIBS)
 libswitcher.la: $(libswitcher_la_OBJECTS) $(libswitcher_la_DEPENDENCIES) 
 	$(LINK) -rpath $(moduledir) $(libswitcher_la_LDFLAGS) $(libswitcher_la_OBJECTS) $(libswitcher_la_LIBADD) $(LIBS)
+libvideo.la: $(libvideo_la_OBJECTS) $(libvideo_la_DEPENDENCIES) 
+	$(LINK) -rpath $(moduledir) $(libvideo_la_LDFLAGS) $(libvideo_la_OBJECTS) $(libvideo_la_LIBADD) $(LIBS)
 libwater.la: $(libwater_la_OBJECTS) $(libwater_la_DEPENDENCIES) 
 	$(LINK) -rpath $(moduledir) $(libwater_la_LDFLAGS) $(libwater_la_OBJECTS) $(libwater_la_LIBADD) $(LIBS)
 libwobbly.la: $(libwobbly_la_OBJECTS) $(libwobbly_la_DEPENDENCIES) 
@@ -608,25 +650,30 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/annotate.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blur.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/clone.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cube.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dbus.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/decoration.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fade.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fuse.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gconf-dump.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gconf.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ini.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inotify.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/minimize.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/move.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/place.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plane.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/png.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/regex.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resize.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rotate.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/scale.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/screenshot.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/svg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/switcher.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/video.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/water.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wobbly.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/zoom.Plo@am__quote@
@@ -858,13 +905,14 @@ uninstall-am: uninstall-info-am uninstall-moduleLTLIBRARIES \
 @USE_GCONF_TRUE@compiz.schemas.in:
 @USE_GCONF_TRUE@	rm -f compiz.schemas.dump;
 @USE_GCONF_TRUE@	echo -e "<gconfschemafile>\n    <schemalist>" >> compiz.schemas.dump;
-@USE_GCONF_TRUE@	COMPIZ_SCHEMA_GENERAL=1 compiz --replace --no-detection gconf-dump;
+@USE_GCONF_TRUE@	COMPIZ_SCHEMA_GENERAL=1 compiz --replace --no-detection --sm-disable gconf-dump;
 @USE_GCONF_TRUE@	for module in $(schema_modules) ; do \
 @USE_GCONF_TRUE@		COMPIZ_SCHEMA_PLUGINS="$$module" \
-@USE_GCONF_TRUE@		compiz --replace "$$module" gconf-dump; \
+@USE_GCONF_TRUE@		compiz --replace --no-detection --sm-disable "$$module" gconf-dump; \
 @USE_GCONF_TRUE@	done;
-@USE_GCONF_TRUE@	COMPIZ_SCHEMA_PLUGINS="rotate" compiz --replace --no-detection cube rotate gconf-dump;
-@USE_GCONF_TRUE@	COMPIZ_SCHEMA_PLUGINS="zoom" compiz --replace --no-detection cube zoom gconf-dump;
+@USE_GCONF_TRUE@	COMPIZ_SCHEMA_PLUGINS="minimize" compiz --replace --no-detection --sm-disable minimize gconf-dump;
+@USE_GCONF_TRUE@	COMPIZ_SCHEMA_PLUGINS="rotate" compiz --replace --no-detection --sm-disable cube rotate gconf-dump;
+@USE_GCONF_TRUE@	COMPIZ_SCHEMA_PLUGINS="zoom" compiz --replace --no-detection --sm-disable cube zoom gconf-dump;
 @USE_GCONF_TRUE@	echo -e "    </schemalist>\n</gconfschemafile>" >> compiz.schemas.dump;
 @USE_GCONF_TRUE@	sed -e 's/\[TopRight\]/[\@SCALE_CORNER\@\]/' -e 's/\[gconf\]/\[gconf,\@DEFAULT_PLUGINS\@\]/' < compiz.schemas.dump > compiz.schemas.in;
 @USE_GCONF_TRUE@	rm -f compiz.schemas.dump

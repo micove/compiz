@@ -30,27 +30,10 @@
 
 #define FADE_SPEED_DEFAULT    5.0f
 #define FADE_SPEED_MIN        0.1f
-#define FADE_SPEED_MAX       10.0f
+#define FADE_SPEED_MAX       25.0f
 #define FADE_SPEED_PRECISION  0.1f
 
-static char *winType[] = {
-    N_("Dock"),
-    N_("Toolbar"),
-    N_("Menu"),
-    N_("Utility"),
-    N_("Splash"),
-    N_("Normal"),
-    N_("Dialog"),
-    N_("ModalDialog"),
-    N_("DropdownMenu"),
-    N_("PopupMenu"),
-    N_("Tooltip"),
-    N_("Notification"),
-    N_("Combo"),
-    N_("Dnd"),
-    N_("Unknown")
-};
-#define N_WIN_TYPE (sizeof (winType) / sizeof (winType[0]))
+#define FADE_WINDOW_MATCH_DEFAULT "any"
 
 #define FADE_VISUAL_BELL_DEFAULT FALSE
 
@@ -59,13 +42,14 @@ static char *winType[] = {
 static int displayPrivateIndex;
 
 typedef struct _FadeDisplay {
-    int		    screenPrivateIndex;
-    HandleEventProc handleEvent;
-    int		    displayModals;
+    int			       screenPrivateIndex;
+    HandleEventProc	       handleEvent;
+    MatchExpHandlerChangedProc matchExpHandlerChanged;
+    int			       displayModals;
 } FadeDisplay;
 
 #define FADE_SCREEN_OPTION_FADE_SPEED		  0
-#define FADE_SCREEN_OPTION_WINDOW_TYPE		  1
+#define FADE_SCREEN_OPTION_WINDOW_MATCH		  1
 #define FADE_SCREEN_OPTION_VISUAL_BELL		  2
 #define FADE_SCREEN_OPTION_FULLSCREEN_VISUAL_BELL 3
 #define FADE_SCREEN_OPTION_NUM			  4
@@ -82,7 +66,7 @@ typedef struct _FadeScreen {
     FocusWindowProc	   focusWindow;
     WindowResizeNotifyProc windowResizeNotify;
 
-    int wMask;
+    CompMatch match;
 } FadeScreen;
 
 typedef struct _FadeWindow {
@@ -96,6 +80,7 @@ typedef struct _FadeWindow {
     int unmapCnt;
 
     Bool shaded;
+    Bool fadeOut;
 
     int steps;
 } FadeWindow;
@@ -121,6 +106,18 @@ typedef struct _FadeWindow {
 		     GET_FADE_DISPLAY (w->screen->display)))
 
 #define NUM_OPTIONS(s) (sizeof ((s)->opt) / sizeof (CompOption))
+
+static void
+fadeUpdateWindowFadeMatch (CompDisplay     *display,
+			   CompOptionValue *value,
+			   CompMatch       *match)
+{
+    matchFini (match);
+    matchInit (match);
+    matchAddFromString (match, "!type=desktop");
+    matchAddGroup (match, MATCH_OP_AND_MASK, &value->match);
+    matchUpdate (display, match);
+}
 
 static CompOption *
 fadeGetScreenOptions (CompScreen *screen,
@@ -154,11 +151,10 @@ fadeSetScreenOption (CompScreen      *screen,
 	    return TRUE;
 	}
 	break;
-    case FADE_SCREEN_OPTION_WINDOW_TYPE:
-	if (compSetOptionList (o, value))
+    case FADE_SCREEN_OPTION_WINDOW_MATCH:
+	if (compSetMatchOption (o, value))
 	{
-	    fs->wMask = compWindowTypeMaskFromStringList (&o->value);
-	    fs->wMask &= ~CompWindowTypeDesktopMask;
+	    fadeUpdateWindowFadeMatch (screen->display, &o->value, &fs->match);
 	    return TRUE;
 	}
 	break;
@@ -177,7 +173,6 @@ static void
 fadeScreenInitOptions (FadeScreen *fs)
 {
     CompOption *o;
-    int	       i;
 
     o = &fs->opt[FADE_SCREEN_OPTION_FADE_SPEED];
     o->name		= "fade_speed";
@@ -189,20 +184,14 @@ fadeScreenInitOptions (FadeScreen *fs)
     o->rest.f.max	= FADE_SPEED_MAX;
     o->rest.f.precision = FADE_SPEED_PRECISION;
 
-    o = &fs->opt[FADE_SCREEN_OPTION_WINDOW_TYPE];
-    o->name	         = "window_types";
-    o->shortDesc         = N_("Window Types");
-    o->longDesc	         = N_("Window types that should be fading");
-    o->type	         = CompOptionTypeList;
-    o->value.list.type   = CompOptionTypeString;
-    o->value.list.nValue = N_WIN_TYPE;
-    o->value.list.value  = malloc (sizeof (CompOptionValue) * N_WIN_TYPE);
-    for (i = 0; i < N_WIN_TYPE; i++)
-	o->value.list.value[i].s = strdup (winType[i]);
-    o->rest.s.string     = windowTypeString;
-    o->rest.s.nString    = nWindowTypeString;
+    o = &fs->opt[FADE_SCREEN_OPTION_WINDOW_MATCH];
+    o->name	         = "window_match";
+    o->shortDesc         = N_("Fade windows");
+    o->longDesc	         = N_("Windows that should be fading");
+    o->type	         = CompOptionTypeMatch;
 
-    fs->wMask = compWindowTypeMaskFromStringList (&o->value);
+    matchInit (&o->value.match);
+    matchAddFromString (&o->value.match, FADE_WINDOW_MATCH_DEFAULT);
 
     o = &fs->opt[FADE_SCREEN_OPTION_VISUAL_BELL];
     o->name	  = "visual_bell";
@@ -261,6 +250,7 @@ fadeWindowStop (CompWindow *w)
 static Bool
 fadePaintWindow (CompWindow		 *w,
 		 const WindowPaintAttrib *attrib,
+		 const CompTransform	 *transform,
 		 Region			 region,
 		 unsigned int		 mask)
 {
@@ -273,11 +263,16 @@ fadePaintWindow (CompWindow		 *w,
     if (!w->screen->canDoSlightlySaturated)
 	fw->saturation = attrib->saturation;
 
-    if (fw->opacity    != attrib->opacity    ||
+    if (fw->destroyCnt			     ||
+	fw->unmapCnt			     ||
+	fw->opacity    != attrib->opacity    ||
 	fw->brightness != attrib->brightness ||
 	fw->saturation != attrib->saturation)
     {
 	WindowPaintAttrib fAttrib = *attrib;
+
+	if (fw->fadeOut)
+	    fAttrib.opacity = 0;
 
 	if (fw->steps)
 	{
@@ -286,21 +281,21 @@ fadePaintWindow (CompWindow		 *w,
 	    GLint saturation;
 
 	    opacity = fw->opacity;
-	    if (attrib->opacity > fw->opacity)
+	    if (fAttrib.opacity > fw->opacity)
 	    {
 		opacity = fw->opacity + fw->steps;
-		if (opacity > attrib->opacity)
-		    opacity = attrib->opacity;
+		if (opacity > fAttrib.opacity)
+		    opacity = fAttrib.opacity;
 	    }
-	    else if (attrib->opacity < fw->opacity)
+	    else if (fAttrib.opacity < fw->opacity)
 	    {
 		if (w->type & CompWindowTypeUnknownMask)
 		    opacity = fw->opacity - (fw->steps >> 1);
 		else
 		    opacity = fw->opacity - fw->steps;
 
-		if (opacity < attrib->opacity)
-		    opacity = attrib->opacity;
+		if (opacity < fAttrib.opacity)
+		    opacity = fAttrib.opacity;
 	    }
 
 	    brightness = fw->brightness;
@@ -357,13 +352,13 @@ fadePaintWindow (CompWindow		 *w,
 	fAttrib.saturation = fw->saturation;
 
 	UNWRAP (fs, s, paintWindow);
-	status = (*s->paintWindow) (w, &fAttrib, region, mask);
+	status = (*s->paintWindow) (w, &fAttrib, transform, region, mask);
 	WRAP (fs, s, paintWindow, fadePaintWindow);
     }
     else
     {
 	UNWRAP (fs, s, paintWindow);
-	status = (*s->paintWindow) (w, attrib, region, mask);
+	status = (*s->paintWindow) (w, attrib, transform, region, mask);
 	WRAP (fs, s, paintWindow, fadePaintWindow);
     }
 
@@ -461,17 +456,17 @@ fadeHandleEvent (CompDisplay *d,
 	{
 	    FADE_SCREEN (w->screen);
 
-	    if (w->texture->pixmap && (fs->wMask & w->type))
+	    if (w->texture->pixmap && matchEval (&fs->match, w))
 	    {
 		FADE_WINDOW (w);
-
-		w->paint.opacity = 0;
 
 		if (fw->opacity == 0xffff)
 		    fw->opacity = 0xfffe;
 
 		fw->destroyCnt++;
 		w->destroyRefCnt++;
+
+		fw->fadeOut = TRUE;
 
 		addWindowDamage (w);
 	    }
@@ -488,15 +483,15 @@ fadeHandleEvent (CompDisplay *d,
 
 	    fw->shaded = w->shaded;
 
-	    if (!fw->shaded && w->texture->pixmap && (fs->wMask & w->type))
+	    if (!fw->shaded && w->texture->pixmap && matchEval (&fs->match, w))
 	    {
-		w->paint.opacity = 0;
-
 		if (fw->opacity == 0xffff)
 		    fw->opacity = 0xfffe;
 
 		fw->unmapCnt++;
 		w->unmapRefCnt++;
+
+		fw->fadeOut = TRUE;
 
 		addWindowDamage (w);
 	    }
@@ -508,11 +503,6 @@ fadeHandleEvent (CompDisplay *d,
 	w = findWindowAtDisplay (d, event->xmap.window);
 	if (w)
 	{
-	    if (!(w->type & CompWindowTypeDesktopMask))
-		w->paint.opacity = getWindowProp32 (d, w->id,
-						    d->winOpacityAtom,
-						    OPAQUE);
-
 	    fadeWindowStop (w);
 
 	    if (w->state & CompWindowStateDisplayModalMask)
@@ -613,11 +603,13 @@ fadeDamageWindowRect (CompWindow *w,
     {
 	FADE_WINDOW (w);
 
+	fw->fadeOut = FALSE;
+
 	if (fw->shaded)
 	{
 	    fw->shaded = w->shaded;
 	}
-	else if ((fs->wMask & w->type) && fw->opacity == w->paint.opacity)
+	else if (matchEval (&fs->match, w))
 	{
 	    fw->opacity = 0;
 	}
@@ -649,7 +641,11 @@ fadeFocusWindow (CompWindow *w)
 }
 
 static void
-fadeWindowResizeNotify (CompWindow *w)
+fadeWindowResizeNotify (CompWindow *w,
+			int	   dx,
+			int	   dy,
+			int	   dwidth,
+			int	   dheight)
 {
     FADE_SCREEN (w->screen);
 
@@ -657,8 +653,23 @@ fadeWindowResizeNotify (CompWindow *w)
 	fadeWindowStop (w);
 
     UNWRAP (fs, w->screen, windowResizeNotify);
-    (*w->screen->windowResizeNotify) (w);
+    (*w->screen->windowResizeNotify) (w, dx, dy, dwidth, dheight);
     WRAP (fs, w->screen, windowResizeNotify, fadeWindowResizeNotify);
+}
+
+static void
+fadeMatchExpHandlerChanged (CompDisplay *d)
+{
+    CompScreen *s;
+
+    FADE_DISPLAY (d);
+
+    for (s = d->screens; s; s = s->next)
+	matchUpdate (d, &GET_FADE_SCREEN (s,fd)->match);
+
+    UNWRAP (fd, d, matchExpHandlerChanged);
+    (*d->matchExpHandlerChanged) (d);
+    WRAP (fd, d, matchExpHandlerChanged, fadeMatchExpHandlerChanged);
 }
 
 static Bool
@@ -681,6 +692,7 @@ fadeInitDisplay (CompPlugin  *p,
     fd->displayModals = 0;
 
     WRAP (fd, d, handleEvent, fadeHandleEvent);
+    WRAP (fd, d, matchExpHandlerChanged, fadeMatchExpHandlerChanged);
 
     d->privates[displayPrivateIndex].ptr = fd;
 
@@ -696,6 +708,7 @@ fadeFiniDisplay (CompPlugin *p,
     freeScreenPrivateIndex (d, fd->screenPrivateIndex);
 
     UNWRAP (fd, d, handleEvent);
+    UNWRAP (fd, d, matchExpHandlerChanged);
 
     free (fd);
 }
@@ -723,6 +736,12 @@ fadeInitScreen (CompPlugin *p,
 
     fadeScreenInitOptions (fs);
 
+    matchInit (&fs->match);
+
+    fadeUpdateWindowFadeMatch (s->display,
+			       &fs->opt[FADE_SCREEN_OPTION_WINDOW_MATCH].value,
+			       &fs->match);
+
     WRAP (fs, s, preparePaintScreen, fadePreparePaintScreen);
     WRAP (fs, s, paintWindow, fadePaintWindow);
     WRAP (fs, s, damageWindowRect, fadeDamageWindowRect);
@@ -739,6 +758,9 @@ fadeFiniScreen (CompPlugin *p,
 		CompScreen *s)
 {
     FADE_SCREEN (s);
+
+    matchFini (&fs->opt[FADE_SCREEN_OPTION_WINDOW_MATCH].value.match);
+    matchFini (&fs->match);
 
     freeWindowPrivateIndex (s, fs->windowPrivateIndex);
 
@@ -772,6 +794,7 @@ fadeInitWindow (CompPlugin *p,
     fw->destroyCnt = 0;
     fw->unmapCnt   = 0;
     fw->shaded     = w->shaded;
+    fw->fadeOut    = FALSE;
 
     w->privates[fs->windowPrivateIndex].ptr = fw;
 
@@ -792,6 +815,10 @@ fadeFiniWindow (CompPlugin *p,
 
     fadeRemoveDisplayModal (w->screen->display, w);
     fadeWindowStop (w);
+
+    w->paint.opacity    = w->opacity;
+    w->paint.brightness = w->brightness;
+    w->paint.saturation = w->saturation;
 
     free (fw);
 }

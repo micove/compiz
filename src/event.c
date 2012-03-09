@@ -30,6 +30,7 @@
 #include <X11/Xatom.h>
 #include <X11/extensions/shape.h>
 #include <X11/extensions/Xrandr.h>
+#include <X11/extensions/Xfixes.h>
 
 #include <compiz.h>
 
@@ -46,7 +47,7 @@ handleWindowDamageRect (CompWindow *w,
     REGION region;
     Bool   initial = FALSE;
 
-    if (!w->redirected)
+    if (!w->redirected || w->bindFailed)
 	return;
 
     if (!w->damaged)
@@ -91,6 +92,8 @@ handleSyncAlarm (CompWindow *w)
 	    w->syncWaitHandle = 0;
 	}
 
+	w->syncWait = FALSE;
+
 	if (resizeWindow (w,
 			  w->syncX, w->syncY,
 			  w->syncWidth, w->syncHeight,
@@ -111,7 +114,12 @@ handleSyncAlarm (CompWindow *w)
 	    }
 
 	    w->nDamage = 0;
-	    w->syncWait = FALSE;
+	}
+	else
+	{
+	    /* resizeWindow failing means that there is another pending
+	       resize and we must send a new sync request to the client */
+	    sendSyncRequest (w);
 	}
     }
 }
@@ -153,7 +161,7 @@ moveInputFocusToOtherWindow (CompWindow *w)
 					   CompWindowTypeDialogMask |
 					   CompWindowTypeModalDialogMask))
 			    {
-				if (a->activeNum > focus->activeNum)
+				if (compareWindowActiveness (focus, a) < 0)
 				    focus = a;
 			    }
 			}
@@ -1039,7 +1047,18 @@ handleActionEvent (CompDisplay *d,
 	}
 	break;
     default:
-	if (event->type == d->xkbEvent)
+	if (event->type == d->fixesEvent + XFixesCursorNotify)
+	{
+	    /*
+	    XFixesCursorNotifyEvent *ce = (XFixesCursorNotifyEvent *) event;
+	    CompCursor		    *cursor;
+
+	    cursor = findCursorAtDisplay (d);
+	    if (cursor)
+		updateCursor (cursor, ce->x, ce->y, ce->cursor_serial);
+	    */
+	}
+	else if (event->type == d->xkbEvent)
 	{
 	    XkbAnyEvent *xkbEvent = (XkbAnyEvent *) event;
 
@@ -1273,9 +1292,8 @@ handleEvent (CompDisplay *d,
 		    w->minimized = FALSE;
 		    w->state &= ~CompWindowStateHiddenMask;
 
-		    (*w->screen->windowStateChangeNotify) (w);
+		    changeWindowState (w, w->state);
 
-		    setWindowState (d, w->state, w->id);
 		    updateClientListForScreen (w->screen);
 		}
 
@@ -1342,25 +1360,7 @@ handleEvent (CompDisplay *d,
 	}
 	break;
     case PropertyNotify:
-	if (event->xproperty.atom == d->winActiveAtom)
-	{
-	    Window newActiveWindow;
-
-	    newActiveWindow = getActiveWindow (d, event->xproperty.window);
-	    if (newActiveWindow != d->activeWindow)
-	    {
-		d->activeWindow = newActiveWindow;
-
-		s = findScreenAtDisplay (d, event->xproperty.window);
-		if (s)
-		{
-		    w = findWindowAtDisplay (d, newActiveWindow);
-		    if (w)
-			w->activeNum = s->activeNum++;
-		}
-	    }
-	}
-	else if (event->xproperty.atom == d->winTypeAtom)
+	if (event->xproperty.atom == d->winTypeAtom)
 	{
 	    w = findWindowAtDisplay (d, event->xproperty.window);
 	    if (w)
@@ -1392,6 +1392,8 @@ handleEvent (CompDisplay *d,
 			setDesktopForWindow (w, 0xffffffff);
 
 		    updateClientListForScreen (w->screen);
+
+		    (*d->matchPropertyChanged) (d, w);
 		}
 	    }
 	}
@@ -1414,6 +1416,8 @@ handleEvent (CompDisplay *d,
 
 		    if (w->type & CompWindowTypeDesktopMask)
 			w->paint.opacity = OPAQUE;
+
+		    (*d->matchPropertyChanged) (d, w);
 		}
 	    }
 	}
@@ -1449,16 +1453,11 @@ handleEvent (CompDisplay *d,
 	    w = findWindowAtDisplay (d, event->xproperty.window);
 	    if (w && (w->type & CompWindowTypeDesktopMask) == 0)
 	    {
-		GLushort opacity;
+		w->opacity	  = OPAQUE;
+		w->opacityPropSet =
+		    readWindowProp32 (d, w->id, d->winOpacityAtom, &w->opacity);
 
-		opacity = getWindowProp32 (d, w->id,
-					   d->winOpacityAtom,
-					   OPAQUE);
-		if (opacity != w->opacity)
-		{
-		    w->opacity = w->paint.opacity = opacity;
-		    addWindowDamage (w);
-		}
+		updateWindowOpacity (w);
 	    }
 	}
 	else if (event->xproperty.atom == d->winBrightnessAtom)
@@ -1583,17 +1582,9 @@ handleEvent (CompDisplay *d,
 	    w = findWindowAtDisplay (d, event->xclient.window);
 	    if (w && (w->type & CompWindowTypeDesktopMask) == 0)
 	    {
-		GLushort opacity;
+		GLushort opacity = event->xclient.data.l[0] >> 16;
 
-		opacity = event->xclient.data.l[0] >> 16;
-		if (opacity != w->paint.opacity)
-		{
-		    w->paint.opacity = opacity;
-
-		    setWindowProp32 (d, w->id, d->winOpacityAtom,
-				     w->paint.opacity);
-		    addWindowDamage (w);
-		}
+		setWindowProp32 (d, w->id, d->winOpacityAtom, opacity);
 	    }
 	}
 	else if (event->xclient.message_type == d->winBrightnessAtom)
@@ -1601,17 +1592,9 @@ handleEvent (CompDisplay *d,
 	    w = findWindowAtDisplay (d, event->xclient.window);
 	    if (w)
 	    {
-		GLushort brightness;
+		GLushort brightness = event->xclient.data.l[0] >> 16;
 
-		brightness = event->xclient.data.l[0] >> 16;
-		if (brightness != w->paint.brightness)
-		{
-		    w->paint.brightness = brightness;
-
-		    setWindowProp32 (d, w->id, d->winBrightnessAtom,
-				     w->paint.brightness);
-		    addWindowDamage (w);
-		}
+		setWindowProp32 (d, w->id, d->winBrightnessAtom, brightness);
 	    }
 	}
 	else if (event->xclient.message_type == d->winSaturationAtom)
@@ -1619,22 +1602,9 @@ handleEvent (CompDisplay *d,
 	    w = findWindowAtDisplay (d, event->xclient.window);
 	    if (w && w->screen->canDoSaturated)
 	    {
-		GLushort saturation;
+		GLushort saturation = event->xclient.data.l[0] >> 16;
 
-		saturation = event->xclient.data.l[0] >> 16;
-		if (saturation != w->saturation)
-		{
-		    w->saturation = saturation;
-
-		    setWindowProp32 (d, w->id, d->winSaturationAtom,
-				     w->saturation);
-
-		    if (w->alive)
-		    {
-			w->paint.saturation = w->saturation;
-			addWindowDamage (w);
-		    }
-		}
+		setWindowProp32 (d, w->id, d->winSaturationAtom, saturation);
 	    }
 	}
 	else if (event->xclient.message_type == d->winStateAtom)
@@ -1680,11 +1650,9 @@ handleEvent (CompDisplay *d,
 		    recalcWindowType (w);
 		    recalcWindowActions (w);
 
-		    (*w->screen->windowStateChangeNotify) (w);
+		    changeWindowState (w, w->state);
 
 		    updateWindowAttributes (w, FALSE);
-
-		    setWindowState (d, w->state, w->id);
 		}
 	    }
 	}
@@ -1829,9 +1797,9 @@ handleEvent (CompDisplay *d,
 		    event->xclient.window == None)
 		{
 		    if (event->xclient.data.l[0])
-			enterShowDesktopMode (s);
+			(*s->enterShowDesktopMode) (s);
 		    else
-			leaveShowDesktopMode (s, NULL);
+			(*s->leaveShowDesktopMode) (s, NULL);
 		}
 	    }
 	}
@@ -1870,7 +1838,7 @@ handleEvent (CompDisplay *d,
 	    if (w->minimized)
 		unminimizeWindow (w);
 
-	    leaveShowDesktopMode (w->screen, w);
+	    (*w->screen->leaveShowDesktopMode) (w->screen, w);
 
 	    w->managed = TRUE;
 
@@ -1878,6 +1846,8 @@ handleEvent (CompDisplay *d,
 	    {
 		w->initialViewportX = w->screen->x;
 		w->initialViewportY = w->screen->y;
+
+		w->initialTimestampSet = FALSE;
 
 		applyStartupProperties (w->screen, w);
 
@@ -1888,7 +1858,21 @@ handleEvent (CompDisplay *d,
 		updateWindowAttributes (w, FALSE);
 
 		if (focusWindowOnMap (w))
+		{
 		    moveInputFocusToWindow (w);
+		}
+		else if (w->type & ~CompWindowTypeSplashMask)
+		{
+		    CompWindow *p;
+
+		    for (p = w->prev; p; p = p->prev)
+			if (p->id == d->activeWindow)
+			    break;
+
+		    /* window is above active window so we should lower it */
+		    if (p)
+			restackWindowBelow (w, p);
+		}
 	    }
 
 	    setWindowProp (d, w->id, d->winDesktopAtom, w->desktop);
@@ -1940,27 +1924,35 @@ handleEvent (CompDisplay *d,
     case FocusIn:
 	if (event->xfocus.mode != NotifyGrab)
 	{
-	    w = findWindowAtDisplay (d, event->xfocus.window);
+	    w = findTopLevelWindowAtDisplay (d, event->xfocus.window);
 	    if (w && w->managed)
 	    {
 		unsigned int state = w->state;
 
 		if (w->id != d->activeWindow)
+		{
+		    d->activeWindow = w->id;
+		    w->activeNum = w->screen->activeNum++;
+
+		    addToCurrentActiveWindowHistory (w->screen, w->id);
+
 		    XChangeProperty (d->display, w->screen->root,
 				     d->winActiveAtom,
 				     XA_WINDOW, 32, PropModeReplace,
 				     (unsigned char *) &w->id, 1);
+		}
 
-		w->state &= ~CompWindowStateDemandsAttentionMask;
+		state &= ~CompWindowStateDemandsAttentionMask;
 
 		if (w->state != state)
-		    setWindowState (d, w->state, w->id);
+		    changeWindowState (w, state);
 	    }
 	}
 	break;
     case EnterNotify:
 	if (!d->screens->maxGrab		    &&
 	    event->xcrossing.mode   != NotifyGrab   &&
+	    event->xcrossing.mode   != NotifyUngrab &&
 	    event->xcrossing.detail != NotifyInferior)
 	{
 	    Bool raise;

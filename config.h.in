@@ -72,6 +72,9 @@
 /* Define to 1 if you have the `wnck_window_has_name' function. */
 #undef HAVE_WNCK_WINDOW_HAS_NAME
 
+/* Define to 1 if xrender version >= 0.9.3 */
+#undef HAVE_XRENDER_0_9_3
+
 /* Max reasonable desktops */
 #undef MAX_DESKTOPS
 
@@ -107,6 +110,9 @@
 
 /* Build dbus glib support */
 #undef USE_DBUS_GLIB
+
+/* Build fuse plugin */
+#undef USE_FUSE
 
 /* Build gconf plugin */
 #undef USE_GCONF

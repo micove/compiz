@@ -145,6 +145,9 @@
 #define META_THEME_ACTIVE_SHADE_OPACITY_KEY          \
     GCONF_DIR "/metacity_theme_active_shade_opacity"
 
+#define BLUR_TYPE_KEY	   \
+    GCONF_DIR "/blur_type"
+
 #define DBUS_DEST       "org.freedesktop.compiz"
 #define DBUS_PATH       "/org/freedesktop/compiz/decoration/allscreens"
 #define DBUS_INTERFACE  "org.freedesktop.compiz"
@@ -272,6 +275,7 @@ static GdkPixmap *decor_active_pixmap = NULL;
 
 static Atom frame_window_atom;
 static Atom win_decor_atom;
+static Atom win_blur_decor_atom;
 static Atom wm_move_resize_atom;
 static Atom restack_window_atom;
 static Atom select_window_atom;
@@ -418,12 +422,85 @@ static PangoFontDescription *titlebar_font = NULL;
 static gboolean		    use_system_font = FALSE;
 static gint		    text_height;
 
+#define BLUR_TYPE_NONE     0
+#define BLUR_TYPE_TITLEBAR 1
+#define BLUR_TYPE_ALL      2
+
+static gint blur_type = BLUR_TYPE_NONE;
+
 static GdkPixmap *switcher_pixmap = NULL;
 static GdkPixmap *switcher_buffer_pixmap = NULL;
 static gint      switcher_width;
 static gint      switcher_height;
 
 static XRenderPictFormat *xformat;
+
+static void
+decor_update_blur_property (decor_t *d,
+			    int     width,
+			    int     height,
+			    Region  top_region,
+			    int     top_offset,
+			    Region  bottom_region,
+			    int     bottom_offset,
+			    Region  left_region,
+			    int     left_offset,
+			    Region  right_region,
+			    int     right_offset)
+{
+    Display *xdisplay = GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
+    long    *data = NULL;
+    int     size = 0;
+
+    if (blur_type != BLUR_TYPE_ALL)
+    {
+	bottom_region = NULL;
+	left_region   = NULL;
+	right_region  = NULL;
+
+	if (blur_type != BLUR_TYPE_TITLEBAR)
+	    top_region = NULL;
+    }
+
+    if (top_region)
+	size += top_region->numRects;
+    if (bottom_region)
+	size += bottom_region->numRects;
+    if (left_region)
+	size += left_region->numRects;
+    if (right_region)
+	size += right_region->numRects;
+
+    if (size)
+	data = malloc (sizeof (long) * (2 + size * 6));
+
+    if (data)
+    {
+	decor_region_to_blur_property (data, 4, 0, width, height,
+				       top_region, top_offset,
+				       bottom_region, bottom_offset,
+				       left_region, left_offset,
+				       right_region, right_offset);
+
+	gdk_error_trap_push ();
+	XChangeProperty (xdisplay, d->prop_xid,
+			 win_blur_decor_atom,
+			 XA_INTEGER,
+			 32, PropModeReplace, (guchar *) data,
+			 2 + size * 6);
+	gdk_display_sync (gdk_display_get_default ());
+	gdk_error_trap_pop ();
+
+	free (data);
+    }
+    else
+    {
+	gdk_error_trap_push ();
+	XDeleteProperty (xdisplay, d->prop_xid, win_blur_decor_atom);
+	gdk_display_sync (gdk_display_get_default ());
+	gdk_error_trap_pop ();
+    }
+}
 
 static void
 decor_update_window_property (decor_t *d)
@@ -434,14 +511,23 @@ decor_update_window_property (decor_t *d)
     decor_extents_t extents = _win_extents;
     gint	    nQuad;
     decor_quad_t    quads[N_QUADS_MAX];
+    int		    w, h;
+    gint	    stretch_offset;
+    REGION	    top, bottom, left, right;
+
+    w = d->border_layout.top.x2 - d->border_layout.top.x1 -
+	d->context->left_space - d->context->right_space;
+
+    if (d->border_layout.rotation)
+	h = d->border_layout.left.x2 - d->border_layout.left.x1;
+    else
+	h = d->border_layout.left.y2 - d->border_layout.left.y1;
+
+    stretch_offset = w - d->button_width - 1;
 
     nQuad = decor_set_lSrStXbS_window_quads (quads, d->context,
 					     &d->border_layout,
-					     d->border_layout.top.x2 -
-					     d->border_layout.top.x1 -
-					     d->context->left_space -
-					     d->context->right_space -
-					     d->button_width - 1);
+					     stretch_offset);
 
     extents.top += titlebar_height;
 
@@ -457,8 +543,47 @@ decor_update_window_property (decor_t *d)
 		     XA_INTEGER,
 		     32, PropModeReplace, (guchar *) data,
 		     BASE_PROP_SIZE + QUAD_PROP_SIZE * nQuad);
-		     XSync (xdisplay, FALSE);
+    gdk_display_sync (gdk_display_get_default ());
     gdk_error_trap_pop ();
+
+    top.rects = &top.extents;
+    top.numRects = top.size = 1;
+
+    top.extents.x1 = -extents.left;
+    top.extents.y1 = -extents.top;
+    top.extents.x2 = w + extents.right;
+    top.extents.y2 = 0;
+
+    bottom.rects = &bottom.extents;
+    bottom.numRects = bottom.size = 1;
+
+    bottom.extents.x1 = -extents.left;
+    bottom.extents.y1 = 0;
+    bottom.extents.x2 = w + extents.right;
+    bottom.extents.y2 = extents.bottom;
+
+    left.rects = &left.extents;
+    left.numRects = left.size = 1;
+
+    left.extents.x1 = -extents.left;
+    left.extents.y1 = 0;
+    left.extents.x2 = 0;
+    left.extents.y2 = h;
+
+    right.rects = &right.extents;
+    right.numRects = right.size = 1;
+
+    right.extents.x1 = 0;
+    right.extents.y1 = 0;
+    right.extents.x2 = extents.right;
+    right.extents.y2 = h;
+
+    decor_update_blur_property (d,
+				w, h,
+				&top, stretch_offset,
+				&bottom, w / 2,
+				&left, h / 2,
+				&right, h / 2);
 }
 
 static void
@@ -487,7 +612,7 @@ decor_update_switcher_property (decor_t *d)
 		     XA_INTEGER,
 		     32, PropModeReplace, (guchar *) data,
 		     BASE_PROP_SIZE + QUAD_PROP_SIZE * nQuad);
-    XSync (xdisplay, FALSE);
+    gdk_display_sync (gdk_display_get_default ());
     gdk_error_trap_pop ();
 }
 
@@ -1212,7 +1337,11 @@ draw_window_decoration (decor_t *d)
 static void
 decor_update_meta_window_property (decor_t	  *d,
 				   MetaTheme	  *theme,
-				   MetaFrameFlags flags)
+				   MetaFrameFlags flags,
+				   Region	  top,
+				   Region	  bottom,
+				   Region	  left,
+				   Region	  right)
 {
     long	    data[256];
     Display	    *xdisplay =
@@ -1220,7 +1349,14 @@ decor_update_meta_window_property (decor_t	  *d,
     gint	    nQuad;
     decor_extents_t extents, max_extents;
     decor_quad_t    quads[N_QUADS_MAX];
-    gint            lh, rh;
+    gint            w, lh, rh;
+    gint	    top_stretch_offset;
+    gint	    bottom_stretch_offset;
+    gint	    left_stretch_offset;
+    gint	    right_stretch_offset;
+
+    w = d->border_layout.top.x2 - d->border_layout.top.x1 -
+	d->context->left_space - d->context->right_space;
 
     if (d->border_layout.rotation)
 	lh = d->border_layout.left.x2 - d->border_layout.left.x1;
@@ -1232,19 +1368,20 @@ decor_update_meta_window_property (decor_t	  *d,
     else
 	rh = d->border_layout.right.y2 - d->border_layout.right.y1;
 
+    left_stretch_offset   = lh / 2;
+    right_stretch_offset  = rh / 2;
+    top_stretch_offset    = w - d->button_width - 1;
+    bottom_stretch_offset = (d->border_layout.bottom.x2 -
+			     d->border_layout.bottom.x1 -
+			     d->context->left_space -
+			     d->context->right_space) / 2;
+
     nQuad = decor_set_lXrXtXbX_window_quads (quads, d->context,
 					     &d->border_layout,
-					     lh / 2,
-					     rh / 2,
-					     d->border_layout.top.x2 -
-					     d->border_layout.top.x1 -
-					     d->context->left_space -
-					     d->context->right_space -
-					     d->button_width - 1,
-					     (d->border_layout.bottom.x2 -
-					      d->border_layout.bottom.x1 -
-					      d->context->left_space -
-					      d->context->right_space) / 2);
+					     left_stretch_offset,
+					     right_stretch_offset,
+					     top_stretch_offset,
+					     bottom_stretch_offset);
 
     extents = _win_extents;
     max_extents = _max_win_extents;
@@ -1264,8 +1401,15 @@ decor_update_meta_window_property (decor_t	  *d,
 		     XA_INTEGER,
 		     32, PropModeReplace, (guchar *) data,
 		     BASE_PROP_SIZE + QUAD_PROP_SIZE * nQuad);
-		     XSync (xdisplay, FALSE);
+    gdk_display_sync (gdk_display_get_default ());
     gdk_error_trap_pop ();
+
+    decor_update_blur_property (d,
+				w, lh,
+				top, top_stretch_offset,
+				bottom, bottom_stretch_offset,
+				left, left_stretch_offset,
+				right, right_stretch_offset);
 }
 
 static void
@@ -1294,9 +1438,10 @@ static int
 radius_to_width (int radius,
 		 int i)
 {
-    int r2 = radius * radius - (radius - i) * (radius - i);
+    float r1 = sqrt (radius) + radius;
+    float r2 = r1 * r1 - (r1 - (i + 0.5)) * (r1 - (i + 0.5));
 
-    return 1 + (radius - floor (sqrt (r2) + 0.5));
+    return floor (0.5f + r1 - sqrt (r2));
 }
 
 static Region
@@ -1392,7 +1537,7 @@ meta_get_bottom_border_region (const MetaFrameGeometry *fgeom,
 	    w = radius_to_width (bottom_left_radius, i);
 
 	    xrect.x	 = 0;
-	    xrect.y	 = fgeom->bottom_height - i;
+	    xrect.y	 = fgeom->bottom_height - i - 1;
 	    xrect.width  = w;
 	    xrect.height = 1;
 
@@ -1407,7 +1552,7 @@ meta_get_bottom_border_region (const MetaFrameGeometry *fgeom,
 	    w = radius_to_width (bottom_right_radius, i);
 
 	    xrect.x	 = width - w;
-	    xrect.y	 = fgeom->bottom_height - i;
+	    xrect.y	 = fgeom->bottom_height - i - 1;
 	    xrect.width  = w;
 	    xrect.height = 1;
 
@@ -1609,7 +1754,10 @@ meta_draw_window_decoration (decor_t *d)
     gint	      size, i;
     GdkRectangle      clip, rect;
     GdkDrawable       *drawable;
-    Region	      region;
+    Region	      top_region = NULL;
+    Region	      bottom_region = NULL;
+    Region	      left_region = NULL;
+    Region	      right_region = NULL;
     double	      alpha = (d->active) ? meta_active_opacity : meta_opacity;
     gboolean	      shade_alpha = (d->active) ? meta_active_shade_opacity :
 	meta_shade_opacity;
@@ -1706,7 +1854,7 @@ meta_draw_window_decoration (decor_t *d)
 				   d->icon_pixbuf,
 				   NULL);
 
-	    region = meta_get_top_border_region (&fgeom, clip.width);
+	    top_region = meta_get_top_border_region (&fgeom, clip.width);
 
 	    decor_blend_top_border_picture (xdisplay,
 					    d->context,
@@ -1714,11 +1862,9 @@ meta_draw_window_decoration (decor_t *d)
 					    0, 0,
 					    d->picture,
 					    &d->border_layout,
-					    region,
+					    top_region,
 					    alpha * 0xffff,
 					    shade_alpha);
-
-	    XDestroyRegion (region);
 	}
 
 	if (fgeom.bottom_height)
@@ -1746,7 +1892,7 @@ meta_draw_window_decoration (decor_t *d)
 				   d->icon_pixbuf,
 				   NULL);
 
-	    region = meta_get_bottom_border_region (&fgeom, clip.width);
+	    bottom_region = meta_get_bottom_border_region (&fgeom, clip.width);
 
 	    decor_blend_bottom_border_picture (xdisplay,
 					       d->context,
@@ -1754,11 +1900,9 @@ meta_draw_window_decoration (decor_t *d)
 					       0, 0,
 					       d->picture,
 					       &d->border_layout,
-					       region,
+					       bottom_region,
 					       alpha * 0xffff,
 					       shade_alpha);
-
-	    XDestroyRegion (region);
 	}
 
 	cairo_destroy (cr);
@@ -1809,7 +1953,7 @@ meta_draw_window_decoration (decor_t *d)
 				   d->icon_pixbuf,
 				   NULL);
 
-	    region = meta_get_left_border_region (&fgeom, clip.height);
+	    left_region = meta_get_left_border_region (&fgeom, clip.height);
 
 	    decor_blend_left_border_picture (xdisplay,
 					     d->context,
@@ -1817,11 +1961,9 @@ meta_draw_window_decoration (decor_t *d)
 					     0, 0,
 					     d->picture,
 					     &d->border_layout,
-					     region,
+					     left_region,
 					     alpha * 0xffff,
 					     shade_alpha);
-
-	    XDestroyRegion (region);
 	}
 
 	if (fgeom.right_width)
@@ -1849,7 +1991,7 @@ meta_draw_window_decoration (decor_t *d)
 				   d->icon_pixbuf,
 				   NULL);
 
-	    region = meta_get_right_border_region (&fgeom, clip.height);
+	    right_region = meta_get_right_border_region (&fgeom, clip.height);
 
 	    decor_blend_right_border_picture (xdisplay,
 					      d->context,
@@ -1857,11 +1999,9 @@ meta_draw_window_decoration (decor_t *d)
 					      0, 0,
 					      d->picture,
 					      &d->border_layout,
-					      region,
+					      right_region,
 					      alpha * 0xffff,
 					      shade_alpha);
-
-	    XDestroyRegion (region);
 	}
 
 	cairo_destroy (cr);
@@ -1884,9 +2024,30 @@ meta_draw_window_decoration (decor_t *d)
 
     if (d->prop_xid)
     {
-	decor_update_meta_window_property (d, theme, flags);
+	/* translate from frame to client window space */
+	if (top_region)
+	    XOffsetRegion (top_region, -fgeom.left_width, -fgeom.top_height);
+	if (bottom_region)
+	    XOffsetRegion (bottom_region, -fgeom.left_width, 0);
+	if (left_region)
+	    XOffsetRegion (left_region, -fgeom.left_width, 0);
+
+	decor_update_meta_window_property (d, theme, flags,
+					   top_region,
+					   bottom_region,
+					   left_region,
+					   right_region);
 	d->prop_xid = 0;
     }
+
+    if (top_region)
+	XDestroyRegion (top_region);
+    if (bottom_region)
+	XDestroyRegion (bottom_region);
+    if (left_region)
+	XDestroyRegion (left_region);
+    if (right_region)
+	XDestroyRegion (right_region);
 }
 #endif
 
@@ -2090,7 +2251,7 @@ draw_switcher_background (decor_t *d)
     gdk_error_trap_push ();
     XSetWindowBackground (xdisplay, d->prop_xid, pixel);
     XClearWindow (xdisplay, d->prop_xid);
-    XSync (xdisplay, FALSE);
+    gdk_display_sync (gdk_display_get_default ());
     gdk_error_trap_pop ();
 
     d->prop_xid = 0;
@@ -2294,6 +2455,7 @@ update_default_decorations (GdkScreen *screen)
 
     d.context = &window_context;
     d.shadow  = border_shadow;
+    d.layout  = pango_layout_new (pango_context);
 
     decor_get_default_layout (d.context, 1, 1, &d.border_layout);
 
@@ -2358,6 +2520,9 @@ update_default_decorations (GdkScreen *screen)
 			 32, PropModeReplace, (guchar *) data,
 			 BASE_PROP_SIZE + QUAD_PROP_SIZE * nQuad);
     }
+
+    if (d.layout)
+	g_object_unref (G_OBJECT (d.layout));
 }
 
 static gboolean
@@ -2723,7 +2888,7 @@ update_event_windows (WnckWindow *win)
 	    XUnmapWindow (xdisplay, d->button_windows[i]);
     }
 
-    XSync (xdisplay, FALSE);
+    gdk_display_sync (gdk_display_get_default ());
     gdk_error_trap_pop ();
 }
 
@@ -3133,7 +3298,7 @@ add_frame_window (WnckWindow *win,
 	d->button_states[i] = 0;
     }
 
-    XSync (xdisplay, FALSE);
+    gdk_display_sync (gdk_display_get_default ());
     if (!gdk_error_trap_pop ())
     {
 	if (get_mwm_prop (xid) & (MWM_DECOR_ALL | MWM_DECOR_TITLE))
@@ -3582,7 +3747,7 @@ window_closed (WnckScreen *screen,
 
     gdk_error_trap_push ();
     XDeleteProperty (xdisplay, wnck_window_get_xid (win), win_decor_atom);
-    XSync (xdisplay, FALSE);
+    gdk_display_sync (gdk_display_get_default ());
     gdk_error_trap_pop ();
 
     g_free (d);
@@ -3938,18 +4103,35 @@ max_button_event (WnckWindow *win,
 
     switch (xevent->type) {
     case ButtonPress:
-	if (xevent->xbutton.button == 1)
+	if (xevent->xbutton.button <= 3)
 	    d->button_states[BUTTON_MAX] |= PRESSED_EVENT_WINDOW;
 	break;
     case ButtonRelease:
-	if (xevent->xbutton.button == 1)
+	if (xevent->xbutton.button <= 3)
 	{
 	    if (d->button_states[BUTTON_MAX] == BUTTON_EVENT_ACTION_STATE)
 	    {
-		if (wnck_window_is_maximized (win))
-		    wnck_window_unmaximize (win);
+		if (xevent->xbutton.button == 2)
+		{
+		    if (wnck_window_is_maximized_vertically (win))
+			wnck_window_unmaximize_vertically (win);
+		    else
+			wnck_window_maximize_vertically (win);
+		}
+		else if (xevent->xbutton.button == 3)
+		{
+		    if (wnck_window_is_maximized_horizontally (win))
+			wnck_window_unmaximize_horizontally (win);
+		    else
+			wnck_window_maximize_horizontally (win);
+		}
 		else
-		    wnck_window_maximize (win);
+		{
+		    if (wnck_window_is_maximized (win))
+			wnck_window_unmaximize (win);
+		    else
+			wnck_window_maximize (win);
+		}
 	    }
 
 	    d->button_states[BUTTON_MAX] &= ~PRESSED_EVENT_WINDOW;
@@ -4304,7 +4486,7 @@ force_quit_dialog_realize (GtkWidget *dialog,
     XSetTransientForHint (gdk_display,
 			  GDK_WINDOW_XID (dialog->window),
 			  wnck_window_get_xid (win));
-    XSync (gdk_display, FALSE);
+    gdk_display_sync (gdk_display_get_default ());
     gdk_error_trap_pop ();
 }
 
@@ -4374,7 +4556,7 @@ kill_window (WnckWindow *win)
 
     gdk_error_trap_push ();
     XKillClient (gdk_display, wnck_window_get_xid (win));
-    XSync (gdk_display, FALSE);
+    gdk_display_sync (gdk_display_get_default ());
     gdk_error_trap_pop ();
 }
 
@@ -4551,7 +4733,7 @@ event_filter_func (GdkXEvent *gdkxevent,
 		    {
 			gdk_error_trap_push ();
 			XDeleteProperty (xdisplay, xid, win_decor_atom);
-			XSync (xdisplay, FALSE);
+			gdk_display_sync (gdk_display_get_default ());
 			gdk_error_trap_pop ();
 		    }
 		}
@@ -5412,6 +5594,37 @@ bell_settings_changed (GConfClient *client)
 }
 
 static gboolean
+blur_settings_changed (GConfClient *client)
+{
+    gchar *type;
+    int   new_type = blur_type;
+
+    type = gconf_client_get_string (client,
+				    BLUR_TYPE_KEY,
+				    NULL);
+
+    if (type)
+    {
+	if (strcmp (type, "titlebar") == 0)
+	    new_type = BLUR_TYPE_TITLEBAR;
+	else if (strcmp (type, "all") == 0)
+	    new_type = BLUR_TYPE_ALL;
+	else if (strcmp (type, "none") == 0)
+	    new_type = BLUR_TYPE_NONE;
+
+	g_free (type);
+    }
+
+    if (new_type != blur_type)
+    {
+	blur_type = new_type;
+	return TRUE;
+    }
+
+    return FALSE;
+}
+
+static gboolean
 theme_changed (GConfClient *client)
 {
 
@@ -5570,6 +5783,11 @@ value_changed (GConfClient *client,
 	     strcmp (key, COMPIZ_SHADOW_COLOR_KEY) == 0)
     {
 	if (shadow_settings_changed (client))
+	    changed = TRUE;
+    }
+    else if (strcmp (key, BLUR_TYPE_KEY) == 0)
+    {
+	if (blur_settings_changed (client))
 	    changed = TRUE;
     }
     else if (strcmp (key, META_AUDIBLE_BELL_KEY)     == 0 ||
@@ -5903,6 +6121,7 @@ init_settings (WnckScreen *screen)
     double_click_titlebar_changed (gconf);
     shadow_settings_changed (gconf);
     bell_settings_changed (gconf);
+    blur_settings_changed (gconf);
 #endif
 
     (*theme_update_border_extents) (text_height);
@@ -5936,9 +6155,15 @@ main (int argc, char *argv[])
 	{
 	    minimal = TRUE;
 	}
-	else if (strcmp (argv[i], "--replace") == 0)
+	else if (strcmp (argv[i], "--blur") == 0)
 	{
-	    replace = TRUE;
+	    if (argc > ++i)
+	    {
+		if (strcmp (argv[i], "titlebar") == 0)
+		    blur_type = BLUR_TYPE_TITLEBAR;
+		else if (strcmp (argv[i], "all") == 0)
+		    blur_type = BLUR_TYPE_ALL;
+	    }
 	}
 
 #ifdef USE_METACITY
@@ -5972,6 +6197,7 @@ main (int argc, char *argv[])
 	    fprintf (stderr, "%s "
 		     "[--minimal] "
 		     "[--replace] "
+		     "[--blur none|titlebar|all] "
 
 #ifdef USE_METACITY
 		     "[--opacity OPACITY] "
@@ -6015,6 +6241,8 @@ main (int argc, char *argv[])
 
     frame_window_atom	= XInternAtom (xdisplay, "_NET_FRAME_WINDOW", FALSE);
     win_decor_atom	= XInternAtom (xdisplay, "_NET_WINDOW_DECOR", FALSE);
+    win_blur_decor_atom	= XInternAtom (xdisplay, "_COMPIZ_WM_WINDOW_BLUR_DECOR",
+				       FALSE);
     wm_move_resize_atom = XInternAtom (xdisplay, "_NET_WM_MOVERESIZE", FALSE);
     restack_window_atom = XInternAtom (xdisplay, "_NET_RESTACK_WINDOW", FALSE);
     select_window_atom	= XInternAtom (xdisplay, "_SWITCH_SELECT_WINDOW",

@@ -45,13 +45,8 @@
 #define MIN_SHADE_RESISTANCE_MIN       0
 #define MIN_SHADE_RESISTANCE_MAX       100
 
-static char *winType[] = {
-    N_("Toolbar"),
-    N_("Utility"),
-    N_("Dialog"),
-    N_("Normal")
-};
-#define N_WIN_TYPE (sizeof (winType) / sizeof (winType[0]))
+#define MIN_WINDOW_MATCH_DEFAULT \
+    "Toolbar | Utility | Dialog | Normal"
 
 static int displayPrivateIndex;
 
@@ -64,7 +59,7 @@ typedef struct _MinDisplay {
 
 #define MIN_SCREEN_OPTION_SPEED		   0
 #define MIN_SCREEN_OPTION_TIMESTEP	   1
-#define MIN_SCREEN_OPTION_WINDOW_TYPE	   2
+#define MIN_SCREEN_OPTION_WINDOW_MATCH	   2
 #define MIN_SCREEN_OPTION_SHADE_RESISTANCE 3
 #define MIN_SCREEN_OPTION_NUM		   4
 
@@ -84,8 +79,6 @@ typedef struct _MinScreen {
     float timestep;
 
     int shadeStep;
-
-    unsigned int wMask;
 
     int moreAdjust;
 } MinScreen;
@@ -168,12 +161,9 @@ minSetScreenOption (CompScreen      *screen,
 	    return TRUE;
 	}
 	break;
-    case MIN_SCREEN_OPTION_WINDOW_TYPE:
-	if (compSetOptionList (o, value))
-	{
-	    ms->wMask = compWindowTypeMaskFromStringList (&o->value);
+    case MIN_SCREEN_OPTION_WINDOW_MATCH:
+	if (compSetMatchOption (o, value))
 	    return TRUE;
-	}
 	break;
     case MIN_SCREEN_OPTION_SHADE_RESISTANCE:
 	if (compSetIntOption (o, value))
@@ -196,7 +186,6 @@ static void
 minScreenInitOptions (MinScreen *ms)
 {
     CompOption *o;
-    int	       i;
 
     o = &ms->opt[MIN_SCREEN_OPTION_SPEED];
     o->name		= "speed";
@@ -218,21 +207,14 @@ minScreenInitOptions (MinScreen *ms)
     o->rest.f.max	= MIN_TIMESTEP_MAX;
     o->rest.f.precision = MIN_TIMESTEP_PRECISION;
 
-    o = &ms->opt[MIN_SCREEN_OPTION_WINDOW_TYPE];
-    o->name	         = "window_types";
-    o->shortDesc         = N_("Window Types");
-    o->longDesc	         = N_("Window types that should be transformed when "
-	"minimized");
-    o->type	         = CompOptionTypeList;
-    o->value.list.type   = CompOptionTypeString;
-    o->value.list.nValue = N_WIN_TYPE;
-    o->value.list.value  = malloc (sizeof (CompOptionValue) * N_WIN_TYPE);
-    for (i = 0; i < N_WIN_TYPE; i++)
-	o->value.list.value[i].s = strdup (winType[i]);
-    o->rest.s.string     = windowTypeString;
-    o->rest.s.nString    = nWindowTypeString;
+    o = &ms->opt[MIN_SCREEN_OPTION_WINDOW_MATCH];
+    o->name	 = "window_match";
+    o->shortDesc = N_("Minimize Windows");
+    o->longDesc	 = N_("Windows that should be transformed when minimized");
+    o->type	 = CompOptionTypeMatch;
 
-    ms->wMask = compWindowTypeMaskFromStringList (&o->value);
+    matchInit (&o->value.match);
+    matchAddFromString (&o->value.match, MIN_WINDOW_MATCH_DEFAULT);
 
     o = &ms->opt[MIN_SCREEN_OPTION_SHADE_RESISTANCE];
     o->name		= "shade_resistance";
@@ -272,7 +254,7 @@ minSetShade (CompWindow *w,
     w->matrix.x0 -= (w->attrib.x * w->matrix.xx);
     w->matrix.y0 -= ((w->attrib.y - (h - shade)) * w->matrix.yy);
 
-    (*w->screen->windowResizeNotify) (w);
+    (*w->screen->windowResizeNotify) (w, 0, 0, 0, 0);
 }
 
 static Bool
@@ -590,6 +572,7 @@ minDonePaintScreen (CompScreen *s)
 static Bool
 minPaintScreen (CompScreen		*s,
 		const ScreenPaintAttrib *sAttrib,
+		const CompTransform	*transform,
 		Region		        region,
 		int			output,
 		unsigned int		mask)
@@ -602,7 +585,7 @@ minPaintScreen (CompScreen		*s,
 	mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS_MASK;
 
     UNWRAP (ms, s, paintScreen);
-    status = (*s->paintScreen) (s, sAttrib, region, output, mask);
+    status = (*s->paintScreen) (s, sAttrib, transform, region, output, mask);
     WRAP (ms, s, paintScreen, minPaintScreen);
 
     return status;
@@ -611,6 +594,7 @@ minPaintScreen (CompScreen		*s,
 static Bool
 minPaintWindow (CompWindow		*w,
 		const WindowPaintAttrib *attrib,
+		const CompTransform	*transform,
 		Region			region,
 		unsigned int		mask)
 {
@@ -622,28 +606,45 @@ minPaintWindow (CompWindow		*w,
 
     if (mw->adjust)
     {
-	WindowPaintAttrib mAttrib;
+	FragmentAttrib fragment;
+	CompTransform  wTransform = *transform;
+
+	if (mask & PAINT_WINDOW_OCCLUSION_DETECTION_MASK)
+	    return FALSE;
 
 	UNWRAP (ms, s, paintWindow);
-	status = (*s->paintWindow) (w, attrib, region,
+	status = (*s->paintWindow) (w, attrib, transform, region,
 				    mask | PAINT_WINDOW_NO_CORE_INSTANCE_MASK);
 	WRAP (ms, s, paintWindow, minPaintWindow);
 
-	mAttrib = w->lastPaint;
+	initFragmentAttrib (&fragment, &w->lastPaint);
 
-	mAttrib.xScale = mw->xScale;
-	mAttrib.yScale = mw->yScale;
+	if (w->alpha || fragment.opacity != OPAQUE)
+	    mask |= PAINT_WINDOW_TRANSLUCENT_MASK;
 
-	mAttrib.xTranslate = mw->tx;
-	mAttrib.yTranslate = mw->ty;
+	matrixTranslate (&wTransform, w->attrib.x, w->attrib.y, 0.0f);
+	matrixScale (&wTransform, mw->xScale, mw->yScale, 0.0f);
+	matrixTranslate (&wTransform,
+			 mw->tx / mw->xScale - w->attrib.x,
+			 mw->ty / mw->yScale - w->attrib.y,
+			 0.0f);
 
-	(*s->drawWindow) (w, &mAttrib, region,
+	glPushMatrix ();
+	glLoadMatrixf (wTransform.m);
+
+	(*s->drawWindow) (w, &wTransform, &fragment, region,
 			  mask | PAINT_WINDOW_TRANSFORMED_MASK);
+
+	glPopMatrix ();
     }
     else
     {
+	/* no core instance from windows that have been animated */
+	if (mw->state == IconicState)
+	    mask |= PAINT_WINDOW_NO_CORE_INSTANCE_MASK;
+
 	UNWRAP (ms, s, paintWindow);
-	status = (*s->paintWindow) (w, attrib, region, mask);
+	status = (*s->paintWindow) (w, attrib, transform, region, mask);
 	WRAP (ms, s, paintWindow, minPaintWindow);
     }
 
@@ -686,6 +687,9 @@ minHandleEvent (CompDisplay *d,
 
 	    if (w->pendingUnmaps && onCurrentDesktop (w)) /* Normal -> Iconic */
 	    {
+		CompMatch *match =
+		    &ms->opt[MIN_SCREEN_OPTION_WINDOW_MATCH].value.match;
+
 		MIN_WINDOW (w);
 
 		if (w->shaded)
@@ -712,12 +716,12 @@ minHandleEvent (CompDisplay *d,
 			addWindowDamage (w);
 		    }
 		}
-		else if (!w->invisible && (ms->wMask & w->type))
+		else if (!w->invisible && matchEval (match, w))
 		{
-		    mw->newState = IconicState;
-
 		    if (minGetWindowIconGeometry (w, &mw->icon))
 		    {
+			mw->newState = IconicState;
+
 			mw->xScale = w->paint.xScale;
 			mw->yScale = w->paint.yScale;
 			mw->tx	   = w->attrib.x - w->serverX;
@@ -738,10 +742,6 @@ minHandleEvent (CompDisplay *d,
 			w->unmapRefCnt++;
 
 			addWindowDamage (w);
-		    }
-		    else
-		    {
-			mw->state = mw->newState;
 		    }
 		}
 	    }
@@ -791,8 +791,13 @@ minDamageWindowRect (CompWindow *w,
     {
 	if (mw->state == IconicState)
 	{
-	    if (!w->invisible	      &&
-		(ms->wMask & w->type) &&
+	    CompMatch *match =
+		&ms->opt[MIN_SCREEN_OPTION_WINDOW_MATCH].value.match;
+
+	    mw->state = NormalState;
+
+	    if (!w->invisible	     &&
+		matchEval (match, w) &&
 		minGetWindowIconGeometry (w, &mw->icon))
 	    {
 		if (!mw->adjust)
@@ -817,7 +822,7 @@ minDamageWindowRect (CompWindow *w,
 		XOffsetRegion (mw->region, -w->attrib.x, -w->attrib.y);
 
 		/* bind pixmap here so we have something to unshade with */
-		if (!w->texture->pixmap)
+		if (!w->texture->pixmap && !w->bindFailed)
 		    bindWindow (w);
 
 		ms->moreAdjust = TRUE;
@@ -935,6 +940,9 @@ minInitScreen (CompPlugin *p,
 
     minScreenInitOptions (ms);
 
+    matchUpdate (s->display,
+		 &ms->opt[MIN_SCREEN_OPTION_WINDOW_MATCH].value.match);
+
     WRAP (ms, s, preparePaintScreen, minPreparePaintScreen);
     WRAP (ms, s, donePaintScreen, minDonePaintScreen);
     WRAP (ms, s, paintScreen, minPaintScreen);
@@ -952,6 +960,8 @@ minFiniScreen (CompPlugin *p,
 	       CompScreen *s)
 {
     MIN_SCREEN (s);
+
+    matchFini (&ms->opt[MIN_SCREEN_OPTION_WINDOW_MATCH].value.match);
 
     freeWindowPrivateIndex (s, ms->windowPrivateIndex);
 

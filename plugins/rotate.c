@@ -509,7 +509,18 @@ rotatePreparePaintScreen (CompScreen *s,
 			}
 		    }
 		    else
-			focusDefaultWindow (s->display);
+		    {
+			int i;
+
+			for (i = 0; i < s->maxGrab; i++)
+			    if (s->grabs[i].active &&
+				strcmp ("switcher", s->grabs[i].name) == 0)
+				break;
+
+			/* only focus default window if switcher isn't active */
+			if (i == s->maxGrab)
+			    focusDefaultWindow (s->display);
+		    }
 
 		    rs->moveWindow = 0;
 		}
@@ -557,6 +568,7 @@ rotateDonePaintScreen (CompScreen *s)
 static Bool
 rotatePaintScreen (CompScreen		   *s,
 		   const ScreenPaintAttrib *sAttrib,
+		   const CompTransform	   *transform,
 		   Region		   region,
 		   int			   output,
 		   unsigned int		   mask)
@@ -576,13 +588,14 @@ rotatePaintScreen (CompScreen		   *s,
 	mask |= PAINT_SCREEN_TRANSFORMED_MASK;
 
 	UNWRAP (rs, s, paintScreen);
-	status = (*s->paintScreen) (s, &sa, region, output, mask);
+	status = (*s->paintScreen) (s, &sa, transform, region, output, mask);
 	WRAP (rs, s, paintScreen, rotatePaintScreen);
     }
     else
     {
 	UNWRAP (rs, s, paintScreen);
-	status = (*s->paintScreen) (s, sAttrib, region, output, mask);
+	status = (*s->paintScreen) (s, sAttrib, transform, region, output,
+				    mask);
 	WRAP (rs, s, paintScreen, rotatePaintScreen);
     }
 
@@ -653,7 +666,7 @@ rotateInitiate (CompDisplay     *d,
 	}
     }
 
-    return FALSE;
+    return TRUE;
 }
 
 static Bool
@@ -787,16 +800,19 @@ rotateWithWindow (CompDisplay     *d,
 
 	    rotateReleaseMoveWindow (s);
 
-	    w = findWindowAtScreen (s, xid);
-	    if (w)
+	    if (!rs->grabIndex && !rs->moving)
 	    {
-		if (!(w->type & (CompWindowTypeDesktopMask |
-				 CompWindowTypeDockMask)))
+		w = findWindowAtScreen (s, xid);
+		if (w)
 		{
-		    if (!(w->state & CompWindowStateStickyMask))
+		    if (!(w->type & (CompWindowTypeDesktopMask |
+				     CompWindowTypeDockMask)))
 		    {
-			rs->moveWindow  = w->id;
-			rs->moveWindowX = w->attrib.x;
+			if (!(w->state & CompWindowStateStickyMask))
+			{
+			    rs->moveWindow  = w->id;
+			    rs->moveWindowX = w->attrib.x;
+			}
 		    }
 		}
 	    }
@@ -1483,7 +1499,6 @@ rotateHandleEvent (CompDisplay *d,
 		    break;
 
 		/* reset movement */
-		rs->moving = FALSE;
 		rs->moveTo = 0.0f;
 
 		defaultViewportForWindow (w, &dx, NULL);
@@ -1530,8 +1545,13 @@ rotateHandleEvent (CompDisplay *d,
 	    {
 		int dx;
 
+		ROTATE_SCREEN (s);
+
 		if (otherScreenGrabExist (s, "rotate", "switcher", "cube", 0))
 		    break;
+
+		/* reset movement */
+		rs->moveTo = 0.0f;
 
 		dx = event->xclient.data.l[0] / s->width - s->x;
 		if (dx)
@@ -2091,6 +2111,20 @@ rotateFiniScreen (CompPlugin *p,
 		  CompScreen *s)
 {
     ROTATE_SCREEN (s);
+    ROTATE_DISPLAY (s->display);
+
+    removeScreenAction (s, 
+			&rd->opt[ROTATE_DISPLAY_OPTION_INITIATE].value.action);
+    removeScreenAction (s, &rd->opt[ROTATE_DISPLAY_OPTION_LEFT].value.action);
+    removeScreenAction (s, &rd->opt[ROTATE_DISPLAY_OPTION_RIGHT].value.action);
+    removeScreenAction (s,
+	   		&rd->opt[ROTATE_DISPLAY_OPTION_LEFT_WINDOW].value.action);
+    removeScreenAction (s,
+	   		&rd->opt[ROTATE_DISPLAY_OPTION_RIGHT_WINDOW].value.action);
+    removeScreenAction (s, 
+			&rd->opt[ROTATE_DISPLAY_OPTION_FLIP_LEFT].value.action);
+    removeScreenAction (s,
+	   		&rd->opt[ROTATE_DISPLAY_OPTION_FLIP_RIGHT].value.action);
 
     UNWRAP (rs, s, preparePaintScreen);
     UNWRAP (rs, s, donePaintScreen);

@@ -43,8 +43,6 @@
 #define SCALE_SPACING_MIN     0
 #define SCALE_SPACING_MAX     250
 
-#define SCALE_SLOPPY_FOCUS_DEFAULT TRUE
-
 #define SCALE_INITIATE_KEY_DEFAULT       "Up"
 #define SCALE_INITIATE_MODIFIERS_DEFAULT (ControlMask | CompAltMask)
 
@@ -69,15 +67,8 @@
 #define SCALE_OPACITY_MIN     0
 #define SCALE_OPACITY_MAX     100
 
-static char *winType[] = {
-    N_("Toolbar"),
-    N_("Utility"),
-    N_("Dialog"),
-    N_("ModalDialog"),
-    N_("Fullscreen"),
-    N_("Normal")
-};
-#define N_WIN_TYPE (sizeof (winType) / sizeof (winType[0]))
+#define SCALE_WINDOW_MATCH_DEFAULT \
+    "Toolbar | Utility | Dialog | Normal | Unknown"
 
 typedef enum {
     ScaleIconNone = 0,
@@ -125,19 +116,19 @@ typedef struct _ScaleDisplay {
 
     unsigned int lastActiveNum;
     Window       lastActiveWindow;
+    Window       selectedWindow;
     KeyCode	 leftKeyCode, rightKeyCode, upKeyCode, downKeyCode;
 } ScaleDisplay;
 
 #define SCALE_SCREEN_OPTION_SPACING      0
-#define SCALE_SCREEN_OPTION_SLOPPY_FOCUS 1
-#define SCALE_SCREEN_OPTION_SPEED	 2
-#define SCALE_SCREEN_OPTION_TIMESTEP	 3
-#define SCALE_SCREEN_OPTION_WINDOW_TYPE  4
-#define SCALE_SCREEN_OPTION_DARKEN_BACK  5
-#define SCALE_SCREEN_OPTION_OPACITY      6
-#define SCALE_SCREEN_OPTION_ICON         7
-#define SCALE_SCREEN_OPTION_HOVER_TIME   8
-#define SCALE_SCREEN_OPTION_NUM          9
+#define SCALE_SCREEN_OPTION_SPEED	 1
+#define SCALE_SCREEN_OPTION_TIMESTEP	 2
+#define SCALE_SCREEN_OPTION_WINDOW_MATCH 3
+#define SCALE_SCREEN_OPTION_DARKEN_BACK  4
+#define SCALE_SCREEN_OPTION_OPACITY      5
+#define SCALE_SCREEN_OPTION_ICON         6
+#define SCALE_SCREEN_OPTION_HOVER_TIME   7
+#define SCALE_SCREEN_OPTION_NUM          8
 
 typedef enum {
     ScaleTypeNormal = 0,
@@ -161,8 +152,6 @@ typedef struct _ScaleScreen {
 
     float speed;
     float timestep;
-
-    unsigned int wMask;
 
     Bool grab;
     int  grabIndex;
@@ -193,6 +182,9 @@ typedef struct _ScaleScreen {
     ScaleType type;
 
     Window clientLeader;
+
+    CompMatch match;
+    CompMatch *currentMatch;
 } ScaleScreen;
 
 typedef struct _ScaleWindow {
@@ -266,10 +258,6 @@ scaleSetScreenOption (CompScreen      *screen,
 	    return TRUE;
 	}
 	break;
-    case SCALE_SCREEN_OPTION_SLOPPY_FOCUS:
-	if (compSetBoolOption (o, value))
-	    return TRUE;
-	break;
     case SCALE_SCREEN_OPTION_SPEED:
 	if (compSetFloatOption (o, value))
 	{
@@ -284,12 +272,9 @@ scaleSetScreenOption (CompScreen      *screen,
 	    return TRUE;
 	}
 	break;
-    case SCALE_SCREEN_OPTION_WINDOW_TYPE:
-	if (compSetOptionList (o, value))
-	{
-	    ss->wMask = compWindowTypeMaskFromStringList (&o->value);
+    case SCALE_SCREEN_OPTION_WINDOW_MATCH:
+	if (compSetMatchOption (o, value))
 	    return TRUE;
-	}
 	break;
     case SCALE_SCREEN_OPTION_DARKEN_BACK:
 	if (compSetBoolOption (o, value))
@@ -334,7 +319,6 @@ static void
 scaleScreenInitOptions (ScaleScreen *ss)
 {
     CompOption *o;
-    int	       i;
 
     o = &ss->opt[SCALE_SCREEN_OPTION_SPACING];
     o->name	  = "spacing";
@@ -344,13 +328,6 @@ scaleScreenInitOptions (ScaleScreen *ss)
     o->value.i	  = SCALE_SPACING_DEFAULT;
     o->rest.i.min = SCALE_SPACING_MIN;
     o->rest.i.max = SCALE_SPACING_MAX;
-
-    o = &ss->opt[SCALE_SCREEN_OPTION_SLOPPY_FOCUS];
-    o->name	  = "sloppy_focus";
-    o->shortDesc  = N_("Sloppy Focus");
-    o->longDesc   = N_("Focus window when mouse moves over them");
-    o->type	  = CompOptionTypeBool;
-    o->value.b	  = SCALE_SLOPPY_FOCUS_DEFAULT;
 
     o = &ss->opt[SCALE_SCREEN_OPTION_SPEED];
     o->name		= "speed";
@@ -372,20 +349,14 @@ scaleScreenInitOptions (ScaleScreen *ss)
     o->rest.f.max	= SCALE_TIMESTEP_MAX;
     o->rest.f.precision = SCALE_TIMESTEP_PRECISION;
 
-    o = &ss->opt[SCALE_SCREEN_OPTION_WINDOW_TYPE];
-    o->name	         = "window_types";
-    o->shortDesc         = N_("Window Types");
-    o->longDesc	         = N_("Window types that should scaled in scale mode");
-    o->type	         = CompOptionTypeList;
-    o->value.list.type   = CompOptionTypeString;
-    o->value.list.nValue = N_WIN_TYPE;
-    o->value.list.value  = malloc (sizeof (CompOptionValue) * N_WIN_TYPE);
-    for (i = 0; i < N_WIN_TYPE; i++)
-	o->value.list.value[i].s = strdup (winType[i]);
-    o->rest.s.string     = windowTypeString;
-    o->rest.s.nString    = nWindowTypeString;
+    o = &ss->opt[SCALE_SCREEN_OPTION_WINDOW_MATCH];
+    o->name	 = "window_match";
+    o->shortDesc = N_("Scale Windows");
+    o->longDesc	 = N_("Windows that should be scaled in scale mode");
+    o->type	 = CompOptionTypeMatch;
 
-    ss->wMask = compWindowTypeMaskFromStringList (&o->value);
+    matchInit (&o->value.match);
+    matchAddFromString (&o->value.match, SCALE_WINDOW_MATCH_DEFAULT);
 
     o = &ss->opt[SCALE_SCREEN_OPTION_DARKEN_BACK];
     o->name      = "darken_back";
@@ -443,14 +414,11 @@ isScaleWin (CompWindow *w)
     if (isNeverScaleWin (w))
 	return FALSE;
 
-    if (!ss->type)
+    if (!ss->type || ss->type == ScaleTypeOutput)
     {
 	if (!(*w->screen->focusWindow) (w))
 	    return FALSE;
     }
-
-    if (!(ss->wMask & w->type))
-	return FALSE;
 
     if (w->state & CompWindowStateSkipPagerMask)
 	return FALSE;
@@ -474,12 +442,16 @@ isScaleWin (CompWindow *w)
 	break;
     }
 
+    if (!matchEval (ss->currentMatch, w))
+	return FALSE;
+
     return TRUE;
 }
 
 static Bool
 scalePaintWindow (CompWindow		  *w,
 		  const WindowPaintAttrib *attrib,
+		  const CompTransform	  *transform,
 		  Region		  region,
 		  unsigned int		  mask)
 {
@@ -497,8 +469,10 @@ scalePaintWindow (CompWindow		  *w,
 
 	if (sw->adjust || sw->slot)
 	{
-	    if (w->id	    != s->display->activeWindow &&
-		ss->opacity != OPAQUE			&&
+	    SCALE_DISPLAY (s->display);
+
+	    if (w->id	    != sd->selectedWindow &&
+		ss->opacity != OPAQUE		  &&
 		ss->state   != SCALE_STATE_IN)
 	    {
 		/* modify opacity of windows that are not active */
@@ -526,20 +500,36 @@ scalePaintWindow (CompWindow		  *w,
 	}
 
 	UNWRAP (ss, s, paintWindow);
-	status = (*s->paintWindow) (w, &sAttrib, region, mask);
+	status = (*s->paintWindow) (w, &sAttrib, transform, region, mask);
 	WRAP (ss, s, paintWindow, scalePaintWindow);
 
 	if (scaled)
 	{
-	    WindowPaintAttrib sa = w->lastPaint;
+	    FragmentAttrib fragment;
+	    CompTransform  wTransform = *transform;
 
-	    sa.xScale     = sw->scale;
-	    sa.yScale     = sw->scale;
-	    sa.xTranslate = sw->tx;
-	    sa.yTranslate = sw->ty;
+	    if (mask & PAINT_WINDOW_OCCLUSION_DETECTION_MASK)
+		return FALSE;
 
-	    (*s->drawWindow) (w, &sa, region,
+	    initFragmentAttrib (&fragment, &w->lastPaint);
+
+	    if (w->alpha || fragment.opacity != OPAQUE)
+		mask |= PAINT_WINDOW_TRANSLUCENT_MASK;
+
+	    matrixTranslate (&wTransform, w->attrib.x, w->attrib.y, 0.0f);
+	    matrixScale (&wTransform, sw->scale, sw->scale, 0.0f);
+	    matrixTranslate (&wTransform,
+			     sw->tx / sw->scale - w->attrib.x,
+			     sw->ty / sw->scale - w->attrib.y,
+			     0.0f);
+
+	    glPushMatrix ();
+	    glLoadMatrixf (wTransform.m);
+
+	    (*s->drawWindow) (w, &wTransform, &fragment, region,
 			      mask | PAINT_WINDOW_TRANSFORMED_MASK);
+
+	    glPopMatrix ();
 	}
 
 	if ((ss->iconOverlay != ScaleIconNone) && scaled)
@@ -552,11 +542,12 @@ scalePaintWindow (CompWindow		  *w,
 
 	    if (icon && (icon->texture.name || iconToTexture (w->screen, icon)))
 	    {
-		REGION	    iconReg;
-		CompMatrix  matrix;
-		int	    wx, wy, width, height;
-		int	    scaledWinWidth, scaledWinHeight;
-		float	    ds;
+		REGION iconReg;
+		float  scale;
+		float  x, y;
+		int    width, height;
+		int    scaledWinWidth, scaledWinHeight;
+		float  ds;
 
 		scaledWinWidth  = w->width  * sw->scale;
 		scaledWinHeight = w->height * sw->scale;
@@ -564,39 +555,34 @@ scalePaintWindow (CompWindow		  *w,
 		switch (ss->iconOverlay) {
 		case ScaleIconNone:
 		case ScaleIconEmblem:
-		    sAttrib.xScale = sAttrib.yScale = 1.0f;
+		    scale = 1.0f;
 		    break;
 		case ScaleIconBig:
-		    sAttrib.opacity /= 3;
-		    sAttrib.xScale = sAttrib.yScale =
-			MIN (((float) scaledWinWidth / (float) icon->width),
-			     ((float) scaledWinHeight / (float) icon->height));
 		default:
+		    sAttrib.opacity /= 3;
+		    scale = MIN (((float) scaledWinWidth / icon->width),
+				 ((float) scaledWinHeight / icon->height));
 		    break;
 		}
 
-		width  = icon->width  * sAttrib.xScale;
-		height = icon->height * sAttrib.yScale;
+		width  = icon->width  * scale;
+		height = icon->height * scale;
 
 		switch (ss->iconOverlay) {
 		case ScaleIconNone:
 		case ScaleIconEmblem:
-		    wx = w->attrib.x + (w->width  * sw->scale) - icon->width;
-		    wy = w->attrib.y + (w->height * sw->scale) - icon->height;
+		    x = w->attrib.x + scaledWinWidth - icon->width;
+		    y = w->attrib.y + scaledWinHeight - icon->height;
 		    break;
 		case ScaleIconBig:
-		    wx = w->attrib.x + ((scaledWinWidth - width) / 2) /
-			sAttrib.xScale;
-		    wy = w->attrib.y + ((scaledWinHeight - height) / 2) /
-			sAttrib.yScale;
-		    break;
 		default:
-		    wx = wy = 0;
+		    x = w->attrib.x + scaledWinWidth / 2 - width / 2;
+		    y = w->attrib.y + scaledWinHeight / 2 - height / 2;
 		    break;
 		}
 
-		wx += sw->tx;
-		wy += sw->ty;
+		x += sw->tx;
+		y += sw->ty;
 
 		if (sw->slot)
 		{
@@ -636,37 +622,49 @@ scalePaintWindow (CompWindow		  *w,
 		    sAttrib.opacity = sAttrib.opacity * o;
 		}
 
-		mask |= PAINT_WINDOW_TRANSLUCENT_MASK;
+		mask |= PAINT_WINDOW_BLEND_MASK;
 
 		iconReg.rects    = &iconReg.extents;
 		iconReg.numRects = 1;
 
-		iconReg.extents.x1 = wx;
-		iconReg.extents.y1 = wy;
+		iconReg.extents.x1 = 0;
+		iconReg.extents.y1 = 0;
 		iconReg.extents.x2 = iconReg.extents.x1 + width;
 		iconReg.extents.y2 = iconReg.extents.y1 + height;
 
-		matrix = icon->texture.matrix;
-		matrix.x0 -= wx * icon->texture.matrix.xx;
-		matrix.y0 -= wy * icon->texture.matrix.yy;
-
-		w->vCount = 0;
+		w->vCount = w->indexCount = 0;
 		if (iconReg.extents.x1 < iconReg.extents.x2 &&
 		    iconReg.extents.y1 < iconReg.extents.y2)
-		    (*w->screen->addWindowGeometry) (w, &matrix, 1, &iconReg,
-						     &iconReg);
+		    (*w->screen->addWindowGeometry) (w,
+						     &icon->texture.matrix, 1,
+						     &iconReg, &iconReg);
 
 		if (w->vCount)
+		{
+		    FragmentAttrib fragment;
+		    CompTransform  wTransform = *transform;
+
+		    initFragmentAttrib (&fragment, &sAttrib);
+
+		    matrixScale (&wTransform, scale, scale, 1.0f);
+		    matrixTranslate (&wTransform, x / scale, y / scale, 0.0f);
+
+		    glPushMatrix ();
+		    glLoadMatrixf (wTransform.m);
+
 		    (*w->screen->drawWindowTexture) (w,
-						     &icon->texture, &sAttrib,
+						     &icon->texture, &fragment,
 						     mask);
+
+		    glPopMatrix ();
+		}
 	    }
 	}
     }
     else
     {
 	UNWRAP (ss, s, paintWindow);
-	status = (*s->paintWindow) (w, attrib, region, mask);
+	status = (*s->paintWindow) (w, attrib, transform, region, mask);
 	WRAP (ss, s, paintWindow, scalePaintWindow);
     }
 
@@ -816,13 +814,13 @@ fillInWindows (CompScreen *s)
 
 	    sw->slot->scale = MIN (MIN (sx, sy), 1.0f);
 
-	    sx = w->width  * sw->slot->scale;
-	    sy = w->height * sw->slot->scale;
+	    sx = width  * sw->slot->scale;
+	    sy = height * sw->slot->scale;
 	    cx = (sw->slot->x1 + sw->slot->x2) / 2;
 	    cy = (sw->slot->y1 + sw->slot->y2) / 2;
 
-	    cx += (w->input.left - w->input.right)  * sw->slot->scale;
-	    cy += (w->input.top  - w->input.bottom) * sw->slot->scale;
+	    cx += w->input.left * sw->slot->scale;
+	    cy += w->input.top  * sw->slot->scale;
 
 	    sw->slot->x1 = cx - sx / 2;
 	    sw->slot->y1 = cy - sy / 2;
@@ -977,6 +975,7 @@ adjustScaleVelocity (CompWindow *w)
 static Bool
 scalePaintScreen (CompScreen		  *s,
 		  const ScreenPaintAttrib *sAttrib,
+		  const CompTransform	  *transform,
 		  Region		  region,
 		  int			  output,
 		  unsigned int		  mask)
@@ -989,7 +988,7 @@ scalePaintScreen (CompScreen		  *s,
 	mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS_MASK;
 
     UNWRAP (ss, s, paintScreen);
-    status = (*s->paintScreen) (s, sAttrib, region, output, mask);
+    status = (*s->paintScreen) (s, sAttrib, transform, region, output, mask);
     WRAP (ss, s, paintScreen, scalePaintScreen);
 
     return status;
@@ -1269,11 +1268,27 @@ scaleInitiateCommon (CompScreen      *s,
 		     CompOption      *option,
 		     int	     nOption)
 {
+    CompMatch *match;
+
     SCALE_DISPLAY (s->display);
     SCALE_SCREEN (s);
 
     if (otherScreenGrabExist (s, "scale", 0))
 	return FALSE;
+
+    ss->currentMatch = &ss->opt[SCALE_SCREEN_OPTION_WINDOW_MATCH].value.match;
+
+    match = getMatchOptionNamed (option, nOption, "match", NULL);
+    if (match)
+    {
+	matchFini (&ss->match);
+	matchInit (&ss->match);
+	if (matchCopy (&ss->match, match))
+	{
+	    matchUpdate (s->display, &ss->match);
+	    ss->currentMatch = &ss->match;
+	}
+    }
 
     if (!layoutThumbs (s))
 	return FALSE;
@@ -1296,6 +1311,7 @@ scaleInitiateCommon (CompScreen      *s,
 	    sd->lastActiveNum = s->activeNum - 1;
 
 	sd->lastActiveWindow = s->display->activeWindow;
+	sd->selectedWindow   = s->display->activeWindow;
 
 	ss->state = SCALE_STATE_OUT;
 
@@ -1428,10 +1444,33 @@ scaleInitiateOutput (CompDisplay     *d,
     return FALSE;
 }
 
+static void
+scaleSelectWindow (CompWindow *w)
+
+{
+    SCALE_DISPLAY (w->screen->display);
+
+    if (sd->selectedWindow != w->id)
+    {
+	CompWindow *old, *new;
+
+	old = findWindowAtScreen (w->screen, sd->selectedWindow);
+	new = findWindowAtScreen (w->screen, w->id);
+
+	sd->selectedWindow = w->id;
+
+	if (old)
+	    addWindowDamage (old);
+
+	addWindowDamage (new);
+    }
+}
+
 static Bool
 scaleSelectWindowAt (CompScreen *s,
 		     int	 x,
-		     int	 y)
+		     int	 y,
+		     Bool	 moveInputFocus)
 
 {
     CompWindow *w;
@@ -1441,10 +1480,15 @@ scaleSelectWindowAt (CompScreen *s,
     {
 	SCALE_DISPLAY (s->display);
 
-	sd->lastActiveNum    = w->activeNum;
-	sd->lastActiveWindow = w->id;
+	scaleSelectWindow (w);
 
-	moveInputFocusToWindow (w);
+	if (moveInputFocus)
+	{
+	    sd->lastActiveNum    = w->activeNum;
+	    sd->lastActiveWindow = w->id;
+
+	    moveInputFocusToWindow (w);
+	}
 
 	return TRUE;
     }
@@ -1459,55 +1503,77 @@ scaleMoveFocusWindow (CompScreen *s,
 
 {
     CompWindow *active;
+    CompWindow *focus = NULL;
 
     active = findWindowAtScreen (s, s->display->activeWindow);
     if (active)
     {
-	CompWindow *w, *focus = NULL;
-	ScaleSlot  *slot;
-	int	   x, y, cx, cy, d, min = MAXSHORT;
-
-	SCALE_SCREEN (s);
 	SCALE_WINDOW (active);
 
-	if (!sw->slot)
-	    return;
+	if (sw->slot)
+	{
+	    SCALE_SCREEN (s);
 
-	cx = (sw->slot->x1 + sw->slot->x2) / 2;
-	cy = (sw->slot->y1 + sw->slot->y2) / 2;
+	    CompWindow *w;
+	    ScaleSlot  *slot;
+	    int	       x, y, cx, cy, d, min = MAXSHORT;
+
+	    cx = (sw->slot->x1 + sw->slot->x2) / 2;
+	    cy = (sw->slot->y1 + sw->slot->y2) / 2;
+
+	    for (w = s->windows; w; w = w->next)
+	    {
+		slot = GET_SCALE_WINDOW (w, ss)->slot;
+		if (!slot)
+		    continue;
+
+		x = (slot->x1 + slot->x2) / 2;
+		y = (slot->y1 + slot->y2) / 2;
+
+		d = abs (x - cx) + abs (y - cy);
+		if (d < min)
+		{
+		    if ((dx > 0 && slot->x1 < sw->slot->x2) ||
+			(dx < 0 && slot->x2 > sw->slot->x1) ||
+			(dy > 0 && slot->y1 < sw->slot->y2) ||
+			(dy < 0 && slot->y2 > sw->slot->y1))
+			continue;
+
+		    min   = d;
+		    focus = w;
+		}
+	    }
+	}
+    }
+
+    /* move focus to the last focused window if no slot window is currently
+       focused */
+    if (!focus)
+    {
+	CompWindow *w;
+
+	SCALE_SCREEN (s);
 
 	for (w = s->windows; w; w = w->next)
 	{
-	    slot = GET_SCALE_WINDOW (w, ss)->slot;
-	    if (!slot)
+	    if (!GET_SCALE_WINDOW (w, ss)->slot)
 		continue;
 
-	    x = (slot->x1 + slot->x2) / 2;
-	    y = (slot->y1 + slot->y2) / 2;
-
-	    d = abs (x - cx) + abs (y - cy);
-	    if (d < min)
-	    {
-		if ((dx > 0 && slot->x1 < sw->slot->x2) ||
-		    (dx < 0 && slot->x2 > sw->slot->x1) ||
-		    (dy > 0 && slot->y1 < sw->slot->y2) ||
-		    (dy < 0 && slot->y2 > sw->slot->y1))
-		    continue;
-
-		min   = d;
+	    if (!focus || focus->activeNum < w->activeNum)
 		focus = w;
-	    }
 	}
+    }
 
-	if (focus)
-	{
-	    SCALE_DISPLAY (s->display);
+    if (focus)
+    {
+	SCALE_DISPLAY (s->display);
 
-	    sd->lastActiveNum    = focus->activeNum;
-	    sd->lastActiveWindow = focus->id;
+	scaleSelectWindow (focus);
 
-	    moveInputFocusToWindow (focus);
-	}
+	sd->lastActiveNum    = focus->activeNum;
+	sd->lastActiveWindow = focus->id;
+
+	moveInputFocusToWindow (focus);
     }
 }
 
@@ -1552,9 +1618,19 @@ scaleHoverTimeout (void *closure)
 
     if (ss->grab && ss->state != SCALE_STATE_IN)
     {
+	CompWindow *w;
 	CompOption o;
 	CompAction *action =
 	    &sd->opt[SCALE_DISPLAY_OPTION_INITIATE].value.action;
+
+	w = findWindowAtDisplay (s->display, sd->selectedWindow);
+	if (w)
+	{
+	    sd->lastActiveNum    = w->activeNum;
+	    sd->lastActiveWindow = w->id;
+
+	    moveInputFocusToWindow (w);
+	}
 
 	o.type    = CompOptionTypeInt;
 	o.name    = "root";
@@ -1617,7 +1693,8 @@ scaleHandleEvent (CompDisplay *d,
 
 		    if (scaleSelectWindowAt (s,
 					     event->xbutton.x_root,
-					     event->xbutton.y_root))
+					     event->xbutton.y_root,
+					     TRUE))
 		    {
 			scaleTerminate (d, action, 0, &o, 1);
 		    }
@@ -1629,7 +1706,7 @@ scaleHandleEvent (CompDisplay *d,
 						      s->workArea.height))
 		    {
 			scaleTerminate (d, action, 0, &o, 1);
-			enterShowDesktopMode (s);
+			(*s->enterShowDesktopMode) (s);
 		    }
 		}
 	    }
@@ -1641,12 +1718,17 @@ scaleHandleEvent (CompDisplay *d,
 	{
 	    SCALE_SCREEN (s);
 
-	    if (ss->grabIndex		    &&
-		ss->state != SCALE_STATE_IN &&
-		ss->opt[SCALE_SCREEN_OPTION_SLOPPY_FOCUS].value.b)
+	    if (ss->grabIndex && ss->state != SCALE_STATE_IN)
+	    {
+		Bool focus;
+
+		focus = !d->opt[COMP_DISPLAY_OPTION_CLICK_TO_FOCUS].value.b;
+
 		scaleSelectWindowAt (s,
 				     event->xmotion.x_root,
-				     event->xmotion.y_root);
+				     event->xmotion.y_root,
+				     focus);
+	    }
 	}
 	break;
     case ClientMessage:
@@ -1657,17 +1739,20 @@ scaleHandleEvent (CompDisplay *d,
 	    w = findWindowAtDisplay (d, event->xclient.window);
 	    if (w)
 	    {
+		Bool focus;
+
 		SCALE_SCREEN (w->screen);
 
 		s = w->screen;
+
+		focus = !d->opt[COMP_DISPLAY_OPTION_CLICK_TO_FOCUS].value.b;
 
 		if (w->id == ss->dndTarget)
 		    sendDndStatusMessage (w->screen, event->xclient.data.l[0]);
 
 		if (ss->grab			&&
 		    ss->state != SCALE_STATE_IN &&
-		    w->id == ss->dndTarget	&&
-		    ss->opt[SCALE_SCREEN_OPTION_SLOPPY_FOCUS].value.b)
+		    w->id == ss->dndTarget)
 		{
 		    int x = event->xclient.data.l[2] >> 16;
 		    int y = event->xclient.data.l[2] & 0xffff;
@@ -1681,7 +1766,7 @@ scaleHandleEvent (CompDisplay *d,
 
 			if (ss->hoverHandle)
 			{
-			    if (w->activeNum != sd->lastActiveNum)
+			    if (w->id != sd->selectedWindow)
 			    {
 				compRemoveTimeout (ss->hoverHandle);
 				ss->hoverHandle = 0;
@@ -1694,7 +1779,7 @@ scaleHandleEvent (CompDisplay *d,
 						scaleHoverTimeout,
 						s);
 
-			scaleSelectWindowAt (s, x, y);
+			scaleSelectWindowAt (s, x, y, focus);
 		    }
 		    else
 		    {
@@ -1927,6 +2012,7 @@ scaleInitDisplay (CompPlugin  *p,
     }
 
     sd->lastActiveNum = None;
+    sd->selectedWindow = None;
 
     scaleDisplayInitOptions (sd, d->display);
 
@@ -2001,6 +2087,10 @@ scaleInitScreen (CompPlugin *p,
 
     scaleScreenInitOptions (ss);
 
+    matchInit (&ss->match);
+    matchUpdate (s->display,
+		 &ss->opt[SCALE_SCREEN_OPTION_WINDOW_MATCH].value.match);
+
     addScreenAction (s, &sd->opt[SCALE_DISPLAY_OPTION_INITIATE].value.action);
     addScreenAction (s,
 		     &sd->opt[SCALE_DISPLAY_OPTION_INITIATE_ALL].value.action);
@@ -2027,12 +2117,28 @@ scaleFiniScreen (CompPlugin *p,
 		 CompScreen *s)
 {
     SCALE_SCREEN (s);
+    SCALE_DISPLAY (s->display);
+
+    matchFini (&ss->match);
+    matchFini (&ss->opt[SCALE_SCREEN_OPTION_WINDOW_MATCH].value.match);
+
+    removeScreenAction (s, 
+			&sd->opt[SCALE_DISPLAY_OPTION_INITIATE].value.action);
+    removeScreenAction (s,
+	   		&sd->opt[SCALE_DISPLAY_OPTION_INITIATE_ALL].value.action);
+    removeScreenAction (s,
+	   		&sd->opt[SCALE_DISPLAY_OPTION_INITIATE_GROUP].value.action);
+    removeScreenAction (s,
+	   		&sd->opt[SCALE_DISPLAY_OPTION_INITIATE_OUTPUT].value.action);
 
     UNWRAP (ss, s, preparePaintScreen);
     UNWRAP (ss, s, donePaintScreen);
     UNWRAP (ss, s, paintScreen);
     UNWRAP (ss, s, paintWindow);
     UNWRAP (ss, s, damageWindowRect);
+
+    if (ss->cursor)
+	XFreeCursor (s->display->display, ss->cursor);
 
     if (ss->slotsSize)
 	free (ss->slots);

@@ -33,7 +33,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/poll.h>
-#include <unistd.h>
 
 #define XK_MISCELLANY
 #include <X11/keysymdef.h>
@@ -84,7 +83,14 @@ static int        targetOutput = 0;
 
 static Bool inHandleEvent = FALSE;
 
-static Bool shutDown = FALSE;
+static const CompTransform identity = {
+    {
+	1.0, 0.0, 0.0, 0.0,
+	0.0, 1.0, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0,
+	0.0, 0.0, 0.0, 1.0
+    }
+};
 
 int lastPointerX = 0;
 int lastPointerY = 0;
@@ -158,11 +164,15 @@ int pointerY     = 0;
 
 #define IGNORE_HINTS_WHEN_MAXIMIZED_DEFAULT TRUE
 
-#define NUM_OPTIONS(d) (sizeof ((d)->opt) / sizeof (CompOption))
+#define PING_DELAY_DEFAULT 5000
+#define PING_DELAY_MIN	   1000
+#define PING_DELAY_MAX	   30000
 
 static char *textureFilter[] = { N_("Fast"), N_("Good"), N_("Best") };
 
 #define NUM_TEXTURE_FILTER (sizeof (textureFilter) / sizeof (textureFilter[0]))
+
+#define NUM_OPTIONS(d) (sizeof ((d)->opt) / sizeof (CompOption))
 
 CompDisplay *compDisplays = 0;
 
@@ -381,9 +391,9 @@ showDesktop (CompDisplay     *d,
     if (s)
     {
 	if (s->showingDesktopMask == 0)
-	    enterShowDesktopMode (s);
+	    (*s->enterShowDesktopMode) (s);
 	else
-	    leaveShowDesktopMode (s, NULL);
+	    (*s->leaveShowDesktopMode) (s, NULL);
     }
 
     return TRUE;
@@ -409,11 +419,11 @@ toggleSlowAnimations (CompDisplay     *d,
 }
 
 static Bool
-raise (CompDisplay     *d,
-       CompAction      *action,
-       CompActionState state,
-       CompOption      *option,
-       int	       nOption)
+raiseInitiate (CompDisplay     *d,
+	       CompAction      *action,
+	       CompActionState state,
+	       CompOption      *option,
+	       int	       nOption)
 {
     CompWindow *w;
     Window     xid;
@@ -428,11 +438,11 @@ raise (CompDisplay     *d,
 }
 
 static Bool
-lower (CompDisplay     *d,
-       CompAction      *action,
-       CompActionState state,
-       CompOption      *option,
-       int	       nOption)
+lowerInitiate (CompDisplay     *d,
+	       CompAction      *action,
+	       CompActionState state,
+	       CompOption      *option,
+	       int	       nOption)
 {
     CompWindow *w;
     Window     xid;
@@ -458,25 +468,22 @@ changeWindowOpacity (CompWindow *w,
     if (w->type & CompWindowTypeDesktopMask)
 	return;
 
-    step = (OPAQUE * w->screen->opacityStep) / 100;
+    step = (0xff * w->screen->opacityStep) / 100;
 
-    opacity = w->paint.opacity + step * direction;
-    if (opacity > OPAQUE)
+    w->opacityFactor = w->opacityFactor + step * direction;
+    if (w->opacityFactor > 0xff)
     {
-	opacity = OPAQUE;
+	w->opacityFactor = 0xff;
     }
-    else if (opacity < step)
+    else if (w->opacityFactor < step)
     {
-	opacity = step;
+	w->opacityFactor = step;
     }
 
-    if (w->paint.opacity != opacity)
+    opacity = (w->opacity * w->opacityFactor) / 0xff;
+    if (opacity != w->paint.opacity)
     {
 	w->paint.opacity = opacity;
-
-	setWindowProp32 (w->screen->display, w->id,
-			 w->screen->display->winOpacityAtom,
-			 w->paint.opacity);
 	addWindowDamage (w);
     }
 }
@@ -590,6 +597,25 @@ runCommandWindowScreenshot (CompDisplay     *d,
     s = findScreenAtDisplay (d, xid);
     if (s)
 	runCommand (s, d->opt[COMP_DISPLAY_OPTION_WINDOW_SCREENSHOT].value.s);
+
+    return TRUE;
+}
+
+static Bool
+runCommandTerminal (CompDisplay     *d,
+		    CompAction      *action,
+		    CompActionState state,
+		    CompOption      *option,
+		    int	            nOption)
+{
+    CompScreen *s;
+    Window     xid;
+
+    xid = getIntOptionNamed (option, nOption, "root", 0);
+
+    s = findScreenAtDisplay (d, xid);
+    if (s)
+	runCommand (s, d->opt[COMP_DISPLAY_OPTION_TERMINAL].value.s);
 
     return TRUE;
 }
@@ -982,7 +1008,7 @@ compDisplayInitOptions (CompDisplay *display,
     o->shortDesc		     = N_("Raise Window");
     o->longDesc			     = N_("Raise window above other windows");
     o->type			     = CompOptionTypeAction;
-    o->value.action.initiate	     = raise;
+    o->value.action.initiate	     = raiseInitiate;
     o->value.action.terminate        = 0;
     o->value.action.bell	     = FALSE;
     o->value.action.edgeMask	     = 0;
@@ -997,7 +1023,7 @@ compDisplayInitOptions (CompDisplay *display,
     o->shortDesc		     = N_("Lower Window");
     o->longDesc			     = N_("Lower window beneath other windows");
     o->type			     = CompOptionTypeAction;
-    o->value.action.initiate	     = lower;
+    o->value.action.initiate	     = lowerInitiate;
     o->value.action.terminate        = 0;
     o->value.action.bell	     = FALSE;
     o->value.action.edgeMask	     = 0;
@@ -1197,6 +1223,37 @@ compDisplayInitOptions (CompDisplay *display,
 	"maximized");
     o->type	 = CompOptionTypeBool;
     o->value.b	 = IGNORE_HINTS_WHEN_MAXIMIZED_DEFAULT;
+
+    o = &display->opt[COMP_DISPLAY_OPTION_TERMINAL];
+    o->name	      = "command_terminal";
+    o->shortDesc      = N_("Terminal command line");
+    o->longDesc	      = N_("Terminal command line");
+    o->type	      = CompOptionTypeString;
+    o->value.s	      = strdup ("");
+    o->rest.s.string  = NULL;
+    o->rest.s.nString = 0;
+
+    o = &display->opt[COMP_DISPLAY_OPTION_RUN_TERMINAL];
+    o->name		      = "run_command_terminal";
+    o->shortDesc	      = N_("Open a terminal");
+    o->longDesc		      = N_("Open a terminal");
+    o->type		      = CompOptionTypeAction;
+    o->value.action.initiate  = runCommandTerminal;
+    o->value.action.terminate = 0;
+    o->value.action.bell      = FALSE;
+    o->value.action.edgeMask  = 0;
+    o->value.action.state     = CompActionStateInitKey;
+    o->value.action.state    |= CompActionStateInitButton;
+    o->value.action.type      = CompBindingTypeNone;
+
+    o = &display->opt[COMP_DISPLAY_OPTION_PING_DELAY];
+    o->name	  = "ping_delay";
+    o->shortDesc  = N_("Ping Delay");
+    o->longDesc	  = N_("Interval between ping messages");
+    o->type	  = CompOptionTypeInt;
+    o->value.i	  = PING_DELAY_DEFAULT;
+    o->rest.i.min = PING_DELAY_MIN;
+    o->rest.i.max = PING_DELAY_MAX;
 }
 
 CompOption *
@@ -1216,6 +1273,78 @@ setAudibleBell (CompDisplay *display,
 				  XkbUseCoreKbd,
 				  XkbAudibleBellMask,
 				  audible ? XkbAudibleBellMask : 0);
+}
+
+static Bool
+pingTimeout (void *closure)
+{
+    CompDisplay *d = closure;
+    CompScreen  *s;
+    CompWindow  *w;
+    XEvent      ev;
+    int		ping = d->lastPing + 1;
+
+    ev.type		    = ClientMessage;
+    ev.xclient.window	    = 0;
+    ev.xclient.message_type = d->wmProtocolsAtom;
+    ev.xclient.format	    = 32;
+    ev.xclient.data.l[0]    = d->wmPingAtom;
+    ev.xclient.data.l[1]    = ping;
+    ev.xclient.data.l[2]    = 0;
+    ev.xclient.data.l[3]    = 0;
+    ev.xclient.data.l[4]    = 0;
+
+    for (s = d->screens; s; s = s->next)
+    {
+	for (w = s->windows; w; w = w->next)
+	{
+	    if (w->attrib.map_state != IsViewable)
+		continue;
+
+	    if (!(w->type & CompWindowTypeNormalMask))
+		continue;
+
+	    if (w->protocols & CompWindowProtocolPingMask)
+	    {
+		if (w->transientFor)
+		    continue;
+
+		if (w->lastPong < d->lastPing)
+		{
+		    if (w->alive)
+		    {
+			w->alive	    = FALSE;
+			w->paint.brightness = 0xa8a8;
+			w->paint.saturation = 0;
+
+			if (w->closeRequests)
+			{
+			    toolkitAction (s,
+					   d->toolkitActionForceQuitDialogAtom,
+					   w->lastCloseRequestTime,
+					   w->id,
+					   TRUE,
+					   0,
+					   0);
+
+			    w->closeRequests = 0;
+			}
+
+			addWindowDamage (w);
+		    }
+		}
+
+		ev.xclient.window    = w->id;
+		ev.xclient.data.l[2] = w->id;
+
+		XSendEvent (d->display, w->id, FALSE, NoEventMask, &ev);
+	    }
+	}
+    }
+
+    d->lastPing = ping;
+
+    return TRUE;
 }
 
 static Bool
@@ -1266,6 +1395,17 @@ setDisplayOption (CompDisplay     *display,
 	if (compSetIntOption (o, value))
 	    return TRUE;
 	break;
+    case COMP_DISPLAY_OPTION_PING_DELAY:
+	if (compSetIntOption (o, value))
+	{
+	    if (display->pingHandle)
+		compRemoveTimeout (display->pingHandle);
+
+	    display->pingHandle =
+		compAddTimeout (o->value.i, pingTimeout, display);
+	    return TRUE;
+	}
+	break;
     case COMP_DISPLAY_OPTION_COMMAND0:
     case COMP_DISPLAY_OPTION_COMMAND1:
     case COMP_DISPLAY_OPTION_COMMAND2:
@@ -1280,6 +1420,7 @@ setDisplayOption (CompDisplay     *display,
     case COMP_DISPLAY_OPTION_COMMAND11:
     case COMP_DISPLAY_OPTION_SCREENSHOT:
     case COMP_DISPLAY_OPTION_WINDOW_SCREENSHOT:
+    case COMP_DISPLAY_OPTION_TERMINAL:
 	if (compSetStringOption (o, value))
 	    return TRUE;
 	break;
@@ -1311,6 +1452,7 @@ setDisplayOption (CompDisplay     *display,
     case COMP_DISPLAY_OPTION_OPACITY_DECREASE:
     case COMP_DISPLAY_OPTION_RUN_SCREENSHOT:
     case COMP_DISPLAY_OPTION_RUN_WINDOW_SCREENSHOT:
+    case COMP_DISPLAY_OPTION_RUN_TERMINAL:
     case COMP_DISPLAY_OPTION_WINDOW_MENU:
     case COMP_DISPLAY_OPTION_TOGGLE_WINDOW_MAXIMIZED:
     case COMP_DISPLAY_OPTION_TOGGLE_WINDOW_MAXIMIZED_HORZ:
@@ -1905,14 +2047,10 @@ eventLoop (void)
 	if (display->dirtyPluginList)
 	    updatePlugins (display);
 
-	if (restartSignal)
+	if (restartSignal || shutDown)
 	{
-	    execvp (programName, programArgv);
-	    exit (1);
-	}
-	else if (shutDown)
-	{
-	    exit (0);
+	    while (popPlugin ());
+	    return;
 	}
 
 	while (XPending (display->display))
@@ -2018,8 +2156,6 @@ eventLoop (void)
 		    if (timeDiff < 0)
 			timeDiff = 0;
 
-		    s->stencilRef = 0;
-
 		    makeScreenCurrent (s);
 
 		    if (s->slowAnimations)
@@ -2094,6 +2230,7 @@ eventLoop (void)
 			{
 			    (*s->paintScreen) (s,
 					       &defaultScreenPaintAttrib,
+					       &identity,
 					       &s->outputDev[i].region, i,
 					       PAINT_SCREEN_REGION_MASK |
 					       PAINT_SCREEN_FULL_MASK);
@@ -2106,11 +2243,13 @@ eventLoop (void)
 
 			    if (!(*s->paintScreen) (s,
 						    &defaultScreenPaintAttrib,
+						    &identity,
 						    outputRegion, i,
 						    PAINT_SCREEN_REGION_MASK))
 			    {
 				(*s->paintScreen) (s,
 						   &defaultScreenPaintAttrib,
+						   &identity,
 						   &s->outputDev[i].region, i,
 						   PAINT_SCREEN_FULL_MASK);
 
@@ -2310,80 +2449,6 @@ compCheckForError (Display *dpy)
     return e;
 }
 
-#define PING_DELAY 5000
-
-static Bool
-pingTimeout (void *closure)
-{
-    CompDisplay *d = closure;
-    CompScreen  *s;
-    CompWindow  *w;
-    XEvent      ev;
-    int		ping = d->lastPing + 1;
-
-    ev.type		    = ClientMessage;
-    ev.xclient.window	    = 0;
-    ev.xclient.message_type = d->wmProtocolsAtom;
-    ev.xclient.format	    = 32;
-    ev.xclient.data.l[0]    = d->wmPingAtom;
-    ev.xclient.data.l[1]    = ping;
-    ev.xclient.data.l[2]    = 0;
-    ev.xclient.data.l[3]    = 0;
-    ev.xclient.data.l[4]    = 0;
-
-    for (s = d->screens; s; s = s->next)
-    {
-	for (w = s->windows; w; w = w->next)
-	{
-	    if (w->attrib.map_state != IsViewable)
-		continue;
-
-	    if (!(w->type & CompWindowTypeNormalMask))
-		continue;
-
-	    if (w->protocols & CompWindowProtocolPingMask)
-	    {
-		if (w->transientFor)
-		    continue;
-
-		if (w->lastPong < d->lastPing)
-		{
-		    if (w->alive)
-		    {
-			w->alive	    = FALSE;
-			w->paint.brightness = 0xa8a8;
-			w->paint.saturation = 0;
-
-			if (w->closeRequests)
-			{
-			    toolkitAction (s,
-					   d->toolkitActionForceQuitDialogAtom,
-					   w->lastCloseRequestTime,
-					   w->id,
-					   TRUE,
-					   0,
-					   0);
-
-			    w->closeRequests = 0;
-			}
-
-			addWindowDamage (w);
-		    }
-		}
-
-		ev.xclient.window    = w->id;
-		ev.xclient.data.l[2] = w->id;
-
-		XSendEvent (d->display, w->id, FALSE, NoEventMask, &ev);
-	    }
-	}
-    }
-
-    d->lastPing = ping;
-
-    return TRUE;
-}
-
 static void
 addScreenActions (CompDisplay *d, CompScreen *s)
 {
@@ -2423,6 +2488,7 @@ addScreenActions (CompDisplay *d, CompScreen *s)
 		     &d->opt[COMP_DISPLAY_OPTION_OPACITY_DECREASE].value.action);
     addScreenAction (s, &d->opt[COMP_DISPLAY_OPTION_RUN_SCREENSHOT].value.action);
     addScreenAction (s, &d->opt[COMP_DISPLAY_OPTION_RUN_WINDOW_SCREENSHOT].value.action);
+    addScreenAction (s, &d->opt[COMP_DISPLAY_OPTION_RUN_TERMINAL].value.action);
     addScreenAction (s, &d->opt[COMP_DISPLAY_OPTION_WINDOW_MENU].value.action);
     addScreenAction (s,
 		     &d->opt[COMP_DISPLAY_OPTION_TOGGLE_WINDOW_MAXIMIZED].value.action);
@@ -2460,7 +2526,9 @@ addDisplay (char *name,
     Window	focus;
     int		revertTo, i;
     int		compositeMajor, compositeMinor;
+    int		fixesMinor;
     int		xkbOpcode;
+    int		firstScreen, lastScreen;
 
     d = &compDisplay;
 
@@ -2531,6 +2599,10 @@ addDisplay (char *name,
     d->fileWatchRemoved = fileWatchRemoved;
 
     d->fileWatch = NULL;
+
+    d->matchInitExp	      = matchInitExp;
+    d->matchExpHandlerChanged = matchExpHandlerChanged;
+    d->matchPropertyChanged   = matchPropertyChanged;
 
     d->supportedAtom	     = XInternAtom (dpy, "_NET_SUPPORTED", 0);
     d->supportingWmCheckAtom = XInternAtom (dpy, "_NET_SUPPORTING_WM_CHECK", 0);
@@ -2737,6 +2809,21 @@ addDisplay (char *name,
 	return FALSE;
     }
 
+    if (!XFixesQueryExtension (dpy, &d->fixesEvent, &d->fixesError))
+    {
+	fprintf (stderr, "%s: No fixes extension\n", programName);
+	return FALSE;
+    }
+
+    XFixesQueryVersion (dpy, &d->fixesVersion, &fixesMinor);
+    /*
+    if (d->fixesVersion < 5)
+    {
+	fprintf (stderr, "%s: Need fixes extension version 5 or later "
+		 "for client-side cursor\n", programName);
+    }
+    */
+
     d->shapeExtension = XShapeQueryExtension (dpy,
 					      &d->shapeEvent,
 					      &d->shapeError);
@@ -2778,7 +2865,18 @@ addDisplay (char *name,
     d->escapeKeyCode = XKeysymToKeycode (dpy, XStringToKeysym ("Escape"));
     d->returnKeyCode = XKeysymToKeycode (dpy, XStringToKeysym ("Return"));
 
-    for (i = 0; i < ScreenCount (dpy); i++)
+    if (onlyCurrentScreen)
+    {
+	firstScreen = DefaultScreen (dpy);
+	lastScreen  = DefaultScreen (dpy);
+    }
+    else
+    {
+	firstScreen = 0;
+	lastScreen  = ScreenCount (dpy) - 1;
+    }
+
+    for (i = firstScreen; i <= lastScreen; i++)
     {
 	Window		     newWmSnOwner = None, newCmSnOwner = None;
 	Atom		     wmSnAtom = 0, cmSnAtom = 0;
@@ -2993,7 +3091,9 @@ addDisplay (char *name,
 	    focusDefaultWindow (d);
     }
 
-    d->pingHandle = compAddTimeout (PING_DELAY, pingTimeout, d);
+    d->pingHandle =
+	compAddTimeout (d->opt[COMP_DISPLAY_OPTION_PING_DELAY].value.i,
+			pingTimeout, d);
 
     return TRUE;
 }
@@ -3035,7 +3135,7 @@ focusDefaultWindow (CompDisplay *d)
 				   CompWindowTypeDialogMask |
 				   CompWindowTypeModalDialogMask))
 		    {
-			if (w->activeNum > focus->activeNum)
+			if (compareWindowActiveness (focus, w) < 0)
 			    focus = w;
 		    }
 		}
@@ -3520,4 +3620,16 @@ void
 fileWatchRemoved (CompDisplay   *display,
 		  CompFileWatch *fileWatch)
 {
+}
+
+CompCursor *
+findCursorAtDisplay (CompDisplay *display)
+{
+    CompScreen *s;
+
+    for (s = display->screens; s; s = s->next)
+	if (s->cursors)
+	    return s->cursors;
+
+    return NULL;
 }

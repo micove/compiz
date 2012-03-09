@@ -52,7 +52,9 @@ PROGRAMS = $(bin_PROGRAMS)
 am_compiz_OBJECTS = main.$(OBJEXT) privates.$(OBJEXT) \
 	texture.$(OBJEXT) display.$(OBJEXT) screen.$(OBJEXT) \
 	window.$(OBJEXT) event.$(OBJEXT) paint.$(OBJEXT) \
-	option.$(OBJEXT) plugin.$(OBJEXT) session.$(OBJEXT)
+	option.$(OBJEXT) plugin.$(OBJEXT) session.$(OBJEXT) \
+	fragment.$(OBJEXT) matrix.$(OBJEXT) cursor.$(OBJEXT) \
+	match.$(OBJEXT)
 compiz_OBJECTS = $(am_compiz_OBJECTS)
 compiz_DEPENDENCIES =
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
@@ -123,6 +125,10 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 F77 = @F77@
 FFLAGS = @FFLAGS@
+FUSE_CFLAGS = @FUSE_CFLAGS@
+FUSE_LIBS = @FUSE_LIBS@
+FUSE_PLUGIN_FALSE = @FUSE_PLUGIN_FALSE@
+FUSE_PLUGIN_TRUE = @FUSE_PLUGIN_TRUE@
 GCONFTOOL = @GCONFTOOL@
 GCONF_CFLAGS = @GCONF_CFLAGS@
 GCONF_DUMP_PLUGIN_FALSE = @GCONF_DUMP_PLUGIN_FALSE@
@@ -170,6 +176,7 @@ METACITY_CFLAGS = @METACITY_CFLAGS@
 METACITY_LIBS = @METACITY_LIBS@
 MKINSTALLDIRS = @MKINSTALLDIRS@
 MSGFMT = @MSGFMT@
+MSGFMT_OPTS = @MSGFMT_OPTS@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -190,6 +197,7 @@ PO_IN_DATADIR_TRUE = @PO_IN_DATADIR_TRUE@
 QT_MOC = @QT_MOC@
 RANLIB = @RANLIB@
 SCALE_CORNER = @SCALE_CORNER@
+SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
@@ -279,7 +287,11 @@ compiz_SOURCES = \
 	paint.c	   \
 	option.c   \
 	plugin.c   \
-	session.c
+	session.c  \
+	fragment.c \
+	matrix.c   \
+	cursor.c   \
+	match.c
 
 all: all-am
 
@@ -352,9 +364,13 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cursor.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/display.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/event.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fragment.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/match.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/matrix.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/option.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/paint.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plugin.Po@am__quote@

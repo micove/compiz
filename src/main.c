@@ -72,6 +72,7 @@ char *windowTypeString[] = {
 int  nWindowTypeString =
     sizeof (windowTypeString) / sizeof (windowTypeString[0]);
 
+Bool shutDown = FALSE;
 Bool restartSignal = FALSE;
 
 CompWindow *lastFoundWindow = 0;
@@ -81,6 +82,8 @@ Bool replaceCurrentWm = FALSE;
 Bool indirectRendering = FALSE;
 Bool strictBinding = TRUE;
 Bool noDetection = FALSE;
+Bool useDesktopHints = TRUE;
+Bool onlyCurrentScreen = FALSE;
 
 #ifdef USE_COW
 Bool useCow = TRUE;
@@ -99,13 +102,17 @@ usage (void)
 	    "[--replace]\n       "
 	    "[--sm-disable] "
 	    "[--sm-client-id ID] "
-	    "[--no-detection] "
-	    "[--version]\n       "
+	    "[--no-detection]\n       "
+	    "[--ignore-desktop-hints] "
+	    "[--only-current-screen]"
 
 #ifdef USE_COW
-	    "[--use-root-window] "
+	    " [--use-root-window]\n       "
+#else
+	    "\n       "
 #endif
 
+	    "[--version] "
 	    "[--help] "
 	    "[PLUGIN]...\n",
 	    programName);
@@ -122,6 +129,10 @@ signalHandler (int sig)
 	break;
     case SIGHUP:
 	restartSignal = TRUE;
+	break;
+    case SIGINT:
+    case SIGTERM:
+	shutDown = TRUE;
     default:
 	break;
     }
@@ -142,6 +153,8 @@ main (int argc, char **argv)
 
     signal (SIGHUP, signalHandler);
     signal (SIGCHLD, signalHandler);
+    signal (SIGINT, signalHandler);
+    signal (SIGTERM, signalHandler);
 
     emptyRegion.rects = &emptyRegion.extents;
     emptyRegion.numRects = 0;
@@ -196,6 +209,14 @@ main (int argc, char **argv)
 	{
 	    strictBinding = FALSE;
 	}
+	else if (!strcmp (argv[i], "--ignore-desktop-hints"))
+	{
+	    useDesktopHints = FALSE;
+	}
+	else if (!strcmp (argv[i], "--only-current-screen"))
+	{
+	    onlyCurrentScreen = TRUE;
+	}
 
 #ifdef USE_COW
 	else if (!strcmp (argv[i], "--use-root-window"))
@@ -226,6 +247,10 @@ main (int argc, char **argv)
 	    if (i + 1 < argc)
 		backgroundImage = argv[++i];
 	}
+	else if (*argv[i] == '-')
+	{
+	    fprintf (stderr, "%s: Unknown option '%s'\n", programName, argv[i]);
+	}
 	else
 	{
 	    if (nPlugin < 256)
@@ -243,6 +268,12 @@ main (int argc, char **argv)
 
     if (!disableSm)
 	closeSession ();
+
+    if (restartSignal)
+    {
+	execvp (programName, programArgv);
+	return 1;
+    }
 
     return 0;
 }

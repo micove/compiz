@@ -22,12 +22,37 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <compiz.h>
 
 #include <glib.h>
 
 #define PLACE_WORKAROUND_DEFAULT TRUE
+
+typedef enum {
+    PlaceModeCascade  = 0,
+    PlaceModeCentered = 1,
+    PlaceModeSmart    = 2,
+    PlaceModeMaximize = 3,
+    PlaceModeRandom   = 4
+} PlaceMode;
+
+static char *modeString[] = {
+    N_("Cascade"),
+    N_("Centered"),
+    N_("Smart"),
+    N_("Maximize"),
+    N_("Random")
+};
+static int nModeString = sizeof (modeString) / sizeof (modeString[0]);
+
+#define PLACE_MODE_DEFAULT (modeString[0])
+
+/* overlap types */
+#define NONE    0
+#define H_WRONG -1
+#define W_WRONG -2
 
 static int displayPrivateIndex;
 
@@ -36,13 +61,22 @@ typedef struct _PlaceDisplay {
     HandleEventProc handleEvent;
 } PlaceDisplay;
 
-#define PLACE_SCREEN_OPTION_WORKAROUND 0
-#define PLACE_SCREEN_OPTION_NUM        1
+#define PLACE_SCREEN_OPTION_WORKAROUND        0
+#define PLACE_SCREEN_OPTION_MODE              1
+#define PLACE_SCREEN_OPTION_POSITION_MATCHES  2
+#define PLACE_SCREEN_OPTION_POSITION_X_VALUES 3
+#define PLACE_SCREEN_OPTION_POSITION_Y_VALUES 4
+#define PLACE_SCREEN_OPTION_VIEWPORT_MATCHES  5
+#define PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES 6
+#define PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES 7
+#define PLACE_SCREEN_OPTION_NUM               8
 
 typedef struct _PlaceScreen {
     CompOption opt[PLACE_SCREEN_OPTION_NUM];
 
     DamageWindowRectProc damageWindowRect;
+
+    PlaceMode placeMode;
 } PlaceScreen;
 
 #define GET_PLACE_DISPLAY(d)				      \
@@ -58,6 +92,86 @@ typedef struct _PlaceScreen {
     PlaceScreen *ps = GET_PLACE_SCREEN (s, GET_PLACE_DISPLAY (s->display))
 
 #define NUM_OPTIONS(s) (sizeof ((s)->opt) / sizeof (CompOption))
+
+static Bool
+placeMatchXYValue (CompWindow *w,
+		   CompOption *matches,
+		   CompOption *xValues,
+		   CompOption *yValues,
+		   int	      *x,
+		   int	      *y)
+{
+    int i, min;
+
+    if (w->type & CompWindowTypeDesktopMask)
+	return FALSE;
+
+    min = MIN (matches->value.list.nValue, xValues->value.list.nValue);
+    min = MIN (min, yValues->value.list.nValue);
+
+    for (i = 0; i < min; i++)
+    {
+	if (matchEval (&matches->value.list.value[i].match, w))
+	{
+	    *x = xValues->value.list.value[i].i;
+	    *y = yValues->value.list.value[i].i;
+
+	    return TRUE;
+	}
+    }
+
+    return FALSE;
+}
+
+static Bool
+placeMatchPosition (CompWindow *w,
+		    int	       *x,
+		    int	       *y)
+{
+    PLACE_SCREEN (w->screen);
+
+    return placeMatchXYValue (w,
+			      &ps->opt[PLACE_SCREEN_OPTION_POSITION_MATCHES],
+			      &ps->opt[PLACE_SCREEN_OPTION_POSITION_X_VALUES],
+			      &ps->opt[PLACE_SCREEN_OPTION_POSITION_Y_VALUES],
+			      x,
+			      y);
+}
+
+static Bool
+placeMatchViewport (CompWindow *w,
+		    int	       *x,
+		    int	       *y)
+{
+    PLACE_SCREEN (w->screen);
+
+    return placeMatchXYValue (w,
+			      &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_MATCHES],
+			      &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES],
+			      &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES],
+			      x,
+			      y);
+}
+
+static void
+placeUpdateMode (CompScreen *screen)
+{
+    char *mode;
+    int  i;
+
+    PLACE_SCREEN (screen);
+
+    mode = ps->opt[PLACE_SCREEN_OPTION_MODE].value.s;
+
+    for (i = 0; i < sizeof (modeString) / sizeof (modeString[0]); i++)
+    {
+	if (strcmp (modeString[i], mode) == 0)
+	{
+	    ps->placeMode = i;
+	    break;
+	}
+    }
+}
 
 static CompOption *
 placeGetScreenOptions (CompScreen *screen,
@@ -87,6 +201,32 @@ placeSetScreenOption (CompScreen      *screen,
     case PLACE_SCREEN_OPTION_WORKAROUND:
 	if (compSetBoolOption (o, value))
 	    return TRUE;
+	break;
+    case PLACE_SCREEN_OPTION_MODE:
+	if (compSetStringOption (o, value))
+	{
+	    placeUpdateMode (screen);
+	    return TRUE;
+	}
+	break;
+    case PLACE_SCREEN_OPTION_POSITION_MATCHES:
+    case PLACE_SCREEN_OPTION_VIEWPORT_MATCHES:
+	if (compSetOptionList (o, value))
+	{
+	    int i;
+
+	    for (i = 0; i < o->value.list.nValue; i++)
+		matchUpdate (screen->display, &o->value.list.value[i].match);
+
+	    return TRUE;
+	}
+	break;
+    case PLACE_SCREEN_OPTION_POSITION_X_VALUES:
+    case PLACE_SCREEN_OPTION_POSITION_Y_VALUES:
+    case PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES:
+    case PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES:
+	if (compSetOptionList (o, value))
+	    return TRUE;
     default:
 	break;
     }
@@ -105,6 +245,82 @@ placeScreenInitOptions (PlaceScreen *ps)
     o->longDesc	 = N_("Window placement workarounds");
     o->type	 = CompOptionTypeBool;
     o->value.b	 = PLACE_WORKAROUND_DEFAULT;
+
+    o = &ps->opt[PLACE_SCREEN_OPTION_MODE];
+    o->name	      = "mode";
+    o->shortDesc      = N_("Placement Mode");
+    o->longDesc	      = N_("Algorithm to use for window placement");
+    o->type	      = CompOptionTypeString;
+    o->value.s	      = strdup (PLACE_MODE_DEFAULT);
+    o->rest.s.string  = modeString;
+    o->rest.s.nString = nModeString;
+
+    o = &ps->opt[PLACE_SCREEN_OPTION_POSITION_MATCHES];
+    o->name	         = "position_matches";
+    o->shortDesc         = N_("Positioned windows");
+    o->longDesc	         = N_("Windows that should be positioned by default");
+    o->type	         = CompOptionTypeList;
+    o->value.list.type   = CompOptionTypeMatch;
+    o->value.list.nValue = 0;
+    o->value.list.value  = NULL;
+    o->rest.s.string     = NULL;
+    o->rest.s.nString    = 0;
+
+    o = &ps->opt[PLACE_SCREEN_OPTION_POSITION_X_VALUES];
+    o->name	         = "position_x_values";
+    o->shortDesc         = N_("X Positions");
+    o->longDesc	         = N_("X position values");
+    o->type	         = CompOptionTypeList;
+    o->value.list.type   = CompOptionTypeInt;
+    o->value.list.nValue = 0;
+    o->value.list.value  = NULL;
+    o->rest.i.min	 = MINSHORT;
+    o->rest.i.max	 = MAXSHORT;
+
+    o = &ps->opt[PLACE_SCREEN_OPTION_POSITION_Y_VALUES];
+    o->name	         = "position_y_values";
+    o->shortDesc         = N_("Y Positions");
+    o->longDesc	         = N_("Y position values");
+    o->type	         = CompOptionTypeList;
+    o->value.list.type   = CompOptionTypeInt;
+    o->value.list.nValue = 0;
+    o->value.list.value  = NULL;
+    o->rest.i.min	 = MINSHORT;
+    o->rest.i.max	 = MAXSHORT;
+
+    o = &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_MATCHES];
+    o->name	         = "viewport_matches";
+    o->shortDesc         = N_("Viewport positioned windows");
+    o->longDesc	         = N_("Windows that should positioned in specific "
+			      "viewports by default");
+    o->type	         = CompOptionTypeList;
+    o->value.list.type   = CompOptionTypeMatch;
+    o->value.list.nValue = 0;
+    o->value.list.value  = NULL;
+    o->rest.s.string     = NULL;
+    o->rest.s.nString    = 0;
+
+    o = &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES];
+    o->name	         = "viewport_x_values";
+    o->shortDesc         = N_("X Viewport Positions");
+    o->longDesc	         = N_("Horizontal viewport positions");
+    o->type	         = CompOptionTypeList;
+    o->value.list.type   = CompOptionTypeInt;
+    o->value.list.nValue = 0;
+    o->value.list.value  = NULL;
+    o->rest.i.min	 = 0;
+    o->rest.i.max	 = 32;
+
+    o = &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES];
+    o->name	         = "viewport_y_values";
+    o->shortDesc         = N_("Y Viewport Positions");
+    o->longDesc	         = N_("Vertical viewport positions");
+    o->type	         = CompOptionTypeList;
+    o->value.list.type   = CompOptionTypeInt;
+    o->value.list.nValue = 0;
+    o->value.list.value  = NULL;
+    o->rest.i.min	 = 0;
+    o->rest.i.max	 = 32;
 }
 
 typedef enum {
@@ -161,11 +377,11 @@ northwestcmp (gconstpointer a,
     int	       from_origin_b;
     int	       ax, ay, bx, by;
 
-    ax = aw->attrib.x - aw->input.left;
-    ay = aw->attrib.y - aw->input.top;
+    ax = aw->serverX - aw->input.left;
+    ay = aw->serverY - aw->input.top;
 
-    bx = bw->attrib.x - bw->input.left;
-    by = bw->attrib.y - bw->input.top;
+    bx = bw->serverX - bw->input.left;
+    by = bw->serverY - bw->input.top;
 
     /* probably there's a fast good-enough-guess we could use here. */
     from_origin_a = sqrt (ax * ax + ay * ay);
@@ -259,8 +475,8 @@ find_next_cascade (CompWindow *window,
 	w = tmp->data;
 
 	/* we want frame position, not window position */
-	wx = w->attrib.x - w->input.left;
-	wy = w->attrib.y - w->input.top;
+	wx = w->serverX - w->input.left;
+	wy = w->serverY - w->input.top;
 
 	if (ABS (wx - cascade_x) < x_threshold &&
 	    ABS (wy - cascade_y) < y_threshold)
@@ -269,8 +485,8 @@ find_next_cascade (CompWindow *window,
 	     * point. The new window frame should go at the origin
 	     * of the client window we're stacking above.
 	     */
-	    wx = w->attrib.x;
-	    wy = w->attrib.y;
+	    wx = w->serverX;
+	    wy = w->serverY;
 
 	    cascade_x = wx;
 	    cascade_y = wy;
@@ -510,8 +726,8 @@ leftmost_cmp (gconstpointer a,
     CompWindow *bw = (gpointer) b;
     int	       ax, bx;
 
-    ax = aw->attrib.x - aw->input.left;
-    bx = bw->attrib.x - bw->input.left;
+    ax = aw->serverX - aw->input.left;
+    bx = bw->serverX - bw->input.left;
 
     if (ax < bx)
 	return -1;
@@ -529,8 +745,8 @@ topmost_cmp (gconstpointer a,
     CompWindow *bw = (gpointer) b;
     int	       ay, by;
 
-    ay = aw->attrib.y - aw->input.top;
-    by = bw->attrib.y - bw->input.top;
+    ay = aw->serverY - aw->input.top;
+    by = bw->serverY - bw->input.top;
 
     if (ay < by)
 	return -1;
@@ -692,6 +908,224 @@ out:
 }
 
 static void
+placeCentered (CompWindow *window,
+	       XRectangle *workarea,
+	       int	  *x,
+	       int	  *y)
+{
+    *x = workarea->x + (workarea->width - get_window_width (window)) / 2;
+    *y = workarea->y + (workarea->height - get_window_height (window)) / 2;
+}
+
+static void
+placeRandom (CompWindow *window,
+	     XRectangle *workarea,
+	     int	*x,
+	     int	*y)
+{
+    *x = workarea->x + rand () % (workarea->width - get_window_width (window));
+    *y = workarea->y + rand () % (workarea->height -
+				  get_window_height (window));
+}
+
+static void
+placeSmart (CompWindow *window,
+	    XRectangle *workarea,
+	    int        *x,
+	    int        *y)
+{
+    /*
+     * SmartPlacement by Cristian Tibirna (tibirna@kde.org)
+     * adapted for kwm (16-19jan98) and for kwin (16Nov1999) using (with
+     * permission) ideas from fvwm, authored by
+     * Anthony Martin (amartin@engr.csulb.edu).
+     * Xinerama supported added by Balaji Ramani (balaji@yablibli.com)
+     * with ideas from xfce.
+     * adapted for Compiz by Bellegarde Cedric (gnumdk(at)gmail.com)
+     */
+    CompWindow *wi;
+    long int overlap, minOverlap = 0;
+    int xOptimal, yOptimal;
+    int possible;
+
+    /* temp coords */
+    int cxl, cxr, cyt, cyb;
+    /* temp coords */
+    int  xl,  xr,  yt,  yb;
+    /* temp holder */
+    int basket;
+    /* CT lame flag. Don't like it. What else would do? */
+    Bool firstPass = TRUE;
+
+    /* get the maximum allowed windows space */
+    int xTmp = workarea->x;
+    int yTmp = workarea->y;
+
+    xOptimal = xTmp; yOptimal = yTmp;
+
+    /* client gabarit */
+    int ch = get_window_height (window) - 1;
+    int cw = get_window_width (window) - 1;
+
+    /* loop over possible positions */
+    do
+    {
+	/* test if enough room in x and y directions */
+	if (yTmp + ch > (workarea->y + workarea->height) &&
+	    ch < workarea->height)
+	    overlap = H_WRONG; /* this throws the algorithm to an exit */
+	else if (xTmp + cw > (workarea->x + workarea->width))
+	    overlap = W_WRONG;
+	else
+	{
+	    overlap = NONE; /* initialize */
+
+	    cxl = xTmp;
+	    cxr = xTmp + cw;
+	    cyt = yTmp;
+	    cyb = yTmp + ch;
+
+	    for (wi = window->screen->windows; wi; wi = wi->next)
+	    {
+		if (!wi->invisible &&
+		    wi != window &&
+		    !(wi->wmType & (CompWindowTypeDockMask |
+				    CompWindowTypeDesktopMask)))
+		{
+
+		    xl = wi->attrib.x;
+		    yt = wi->attrib.y;
+		    xr = xl + get_window_width (wi) + window->input.left
+			+ window->input.right;
+		    yb = yt + get_window_height (wi) + window->input.top
+			+ window->input.bottom;
+
+		    /* if windows overlap, calc the overall overlapping */
+		    if ((cxl < xr) && (cxr > xl) &&
+			(cyt < yb) && (cyb > yt))
+		    {
+			xl = MAX (cxl, xl); xr = MIN (cxr, xr);
+			yt = MAX (cyt, yt); yb = MIN (cyb, yb);
+			if (wi->state & CompWindowStateAboveMask)
+			    overlap += 16 * (xr - xl) * (yb - yt);
+			else if (wi->state & CompWindowStateBelowMask)
+			    overlap += 0;
+			else
+			    overlap += (xr - xl) * (yb - yt);
+		    }
+		}
+	    }
+	}
+
+	/* CT first time we get no overlap we stop */
+	if (overlap == NONE)
+	{
+	    xOptimal = xTmp;
+	    yOptimal = yTmp;
+	    break;
+	}
+
+	if (firstPass)
+	{
+	    firstPass = FALSE;
+	    minOverlap = overlap;
+	}
+	/* CT save the best position and the minimum overlap up to now */
+	else if (overlap >= NONE && overlap < minOverlap)
+	{
+	    minOverlap = overlap;
+	    xOptimal = xTmp;
+	    yOptimal = yTmp;
+	}
+
+	/* really need to loop? test if there's any overlap */
+	if (overlap > NONE)
+	{
+	    possible = workarea->width;
+
+	    if (possible - cw > xTmp) possible -= cw;
+
+	    /* compare to the position of each client on the same desk */
+	    for (wi = window->screen->windows; wi; wi = wi->next)
+	    {
+
+		if (!wi->invisible &&
+		    wi != window &&
+		    !(wi->wmType & (CompWindowTypeDockMask |
+				    CompWindowTypeDesktopMask)))
+		{
+
+		    xl = wi->attrib.x;
+		    yt = wi->attrib.y;
+		    xr = xl + get_window_width (wi) + window->input.left
+			+ window->input.right;
+		    yb = yt + get_window_height (wi) + window->input.top
+			+ window->input.bottom;
+
+		    /* if not enough room above or under the current
+		     * client determine the first non-overlapped x position
+		     */
+		    if ((yTmp < yb) && (yt < ch + yTmp))
+		    {
+			if ((xr > xTmp) && (possible > xr)) possible = xr;
+
+			basket = xl - cw;
+			if ((basket > xTmp) && (possible > basket))
+			    possible = basket;
+		    }
+		}
+	    }
+	    xTmp = possible;
+	}
+
+	/* else ==> not enough x dimension (overlap was wrong on horizontal) */
+	else if (overlap == W_WRONG)
+	{
+	    xTmp = workarea->x;
+	    possible = workarea->y + workarea->height;
+
+	    if (possible - ch > yTmp) possible -= ch;
+
+	    /* test the position of each window on the desk */
+	    for (wi = window->screen->windows; wi ; wi = wi->next)
+	    {
+		if (!wi->invisible &&
+		    wi != window &&
+		    !(wi->wmType & (CompWindowTypeDockMask |
+				    CompWindowTypeDesktopMask)))
+		{
+		    xl = wi->attrib.x;
+		    yt = wi->attrib.y;
+		    xr = xl + get_window_width (wi) + window->input.left
+			+ window->input.right;
+		    yb = yt + get_window_height (wi) + window->input.top
+			+ window->input.bottom;
+
+		    /* if not enough room to the left or right of the current
+		     * client determine the first non-overlapped y position
+		     */
+		    if ((yb > yTmp) && (possible > yb))
+			possible = yb;
+
+		    basket = yt - ch;
+		    if ((basket > yTmp) && (possible > basket))
+			possible = basket;
+		}
+	    }
+	    yTmp = possible;
+	}
+    }
+    while ((overlap != NONE) && (overlap != H_WRONG) && yTmp <
+	   (workarea->y + workarea->height));
+
+    if (ch >= workarea->height)
+	yOptimal = workarea->y;
+
+    *x = xOptimal;
+    *y = yOptimal;
+}
+
+static void
 placeWindow (CompWindow *window,
 	     int        x,
 	     int        y,
@@ -824,8 +1258,8 @@ placeWindow (CompWindow *window,
 	{
 	    int	w;
 
-	    x = parent->attrib.x;
-	    y = parent->attrib.y;
+	    x = parent->serverX;
+	    y = parent->serverY;
 
 	    w = get_window_width (parent);
 
@@ -844,8 +1278,8 @@ placeWindow (CompWindow *window,
 	    y += window->input.top;
 
 	    /* clip to screen if parent is visible in current viewport */
-	    if (parent->attrib.x < parent->screen->width &&
-		parent->attrib.x + parent->screen->width > 0)
+	    if (parent->serverX < parent->screen->width &&
+		parent->serverX + parent->screen->width > 0)
 	    {
 		XRectangle area;
 
@@ -893,10 +1327,10 @@ placeWindow (CompWindow *window,
 	if (!wi->shaded && wi->attrib.map_state != IsViewable)
 	    continue;
 
-	if (wi->attrib.x >= work_area.x + work_area.width       ||
-	    wi->attrib.x + get_window_width (wi) <= work_area.x	||
-	    wi->attrib.y >= work_area.y + work_area.height      ||
-	    wi->attrib.y + get_window_height (wi) <= work_area.y)
+	if (wi->serverX >= work_area.x + work_area.width       ||
+	    wi->serverY + get_window_width (wi) <= work_area.x ||
+	    wi->serverY >= work_area.y + work_area.height      ||
+	    wi->serverY + get_window_height (wi) <= work_area.y)
 	    continue;
 
 	if (wi->attrib.override_redirect)
@@ -916,35 +1350,48 @@ placeWindow (CompWindow *window,
     x = x0;
     y = y0;
 
-    if (find_first_fit (window, windows, x, y, &x, &y))
-	goto done_check_denied_focus;
+    if (!placeMatchPosition (window, &x, &y))
+    {
+	switch (ps->placeMode) {
+	case PlaceModeCascade:
+	    if (find_first_fit (window, windows, x, y, &x, &y))
+		goto done_check_denied_focus;
 
-    /* if the window wasn't placed at the origin of screen,
-     * cascade it onto the current screen
-     */
-    find_next_cascade (window, windows, x, y, &x, &y);
+	    /* if the window wasn't placed at the origin of screen,
+	     * cascade it onto the current screen
+	     */
+	    find_next_cascade (window, windows, x, y, &x, &y);
+	    break;
+	case PlaceModeCentered:
+	    placeCentered (window, &work_area, &x, &y);
+	    break;
+	case PlaceModeRandom:
+	    placeRandom (window, &work_area, &x, &y);
+	    break;
+	case PlaceModeSmart:
+	    placeSmart (window, &work_area, &x, &y);
+	    break;
+	case PlaceModeMaximize:
+	    maximizeWindow (window, MAXIMIZE_STATE);
+	    break;
+	}
+    }
 
     /* Maximize windows if they are too big for their work area (bit of
      * a hack here). Assume undecorated windows probably don't intend to
      * be maximized.
-     *
-    if (window->has_maximize_func &&
-	window->decorated	  &&
-	!window->fullscreen)
+     */
+    if ((window->actions & MAXIMIZE_STATE) == MAXIMIZE_STATE &&
+	(window->mwmDecor & (MwmDecorAll | MwmDecorTitle))   &&
+	!(window->state & CompWindowStateFullscreenMask))
     {
-	XRectangle workarea;
 	XRectangle outer;
 
-	workarea = s->workArea;
 	getOuterRectOfWindow (window, &outer);
 
-	if (outer.width >= workarea.width &&
-	    outer.height >= workarea.height)
-	{
-	    window->maximize_after_placement = TRUE;
-	}
+	if (outer.width >= work_area.width && outer.height >= work_area.height)
+	    maximizeWindow (window, MAXIMIZE_STATE);
     }
-    */
 
 done_check_denied_focus:
     /* If the window is being denied focus and isn't a transient of the
@@ -1035,13 +1482,23 @@ placeDamageWindowRect (CompWindow *w,
 
     if (initial && !w->attrib.override_redirect && !w->placed)
     {
+	int viewportX, viewportY;
 	int newX, newY;
 
-	placeWindow (w, w->attrib.x, w->attrib.y, &newX, &newY);
+	placeWindow (w, w->serverX, w->serverY, &newX, &newY);
+
+	if (placeMatchViewport (w, &viewportX, &viewportY))
+	{
+	    viewportX = MAX (MIN (viewportX, w->screen->hsize), 0);
+	    viewportY = MAX (MIN (viewportY, w->screen->vsize), 0);
+
+	    newX += (viewportX - w->screen->x) * w->screen->width;
+	    newY += (viewportY - w->screen->y) * w->screen->height;
+	}
 
 	w->placed = TRUE;
 
-	if (newX != w->attrib.x || newY != w->attrib.y)
+	if (newX != w->serverX || newY != w->serverY)
 	{
 	    moveWindow (w, newX - w->attrib.x, newY - w->attrib.y, FALSE, TRUE);
 	    syncWindowPosition (w);
@@ -1101,6 +1558,8 @@ placeInitScreen (CompPlugin *p,
     WRAP (ps, s, damageWindowRect, placeDamageWindowRect);
 
     s->privates[pd->screenPrivateIndex].ptr = ps;
+
+    placeUpdateMode (s);
 
     return TRUE;
 }

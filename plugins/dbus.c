@@ -199,7 +199,7 @@ dbusHandleActionMessage (DBusConnection *connection,
 	if (strcmp (option->name, path[2]) == 0)
 	{
 	    CompOption	    *argument = NULL;
-	    int		    nArgument = 0;
+	    int		    i, nArgument = 0;
 	    DBusMessageIter iter;
 
 	    if (option->type != CompOptionTypeAction)
@@ -268,9 +268,25 @@ dbusHandleActionMessage (DBusConnection *connection,
 			    break;
 			case DBUS_TYPE_STRING:
 			    hasValue = TRUE;
-			    type     = CompOptionTypeString;
 
-			    dbus_message_iter_get_basic (&iter, &value.s);
+			    /* XXX: use match option type if name is "match" */
+			    if (name && strcmp (name, "match") == 0)
+			    {
+				char *s;
+
+				type = CompOptionTypeMatch;
+
+				dbus_message_iter_get_basic (&iter, &s);
+
+				matchInit (&value.match);
+				matchAddFromString (&value.match, s);
+			    }
+			    else
+			    {
+				type = CompOptionTypeString;
+
+				dbus_message_iter_get_basic (&iter, &value.s);
+			    }
 			default:
 			    break;
 			}
@@ -314,8 +330,24 @@ dbusHandleActionMessage (DBusConnection *connection,
 						   argument, nArgument);
 	    }
 
+	    for (i = 0; i < nArgument; i++)
+		if (argument[i].type == CompOptionTypeMatch)
+		    matchFini (&argument[i].value.match);
+
 	    if (argument)
 		free (argument);
+
+	    if (!dbus_message_get_no_reply (message))
+	    {
+		DBusMessage *reply;
+
+		reply = dbus_message_new_method_return (message);
+
+		dbus_connection_send (connection, reply, NULL);
+		dbus_connection_flush (connection);
+
+		dbus_message_unref (reply);
+	    }
 
 	    return TRUE;
 	}
@@ -382,6 +414,16 @@ dbusGetOptionValue (DBusMessageIter *iter,
 	    if (stringToColor (s, value->c))
 		return TRUE;
 	}
+	break;
+    case CompOptionTypeMatch:
+	if (dbusTryGetValueWithType (iter,
+				     DBUS_TYPE_STRING,
+				     &s))
+	{
+	    matchAddFromString (&value->match, s);
+	    return TRUE;
+	}
+
     default:
 	break;
     }
@@ -409,7 +451,7 @@ dbusGetOptionValue (DBusMessageIter *iter,
  * dbus-send --type=method_call --dest=org.freedesktop.compiz \
  * /org/freedesktop/compiz/core/allscreens/active_plugins     \
  * org.freedesktop.compiz.set				      \
- * string:'dbus' string:'decoration' string:'place'
+ * array:string:'dbus','decoration','place'
  *
  * Example (will set run_command0 option to trigger on key
  * binding <Control><Alt>Return and not trigger on any button
@@ -422,7 +464,7 @@ dbusGetOptionValue (DBusMessageIter *iter,
  * string:'Disabled'					      \
  * boolean:'false'					      \
  * string:''						      \
- * int:'0'
+ * int32:'0'
  */
 static Bool
 dbusHandleSetOptionMessage (DBusConnection *connection,
@@ -442,21 +484,24 @@ dbusHandleSetOptionMessage (DBusConnection *connection,
     {
 	if (strcmp (option->name, path[2]) == 0)
 	{
-	    DBusMessageIter iter;
+	    DBusMessageIter iter, aiter;
+	    CompOptionValue value, tmpValue;
+	    Bool	    status = FALSE;
 
-	    if (dbus_message_iter_init (message, &iter))
+	    memset (&value, 0, sizeof (value));
+
+	    if (option->type == CompOptionTypeList)
 	    {
-		CompOptionValue value, tmpValue;
-		DbusActionIndex	actionIndex = DbusActionIndexKeyBinding;
-		Bool		status = FALSE;
-
-		memset (&value, 0, sizeof (value));
-
-		do
+		if (dbus_message_iter_init (message, &iter) &&
+		    dbus_message_iter_get_arg_type (&iter) == DBUS_TYPE_ARRAY)
 		{
-		    if (option->type == CompOptionTypeList)
+		    dbus_message_iter_recurse (&iter, &aiter);
+
+		    do
 		    {
-			if (dbusGetOptionValue (&iter, option->type, &tmpValue))
+			if (dbusGetOptionValue (&aiter,
+						option->value.list.type,
+						&tmpValue))
 			{
 			    CompOptionValue *v;
 
@@ -467,11 +512,20 @@ dbusHandleSetOptionMessage (DBusConnection *connection,
 			    {
 				v[value.list.nValue++] = tmpValue;
 				value.list.value = v;
-				status |= TRUE;
 			    }
 			}
-		    }
-		    else if (option->type == CompOptionTypeAction)
+		    } while (dbus_message_iter_next (&aiter));
+
+		    status = TRUE;
+		}
+	    }
+	    else if (dbus_message_iter_init (message, &iter))
+	    {
+		DbusActionIndex	actionIndex = DbusActionIndexKeyBinding;
+
+		do
+		{
+		    if (option->type == CompOptionTypeAction)
 		    {
 			CompAction *a = &value.action;
 			char	   *str;
@@ -555,40 +609,48 @@ dbusHandleSetOptionMessage (DBusConnection *connection,
 			status |= TRUE;
 		    }
 		} while (dbus_message_iter_next (&iter));
+	    }
 
-		if (status)
+	    if (status)
+	    {
+		if (s)
 		{
-		    if (s)
-		    {
-			if (strcmp (path[0], "core"))
-			    status =
-				(*s->setScreenOptionForPlugin) (s,
-								path[0],
-								option->name,
-								&value);
-			else
-			    status = (*s->setScreenOption) (s, option->name,
-							    &value);
-		    }
+		    if (strcmp (path[0], "core"))
+			(*s->setScreenOptionForPlugin) (s,
+							path[0],
+							option->name,
+							&value);
 		    else
-		    {
-			if (strcmp (path[0], "core"))
-			    status =
-				(*d->setDisplayOptionForPlugin) (d,
-								 path[0],
-								 option->name,
-								 &value);
-			else
-			    status = (*d->setDisplayOption) (d, option->name,
-							     &value);
-		    }
-
-		    return status;
+			(*s->setScreenOption) (s, option->name, &value);
 		}
 		else
 		{
-		    return FALSE;
+		    if (strcmp (path[0], "core"))
+			(*d->setDisplayOptionForPlugin) (d,
+							 path[0],
+							 option->name,
+							 &value);
+		    else
+			(*d->setDisplayOption) (d, option->name, &value);
 		}
+
+		if (!dbus_message_get_no_reply (message))
+		{
+		    DBusMessage *reply;
+
+		    reply = dbus_message_new_method_return (message);
+
+		    dbus_connection_send (connection, reply, NULL);
+		    dbus_connection_flush (connection);
+
+		    dbus_message_unref (reply);
+		}
+
+		return TRUE;
+	    }
+	    else
+	    {
+		return FALSE;
 	    }
 	}
 
@@ -631,6 +693,16 @@ dbusAppendSimpleOptionValue (DBusMessage     *message,
 	break;
     case CompOptionTypeColor:
 	s = colorToString (value->c);
+	if (s)
+	{
+	    dbus_message_append_args (message,
+				      DBUS_TYPE_STRING, &s,
+				      DBUS_TYPE_INVALID);
+	    free (s);
+	}
+	break;
+    case CompOptionTypeMatch:
+	s = matchToString (&value->match);
 	if (s)
 	{
 	    dbus_message_append_args (message,
@@ -1591,6 +1663,8 @@ dbusInitDisplay (CompPlugin  *p,
 			      mask,
 			      dbusSendPluginsChangedSignal,
 			      (void *) d);
+
+	    free (plugindir);
 	}
     }
 
