@@ -1,4 +1,5 @@
 usr/bin/compiz*
+usr/lib/libcompiz_core.so*
 debian/compiz-decorator usr/bin/
 usr/share/compiz/*.png
 usr/share/compiz/cube/images/*.png
