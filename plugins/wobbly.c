@@ -98,9 +98,6 @@ typedef struct _Model {
     int		 numSprings;
     Object	 *anchorObject;
     float	 steps;
-    Vector	 scale;
-    Point	 scaleOrigin;
-    Bool	 transformed;
     Point	 topLeft;
     Point	 bottomRight;
     unsigned int edgeMask;
@@ -171,13 +168,16 @@ static char *moveWinType[] = {
 
 #define WOBBLY_SNAP_MODIFIERS_DEFAULT ShiftMask
 
+#define WOBBLY_SNAP_INVERTED_DEFAULT FALSE
+
 #define WOBBLY_MAXIMIZE_EFFECT_DEFAULT TRUE
 
 static int displayPrivateIndex;
 
-#define WOBBLY_DISPLAY_OPTION_SNAP   0
-#define WOBBLY_DISPLAY_OPTION_SHIVER 1
-#define WOBBLY_DISPLAY_OPTION_NUM    2
+#define WOBBLY_DISPLAY_OPTION_SNAP          0
+#define WOBBLY_DISPLAY_OPTION_SNAP_INVERTED 1
+#define WOBBLY_DISPLAY_OPTION_SHIVER        2
+#define WOBBLY_DISPLAY_OPTION_NUM           3
 
 typedef struct _WobblyDisplay {
     int		    screenPrivateIndex;
@@ -211,7 +211,6 @@ typedef struct _WobblyScreen {
     DamageWindowRectProc   damageWindowRect;
     AddWindowGeometryProc  addWindowGeometry;
     DrawWindowGeometryProc drawWindowGeometry;
-    SetWindowScaleProc     setWindowScale;
 
     WindowResizeNotifyProc windowResizeNotify;
     WindowMoveNotifyProc   windowMoveNotify;
@@ -502,6 +501,11 @@ wobblyScreenInitOptions (WobblyScreen *ws,
     o->value.b    = WOBBLY_MAXIMIZE_EFFECT_DEFAULT;
 }
 
+#define SNAP_WINDOW_TYPE (CompWindowTypeNormalMask  | \
+			  CompWindowTypeToolbarMask | \
+			  CompWindowTypeMenuMask    | \
+			  CompWindowTypeUtilMask)
+
 static void
 findNextWestEdge (CompWindow *w,
 		  Object     *object)
@@ -510,6 +514,7 @@ findNextWestEdge (CompWindow *w,
     int s, start;
     int e, end;
     int x;
+    int output;
 
     start = -65535.0f;
     end   =  65535.0f;
@@ -519,19 +524,35 @@ findNextWestEdge (CompWindow *w,
 
     x = object->position.x + w->output.left - w->input.left;
 
-    if (x >= w->screen->workArea.x)
+    output = outputDeviceForPoint (w->screen, x, object->position.y);
+
+    if (x >= w->screen->outputDev[output].region.extents.x1)
     {
 	CompWindow *p;
 
-	v1 = w->screen->workArea.x;
+	v1 = w->screen->outputDev[output].region.extents.x1;
 
 	for (p = w->screen->windows; p; p = p->next)
 	{
-	    if (p->invisible || w == p || p->type != CompWindowTypeNormalMask)
+	    if (w == p)
 		continue;
 
-	    s = p->attrib.y - p->output.top;
-	    e = p->attrib.y + p->height + p->output.bottom;
+	    if (p->mapNum && p->struts)
+	    {
+		s = p->struts->left.y - w->output.top;
+		e = p->struts->left.y + p->struts->left.height +
+		    w->output.bottom;
+	    }
+	    else if (!p->invisible && (p->type & SNAP_WINDOW_TYPE))
+	    {
+		s = p->attrib.y - p->input.top - w->output.top;
+		e = p->attrib.y + p->height + p->input.bottom +
+		    w->output.bottom;
+	    }
+	    else
+	    {
+		continue;
+	    }
 
 	    if (s > object->position.y)
 	    {
@@ -551,7 +572,11 @@ findNextWestEdge (CompWindow *w,
 		if (e < end)
 		    end = e;
 
-		v = p->attrib.x + p->width + p->input.right;
+		if (p->mapNum && p->struts)
+		    v = p->struts->left.x + p->struts->left.width;
+		else
+		    v = p->attrib.x + p->width + p->input.right;
+
 		if (v <= x)
 		{
 		    if (v > v1)
@@ -567,7 +592,7 @@ findNextWestEdge (CompWindow *w,
     }
     else
     {
-	v2 = w->screen->workArea.x;
+	v2 = w->screen->outputDev[output].region.extents.x1;
     }
 
     v1 = v1 - w->output.left + w->input.left;
@@ -594,6 +619,7 @@ findNextEastEdge (CompWindow *w,
     int s, start;
     int e, end;
     int x;
+    int output;
 
     start = -65535.0f;
     end   =  65535.0f;
@@ -603,19 +629,35 @@ findNextEastEdge (CompWindow *w,
 
     x = object->position.x - w->output.right + w->input.right;
 
-    if (x <= w->screen->workArea.x + w->screen->workArea.width)
+    output = outputDeviceForPoint (w->screen, x, object->position.y);
+
+    if (x <= w->screen->outputDev[output].region.extents.x2)
     {
 	CompWindow *p;
 
-	v1 = w->screen->workArea.x + w->screen->workArea.width;
+	v1 = w->screen->outputDev[output].region.extents.x2;
 
 	for (p = w->screen->windows; p; p = p->next)
 	{
-	    if (p->invisible || w == p || p->type != CompWindowTypeNormalMask)
+	    if (w == p)
 		continue;
 
-	    s = p->attrib.y - p->output.top;
-	    e = p->attrib.y + p->height + p->output.bottom;
+	    if (p->mapNum && p->struts)
+	    {
+		s = p->struts->right.y - w->output.top;
+		e = p->struts->right.y + p->struts->right.height +
+		    w->output.bottom;
+	    }
+	    else if (!p->invisible && (p->type & SNAP_WINDOW_TYPE))
+	    {
+		s = p->attrib.y - p->input.top - w->output.top;
+		e = p->attrib.y + p->height + p->input.bottom +
+		    w->output.bottom;
+	    }
+	    else
+	    {
+		continue;
+	    }
 
 	    if (s > object->position.y)
 	    {
@@ -635,7 +677,11 @@ findNextEastEdge (CompWindow *w,
 		if (e < end)
 		    end = e;
 
-		v = p->attrib.x - p->input.left;
+		if (p->mapNum && p->struts)
+		    v = p->struts->right.x;
+		else
+		    v = p->attrib.x - p->input.left;
+
 		if (v >= x)
 		{
 		    if (v < v1)
@@ -651,7 +697,7 @@ findNextEastEdge (CompWindow *w,
     }
     else
     {
-	v2 = w->screen->workArea.x + w->screen->workArea.width;
+	v2 = w->screen->outputDev[output].region.extents.x2;
     }
 
     v1 = v1 + w->output.right - w->input.right;
@@ -678,6 +724,7 @@ findNextNorthEdge (CompWindow *w,
     int s, start;
     int e, end;
     int y;
+    int output;
 
     start = -65535.0f;
     end   =  65535.0f;
@@ -687,19 +734,33 @@ findNextNorthEdge (CompWindow *w,
 
     y = object->position.y + w->output.top - w->input.top;
 
-    if (y >= w->screen->workArea.y)
+    output = outputDeviceForPoint (w->screen, object->position.x, y);
+
+    if (y >= w->screen->outputDev[output].region.extents.y1)
     {
 	CompWindow *p;
 
-	v1 = w->screen->workArea.y;
+	v1 = w->screen->outputDev[output].region.extents.y1;
 
 	for (p = w->screen->windows; p; p = p->next)
 	{
-	    if (p->invisible || w == p || p->type != CompWindowTypeNormalMask)
+	    if (w == p)
 		continue;
 
-	    s = p->attrib.x - p->output.left;
-	    e = p->attrib.x + p->width + p->output.right;
+	    if (p->mapNum && p->struts)
+	    {
+		s = p->struts->top.x - w->output.left;
+		e = p->struts->top.x + p->struts->top.width + w->output.right;
+	    }
+	    else if (!p->invisible && (p->type & SNAP_WINDOW_TYPE))
+	    {
+		s = p->attrib.x - p->input.left - w->output.left;
+		e = p->attrib.x + p->width + p->input.right + w->output.right;
+	    }
+	    else
+	    {
+		continue;
+	    }
 
 	    if (s > object->position.x)
 	    {
@@ -719,7 +780,11 @@ findNextNorthEdge (CompWindow *w,
 		if (e < end)
 		    end = e;
 
-		v = p->attrib.y + p->height + p->input.bottom;
+		if (p->mapNum && p->struts)
+		    v = p->struts->top.y + p->struts->top.height;
+		else
+		    v = p->attrib.y + p->height + p->input.bottom;
+
 		if (v <= y)
 		{
 		    if (v > v1)
@@ -735,7 +800,7 @@ findNextNorthEdge (CompWindow *w,
     }
     else
     {
-	v2 = w->screen->workArea.y;
+	v2 = w->screen->outputDev[output].region.extents.y1;
     }
 
     v1 = v1 - w->output.top + w->input.top;
@@ -762,6 +827,7 @@ findNextSouthEdge (CompWindow *w,
     int s, start;
     int e, end;
     int y;
+    int output;
 
     start = -65535.0f;
     end   =  65535.0f;
@@ -771,19 +837,34 @@ findNextSouthEdge (CompWindow *w,
 
     y = object->position.y - w->output.bottom + w->input.bottom;
 
-    if (y <= w->screen->workArea.y + w->screen->workArea.height)
+    output = outputDeviceForPoint (w->screen, object->position.x, y);
+
+    if (y <= w->screen->outputDev[output].region.extents.y2)
     {
 	CompWindow *p;
 
-	v1 = w->screen->workArea.y + w->screen->workArea.height;
+	v1 = w->screen->outputDev[output].region.extents.y2;
 
 	for (p = w->screen->windows; p; p = p->next)
 	{
-	    if (p->invisible || w == p || p->type != CompWindowTypeNormalMask)
+	    if (w == p)
 		continue;
 
-	    s = p->attrib.x - p->output.left;
-	    e = p->attrib.x + p->width + p->output.right;
+	    if (p->mapNum && p->struts)
+	    {
+		s = p->struts->bottom.x - w->output.left;
+		e = p->struts->bottom.x + p->struts->bottom.width +
+		    w->output.right;
+	    }
+	    else if (!p->invisible && (p->type & SNAP_WINDOW_TYPE))
+	    {
+		s = p->attrib.x - p->input.left - w->output.left;
+		e = p->attrib.x + p->width + p->input.right + w->output.right;
+	    }
+	    else
+	    {
+		continue;
+	    }
 
 	    if (s > object->position.x)
 	    {
@@ -803,7 +884,11 @@ findNextSouthEdge (CompWindow *w,
 		if (e < end)
 		    end = e;
 
-		v = p->attrib.y - p->input.top;
+		if (p->mapNum && p->struts)
+		    v = p->struts->bottom.y;
+		else
+		    v = p->attrib.y - p->input.top;
+
 		if (v >= y)
 		{
 		    if (v < v1)
@@ -819,7 +904,7 @@ findNextSouthEdge (CompWindow *w,
     }
     else
     {
-	v2 = w->screen->workArea.y + w->screen->workArea.height;
+	v2 = w->screen->outputDev[output].region.extents.y2;
     }
 
     v1 = v1 + w->output.bottom - w->input.bottom;
@@ -925,10 +1010,7 @@ modelSetMiddleAnchor (Model *model,
 		      int   width,
 		      int   height)
 {
-    float gx, gy, x0, y0;
-
-    x0 = model->scaleOrigin.x;
-    y0 = model->scaleOrigin.y;
+    float gx, gy;
 
     gx = ((GRID_WIDTH  - 1) / 2 * width)  / (float) (GRID_WIDTH  - 1);
     gy = ((GRID_HEIGHT - 1) / 2 * height) / (float) (GRID_HEIGHT - 1);
@@ -939,8 +1021,8 @@ modelSetMiddleAnchor (Model *model,
     model->anchorObject = &model->objects[GRID_WIDTH *
 					  ((GRID_HEIGHT - 1) / 2) +
 					  (GRID_WIDTH - 1) / 2];
-    model->anchorObject->position.x = x + (gx - x0) * model->scale.x + x0;
-    model->anchorObject->position.y = y + (gy - y0) * model->scale.y + y0;
+    model->anchorObject->position.x = x + gx;
+    model->anchorObject->position.y = y + gy;
 
     model->anchorObject->immobile = TRUE;
 }
@@ -953,29 +1035,25 @@ modelAddEdgeAnchors (Model *model,
 		     int   height)
 {
     Object *o;
-    float  x0, y0;
-
-    x0 = model->scaleOrigin.x;
-    y0 = model->scaleOrigin.y;
 
     o = &model->objects[0];
-    o->position.x = x + (0      - x0) * model->scale.x + x0;
-    o->position.y = y + (0      - y0) * model->scale.y + y0;
+    o->position.x = x;
+    o->position.y = y;
     o->immobile = TRUE;
 
     o = &model->objects[GRID_WIDTH - 1];
-    o->position.x = x + (width  - x0) * model->scale.x + x0;
-    o->position.y = y + (0      - y0) * model->scale.y + y0;
+    o->position.x = x + width;
+    o->position.y = y;
     o->immobile = TRUE;
 
     o = &model->objects[GRID_WIDTH * (GRID_HEIGHT - 1)];
-    o->position.x = x + (0      - x0) * model->scale.x + x0;
-    o->position.y = y + (height - y0) * model->scale.y + y0;
+    o->position.x = x;
+    o->position.y = y + height;
     o->immobile = TRUE;
 
     o = &model->objects[model->numObjects - 1];
-    o->position.x = x + (width  - x0) * model->scale.x + x0;
-    o->position.y = y + (height - y0) * model->scale.y + y0;
+    o->position.x = x + width;
+    o->position.y = y + height;
     o->immobile = TRUE;
 
     if (!model->anchorObject)
@@ -990,32 +1068,28 @@ modelRemoveEdgeAnchors (Model *model,
 			int   height)
 {
     Object *o;
-    float  x0, y0;
-
-    x0 = model->scaleOrigin.x;
-    y0 = model->scaleOrigin.y;
 
     o = &model->objects[0];
-    o->position.x = x + (0      - x0) * model->scale.x + x0;
-    o->position.y = y + (0      - y0) * model->scale.y + y0;
+    o->position.x = x;
+    o->position.y = y;
     if (o != model->anchorObject)
 	o->immobile = FALSE;
 
     o = &model->objects[GRID_WIDTH - 1];
-    o->position.x = x + (width  - x0) * model->scale.x + x0;
-    o->position.y = y + (0      - y0) * model->scale.y + y0;
+    o->position.x = x + width;
+    o->position.y = y;
     if (o != model->anchorObject)
 	o->immobile = FALSE;
 
     o = &model->objects[GRID_WIDTH * (GRID_HEIGHT - 1)];
-    o->position.x = x + (0      - x0) * model->scale.x + x0;
-    o->position.y = y + (height - y0) * model->scale.y + y0;
+    o->position.x = x;
+    o->position.y = y + height;
     if (o != model->anchorObject)
 	o->immobile = FALSE;
 
     o = &model->objects[model->numObjects - 1];
-    o->position.x = x + (width  - x0) * model->scale.x + x0;
-    o->position.y = y + (height - y0) * model->scale.y + y0;
+    o->position.x = x + width;
+    o->position.y = y + height;
     if (o != model->anchorObject)
 	o->immobile = FALSE;
 }
@@ -1029,11 +1103,7 @@ modelAdjustObjectPosition (Model  *model,
 			   int    height)
 {
     Object *o;
-    float  x0, y0;
     int	   gridX, gridY, i = 0;
-
-    x0 = model->scaleOrigin.x;
-    y0 = model->scaleOrigin.y;
 
     for (gridY = 0; gridY < GRID_HEIGHT; gridY++)
     {
@@ -1042,12 +1112,8 @@ modelAdjustObjectPosition (Model  *model,
 	    o = &model->objects[i];
 	    if (o == object)
 	    {
-		o->position.x = x +
-		    (((gridX * width) / (GRID_WIDTH - 1)) - x0) *
-		    model->scale.x + x0;
-		o->position.y = y +
-		    (((gridY * height) / (GRID_HEIGHT - 1)) - y0) *
-		    model->scale.y + y0;
+		o->position.x = x + (gridX * width) / (GRID_WIDTH - 1);
+		o->position.y = y + (gridY * height) / (GRID_HEIGHT - 1);
 
 		return;
 	    }
@@ -1065,10 +1131,7 @@ modelInitObjects (Model *model,
 		  int	height)
 {
     int	  gridX, gridY, i = 0;
-    float gw, gh, x0, y0;
-
-    x0 = model->scaleOrigin.x;
-    y0 = model->scaleOrigin.y;
+    float gw, gh;
 
     gw = GRID_WIDTH  - 1;
     gh = GRID_HEIGHT - 1;
@@ -1078,10 +1141,8 @@ modelInitObjects (Model *model,
 	for (gridX = 0; gridX < GRID_WIDTH; gridX++)
 	{
 	    objectInit (&model->objects[i],
-			x + (((gridX * width)  / gw) - x0) *
-			model->scale.x + x0,
-			y + (((gridY * height) / gh) - y0) *
-			model->scale.y + y0,
+			x + (gridX * width) / gw,
+			y + (gridY * height) / gh,
 			0, 0);
 	    i++;
 	}
@@ -1221,11 +1282,11 @@ modelAdjustObjectsForShiver (Model *model,
 {
     int   gridX, gridY, i = 0;
     float vX, vY;
-    float scale;
     float w, h;
+    float scale;
 
-    w = (float) width  * model->scale.x;
-    h = (float) height * model->scale.y;
+    w = width;
+    h = height;
 
     for (gridY = 0; gridY < GRID_HEIGHT; gridY++)
     {
@@ -1262,8 +1323,8 @@ modelInitSprings (Model *model,
 
     model->numSprings = 0;
 
-    hpad = ((float) width  * model->scale.x) / (GRID_WIDTH  - 1);
-    vpad = ((float) height * model->scale.y) / (GRID_HEIGHT - 1);
+    hpad = ((float) width) / (GRID_WIDTH  - 1);
+    vpad = ((float) height) / (GRID_HEIGHT - 1);
 
     for (gridY = 0; gridY < GRID_HEIGHT; gridY++)
     {
@@ -1322,14 +1383,6 @@ createModel (int	  x,
     model->numSprings = 0;
 
     model->steps = 0;
-
-    model->scale.x = 1.0f;
-    model->scale.y = 1.0f;
-
-    model->scaleOrigin.x = 0.0f;
-    model->scaleOrigin.y = 0.0f;
-
-    model->transformed = FALSE;
 
     memset (model->snapCnt, 0, sizeof (model->snapCnt));
 
@@ -1833,16 +1886,13 @@ wobblyPreparePaintScreen (CompScreen *s,
 
     if (ws->wobblyWindows & (WobblyInitial | WobblyVelocity))
     {
-	REGION region;
+	BoxRec box;
 	Point  topLeft, bottomRight;
 	float  friction, springK;
 	Model  *model;
 
 	friction = ws->opt[WOBBLY_SCREEN_OPTION_FRICTION].value.f;
 	springK  = ws->opt[WOBBLY_SCREEN_OPTION_SPRING_K].value.f;
-
-	region.rects = &region.extents;
-	region.numRects = region.size = 1;
 
 	ws->wobblyWindows = 0;
 	for (w = s->windows; w; w = w->next)
@@ -1876,7 +1926,7 @@ wobblyPreparePaintScreen (CompScreen *s,
 			    ww->wobbly |= WobblyInitial;
 			}
 		    }
-		    else if (!ww->model->transformed)
+		    else
 		    {
 			ww->model = 0;
 
@@ -1908,12 +1958,17 @@ wobblyPreparePaintScreen (CompScreen *s,
 			else
 			    addWindowDamage (w);
 
-			region.extents.x1 = topLeft.x;
-			region.extents.y1 = topLeft.y;
-			region.extents.x2 = bottomRight.x + 0.5f;
-			region.extents.y2 = bottomRight.y + 0.5f;
+			box.x1 = topLeft.x;
+			box.y1 = topLeft.y;
+			box.x2 = bottomRight.x + 0.5f;
+			box.y2 = bottomRight.y + 0.5f;
 
-			damageScreenRegion (s, &region);
+			box.x1 -= w->attrib.x + w->attrib.border_width;
+			box.y1 -= w->attrib.y + w->attrib.border_width;
+			box.x2 -= w->attrib.x + w->attrib.border_width;
+			box.y2 -= w->attrib.y + w->attrib.border_width;
+
+			addWindowDamageRect (w, &box);
 		    }
 		}
 
@@ -1966,7 +2021,7 @@ wobblyAddWindowGeometry (CompWindow *w,
 
 	for (it = 0; it < nMatrix; it++)
 	{
-	    if (matrix[it].xy != 0.0f && matrix[it].yx != 0.0f)
+	    if (matrix[it].xy != 0.0f || matrix[it].yx != 0.0f)
 	    {
 		rect = FALSE;
 		break;
@@ -2166,26 +2221,15 @@ wobblyPaintWindow (CompWindow		   *w,
 
     if (ww->wobbly)
     {
-	WindowPaintAttrib wAttrib = *attrib;
-
 	if (mask & PAINT_WINDOW_SOLID_MASK)
 	    return FALSE;
 
 	mask |= PAINT_WINDOW_TRANSFORMED_MASK;
-
-	wAttrib.xScale = 1.0f;
-	wAttrib.yScale = 1.0f;
-
-	UNWRAP (ws, w->screen, paintWindow);
-	status = (*w->screen->paintWindow) (w, &wAttrib, region, mask);
-	WRAP (ws, w->screen, paintWindow, wobblyPaintWindow);
     }
-    else
-    {
-	UNWRAP (ws, w->screen, paintWindow);
-	status = (*w->screen->paintWindow) (w, attrib, region, mask);
-	WRAP (ws, w->screen, paintWindow, wobblyPaintWindow);
-    }
+
+    UNWRAP (ws, w->screen, paintWindow);
+    status = (*w->screen->paintWindow) (w, attrib, region, mask);
+    WRAP (ws, w->screen, paintWindow, wobblyPaintWindow);
 
     return status;
 }
@@ -2333,17 +2377,29 @@ wobblyHandleEvent (CompDisplay *d,
 	    {
 		XkbStateNotifyEvent *stateEvent = (XkbStateNotifyEvent *) event;
 		CompAction	    *action;
+		Bool		    inverted;
 		unsigned int	    mods = 0xffffffff;
 
-		action = &wd->opt[WOBBLY_DISPLAY_OPTION_SNAP].value.action;
+		action   = &wd->opt[WOBBLY_DISPLAY_OPTION_SNAP].value.action;
+		inverted = wd->opt[WOBBLY_DISPLAY_OPTION_SNAP_INVERTED].value.b;
 
 		if (action->type & CompBindingTypeKey)
 		    mods = action->key.modifiers;
 
 		if ((stateEvent->mods & mods) == mods)
-		    wobblyEnableSnapping (d, NULL, 0, NULL, 0);
+		{
+		    if (inverted)
+			wobblyDisableSnapping (d, NULL, 0, NULL, 0);
+		    else
+			wobblyEnableSnapping (d, NULL, 0, NULL, 0);
+		}
 		else
-		    wobblyDisableSnapping (d, NULL, 0, NULL, 0);
+		{
+		    if (inverted)
+			wobblyEnableSnapping (d, NULL, 0, NULL, 0);
+		    else
+			wobblyDisableSnapping (d, NULL, 0, NULL, 0);
+		}
 	    }
 	}
 	break;
@@ -2505,45 +2561,6 @@ wobblyDamageWindowRect (CompWindow *w,
 }
 
 static void
-wobblySetWindowScale (CompWindow *w,
-		      float      xScale,
-		      float      yScale)
-{
-    WOBBLY_WINDOW (w);
-    WOBBLY_SCREEN (w->screen);
-
-    UNWRAP (ws, w->screen, setWindowScale);
-    (*w->screen->setWindowScale) (w, xScale, yScale);
-    WRAP (ws, w->screen, setWindowScale, wobblySetWindowScale);
-
-    if (wobblyEnsureModel (w))
-    {
-	if (ww->model->scale.x != xScale ||
-	    ww->model->scale.y != yScale)
-	{
-	    ww->model->scale.x = xScale;
-	    ww->model->scale.y = yScale;
-
-	    ww->model->scaleOrigin.x = w->output.left;
-	    ww->model->scaleOrigin.y = w->output.top;
-
-	    modelInitObjects (ww->model,
-			      WIN_X (w), WIN_Y (w),
-			      WIN_W (w), WIN_H (w));
-
-	    modelInitSprings (ww->model,
-			      WIN_X (w), WIN_Y (w),
-			      WIN_W (w), WIN_H (w));
-	}
-
-	if (ww->model->scale.x != 1.0f || ww->model->scale.y != 1.0f)
-	    ww->model->transformed = 1;
-	else
-	    ww->model->transformed = 0;
-    }
-}
-
-static void
 wobblyWindowResizeNotify (CompWindow *w)
 {
     WOBBLY_SCREEN (w->screen);
@@ -2551,8 +2568,11 @@ wobblyWindowResizeNotify (CompWindow *w)
 
     if (ws->opt[WOBBLY_SCREEN_OPTION_MAXIMIZE_EFFECT].value.b &&
 	isWobblyWin (w)					      &&
-	((w->state ^ ww->state) & MAXIMIZE_STATE))
+	((w->state | ww->state) & MAXIMIZE_STATE))
     {
+	ww->state &= ~MAXIMIZE_STATE;
+	ww->state |= w->state & MAXIMIZE_STATE;
+
 	if (wobblyEnsureModel (w))
 	{
 	    if (w->state & MAXIMIZE_STATE)
@@ -2588,8 +2608,9 @@ wobblyWindowResizeNotify (CompWindow *w)
     }
     else if (ww->model)
     {
-	modelInitObjects (ww->model,
-			  WIN_X (w), WIN_Y (w), WIN_W (w), WIN_H (w));
+	if (!ww->wobbly)
+	    modelInitObjects (ww->model,
+			      WIN_X (w), WIN_Y (w), WIN_W (w), WIN_H (w));
 
 	modelInitSprings (ww->model,
 			  WIN_X (w), WIN_Y (w), WIN_W (w), WIN_H (w));
@@ -2611,8 +2632,6 @@ wobblyWindowResizeNotify (CompWindow *w)
 				   WIN_X (w), WIN_Y (w),
 				   WIN_W (w), WIN_H (w));
     }
-
-    ww->state = w->state;
 
     UNWRAP (ws, w->screen, windowResizeNotify);
     (*w->screen->windowResizeNotify) (w);
@@ -2851,10 +2870,13 @@ wobblySetDisplayOption (CompDisplay     *display,
 	if (compSetActionOption (o, value))
 	    return TRUE;
 	break;
+    case WOBBLY_DISPLAY_OPTION_SNAP_INVERTED:
+	if (compSetBoolOption (o, value))
+	    return TRUE;
+	break;
     case WOBBLY_DISPLAY_OPTION_SHIVER:
 	if (setDisplayAction (display, o, value))
 	    return TRUE;
-	break;
     default:
 	break;
     }
@@ -2880,6 +2902,13 @@ wobblyDisplayInitOptions (WobblyDisplay *wd)
     o->value.action.type	  = CompBindingTypeKey;
     o->value.action.key.modifiers = WOBBLY_SNAP_MODIFIERS_DEFAULT;
     o->value.action.key.keycode   = 0;
+
+    o = &wd->opt[WOBBLY_DISPLAY_OPTION_SNAP_INVERTED];
+    o->name	 = "snap_inverted";
+    o->shortDesc = N_("Snap Inverted");
+    o->longDesc	 = N_("Inverted window snapping");
+    o->type	 = CompOptionTypeBool;
+    o->value.b	 = WOBBLY_SNAP_INVERTED_DEFAULT;
 
     o = &wd->opt[WOBBLY_DISPLAY_OPTION_SHIVER];
     o->name		      = "shiver";
@@ -2973,7 +3002,6 @@ wobblyInitScreen (CompPlugin *p,
     WRAP (ws, s, damageWindowRect, wobblyDamageWindowRect);
     WRAP (ws, s, addWindowGeometry, wobblyAddWindowGeometry);
     WRAP (ws, s, drawWindowGeometry, wobblyDrawWindowGeometry);
-    WRAP (ws, s, setWindowScale, wobblySetWindowScale);
     WRAP (ws, s, windowResizeNotify, wobblyWindowResizeNotify);
     WRAP (ws, s, windowMoveNotify, wobblyWindowMoveNotify);
     WRAP (ws, s, windowGrabNotify, wobblyWindowGrabNotify);
@@ -3002,7 +3030,6 @@ wobblyFiniScreen (CompPlugin *p,
     UNWRAP (ws, s, damageWindowRect);
     UNWRAP (ws, s, addWindowGeometry);
     UNWRAP (ws, s, drawWindowGeometry);
-    UNWRAP (ws, s, setWindowScale);
     UNWRAP (ws, s, windowResizeNotify);
     UNWRAP (ws, s, windowMoveNotify);
     UNWRAP (ws, s, windowGrabNotify);
@@ -3102,7 +3129,9 @@ CompPluginVTable wobblyVTable = {
     wobblyGetScreenOptions,
     wobblySetScreenOption,
     wobblyDeps,
-    sizeof (wobblyDeps) / sizeof (wobblyDeps[0])
+    sizeof (wobblyDeps) / sizeof (wobblyDeps[0]),
+    0, /* Features */
+    0  /* nFeatures */
 };
 
 CompPluginVTable *

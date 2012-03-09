@@ -59,6 +59,11 @@
 #define ZOOM_TIMESTEP_MAX       50.0f
 #define ZOOM_TIMESTEP_PRECISION 0.1f
 
+#define ZOOM_FACTOR_DEFAULT   2.0f
+#define ZOOM_FACTOR_MIN	      1.01f
+#define ZOOM_FACTOR_MAX	      3.0f
+#define ZOOM_FACTOR_PRECISION 0.01f
+
 #define ZOOM_FILTER_LINEAR_DEFAULT FALSE
 
 static int displayPrivateIndex;
@@ -79,8 +84,9 @@ typedef struct _ZoomDisplay {
 #define ZOOM_SCREEN_OPTION_POINTER_SENSITIVITY 1
 #define ZOOM_SCREEN_OPTION_SPEED	       2
 #define ZOOM_SCREEN_OPTION_TIMESTEP	       3
-#define ZOOM_SCREEN_OPTION_FILTER_LINEAR       4
-#define ZOOM_SCREEN_OPTION_NUM		       5
+#define ZOOM_SCREEN_OPTION_ZOOM_FACTOR         4
+#define ZOOM_SCREEN_OPTION_FILTER_LINEAR       5
+#define ZOOM_SCREEN_OPTION_NUM		       6
 
 typedef struct _ZoomScreen {
     PreparePaintScreenProc	 preparePaintScreen;
@@ -95,6 +101,7 @@ typedef struct _ZoomScreen {
 
     float speed;
     float timestep;
+    float zoomFactor;
 
     int grabIndex;
 
@@ -116,6 +123,8 @@ typedef struct _ZoomScreen {
     Bool   grabbed;
 
     float maxTranslate;
+
+    int zoomOutput;
 } ZoomScreen;
 
 #define GET_ZOOM_DISPLAY(d)				      \
@@ -186,6 +195,13 @@ zoomSetScreenOption (CompScreen      *screen,
 	    return TRUE;
 	}
 	break;
+    case ZOOM_SCREEN_OPTION_ZOOM_FACTOR:
+	if (compSetFloatOption (o, value))
+	{
+	    zs->zoomFactor = o->value.f;
+	    return TRUE;
+	}
+	break;
     case ZOOM_SCREEN_OPTION_FILTER_LINEAR:
 	if (compSetBoolOption (o, value))
 	    return TRUE;
@@ -237,6 +253,16 @@ zoomScreenInitOptions (ZoomScreen *zs)
     o->rest.f.min	= ZOOM_TIMESTEP_MIN;
     o->rest.f.max	= ZOOM_TIMESTEP_MAX;
     o->rest.f.precision = ZOOM_TIMESTEP_PRECISION;
+
+    o = &zs->opt[ZOOM_SCREEN_OPTION_ZOOM_FACTOR];
+    o->name		= "zoom_factor";
+    o->shortDesc	= N_("Zoom factor");
+    o->longDesc		= N_("Zoom factor");
+    o->type		= CompOptionTypeFloat;
+    o->value.f		= ZOOM_FACTOR_DEFAULT;
+    o->rest.f.min	= ZOOM_FACTOR_MIN;
+    o->rest.f.max	= ZOOM_FACTOR_MAX;
+    o->rest.f.precision = ZOOM_FACTOR_PRECISION;
 
     o = &zs->opt[ZOOM_SCREEN_OPTION_FILTER_LINEAR];
     o->name	  = "filter_linear";
@@ -385,6 +411,12 @@ zoomPaintScreen (CompScreen		 *s,
 
     if (zs->grabIndex)
     {
+	mask &= ~PAINT_SCREEN_REGION_MASK;
+	mask |= PAINT_SCREEN_CLEAR_MASK;
+    }
+
+    if (zs->grabIndex && zs->zoomOutput == output)
+    {
 	ScreenPaintAttrib sa = *sAttrib;
 	int		  saveFilter;
 
@@ -399,13 +431,13 @@ zoomPaintScreen (CompScreen		 *s,
 	else
 	    sa.xRotate -= 0.000001f;
 
-	mask &= ~PAINT_SCREEN_REGION_MASK;
 	mask |= PAINT_SCREEN_TRANSFORMED_MASK;
 
 	saveFilter = s->filter[SCREEN_TRANS_FILTER];
 
-	if (zs->opt[ZOOM_SCREEN_OPTION_FILTER_LINEAR].value.b ||
-	    zs->zVelocity != 0.0f)
+	if (zs->zoomFactor == 2.0f &&
+	    (zs->opt[ZOOM_SCREEN_OPTION_FILTER_LINEAR].value.b ||
+	     zs->zVelocity != 0.0f))
 	    s->filter[SCREEN_TRANS_FILTER] = COMP_TEXTURE_FILTER_GOOD;
 	else
 	    s->filter[SCREEN_TRANS_FILTER] = COMP_TEXTURE_FILTER_FAST;
@@ -452,6 +484,8 @@ zoomIn (CompDisplay     *d,
 
 	    zs->savedPointer.x = pointerX;
 	    zs->savedPointer.y = pointerY;
+
+	    zs->zoomOutput = outputDeviceForPoint (s, pointerX, pointerY);
 	}
 
 	if (zs->grabIndex)
@@ -463,16 +497,22 @@ zoomIn (CompDisplay     *d,
 
 	    zs->grabbed = TRUE;
 
-	    if (zs->newZoom / 2.0f * DEFAULT_Z_CAMERA >= 0.1f)
+	    if (zs->newZoom / zs->zoomFactor * DEFAULT_Z_CAMERA >= 0.1f)
 	    {
-		zs->newZoom /= 2.0f;
+		zs->newZoom /= zs->zoomFactor;
 
 		damageScreen (s);
 
 		if (zs->currentZoom == 1.0f)
 		{
-		    zs->xTranslate = (x - s->width  / 2) / (s->width  * 2.0f);
-		    zs->yTranslate = (y - s->height / 2) / (s->height * 2.0f);
+		    CompOutput *o = &s->outputDev[zs->zoomOutput];
+
+		    zs->xTranslate =
+			((x - o->region.extents.x1) - o->width  / 2) /
+			(s->width  * zs->zoomFactor);
+		    zs->yTranslate =
+			((y - o->region.extents.y1) - o->height / 2) /
+			(s->height * zs->zoomFactor);
 
 		    zs->xTranslate /= zs->newZoom;
 		    zs->yTranslate /= zs->newZoom;
@@ -521,7 +561,7 @@ zoomOut (CompDisplay     *d,
 
 	if (zs->grabIndex)
 	{
-	    zs->newZoom *= 2.0f;
+	    zs->newZoom *= zs->zoomFactor;
 	    if (zs->newZoom > DEFAULT_Z_CAMERA - (DEFAULT_Z_CAMERA / 10.0f))
 	    {
 		zs->grabbed = FALSE;
@@ -701,7 +741,7 @@ zoomSetDisplayOption (CompDisplay     *display,
 
 static void
 zoomDisplayInitOptions (ZoomDisplay *zd,
-			Display     *display)
+			Display	    *display)
 {
     CompOption *o;
 
@@ -814,12 +854,14 @@ zoomInitScreen (CompPlugin *p,
     zs->xTranslate = 0.0f;
     zs->yTranslate = 0.0f;
 
-    zs->maxTranslate = 0.0f;
+    zs->maxTranslate = 0.85f;
 
     zs->savedPointer.x = 0;
     zs->savedPointer.y = 0;
 
     zs->grabbed = FALSE;
+
+    zs->zoomOutput = 0;
 
     zs->pointerInvertY     = ZOOM_POINTER_INVERT_Y_DEFAULT;
     zs->pointerSensitivity = ZOOM_POINTER_SENSITIVITY_DEFAULT *
@@ -827,6 +869,8 @@ zoomInitScreen (CompPlugin *p,
 
     zs->speed    = ZOOM_SPEED_DEFAULT;
     zs->timestep = ZOOM_TIMESTEP_DEFAULT;
+
+    zs->zoomFactor = ZOOM_FACTOR_DEFAULT;
 
     zoomScreenInitOptions (zs);
 
@@ -883,10 +927,6 @@ zoomGetVersion (CompPlugin *plugin,
     return ABIVERSION;
 }
 
-CompPluginDep zoomDeps[] = {
-    { CompPluginRuleAfter, "cube" }
-};
-
 CompPluginVTable zoomVTable = {
     "zoom",
     N_("Zoom Desktop"),
@@ -904,8 +944,10 @@ CompPluginVTable zoomVTable = {
     zoomSetDisplayOption,
     zoomGetScreenOptions,
     zoomSetScreenOption,
-    zoomDeps,
-    sizeof (zoomDeps) / sizeof (zoomDeps[0])
+    0, /* Deps */
+    0, /* nDeps */
+    0, /* Features */
+    0  /* nFeatures */
 };
 
 CompPluginVTable *

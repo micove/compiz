@@ -1,12 +1,15 @@
 AC_PREREQ(2.57)
 
-AC_INIT([compiz], [0.2.2], [davidr@novell.com])
+AC_INIT([compiz], [0.3.6], [davidr@novell.com])
 
 AC_CONFIG_AUX_DIR(config)
 
 AM_INIT_AUTOMAKE([dist-bzip2])
 AC_CONFIG_HEADER([config.h])
 AM_MAINTAINER_MODE
+
+/* decorator interface version */
+AC_DEFINE(DECOR_INTERFACE_VERSION, 20061011, [Decorator interface version])
 
 AC_ISC_POSIX
 AC_PROG_CC
@@ -93,6 +96,11 @@ COMPIZ_REQUIRES="libpng	    \
 PKG_CHECK_MODULES(COMPIZ, $COMPIZ_REQUIRES)
 AC_SUBST(COMPIZ_REQUIRES)
 
+DECORATION_REQUIRES="xrender"
+
+PKG_CHECK_MODULES(DECORATION, $DECORATION_REQUIRES)
+AC_SUBST(DECORATION_REQUIRES)
+
 AC_MSG_CHECKING(for GL_CFLAGS)
 AC_ARG_WITH(gl-cflags, [  --with-gl-cflags=CFLAGS ],
 		       [GL_CFLAGS="$withval"],
@@ -123,7 +131,7 @@ fi
 
 AM_GCONF_SOURCE_2
 
-AM_CONDITIONAL(GCONF_PLUGIN, test "x$use_gconf" = "xyes")
+AM_CONDITIONAL(USE_GCONF, test "x$use_gconf" = "xyes")
 if test "$use_gconf" = yes; then
   AC_DEFINE(USE_GCONF, 1, [Build gconf plugin])
 fi
@@ -163,6 +171,44 @@ if test "$use_dbus" = yes; then
   AC_DEFINE(USE_DBUS, 1, [Build dbus plugin])
 fi
 
+AC_ARG_ENABLE(dbus-glib,
+  [  --disable-dbus-glib     Disable dbus-glib support],
+  [use_dbus_glib=$enableval], [use_dbus_glib=yes])
+
+if test "x$use_dbus_glib" = "xyes"; then
+  PKG_CHECK_MODULES(DBUS_GLIB, dbus-glib-1, [use_dbus_glib=yes], [use_dbus_glib=no])
+fi
+
+if test "$use_dbus" = yes; then
+  AC_DEFINE(USE_DBUS_GLIB, 1, [Build dbus glib support])
+fi
+
+AC_ARG_ENABLE(inotify,
+  [  --disable-inotify       Disable inotify plugin],
+  [use_inotify=$enableval], [use_inotify=yes])
+
+if test "x$use_inotify" = "xyes"; then
+  AC_CHECK_HEADERS([sys/inotify.h], [use_inotify=yes], [use_inotify=no])
+fi
+
+AM_CONDITIONAL(INOTIFY_PLUGIN, test "x$use_inotify" = "xyes")
+if test "$use_inotify" = yes; then
+  AC_DEFINE(USE_INOTIFY, 1, [Build inotify plugin])
+fi
+
+AC_ARG_ENABLE(annotate,
+  [  --disable-annotate      Disable annotate plugin],
+  [use_annotate=$enableval], [use_annotate=yes])
+
+if test "x$use_annotate" = "xyes"; then
+  PKG_CHECK_MODULES(ANNOTATE, cairo-xlib-xrender, [use_annotate=yes], [use_annotate=no])
+fi
+
+AM_CONDITIONAL(ANNOTATE_PLUGIN, test "x$use_annotate" = "xyes")
+if test "$use_annotate" = yes; then
+  AC_DEFINE(USE_ANNOTATE, 1, [Build annotate plugin])
+fi
+
 AC_ARG_ENABLE(librsvg,
   [  --enable-librsvg        Enable svg support],
   [use_librsvg=$enableval], [use_librsvg=no])
@@ -191,7 +237,7 @@ AC_SUBST(SCALE_CORNER)
 AC_ARG_WITH(default-plugins,
   [  --with-default-plugins  Set default plugins],
   [DEFAULT_PLUGINS="$withval"],
-  [DEFAULT_PLUGINS="decoration fade minimize move resize switcher"])
+  [DEFAULT_PLUGINS="png,decoration,fade,minimize,move,resize,switcher"])
 
 if test -n "$DEFAULT_PLUGINS"; then
   AC_DEFINE_UNQUOTED(DEFAULT_PLUGINS, "$DEFAULT_PLUGINS", [Default plugins])
@@ -214,7 +260,6 @@ if test "x$use_gtk" = "xyes"; then
   PKG_CHECK_MODULES(GTK_WINDOW_DECORATOR,
 		    xrender >= 0.8.4  \
 		    gtk+-2.0 >= 2.8.0 \
-		    gconf-2.0	      \
 		    libwnck-1.0	      \
 		    pangocairo,
 		    [use_gtk=yes], [use_gtk=no])
@@ -228,8 +273,12 @@ if test "x$use_gtk" = "xyes"; then
     LIBS="$save_LIBS"
 
     if test "x$use_metacity" = "xyes"; then
-      PKG_CHECK_MODULES(METACITY, libmetacity-private >= 2.15.21,
+      PKG_CHECK_MODULES(METACITY, libmetacity-private,
 			[use_metacity=yes], [use_metacity=no])
+      PKG_CHECK_EXISTS(libmetacity-private >= 2.15.21,
+		       [have_metacity_2_15_21=yes], [have_metacity_2_15_21=no])
+      PKG_CHECK_EXISTS(libmetacity-private >= 2.17.0,
+		       [have_metacity_2_17_0=yes], [have_metacity_2_17_0=no])
     fi
 
     if test "x$use_gnome" = "xyes"; then
@@ -257,6 +306,14 @@ fi
 AM_CONDITIONAL(USE_METACITY, test "x$use_metacity" = "xyes")
 if test "$use_metacity" = yes; then
   AC_DEFINE(USE_METACITY, 1, [Build metacity theme support])
+  if test "$have_metacity_2_15_21" = yes; then
+    AC_DEFINE(HAVE_METACITY_2_15_21, 1,
+	      [Define to 1 if metacity version >= 2.15.21])
+  fi
+  if test "$have_metacity_2_17_0" = yes; then
+    AC_DEFINE(HAVE_METACITY_2_17_0, 1,
+	      [Define to 1 if metacity version >= 2.17.0])
+  fi
 fi
 
 AM_CONDITIONAL(USE_GNOME, test "x$use_gnome" = "xyes")
@@ -265,33 +322,107 @@ if test "$use_gnome" = yes; then
 fi
 
 AC_ARG_ENABLE(kde,
-  [  --enable-kde           Enable kde window decorator],
-  [use_kde=$enableval], [use_kde=no])
+  [  --disable-kde           Enable kde window decorator],
+  [use_kde=$enableval], [use_kde=yes])
 
 if test "x$use_kde" = "xyes"; then
-  PKG_CHECK_MODULES(KDE_WINDOW_DECORATOR,
-		    QtCore QtGui,
-		    [use_kde=yes], [use_kde=no])
+  qt_incdirs="$QTINC /usr/local/qt/include /usr/include/qt /usr/include /usr/X11R6/include/X11/qt /usr/X11R6/include/qt /usr/lib/qt3/include /usr/lib/qt/include /usr/share/qt3/include"
+  qt_libdirs="$QTLIB /usr/local/qt/lib /usr/lib/qt /usr/lib /usr/X11R6/lib/X11/qt /usr/X11R6/lib/qt /usr/lib/qt3/lib /usr/lib/qt/lib /usr/share/qt3/lib"
+
+  if test -n "$QTDIR" ; then
+    qt_incdirs="$QTDIR/include $qt_incdirs"
+    qt_libdirs="$QTDIR/lib $qt_libdirs"
+  fi
+
+  qt_test_include="qstyle.h"
+  qt_test_library="libqt-mt.so"
+
+  dnl Check for Qt headers
+  AC_MSG_CHECKING([for Qt headers])
+  qt_incdir="no"
+  for it in $qt_incdirs ; do
+    if test -r "$it/$qt_test_include" ; then
+      qt_incdir="$it"
+      break
+    fi
+  done
+  AC_MSG_RESULT([$qt_incdir])
+
+  dnl Check for Qt libraries
+  AC_MSG_CHECKING([for Qt libraries])
+  qt_libdir="no"
+  for qt_check in $qt_libdirs ; do
+    if test -r "$qt_check/$qt_test_library" ; then
+      qt_libdir="$qt_check"
+      break
+    fi
+  done
+  AC_MSG_RESULT([$qt_libdir])
+
+  use_kde=no;
+  if test "x$qt_libdir" != "xno" ; then
+    if test "x$qt_incdir" != "xno" ; then
+      use_kde=yes;
+    fi
+  fi
+
+  QT_CXXFLAGS="-I$qt_incdir"
+  QT_LIBS="-L$qt_libdir"
+
+  if test "x$use_kde" = xyes; then
+    kdedir=`kde-config --prefix --expandvars 2>/dev/null`
+    kdelibs=`kde-config --install lib --expandvars 2>/dev/null`
+    kdeincs=$kdedir/include
+    if test -d $kdelibs; then
+      PKG_CHECK_MODULES(KDE_WINDOW_DECORATOR,
+			dbus-1 xdamage xcomposite,
+			[use_kde=yes], [use_kde=no])
+
+      KDE_CFLAGS="$QT_CXXFLAGS -I$kdeincs"
+      KDE_LIBS="$QT_LIBS -L$kdelibs -lkdecore -lkdecorations -ldbus-qt-1"
+
+      QT_MOC=$QTDIR/bin/moc
+      DCOPIDL=$kdedir/bin/dcopidl
+      DCOPIDL2CPP=$kdedir/bin/dcopidl2cpp
+    else
+      use_kde=no;
+    fi
+  fi
 fi
 
 AM_CONDITIONAL(USE_KDE, test "x$use_kde" = "xyes")
 if test "$use_kde" = yes; then
   AC_DEFINE(USE_KDE, 1, [Build kde window decorator])
-  QT_MOC=`$PKG_CONFIG --variable=exec_prefix QtCore`
-  QT_MOC=${QT_MOC}/bin/moc
 fi
+
+AC_SUBST(KDE_CFLAGS)
+AC_SUBST(KDE_LIBS)
 AC_SUBST(QT_MOC)
+AC_SUBST(DCOPIDL)
+AC_SUBST(DCOPIDL2CPP)
+
+AC_ARG_WITH(max-desktops,
+  [  --with-max-desktops     Max reasonable desktops],
+  [MAX_DESKTOPS=$withval],
+  [MAX_DESKTOPS=36])
+
+if test -n "$MAX_DESKTOPS"; then
+  AC_DEFINE_UNQUOTED(MAX_DESKTOPS, $MAX_DESKTOPS, [Max reasonable desktops])
+fi
 
 AC_OUTPUT([
 compiz.pc
 Makefile
 src/Makefile
+libdecoration/Makefile
+libdecoration/libdecoration.pc
 include/Makefile
 plugins/Makefile
 plugins/compiz.schemas
 images/Makefile
 gtk/Makefile
 gtk/window-decorator/Makefile
+gtk/window-decorator/gwd.schemas
 gtk/gnome/Makefile
 gtk/gnome/compiz.desktop
 kde/Makefile
@@ -301,9 +432,11 @@ po/Makefile.in
 
 echo ""
 echo "the following optional plugins will be compiled:"
-echo "  gconf: $use_gconf"
-echo "  place: $use_place"
-echo "  dbus:  $use_dbus"
+echo "  gconf:    $use_gconf"
+echo "  place:    $use_place"
+echo "  dbus:     $use_dbus"
+echo "  annotate: $use_annotate"
+echo "  svg:      $use_librsvg"
 echo ""
 echo "and the following optional features will be compiled:"
 echo "  svg:      $use_librsvg"

@@ -37,7 +37,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 subdir = include
-DIST_COMMON = $(glxcompinclude_HEADERS) $(srcdir)/Makefile.am \
+DIST_COMMON = $(compizinclude_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -54,9 +54,9 @@ am__vpath_adj = case $$p in \
     *) f=$$p;; \
   esac;
 am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
-am__installdirs = "$(DESTDIR)$(glxcompincludedir)"
-glxcompincludeHEADERS_INSTALL = $(INSTALL_HEADER)
-HEADERS = $(glxcompinclude_HEADERS)
+am__installdirs = "$(DESTDIR)$(compizincludedir)"
+compizincludeHEADERS_INSTALL = $(INSTALL_HEADER)
+HEADERS = $(compizinclude_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -65,6 +65,10 @@ ALL_LINGUAS = @ALL_LINGUAS@
 AMDEP_FALSE = @AMDEP_FALSE@
 AMDEP_TRUE = @AMDEP_TRUE@
 AMTAR = @AMTAR@
+ANNOTATE_CFLAGS = @ANNOTATE_CFLAGS@
+ANNOTATE_LIBS = @ANNOTATE_LIBS@
+ANNOTATE_PLUGIN_FALSE = @ANNOTATE_PLUGIN_FALSE@
+ANNOTATE_PLUGIN_TRUE = @ANNOTATE_PLUGIN_TRUE@
 AR = @AR@
 AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
@@ -87,9 +91,16 @@ CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DATADIRNAME = @DATADIRNAME@
 DBUS_CFLAGS = @DBUS_CFLAGS@
+DBUS_GLIB_CFLAGS = @DBUS_GLIB_CFLAGS@
+DBUS_GLIB_LIBS = @DBUS_GLIB_LIBS@
 DBUS_LIBS = @DBUS_LIBS@
 DBUS_PLUGIN_FALSE = @DBUS_PLUGIN_FALSE@
 DBUS_PLUGIN_TRUE = @DBUS_PLUGIN_TRUE@
+DCOPIDL = @DCOPIDL@
+DCOPIDL2CPP = @DCOPIDL2CPP@
+DECORATION_CFLAGS = @DECORATION_CFLAGS@
+DECORATION_LIBS = @DECORATION_LIBS@
+DECORATION_REQUIRES = @DECORATION_REQUIRES@
 DEFAULT_PLUGINS = @DEFAULT_PLUGINS@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
@@ -106,8 +117,6 @@ GCONF_CFLAGS = @GCONF_CFLAGS@
 GCONF_DUMP_PLUGIN_FALSE = @GCONF_DUMP_PLUGIN_FALSE@
 GCONF_DUMP_PLUGIN_TRUE = @GCONF_DUMP_PLUGIN_TRUE@
 GCONF_LIBS = @GCONF_LIBS@
-GCONF_PLUGIN_FALSE = @GCONF_PLUGIN_FALSE@
-GCONF_PLUGIN_TRUE = @GCONF_PLUGIN_TRUE@
 GCONF_SCHEMAS_INSTALL_FALSE = @GCONF_SCHEMAS_INSTALL_FALSE@
 GCONF_SCHEMAS_INSTALL_TRUE = @GCONF_SCHEMAS_INSTALL_TRUE@
 GCONF_SCHEMA_CONFIG_SOURCE = @GCONF_SCHEMA_CONFIG_SOURCE@
@@ -122,12 +131,16 @@ GNOME_WINDOW_SETTINGS_LIBS = @GNOME_WINDOW_SETTINGS_LIBS@
 GREP = @GREP@
 GTK_WINDOW_DECORATOR_CFLAGS = @GTK_WINDOW_DECORATOR_CFLAGS@
 GTK_WINDOW_DECORATOR_LIBS = @GTK_WINDOW_DECORATOR_LIBS@
+INOTIFY_PLUGIN_FALSE = @INOTIFY_PLUGIN_FALSE@
+INOTIFY_PLUGIN_TRUE = @INOTIFY_PLUGIN_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 INSTOBJEXT = @INSTOBJEXT@
 INTLLIBS = @INTLLIBS@
+KDE_CFLAGS = @KDE_CFLAGS@
+KDE_LIBS = @KDE_LIBS@
 KDE_WINDOW_DECORATOR_CFLAGS = @KDE_WINDOW_DECORATOR_CFLAGS@
 KDE_WINDOW_DECORATOR_LIBS = @KDE_WINDOW_DECORATOR_LIBS@
 LDFLAGS = @LDFLAGS@
@@ -169,6 +182,8 @@ SCALE_CORNER = @SCALE_CORNER@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+USE_GCONF_FALSE = @USE_GCONF_FALSE@
+USE_GCONF_TRUE = @USE_GCONF_TRUE@
 USE_GNOME_FALSE = @USE_GNOME_FALSE@
 USE_GNOME_TRUE = @USE_GNOME_TRUE@
 USE_GTK_FALSE = @USE_GTK_FALSE@
@@ -233,8 +248,11 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 windowsettingsdatadir = @windowsettingsdatadir@
 windowsettingslibdir = @windowsettingslibdir@
-glxcompincludedir = $(includedir)/compiz
-glxcompinclude_HEADERS = compiz.h
+compizincludedir = $(includedir)/compiz
+compizinclude_HEADERS = \
+	compiz.h	\
+	decoration.h
+
 all: all-am
 
 .SUFFIXES:
@@ -277,22 +295,22 @@ clean-libtool:
 distclean-libtool:
 	-rm -f libtool
 uninstall-info-am:
-install-glxcompincludeHEADERS: $(glxcompinclude_HEADERS)
+install-compizincludeHEADERS: $(compizinclude_HEADERS)
 	@$(NORMAL_INSTALL)
-	test -z "$(glxcompincludedir)" || $(mkdir_p) "$(DESTDIR)$(glxcompincludedir)"
-	@list='$(glxcompinclude_HEADERS)'; for p in $$list; do \
+	test -z "$(compizincludedir)" || $(mkdir_p) "$(DESTDIR)$(compizincludedir)"
+	@list='$(compizinclude_HEADERS)'; for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  f=$(am__strip_dir) \
-	  echo " $(glxcompincludeHEADERS_INSTALL) '$$d$$p' '$(DESTDIR)$(glxcompincludedir)/$$f'"; \
-	  $(glxcompincludeHEADERS_INSTALL) "$$d$$p" "$(DESTDIR)$(glxcompincludedir)/$$f"; \
+	  echo " $(compizincludeHEADERS_INSTALL) '$$d$$p' '$(DESTDIR)$(compizincludedir)/$$f'"; \
+	  $(compizincludeHEADERS_INSTALL) "$$d$$p" "$(DESTDIR)$(compizincludedir)/$$f"; \
 	done
 
-uninstall-glxcompincludeHEADERS:
+uninstall-compizincludeHEADERS:
 	@$(NORMAL_UNINSTALL)
-	@list='$(glxcompinclude_HEADERS)'; for p in $$list; do \
+	@list='$(compizinclude_HEADERS)'; for p in $$list; do \
 	  f=$(am__strip_dir) \
-	  echo " rm -f '$(DESTDIR)$(glxcompincludedir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(glxcompincludedir)/$$f"; \
+	  echo " rm -f '$(DESTDIR)$(compizincludedir)/$$f'"; \
+	  rm -f "$(DESTDIR)$(compizincludedir)/$$f"; \
 	done
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
@@ -374,7 +392,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(HEADERS)
 installdirs:
-	for dir in "$(DESTDIR)$(glxcompincludedir)"; do \
+	for dir in "$(DESTDIR)$(compizincludedir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
 	done
 install: install-am
@@ -420,7 +438,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-glxcompincludeHEADERS
+install-data-am: install-compizincludeHEADERS
 
 install-exec-am:
 
@@ -446,19 +464,19 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-glxcompincludeHEADERS uninstall-info-am
+uninstall-am: uninstall-compizincludeHEADERS uninstall-info-am
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
 	clean-libtool ctags distclean distclean-generic \
 	distclean-libtool distclean-tags distdir dvi dvi-am html \
-	html-am info info-am install install-am install-data \
-	install-data-am install-exec install-exec-am \
-	install-glxcompincludeHEADERS install-info install-info-am \
+	html-am info info-am install install-am \
+	install-compizincludeHEADERS install-data install-data-am \
+	install-exec install-exec-am install-info install-info-am \
 	install-man install-strip installcheck installcheck-am \
 	installdirs maintainer-clean maintainer-clean-generic \
 	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
 	ps ps-am tags uninstall uninstall-am \
-	uninstall-glxcompincludeHEADERS uninstall-info-am
+	uninstall-compizincludeHEADERS uninstall-info-am
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

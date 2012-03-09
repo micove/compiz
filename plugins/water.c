@@ -471,7 +471,8 @@ fboEpilogue (CompScreen *s)
 
     s->rasterX = s->rasterY = 0;
 
-    glViewport (0, 0, s->width, s->height);
+    setDefaultViewport (s);
+
     glMatrixMode (GL_PROJECTION);
     glPopMatrix ();
     glMatrixMode (GL_MODELVIEW);
@@ -1051,7 +1052,9 @@ waterDrawWindowTexture (CompWindow		*w,
 	{
 	    glTranslatef (w->attrib.x, w->attrib.y, 0.0f);
 	    glScalef (attrib->xScale, attrib->yScale, 0.0f);
-	    glTranslatef (-w->attrib.x, -w->attrib.y, 0.0f);
+	    glTranslatef (attrib->xTranslate / attrib->xScale - w->attrib.x,
+			  attrib->yTranslate / attrib->yScale - w->attrib.y,
+			  0.0f);
 	}
 
 	glEnable (GL_FRAGMENT_PROGRAM_ARB);
@@ -1898,8 +1901,10 @@ static CompPluginVTable waterVTable = {
     waterSetDisplayOption,
     0, /* GetScreenOptions */
     0, /* SetScreenOption */
-    NULL,
-    0
+    0, /* Deps */
+    0, /* nDeps */
+    0, /* Features */
+    0  /* nFeatures */
 };
 
 CompPluginVTable *

@@ -1,2 +1,4 @@
-glxcompincludedir = $(includedir)/compiz
-glxcompinclude_HEADERS = compiz.h
+compizincludedir = $(includedir)/compiz
+compizinclude_HEADERS = \
+	compiz.h	\
+	decoration.h

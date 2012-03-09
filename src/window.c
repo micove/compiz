@@ -110,12 +110,12 @@ recalcNormalHints (CompWindow *window)
     int maxSize;
 
     maxSize = window->screen->maxTextureSize;
-    maxSize -= window->attrib.border_width * 2;
+    maxSize -= window->serverBorderWidth * 2;
 
     window->sizeHints.x      = window->attrib.x;
     window->sizeHints.y      = window->attrib.y;
-    window->sizeHints.width  = window->attrib.width;
-    window->sizeHints.height = window->attrib.height;
+    window->sizeHints.width  = window->serverWidth;
+    window->sizeHints.height = window->serverHeight;
 
     if (window->sizeHints.flags & PMinSize)
     {
@@ -556,6 +556,8 @@ setWindowActions (CompDisplay  *display,
 	data[i++] = display->winActionCloseAtom;
     if (actions & CompWindowActionShadeMask)
 	data[i++] = display->winActionShadeAtom;
+    if (actions & CompWindowActionChangeDesktopMask)
+	data[i++] = display->winActionChangeDesktopAtom;
 
     XChangeProperty (display->display, id, display->wmAllowedActionsAtom,
 		     XA_ATOM, 32, PropModeReplace,
@@ -578,7 +580,8 @@ recalcWindowActions (CompWindow *w)
 	    CompWindowActionResizeMask       |
 	    CompWindowActionStickMask        |
 	    CompWindowActionMinimizeMask     |
-	    CompWindowActionCloseMask;
+	    CompWindowActionCloseMask	     |
+	    CompWindowActionChangeDesktopMask;
 
 	if (w->input.top)
 	    actions |= CompWindowActionShadeMask;
@@ -589,7 +592,8 @@ recalcWindowActions (CompWindow *w)
 	    CompWindowActionMoveMask   |
 	    CompWindowActionResizeMask |
 	    CompWindowActionStickMask  |
-	    CompWindowActionCloseMask;
+	    CompWindowActionCloseMask  |
+	    CompWindowActionChangeDesktopMask;
 
 	if (w->input.top)
 	    actions |= CompWindowActionShadeMask;
@@ -600,7 +604,15 @@ recalcWindowActions (CompWindow *w)
 	    CompWindowActionMoveMask   |
 	    CompWindowActionResizeMask |
 	    CompWindowActionStickMask  |
-	    CompWindowActionCloseMask;
+	    CompWindowActionCloseMask  |
+	    CompWindowActionChangeDesktopMask;
+    default:
+	break;
+    }
+
+    switch (w->wmType) {
+    case CompWindowTypeNormalMask:
+	actions |= CompWindowActionFullscreenMask;
     default:
 	break;
     }
@@ -817,6 +829,48 @@ getProtocols (CompDisplay *display,
     return protocols;
 }
 
+unsigned int
+getWindowProp (CompDisplay  *display,
+	       Window	    id,
+	       Atom	    property,
+	       unsigned int defaultValue)
+{
+    Atom	  actual;
+    int		  result, format;
+    unsigned long n, left;
+    unsigned char *data;
+
+    result = XGetWindowProperty (display->display, id, property,
+				 0L, 1L, FALSE, XA_CARDINAL, &actual, &format,
+				 &n, &left, &data);
+
+    if (result == Success && n && data)
+    {
+	unsigned long value;
+
+	memcpy (&value, data, sizeof (unsigned long));
+
+	XFree (data);
+
+	return (unsigned int) value;
+    }
+
+    return defaultValue;
+}
+
+void
+setWindowProp (CompDisplay  *display,
+	       Window       id,
+	       Atom	    property,
+	       unsigned int value)
+{
+    unsigned long data = value;
+
+    XChangeProperty (display->display, id, property,
+		     XA_CARDINAL, 32, PropModeReplace,
+		     (unsigned char *) &data, 1);
+}
+
 unsigned short
 getWindowProp32 (CompDisplay	*display,
 		 Window		id,
@@ -861,7 +915,6 @@ setWindowProp32 (CompDisplay    *display,
 		     (unsigned char *) &value32, 1);
 }
 
-
 static void
 updateFrameWindow (CompWindow *w)
 {
@@ -870,11 +923,12 @@ updateFrameWindow (CompWindow *w)
 	XRectangle rects[4];
 	int	   x, y, width, height;
 	int	   i = 0;
+	int	   bw = w->serverBorderWidth * 2;
 
 	x      = w->serverX - w->input.left;
 	y      = w->serverY - w->input.top;
-	width  = w->width  + w->input.left + w->input.right;
-	height = w->height + w->input.top  + w->input.bottom;
+	width  = w->serverWidth  + w->input.left + w->input.right + bw;
+	height = w->serverHeight + w->input.top  + w->input.bottom + bw;
 
 	if (!w->frame)
 	{
@@ -970,8 +1024,7 @@ updateFrameWindow (CompWindow *w)
 
 void
 setWindowFrameExtents (CompWindow	 *w,
-		       CompWindowExtents *input,
-		       CompWindowExtents *output)
+		       CompWindowExtents *input)
 {
     if (input->left   != w->input.left  ||
 	input->right  != w->input.right ||
@@ -987,6 +1040,7 @@ setWindowFrameExtents (CompWindow	 *w,
 	data[2] = input->top;
 	data[3] = input->bottom;
 
+	updateWindowSize (w);
 	updateFrameWindow (w);
 
 	XChangeProperty (w->screen->display->display, w->id,
@@ -994,13 +1048,21 @@ setWindowFrameExtents (CompWindow	 *w,
 			 XA_CARDINAL, 32, PropModeReplace,
 			 (unsigned char *) data, 4);
     }
+}
 
-    if (output->left   != w->output.left  ||
-	output->right  != w->output.right ||
-	output->top    != w->output.top   ||
-	output->bottom != w->output.bottom)
+void
+updateWindowOutputExtents (CompWindow *w)
+{
+    CompWindowExtents output;
+
+    (*w->screen->getOutputExtentsForWindow) (w, &output);
+
+    if (output.left   != w->output.left  ||
+	output.right  != w->output.right ||
+	output.top    != w->output.top   ||
+	output.bottom != w->output.bottom)
     {
-	w->output = *output;
+	w->output = output;
 
 	(*w->screen->windowResizeNotify) (w);
     }
@@ -1009,7 +1071,7 @@ setWindowFrameExtents (CompWindow	 *w,
 static void
 setWindowMatrix (CompWindow *w)
 {
-    w->matrix = w->texture.matrix;
+    w->matrix = w->texture->matrix;
     w->matrix.x0 -= (w->attrib.x * w->matrix.xx);
     w->matrix.y0 -= (w->attrib.y * w->matrix.yy);
 }
@@ -1030,7 +1092,7 @@ bindWindow (CompWindow *w)
 	if (attr.map_state != IsViewable)
 	{
 	    XUngrabServer (w->screen->display->display);
-	    finiTexture (w->screen, &w->texture);
+	    finiTexture (w->screen, w->texture);
 	    w->mapNum = 0;
 	    return;
 	}
@@ -1041,7 +1103,7 @@ bindWindow (CompWindow *w)
 	XUngrabServer (w->screen->display->display);
     }
 
-    if (!bindPixmapToTexture (w->screen, &w->texture, w->pixmap,
+    if (!bindPixmapToTexture (w->screen, w->texture, w->pixmap,
 			      w->width, w->height,
 			      w->attrib.depth))
     {
@@ -1057,7 +1119,16 @@ releaseWindow (CompWindow *w)
 {
     if (w->pixmap)
     {
-	releasePixmapFromTexture (w->screen, &w->texture);
+	CompTexture *texture;
+
+	texture = createTexture (w->screen);
+	if (texture)
+	{
+	    destroyTexture (w->screen, w->texture);
+
+	    w->texture = texture;
+	}
+
 	XFreePixmap (w->screen->display->display, w->pixmap);
 
 	w->pixmap = None;
@@ -1075,8 +1146,7 @@ freeWindow (CompWindow *w)
     if (w->syncWaitHandle)
 	compRemoveTimeout (w->syncWaitHandle);
 
-    if (w->texture.name)
-	finiTexture (w->screen, &w->texture);
+    destroyTexture (w->screen, w->texture);
 
     if (w->frame)
 	XDestroyWindow (w->screen->display->display, w->frame);
@@ -1124,33 +1194,36 @@ freeWindow (CompWindow *w)
 }
 
 void
-damageWindowRegion (CompWindow *w,
-		    Region     region)
+damageTransformedWindowRect (CompWindow *w,
+			     float	xScale,
+			     float	yScale,
+			     float	xTranslate,
+			     float	yTranslate,
+			     BoxPtr     rect)
 {
-    if (w->scaled)
+    REGION reg;
+
+    reg.rects    = &reg.extents;
+    reg.numRects = 1;
+
+    reg.extents.x1 = (rect->x1 * xScale);
+    reg.extents.y1 = (rect->y1 * yScale);
+    reg.extents.x2 = (rect->x2 * xScale + 0.5f);
+    reg.extents.y2 = (rect->y2 * yScale + 0.5f);
+
+    reg.extents.x1 += xTranslate;
+    reg.extents.y1 += yTranslate;
+    reg.extents.x2 += (xTranslate + 0.5f);
+    reg.extents.y2 += (yTranslate + 0.5f);
+
+    if (reg.extents.x2 > reg.extents.x1 && reg.extents.y2 > reg.extents.y1)
     {
-	REGION reg;
-	int    x1, y1, x2, y2;
+	reg.extents.x1 += w->attrib.x + w->attrib.border_width;
+	reg.extents.y1 += w->attrib.y + w->attrib.border_width;
+	reg.extents.x2 += w->attrib.x + w->attrib.border_width;
+	reg.extents.y2 += w->attrib.y + w->attrib.border_width;
 
-	reg.rects    = &reg.extents;
-	reg.numRects = 1;
-
-	x1 = region->extents.x1 - w->attrib.x;
-	y1 = region->extents.y1 - w->attrib.y;
-	x2 = region->extents.x2 - w->attrib.x;
-	y2 = region->extents.y2 - w->attrib.y;
-
-	reg.extents.x1 = (x1 * w->paint.xScale) + w->attrib.x;
-	reg.extents.y1 = (y1 * w->paint.yScale) + w->attrib.y;
-	reg.extents.x2 = (x2 * w->paint.xScale + 0.5f) + w->attrib.x;
-	reg.extents.y2 = (y2 * w->paint.yScale + 0.5f) + w->attrib.y;
-
-	if (reg.extents.x2 > reg.extents.x1 && reg.extents.y2 > reg.extents.y1)
-	    damageScreenRegion (w->screen, &reg);
-    }
-    else
-    {
-	damageScreenRegion (w->screen, region);
+	damageScreenRegion (w->screen, &reg);
     }
 }
 
@@ -1162,42 +1235,39 @@ damageWindowOutputExtents (CompWindow *w)
 
     if (w->shaded || (w->attrib.map_state == IsViewable && w->damaged))
     {
-	REGION reg;
-
-	reg.rects = &reg.extents;
-	reg.numRects = reg.size = 1;
+	BoxRec box;
 
 	/* top */
-	reg.extents.x1 = w->attrib.x - w->output.left;
-	reg.extents.y1 = w->attrib.y - w->output.top;
-	reg.extents.x2 = w->attrib.x + w->width + w->output.right;
-	reg.extents.y2 = w->attrib.y;
+	box.x1 = -w->output.left;
+	box.y1 = -w->output.top;
+	box.x2 = w->width + w->output.right;
+	box.y2 = 0;
 
-	if (reg.extents.x1 < reg.extents.x2 && reg.extents.y1 < reg.extents.y2)
-	    damageWindowRegion (w, &reg);
+	if (box.x1 < box.x2 && box.y1 < box.y2)
+	    addWindowDamageRect (w, &box);
 
 	/* bottom */
-	reg.extents.y1 = w->attrib.y + w->height;
-	reg.extents.y2 = reg.extents.y1 + w->output.bottom;
+	box.y1 = w->height;
+	box.y2 = box.y1 + w->output.bottom;
 
-	if (reg.extents.x1 < reg.extents.x2 && reg.extents.y1 < reg.extents.y2)
-	    damageWindowRegion (w, &reg);
+	if (box.x1 < box.x2 && box.y1 < box.y2)
+	    addWindowDamageRect (w, &box);
 
 	/* left */
-	reg.extents.x1 = w->attrib.x - w->output.left;
-	reg.extents.y1 = w->attrib.y;
-	reg.extents.x2 = w->attrib.x;
-	reg.extents.y2 = w->attrib.y + w->height;
+	box.x1 = -w->output.left;
+	box.y1 = 0;
+	box.x2 = 0;
+	box.y2 = w->height;
 
-	if (reg.extents.x1 < reg.extents.x2 && reg.extents.y1 < reg.extents.y2)
-	    damageWindowRegion (w, &reg);
+	if (box.x1 < box.x2 && box.y1 < box.y2)
+	    addWindowDamageRect (w, &box);
 
 	/* right */
-	reg.extents.x1 = w->attrib.x + w->width;
-	reg.extents.x2 = reg.extents.x1 + w->output.right;
+	box.x1 = w->width;
+	box.x2 = box.x1 + w->output.right;
 
-	if (reg.extents.x1 < reg.extents.x2 && reg.extents.y1 < reg.extents.y2)
-	    damageWindowRegion (w, &reg);
+	if (box.x1 < box.x2 && box.y1 < box.y2)
+	    addWindowDamageRect (w, &box);
     }
 }
 
@@ -1210,6 +1280,41 @@ damageWindowRect (CompWindow *w,
 }
 
 void
+addWindowDamageRect (CompWindow *w,
+		     BoxPtr     rect)
+{
+    REGION region;
+
+    if (w->screen->damageMask & COMP_SCREEN_DAMAGE_ALL_MASK)
+	return;
+
+    region.extents = *rect;
+
+    if (!(*w->screen->damageWindowRect) (w, FALSE, &region.extents))
+    {
+	region.extents.x1 += w->attrib.x + w->attrib.border_width;
+	region.extents.y1 += w->attrib.y + w->attrib.border_width;
+	region.extents.x2 += w->attrib.x + w->attrib.border_width;
+	region.extents.y2 += w->attrib.y + w->attrib.border_width;
+
+	region.rects = &region.extents;
+	region.numRects = region.size = 1;
+
+	damageScreenRegion (w->screen, &region);
+    }
+}
+
+void
+getOutputExtentsForWindow (CompWindow	     *w,
+			   CompWindowExtents *output)
+{
+    output->left   = 0;
+    output->right  = 0;
+    output->top    = 0;
+    output->bottom = 0;
+}
+
+void
 addWindowDamage (CompWindow *w)
 {
     if (w->screen->damageMask & COMP_SCREEN_DAMAGE_ALL_MASK)
@@ -1217,25 +1322,14 @@ addWindowDamage (CompWindow *w)
 
     if (w->shaded || (w->attrib.map_state == IsViewable && w->damaged))
     {
-	REGION region;
+	BoxRec box;
 
-	region.extents.x1 = -w->output.left - w->attrib.border_width;
-	region.extents.y1 = -w->output.top - w->attrib.border_width;
-	region.extents.x2 = w->width + w->output.right;
-	region.extents.y2 = w->height + w->output.bottom;
+	box.x1 = -w->output.left - w->attrib.border_width;
+	box.y1 = -w->output.top - w->attrib.border_width;
+	box.x2 = w->width + w->output.right;
+	box.y2 = w->height + w->output.bottom;
 
-	if (!(*w->screen->damageWindowRect) (w, FALSE, &region.extents))
-	{
-	    region.extents.x1 += w->attrib.x + w->attrib.border_width;
-	    region.extents.y1 += w->attrib.y + w->attrib.border_width;
-	    region.extents.x2 += w->attrib.x + w->attrib.border_width;
-	    region.extents.y2 += w->attrib.y + w->attrib.border_width;
-
-	    region.rects = &region.extents;
-	    region.numRects = region.size = 1;
-
-	    damageWindowRegion (w, &region);
-	}
+	addWindowDamageRect (w, &box);
     }
 }
 
@@ -1435,6 +1529,58 @@ updateWindowStruts (CompWindow *w)
 	}
     }
 
+    if (hasNew)
+    {
+	int strutX1, strutY1, strutX2, strutY2;
+	int x1, y1, x2, y2;
+	int i;
+
+	/* applications expect us to clip struts to xinerama edges */
+	for (i = 0; i < w->screen->display->nScreenInfo; i++)
+	{
+	    x1 = w->screen->display->screenInfo[i].x_org;
+	    y1 = w->screen->display->screenInfo[i].y_org;
+	    x2 = x1 + w->screen->display->screenInfo[i].width;
+	    y2 = y1 + w->screen->display->screenInfo[i].height;
+
+	    strutX1 = new.left.x;
+	    strutX2 = strutX1 + new.left.width;
+
+	    if (strutX2 > x1 && strutX2 <= x2)
+	    {
+		new.left.x     = x1;
+		new.left.width = strutX2 - x1;
+	    }
+
+	    strutX1 = new.right.x;
+	    strutX2 = strutX1 + new.right.width;
+
+	    if (strutX1 > x1 && strutX1 <= x2)
+	    {
+		new.right.x     = strutX1;
+		new.right.width = x2 - strutX1;
+	    }
+
+	    strutY1 = new.top.y;
+	    strutY2 = strutY1 + new.top.height;
+
+	    if (strutY2 > y1 && strutY2 <= y2)
+	    {
+		new.top.y      = y1;
+		new.top.height = strutY2 - y1;
+	    }
+
+	    strutY1 = new.bottom.y;
+	    strutY2 = strutY1 + new.bottom.height;
+
+	    if (strutY1 > y1 && strutY1 <= y2)
+	    {
+		new.bottom.y      = strutY1;
+		new.bottom.height = y2 - strutY1;
+	    }
+	}
+    }
+
     if (hasOld != hasNew || (hasNew && hasOld &&
 			     memcmp (&new, &old, sizeof (CompStruts))))
     {
@@ -1510,16 +1656,24 @@ addWindow (CompScreen *screen,
     w->shaded		 = FALSE;
     w->hidden		 = FALSE;
 
+    w->desktop = 0xffffffff;
+
     w->initialViewportX = screen->x;
     w->initialViewportY = screen->y;
 
     w->pendingUnmaps = 0;
+    w->pendingMaps   = 0;
 
     w->startupId = NULL;
     w->resName   = NULL;
     w->resClass  = NULL;
 
-    initTexture (screen, &w->texture);
+    w->texture = createTexture (screen);
+    if (!w->texture)
+    {
+	free (w);
+	return;
+    }
 
     w->screen     = screen;
     w->pixmap     = None;
@@ -1537,11 +1691,13 @@ addWindow (CompScreen *screen,
     w->sizeDamage  = 0;
     w->nDamage	   = 0;
 
-    w->vertices   = 0;
-    w->vertexSize = 0;
-    w->indices    = 0;
-    w->indexSize  = 0;
-    w->vCount     = 0;
+    w->vertices     = 0;
+    w->vertexSize   = 0;
+    w->indices      = 0;
+    w->indexSize    = 0;
+    w->vCount	    = 0;
+    w->indexCount   = 0;
+    w->texCoordSize = 2;
 
     w->struts = 0;
 
@@ -1563,12 +1719,12 @@ addWindow (CompScreen *screen,
     w->paint.saturation = w->saturation = COLOR;
     w->paint.xScale	= 1.0f;
     w->paint.yScale	= 1.0f;
+    w->paint.xTranslate	= 0.0f;
+    w->paint.yTranslate	= 0.0f;
 
     w->lastPaint = w->paint;
 
     w->alive = TRUE;
-
-    w->scaled = FALSE;
 
     w->mwmDecor = MwmDecorAll;
     w->mwmFunc  = MwmFuncAll;
@@ -1585,6 +1741,7 @@ addWindow (CompScreen *screen,
 	w->privates = malloc (screen->windowPrivateLen * sizeof (CompPrivate));
 	if (!w->privates)
 	{
+	    destroyTexture (screen, w->texture);
 	    free (w);
 	    return;
 	}
@@ -1612,6 +1769,10 @@ addWindow (CompScreen *screen,
        values if this is the case. */
     if (!XGetWindowAttributes (screen->display->display, id, &w->attrib))
 	setDefaultWindowAttributes (&w->attrib);
+
+    w->serverWidth	 = w->attrib.width;
+    w->serverHeight	 = w->attrib.height;
+    w->serverBorderWidth = w->attrib.border_width;
 
     w->width  = w->attrib.width  + w->attrib.border_width * 2;
     w->height = w->attrib.height + w->attrib.border_width * 2;
@@ -1677,8 +1838,6 @@ addWindow (CompScreen *screen,
 
 	XUnionRegion (&rect, w->region, w->region);
 
-	initTexture (screen, &w->texture);
-
 	w->damage = XDamageCreate (screen->display->display, id,
 				   XDamageReportRawRectangles);
 
@@ -1702,13 +1861,7 @@ addWindow (CompScreen *screen,
     {
 	updateNormalHints (w);
 	updateWindowStruts (w);
-
 	updateWmHints (w);
-
-	setWindowProp32 (w->screen->display, w->id,
-			 w->screen->display->winDesktopAtom,
-			 0);
-
 	updateTransientHint (w);
 
 	w->clientLeader = getClientLeader (w);
@@ -1721,16 +1874,27 @@ addWindow (CompScreen *screen,
 
 	recalcWindowActions (w);
 
-	if (!(w->type & CompWindowTypeDesktopMask))
-	    w->opacity =
-		getWindowProp32 (w->screen->display, w->id,
-				 w->screen->display->winOpacityAtom,
-				 OPAQUE);
+	if (!(w->type & (CompWindowTypeDesktopMask | CompWindowTypeDockMask)))
+	{
+	    unsigned int desktop;
+
+	    desktop = getWindowProp (w->screen->display, w->id,
+				     w->screen->display->winDesktopAtom,
+				     w->screen->currentDesktop);
+	    if (desktop >= 0 && desktop < w->screen->nDesktop)
+		w->desktop = desktop;
+
+	    if (!(w->type & CompWindowTypeDesktopMask))
+		w->opacity =
+		    getWindowProp32 (w->screen->display, w->id,
+				     w->screen->display->winOpacityAtom,
+				     OPAQUE);
+	}
 
 	w->brightness =
-		getWindowProp32 (w->screen->display, w->id,
-				 w->screen->display->winBrightnessAtom,
-				 BRIGHT);
+	    getWindowProp32 (w->screen->display, w->id,
+			     w->screen->display->winBrightnessAtom,
+			     BRIGHT);
 
 	if (w->alive)
 	{
@@ -1758,7 +1922,22 @@ addWindow (CompScreen *screen,
 	w->attrib.map_state = IsUnmapped;
 
 	if (!w->attrib.override_redirect)
+	{
 	    w->managed = TRUE;
+
+	    if (w->wmType & (CompWindowTypeDockMask |
+			     CompWindowTypeDesktopMask))
+		setDesktopForWindow (w, 0xffffffff);
+
+	    if (w->desktop != 0xffffffff)
+		w->desktop = w->screen->currentDesktop;
+
+	    setWindowProp (w->screen->display, w->id,
+			   w->screen->display->winDesktopAtom,
+			   w->desktop);
+	}
+
+	w->pendingMaps++;
 
 	mapWindow (w);
 
@@ -1770,10 +1949,13 @@ addWindow (CompScreen *screen,
 	{
 	    w->managed = TRUE;
 
-	    if (w->state & CompWindowStateShadedMask)
-		w->shaded = TRUE;
-	    else
-		w->minimized = TRUE;
+	    if (w->state & CompWindowStateHiddenMask)
+	    {
+		if (w->state & CompWindowStateShadedMask)
+		    w->shaded = TRUE;
+		else
+		    w->minimized = TRUE;
+	    }
 	}
     }
 
@@ -1798,16 +1980,17 @@ removeWindow (CompWindow *w)
 
 	if (w->struts)
 	    updateWorkareaForScreen (w->screen);
+    }
 
-	updateClientListForScreen (w->screen);
-    }
-    else if (w->state & CompWindowStateHiddenMask)
-    {
-	updateClientListForScreen (w->screen);
-    }
+    updateClientListForScreen (w->screen);
 
     if (!w->redirected)
+    {
 	w->screen->overlayWindowCount--;
+
+	if (w->screen->overlayWindowCount < 1)
+	    showOutputWindow (w->screen);
+    }
 
     windowFiniPlugins (w);
 
@@ -1831,61 +2014,57 @@ destroyWindow (CompWindow *w)
     }
 }
 
-static Bool
-configurePredicate (Display  *display,
-		    XEvent   *event,
-		    XPointer arg)
-{
-    if (event->type == ConfigureNotify)
-    {
-	XConfigureEvent *xev = (XConfigureEvent *) arg;
-
-	if (event->xconfigure.window == xev->window)
-	{
-	    xev->x      = event->xconfigure.x;
-	    xev->y      = event->xconfigure.y;
-	    xev->width  = event->xconfigure.width;
-	    xev->height = event->xconfigure.height;
-
-	    xev->border_width = event->xconfigure.border_width;
-
-	    xev->above	           = event->xconfigure.above;
-	    xev->override_redirect = event->xconfigure.override_redirect;
-	}
-    }
-
-    return FALSE;
-}
-
 void
 sendConfigureNotify (CompWindow *w)
 {
     XConfigureEvent xev;
-    XEvent	    event;
 
-    xev.type	     = ConfigureNotify;
-    xev.event	     = w->id;
-    xev.window	     = w->id;
-    xev.x	     = w->attrib.x;
-    xev.y	     = w->attrib.y;
-    xev.width	     = w->attrib.width;
-    xev.height	     = w->attrib.height;
-    xev.border_width = w->attrib.border_width;
+    xev.type   = ConfigureNotify;
+    xev.event  = w->id;
+    xev.window = w->id;
 
-    xev.above	          = (w->prev) ? w->prev->id : None;
-    xev.override_redirect = w->attrib.override_redirect;
+    /* normally we should never send configure notify events to override
+       redirect windows but if they support the _NET_WM_SYNC_REQUEST
+       protocol we need to do this when the window is mapped. however the
+       only way we can make sure that the attributes we send are correct
+       and is to grab the server. */
+    if (w->attrib.override_redirect)
+    {
+	XWindowAttributes attrib;
 
-    /* If we have pending ConfigureNotifies from any previous
-       ConfigureRequests we like those changes to be in this synthetic
-       ConfigureNotify */
-    XSync (w->screen->display->display, FALSE);
+	XGrabServer (w->screen->display->display);
 
-    while (XCheckIfEvent (w->screen->display->display, &event,
-			  configurePredicate,
-			  (XPointer) &xev));
+	if (XGetWindowAttributes (w->screen->display->display, w->id, &attrib))
+	{
+	    xev.x	     = attrib.x;
+	    xev.y	     = attrib.y;
+	    xev.width	     = attrib.width;
+	    xev.height	     = attrib.height;
+	    xev.border_width = attrib.border_width;
 
-    XSendEvent (w->screen->display->display, w->id, FALSE,
-		StructureNotifyMask, (XEvent *) &xev);
+	    xev.above		  = (w->prev) ? w->prev->id : None;
+	    xev.override_redirect = TRUE;
+
+	    XSendEvent (w->screen->display->display, w->id, FALSE,
+			StructureNotifyMask, (XEvent *) &xev);
+	}
+
+	XUngrabServer (w->screen->display->display);
+    }
+    else
+    {
+	xev.x		 = w->attrib.x;
+	xev.y		 = w->attrib.y;
+	xev.width	 = w->serverWidth;
+	xev.height	 = w->serverHeight;
+	xev.border_width = w->serverBorderWidth;
+
+	xev.above	      = (w->prev) ? w->prev->id : None;
+	xev.override_redirect = w->attrib.override_redirect;
+
+	XSendEvent (w->screen->display->display, w->id, FALSE,
+		    StructureNotifyMask, (XEvent *) &xev);
+    }
 }
 
 void
@@ -1894,7 +2073,12 @@ mapWindow (CompWindow *w)
     if (w->attrib.map_state == IsViewable)
 	return;
 
+    w->pendingMaps--;
+
     w->mapNum = w->screen->mapNum++;
+
+    if (w->struts)
+	updateWorkareaForScreen (w->screen);
 
     if (w->attrib.class == InputOnly)
 	return;
@@ -1918,9 +2102,6 @@ mapWindow (CompWindow *w)
     if (w->frame)
 	XMapWindow (w->screen->display->display, w->frame);
 
-    if (w->struts)
-	updateWorkareaForScreen (w->screen);
-
     updateClientListForScreen (w->screen);
 
     if (w->type & CompWindowTypeDesktopMask)
@@ -1928,8 +2109,14 @@ mapWindow (CompWindow *w)
 
     if (w->protocols & CompWindowProtocolSyncRequestMask)
     {
-	sendSyncRequest (w);
-	sendConfigureNotify (w);
+	/* XXX: override_redirect windows and _NET_WM_SYNC_REQUEST
+	   protocol is causing issues. Avoid sending sync requests to
+	   override_redirect windows until this is solved. */
+	if (!w->attrib.override_redirect)
+	{
+	    sendSyncRequest (w);
+	    sendConfigureNotify (w);
+	}
     }
 
     if (!w->attrib.override_redirect)
@@ -1958,6 +2145,9 @@ unmapWindow (CompWindow *w)
     if (w->unmapRefCnt > 0)
 	return;
 
+    if (w->struts)
+	updateWorkareaForScreen (w->screen);
+
     if (w->attrib.map_state != IsViewable)
 	return;
 
@@ -1977,9 +2167,6 @@ unmapWindow (CompWindow *w)
 		      w->attrib.x, w->attrib.y,
 		      w->attrib.width, ++w->attrib.height - 1,
 		      w->attrib.border_width);
-
-    if (w->struts)
-	updateWorkareaForScreen (w->screen);
 
     updateClientListForScreen (w->screen);
 }
@@ -2226,9 +2413,9 @@ sendSyncRequest (CompWindow *w)
     w->syncWait	       = TRUE;
     w->syncX	       = w->serverX;
     w->syncY	       = w->serverY;
-    w->syncWidth       = w->attrib.width;
-    w->syncHeight      = w->attrib.height;
-    w->syncBorderWidth = w->attrib.border_width;
+    w->syncWidth       = w->serverWidth;
+    w->syncHeight      = w->serverHeight;
+    w->syncBorderWidth = w->serverBorderWidth;
 
     if (!w->syncWaitHandle)
 	w->syncWaitHandle = compAddTimeout (1000, syncWaitTimeout, w);
@@ -2248,6 +2435,13 @@ configureWindow (CompWindow	 *w,
     }
     else
     {
+	if (ce->override_redirect)
+	{
+	    w->serverWidth       = ce->width;
+	    w->serverHeight      = ce->height;
+	    w->serverBorderWidth = ce->border_width;
+	}
+
 	resizeWindow (w, ce->x, ce->y, ce->width, ce->height,
 		      ce->border_width);
     }
@@ -2312,35 +2506,19 @@ syncWindowPosition (CompWindow *w)
 		     w->attrib.y - w->input.top);
 }
 
-void
-setWindowScale (CompWindow *w,
-		float      xScale,
-		float      yScale)
-{
-    if (xScale > 0.999f && xScale < 1.001f &&
-	yScale > 0.999f && yScale < 1.001f)
-    {
-	w->paint.xScale = 1.0f;
-	w->paint.yScale = 1.0f;
-
-	w->scaled = FALSE;
-    }
-    else
-    {
-	w->paint.xScale = xScale;
-	w->paint.yScale = yScale;
-
-	w->scaled = TRUE;
-    }
-}
-
 Bool
 focusWindow (CompWindow *w)
 {
     if (w->attrib.override_redirect)
 	return FALSE;
 
-    if (!w->shaded && (!w->mapNum || w->attrib.map_state != IsViewable))
+    if (!w->managed)
+	return FALSE;
+
+    if (!onCurrentDesktop (w))
+	return FALSE;
+
+    if (!w->shaded && (w->state & CompWindowStateHiddenMask))
 	return FALSE;
 
     if (w->attrib.x + w->width  <= 0	||
@@ -2376,6 +2554,11 @@ windowGrabNotify (CompWindow   *w,
 
 void
 windowUngrabNotify (CompWindow *w)
+{
+}
+
+void
+windowStateChangeNotify (CompWindow *w)
 {
 }
 
@@ -2499,6 +2682,20 @@ moveInputFocusToWindow (CompWindow *w)
 
 	    XSendEvent (d->display, w->id, FALSE, NoEventMask, &ev);
 	}
+	else if (!modalTransient)
+	{
+	    CompWindow *ancestor;
+
+	    /* move input to closest ancestor */
+	    for (ancestor = s->windows; ancestor; ancestor = ancestor->next)
+	    {
+		if (isAncestorTo (w, ancestor))
+		{
+		    moveInputFocusToWindow (ancestor);
+		    break;
+		}
+	    }
+	}
     }
 }
 
@@ -2540,7 +2737,7 @@ avoidStackingRelativeTo (CompWindow *w)
     if (w->attrib.override_redirect)
 	return TRUE;
 
-    if (!w->shaded)
+    if (!w->shaded && !w->pendingMaps)
     {
 	if (w->attrib.map_state != IsViewable || w->mapNum == 0)
 	    return TRUE;
@@ -2757,13 +2954,13 @@ saveWindowGeometry (CompWindow *w,
 	w->saveWc.y = w->attrib.y;
 
     if (m & CWWidth)
-	w->saveWc.width = w->attrib.width;
+	w->saveWc.width = w->serverWidth;
 
     if (m & CWHeight)
-	w->saveWc.height = w->attrib.height;
+	w->saveWc.height = w->serverHeight;
 
     if (m & CWBorderWidth)
-	w->saveWc.border_width = w->attrib.border_width;
+	w->saveWc.border_width = w->serverBorderWidth;
 
     w->saveMask |= m;
 }
@@ -2789,7 +2986,7 @@ restoreWindowGeometry (CompWindow     *w,
 	   the same as the current width then make it a little be smaller so
 	   the user can see that it changed and it also makes sure that
 	   windowResizeNotify is called and plugins are notified. */
-	if (xwc->width == w->attrib.width)
+	if (xwc->width == w->serverWidth)
 	{
 	    xwc->width -= 10;
 	    if (m & CWX)
@@ -2803,7 +3000,7 @@ restoreWindowGeometry (CompWindow     *w,
 
 	/* As above, if the saved height is the same as the current height
 	   then make it a little be smaller. */
-	if (xwc->height == w->attrib.height)
+	if (xwc->height == w->serverHeight)
 	{
 	    xwc->height -= 10;
 	    if (m & CWY)
@@ -2819,12 +3016,20 @@ restoreWindowGeometry (CompWindow     *w,
     return m;
 }
 
-static void
-configureXWindow (Display	 *dpy,
-		  CompWindow	 *w,
+void
+configureXWindow (CompWindow	 *w,
 		  unsigned int	 valueMask,
 		  XWindowChanges *xwc)
 {
+    if (valueMask & CWWidth)
+	w->serverWidth = xwc->width;
+
+    if (valueMask & CWHeight)
+	w->serverHeight	= xwc->height;
+
+    if (valueMask & CWBorderWidth)
+	w->serverBorderWidth = xwc->border_width;
+
     XConfigureWindow (w->screen->display->display, w->id,
 		      valueMask, xwc);
 
@@ -2857,9 +3062,8 @@ stackTransients (CompWindow	*w,
 	    if (xwc->sibling == t->id)
 		return FALSE;
 
-	    if (t->mapNum)
-		configureXWindow (w->screen->display->display, t,
-				  CWSibling | CWStackMode, xwc);
+	    if (t->mapNum || t->pendingMaps)
+		configureXWindow (t, CWSibling | CWStackMode, xwc);
 	}
     }
 
@@ -2883,8 +3087,8 @@ stackAncestors (CompWindow     *w,
 	    if (ancestor->type & CompWindowTypeDesktopMask)
 		return;
 
-	    if (ancestor->mapNum)
-		configureXWindow (w->screen->display->display, ancestor,
+	    if (ancestor->mapNum || ancestor->pendingMaps)
+		configureXWindow (ancestor,
 				  CWSibling | CWStackMode,
 				  xwc);
 
@@ -2910,8 +3114,8 @@ stackAncestors (CompWindow     *w,
 		if (a->type & CompWindowTypeDesktopMask)
 		    continue;
 
-		if (a->mapNum)
-		    configureXWindow (w->screen->display->display, a,
+		if (a->mapNum || a->pendingMaps)
+		    configureXWindow (a,
 				      CWSibling | CWStackMode,
 				      xwc);
 	    }
@@ -2928,21 +3132,26 @@ addWindowSizeChanges (CompWindow     *w,
 		      int	     oldHeight,
 		      int	     oldBorderWidth)
 {
-    int mask = 0;
-    int x, y;
-    int vx, vy;
+    XRectangle workArea;
+    int	       mask = 0;
+    int	       x, y;
+    int	       vx, vy;
+    int	       output;
 
     defaultViewportForWindow (w, &vx, &vy);
 
     x = (vx - w->screen->x) * w->screen->width;
     y = (vy - w->screen->y) * w->screen->height;
 
+    output = outputDeviceForWindow (w);
+    getWorkareaForOutput (w->screen, output, &workArea);
+
     if (w->type & CompWindowTypeFullscreenMask)
     {
 	saveWindowGeometry (w, CWX | CWY | CWWidth | CWHeight | CWBorderWidth);
 
-	xwc->width	  = w->screen->width;
-	xwc->height	  = w->screen->height;
+	xwc->width	  = w->screen->outputDev[output].width;
+	xwc->height	  = w->screen->outputDev[output].height;
 	xwc->border_width = 0;
 
 	mask |= CWWidth | CWHeight | CWBorderWidth;
@@ -2955,7 +3164,7 @@ addWindowSizeChanges (CompWindow     *w,
 	{
 	    saveWindowGeometry (w, CWY | CWHeight);
 
-	    xwc->height = w->screen->workArea.height - w->input.top -
+	    xwc->height = workArea.height - w->input.top -
 		w->input.bottom - oldBorderWidth * 2;
 
 	    mask |= CWHeight;
@@ -2969,7 +3178,7 @@ addWindowSizeChanges (CompWindow     *w,
 	{
 	    saveWindowGeometry (w, CWX | CWWidth);
 
-	    xwc->width = w->screen->workArea.width - w->input.left -
+	    xwc->width = workArea.width - w->input.left -
 		w->input.right - oldBorderWidth * 2;
 
 	    mask |= CWWidth;
@@ -2980,16 +3189,16 @@ addWindowSizeChanges (CompWindow     *w,
 	}
 
 	/* constrain window width if greater than maximum width */
-	if (!(mask & CWWidth) && w->attrib.width > w->sizeHints.max_width)
+	if (!(mask & CWWidth) && w->serverWidth > w->sizeHints.max_width)
 	{
-	    xwc->width = w->attrib.width;
+	    xwc->width = w->sizeHints.max_width;
 	    mask |= CWWidth;
 	}
 
 	/* constrain window height if greater than maximum height */
-	if (!(mask & CWHeight) && w->attrib.height > w->sizeHints.max_height)
+	if (!(mask & CWHeight) && w->serverHeight > w->sizeHints.max_height)
 	{
-	    xwc->height = w->attrib.height;
+	    xwc->height = w->sizeHints.max_height;
 	    mask |= CWHeight;
 	}
     }
@@ -2998,8 +3207,8 @@ addWindowSizeChanges (CompWindow     *w,
     {
 	if (w->type & CompWindowTypeFullscreenMask)
 	{
-	    xwc->x = x;
-	    xwc->y = y;
+	    xwc->x = x + w->screen->outputDev[output].region.extents.x1;
+	    xwc->y = y + w->screen->outputDev[output].region.extents.y1;
 
 	    mask |= CWX | CWY;
 	}
@@ -3023,16 +3232,16 @@ addWindowSizeChanges (CompWindow     *w,
 
 	    if (w->state & CompWindowStateMaximizedVertMask)
 	    {
-		if (oldY < y + w->screen->workArea.y + w->input.top)
+		if (oldY < y + workArea.y + w->input.top)
 		{
-		    xwc->y = y + w->screen->workArea.y + w->input.top;
+		    xwc->y = y + workArea.y + w->input.top;
 		    mask |= CWY;
 		}
 		else
 		{
 		    height = xwc->height + oldBorderWidth * 2;
 
-		    max = y + w->screen->workArea.y + w->screen->workArea.height;
+		    max = y + workArea.y + workArea.height;
 		    if (oldY + oldHeight + w->input.bottom > max)
 		    {
 			xwc->y = max - height - w->input.bottom;
@@ -3040,9 +3249,9 @@ addWindowSizeChanges (CompWindow     *w,
 		    }
 		    else if (oldY + height + w->input.bottom > max)
 		    {
-			xwc->y = w->screen->workArea.y +
-			    (w->screen->workArea.height - w->input.top -
-			     height - w->input.bottom) / 2 + w->input.top;
+			xwc->y = y + workArea.y +
+			    (workArea.height - w->input.top - height -
+			     w->input.bottom) / 2 + w->input.top;
 			mask |= CWY;
 		    }
 		}
@@ -3050,16 +3259,16 @@ addWindowSizeChanges (CompWindow     *w,
 
 	    if (w->state & CompWindowStateMaximizedHorzMask)
 	    {
-		if (oldX < x + w->screen->workArea.x + w->input.left)
+		if (oldX < x + workArea.x + w->input.left)
 		{
-		    xwc->x = x + w->screen->workArea.x + w->input.left;
+		    xwc->x = x + workArea.x + w->input.left;
 		    mask |= CWX;
 		}
 		else
 		{
 		    width = xwc->width + oldBorderWidth * 2;
 
-		    max = x + w->screen->workArea.x + w->screen->workArea.width;
+		    max = x + workArea.x + workArea.width;
 		    if (oldX + oldWidth + w->input.right > max)
 		    {
 			xwc->x = max - width - w->input.right;
@@ -3067,9 +3276,9 @@ addWindowSizeChanges (CompWindow     *w,
 		    }
 		    else if (oldX + width + w->input.right > max)
 		    {
-			xwc->x = w->screen->workArea.x +
-			    (w->screen->workArea.width - w->input.left -
-			     width - w->input.right) / 2 + w->input.left;
+			xwc->x = x + workArea.x +
+			    (workArea.width - w->input.left - width -
+			     w->input.right) / 2 + w->input.left;
 			mask |= CWX;
 		    }
 		}
@@ -3098,9 +3307,9 @@ moveResizeWindow (CompWindow     *w,
     if (!(xwcm & CWY))
 	xwc->y = w->attrib.y;
     if (!(xwcm & CWWidth))
-	xwc->width = w->attrib.width;
+	xwc->width = w->serverWidth;
     if (!(xwcm & CWHeight))
-	xwc->height = w->attrib.height;
+	xwc->height = w->serverHeight;
 
     if (xwcm & (CWWidth | CWHeight))
     {
@@ -3126,7 +3335,7 @@ moveResizeWindow (CompWindow     *w,
 	case CenterGravity:
 	case SouthGravity:
 	    if (!(xwcm & CWX))
-		xwc->x += (w->attrib.width - xwc->width) / 2;
+		xwc->x += (w->serverWidth - xwc->width) / 2;
 	    break;
 
 	case NorthEastGravity:
@@ -3135,7 +3344,7 @@ moveResizeWindow (CompWindow     *w,
 	    if (xwcm & CWX)
 		xwc->x -= w->input.right;
 	    else
-		xwc->x += w->attrib.width - xwc->width;
+		xwc->x += w->serverWidth - xwc->width;
 	    break;
 
 	case StaticGravity:
@@ -3153,7 +3362,7 @@ moveResizeWindow (CompWindow     *w,
 	case CenterGravity:
 	case EastGravity:
 	    if (!(xwcm & CWY))
-		xwc->y += (w->attrib.height - xwc->height) / 2;
+		xwc->y += (w->serverHeight - xwc->height) / 2;
 	    break;
 
 	case SouthWestGravity:
@@ -3162,7 +3371,7 @@ moveResizeWindow (CompWindow     *w,
 	    if (xwcm & CWY)
 		xwc->y -= w->input.bottom;
 	    else
-		xwc->y += w->attrib.height - xwc->height;
+		xwc->y += w->serverHeight - xwc->height;
 	    break;
 
 	case StaticGravity:
@@ -3184,6 +3393,9 @@ moveResizeWindow (CompWindow     *w,
 	    min = w->screen->workArea.y + w->input.top;
 	    max = w->screen->workArea.y + w->screen->workArea.height;
 
+	    min -= w->screen->y * w->screen->height;
+	    max += (w->screen->vsize - w->screen->y - 1) * w->screen->height;
+
 	    if (xwc->y < min)
 		xwc->y = min;
 	    else if (xwc->y > max)
@@ -3197,6 +3409,9 @@ moveResizeWindow (CompWindow     *w,
 	    min = w->screen->workArea.x + w->input.left;
 	    max = w->screen->workArea.x + w->screen->workArea.width;
 
+	    min -= w->screen->x * w->screen->width;
+	    max += (w->screen->hsize - w->screen->x - 1) * w->screen->width;
+
 	    if (xwc->x < min)
 		xwc->x = min;
 	    else if (xwc->x > max)
@@ -3206,9 +3421,19 @@ moveResizeWindow (CompWindow     *w,
 
     if (xwcm & CWBorderWidth)
     {
-	if (xwc->border_width == w->attrib.border_width)
+	if (xwc->border_width == w->serverBorderWidth)
 	    xwcm &= ~CWBorderWidth;
     }
+
+    /* when horizontally maximized only allow width changes added by
+       addWindowSizeChanges */
+    if (w->state & CompWindowStateMaximizedHorzMask)
+	xwcm &= ~CWWidth;
+
+    /* when vertically maximized only allow height changes added by
+       addWindowSizeChanges */
+    if (w->state & CompWindowStateMaximizedVertMask)
+	xwcm &= ~CWHeight;
 
     xwcm |= addWindowSizeChanges (w, xwc,
 				  xwc->x, xwc->y,
@@ -3218,7 +3443,7 @@ moveResizeWindow (CompWindow     *w,
     if (w->mapNum && (xwcm & (CWWidth | CWHeight)))
 	sendSyncRequest (w);
 
-    XConfigureWindow (w->screen->display->display, w->id, xwcm, xwc);
+    configureXWindow (w, xwcm, xwc);
 
     if (placed)
 	w->placed = TRUE;
@@ -3230,16 +3455,19 @@ updateWindowSize (CompWindow *w)
     XWindowChanges xwc;
     int		   mask;
 
+    if (w->attrib.override_redirect || !w->managed)
+	return;
+
     mask = addWindowSizeChanges (w, &xwc,
 				 w->attrib.x, w->attrib.y,
-				 w->attrib.width, w->attrib.height,
-				 w->attrib.border_width);
+				 w->serverWidth, w->serverHeight,
+				 w->serverBorderWidth);
     if (mask)
     {
 	if (w->mapNum && (mask & (CWWidth | CWHeight)))
 	    sendSyncRequest (w);
 
-	configureXWindow (w->screen->display->display, w, mask, &xwc);
+	configureXWindow (w, mask, &xwc);
     }
 }
 
@@ -3296,8 +3524,7 @@ addWindowStackChanges (CompWindow     *w,
 
 	    for (; dw; dw = dw->prev)
 		if (dw->type & CompWindowTypeDockMask)
-		    configureXWindow (w->screen->display->display, dw,
-				      mask, xwc);
+		    configureXWindow (dw, mask, xwc);
 	}
     }
 
@@ -3312,7 +3539,7 @@ raiseWindow (CompWindow *w)
 
     mask = addWindowStackChanges (w, &xwc, findSiblingBelow (w, FALSE));
     if (mask)
-	configureXWindow (w->screen->display->display, w, mask, &xwc);
+	configureXWindow (w, mask, &xwc);
 }
 
 void
@@ -3323,7 +3550,7 @@ lowerWindow (CompWindow *w)
 
     mask = addWindowStackChanges (w, &xwc, findLowestSiblingBelow (w));
     if (mask)
-	configureXWindow (w->screen->display->display, w, mask, &xwc);
+	configureXWindow (w, mask, &xwc);
 }
 
 void
@@ -3341,7 +3568,7 @@ restackWindowAbove (CompWindow *w,
 
 	mask = addWindowStackChanges (w, &xwc, sibling);
 	if (mask)
-	    configureXWindow (w->screen->display->display, w, mask, &xwc);
+	    configureXWindow (w, mask, &xwc);
     }
 }
 
@@ -3360,7 +3587,7 @@ restackWindowBelow (CompWindow *w,
 
 	mask = addWindowStackChanges (w, &xwc, sibling);
 	if (mask)
-	    configureXWindow (w->screen->display->display, w, mask, &xwc);
+	    configureXWindow (w, mask, &xwc);
     }
 }
 
@@ -3386,8 +3613,8 @@ updateWindowAttributes (CompWindow *w,
     mask  = addWindowStackChanges (w, &xwc, findSiblingBelow (w, aboveFs));
     mask |= addWindowSizeChanges (w, &xwc,
 				  w->attrib.x, w->attrib.y,
-				  w->attrib.width, w->attrib.height,
-				  w->attrib.border_width);
+				  w->serverWidth, w->serverHeight,
+				  w->serverBorderWidth);
 
     if (!mask)
 	return;
@@ -3400,7 +3627,7 @@ updateWindowAttributes (CompWindow *w,
 	/* transient children above */
 	if (stackTransients (w, NULL, &xwc))
 	{
-	    configureXWindow (w->screen->display->display, w, mask, &xwc);
+	    configureXWindow (w, mask, &xwc);
 
 	    /* ancestors, sibilings and sibiling transients below */
 	    stackAncestors (w, &xwc);
@@ -3408,7 +3635,7 @@ updateWindowAttributes (CompWindow *w,
     }
     else
     {
-	configureXWindow (w->screen->display->display, w, mask, &xwc);
+	configureXWindow (w, mask, &xwc);
     }
 }
 
@@ -3449,22 +3676,47 @@ ensureWindowVisibility (CompWindow *w)
     }
 }
 
+static void
+revealWindow (CompWindow *w)
+{
+    if (w->minimized)
+	unminimizeWindow (w);
+
+    leaveShowDesktopMode (w->screen, w);
+}
+
+static void
+revealAncestors (CompWindow *w,
+		 void       *closure)
+{
+    CompWindow *transient = closure;
+
+    if (isAncestorTo (transient, w))
+    {
+	forEachWindowOnScreen (w->screen, revealAncestors, (void *) w);
+	revealWindow (w);
+    }
+}
+
 void
 activateWindow (CompWindow *w)
 {
+    setCurrentDesktop (w->screen, w->desktop);
+
+    forEachWindowOnScreen (w->screen, revealAncestors, (void *) w);
+    revealWindow (w);
+
     if (w->state & CompWindowStateHiddenMask)
     {
-	if (w->minimized)
-	    unminimizeWindow (w);
-
-	leaveShowDesktopMode (w->screen, w);
-
 	w->state &= ~CompWindowStateShadedMask;
 	if (w->shaded)
 	    showWindow (w);
     }
 
     if (w->state & CompWindowStateHiddenMask)
+	return;
+
+    if (!onCurrentDesktop (w))
 	return;
 
     ensureWindowVisibility (w);
@@ -3477,6 +3729,9 @@ closeWindow (CompWindow *w,
 	     Time	serverTime)
 {
     CompDisplay *display = w->screen->display;
+
+    if (serverTime == 0)
+	serverTime = getCurrentTimeFromDisplay (display);
 
     if (w->alive)
     {
@@ -3534,6 +3789,7 @@ constrainNewWindowSize (CompWindow *w,
 			int        *newWidth,
 			int        *newHeight)
 {
+    CompDisplay      *d = w->screen->display;
     const XSizeHints *hints = &w->sizeHints;
     int		     min_width = 0;
     int		     min_height = 0;
@@ -3543,6 +3799,13 @@ constrainNewWindowSize (CompWindow *w,
     int		     yinc = 1;
     int		     max_width = MAXSHORT;
     int		     max_height = MAXSHORT;
+    long	     flags = hints->flags;
+
+    if (d->opt[COMP_DISPLAY_OPTION_IGNORE_HINTS_WHEN_MAXIMIZED].value.b)
+    {
+	if ((w->state & MAXIMIZE_STATE) == MAXIMIZE_STATE)
+	    flags &= ~(PResizeInc | PAspect);
+    }
 
     /* Ater gdk_window_constrain_size(), which is partially borrowed from fvwm.
      *
@@ -3557,21 +3820,21 @@ constrainNewWindowSize (CompWindow *w,
 #define FLOOR64(value, base) (((uint64_t) ((value) / (base))) * (base))
 #define CLAMP(v, min, max) ((v) <= (min) ? (min) : (v) >= (max) ? (max) : (v))
 
-    if ((hints->flags & PBaseSize) && (hints->flags & PMinSize))
+    if ((flags & PBaseSize) && (flags & PMinSize))
     {
 	base_width = hints->base_width;
 	base_height = hints->base_height;
 	min_width = hints->min_width;
 	min_height = hints->min_height;
     }
-    else if (hints->flags & PBaseSize)
+    else if (flags & PBaseSize)
     {
 	base_width = hints->base_width;
 	base_height = hints->base_height;
 	min_width = hints->base_width;
 	min_height = hints->base_height;
     }
-    else if (hints->flags & PMinSize)
+    else if (flags & PMinSize)
     {
 	base_width = hints->min_width;
 	base_height = hints->min_height;
@@ -3579,13 +3842,13 @@ constrainNewWindowSize (CompWindow *w,
 	min_height = hints->min_height;
     }
 
-    if (hints->flags & PMaxSize)
+    if (flags & PMaxSize)
     {
 	max_width = hints->max_width;
 	max_height = hints->max_height;
     }
 
-    if (hints->flags & PResizeInc)
+    if (flags & PResizeInc)
     {
 	xinc = MAX (xinc, hints->width_inc);
 	yinc = MAX (yinc, hints->height_inc);
@@ -3605,8 +3868,7 @@ constrainNewWindowSize (CompWindow *w,
      * ------------  <= -------- <=  -----------
      * min_aspect.y       height     max_aspect.y
      */
-    if (hints->flags & PAspect &&
-	hints->min_aspect.y > 0 && hints->max_aspect.x > 0)
+    if ((flags & PAspect) && hints->min_aspect.y > 0 && hints->max_aspect.x > 0)
     {
 	/* Use 64 bit arithmetic to prevent overflow */
 
@@ -3651,7 +3913,7 @@ constrainNewWindowSize (CompWindow *w,
 #undef FLOOR64
 #undef FLOOR
 
-    if (width != w->attrib.width || height != w->attrib.height)
+    if (width != w->serverWidth || height != w->serverHeight)
     {
 	*newWidth  = width;
 	*newHeight = height;
@@ -3665,7 +3927,12 @@ constrainNewWindowSize (CompWindow *w,
 void
 hideWindow (CompWindow *w)
 {
-    if (!w->minimized && !w->inShowDesktopMode && !w->hidden)
+    Bool onDesktop = onCurrentDesktop (w);
+
+    if (!w->managed)
+	return;
+
+    if (!w->minimized && !w->inShowDesktopMode && !w->hidden && onDesktop)
     {
 	if (w->state & CompWindowStateShadedMask)
 	{
@@ -3689,10 +3956,8 @@ hideWindow (CompWindow *w)
     if (w->attrib.map_state != IsViewable)
 	return;
 
-    if (w->state & CompWindowStateHiddenMask)
-	return;
-
-    w->state |= CompWindowStateHiddenMask;
+    if (w->minimized || w->inShowDesktopMode || w->hidden || w->shaded)
+	w->state |= CompWindowStateHiddenMask;
 
     w->pendingUnmaps++;
 
@@ -3701,17 +3966,36 @@ hideWindow (CompWindow *w)
 
     XUnmapWindow (w->screen->display->display, w->id);
 
+    (*w->screen->windowStateChangeNotify) (w);
+
     setWindowState (w->screen->display, w->state, w->id);
 }
 
 void
 showWindow (CompWindow *w)
 {
-    if (!(w->state & CompWindowStateHiddenMask))
+    Bool onDesktop = onCurrentDesktop (w);
+
+    if (!w->managed)
 	return;
 
-    if (w->minimized || w->inShowDesktopMode || w->hidden)
+    if (w->minimized || w->inShowDesktopMode || w->hidden || !onDesktop)
+    {
+	/* no longer hidden but not on current desktop */
+	if (!w->minimized && !w->inShowDesktopMode && !w->hidden)
+	{
+	    if (w->state & CompWindowStateHiddenMask)
+	    {
+		w->state &= ~CompWindowStateHiddenMask;
+
+		(*w->screen->windowStateChangeNotify) (w);
+
+		setWindowState (w->screen->display, w->state, w->id);
+	    }
+	}
+
 	return;
+    }
 
     /* transition from minimized to shaded */
     if (w->state & CompWindowStateShadedMask)
@@ -3738,7 +4022,11 @@ showWindow (CompWindow *w)
 
     w->state &= ~CompWindowStateHiddenMask;
 
+    w->pendingMaps++;
+
     XMapWindow (w->screen->display->display, w->id);
+
+    (*w->screen->windowStateChangeNotify) (w);
 
     setWindowState (w->screen->display, w->state, w->id);
 }
@@ -3751,7 +4039,16 @@ minimizeTransients (CompWindow *w,
 
     if (w->transientFor == ancestor->id ||
 	isGroupTransient (w, ancestor->clientLeader))
-	minimizeWindow (w);
+    {
+	if (!w->minimized)
+	{
+	    w->minimized = TRUE;
+
+	    forEachWindowOnScreen (w->screen, minimizeTransients, (void *) w);
+
+	    hideWindow (w);
+	}
+    }
 }
 
 void
@@ -3813,6 +4110,8 @@ maximizeWindow (CompWindow *w,
 
     recalcWindowType (w);
     recalcWindowActions (w);
+
+    (*w->screen->windowStateChangeNotify) (w);
 
     updateWindowAttributes (w, FALSE);
 
@@ -3897,6 +4196,9 @@ unredirectWindow (CompWindow *w)
 
     w->redirected = FALSE;
     w->screen->overlayWindowCount++;
+
+    if (w->screen->overlayWindowCount > 0)
+	hideOutputWindow (w->screen);
 }
 
 void
@@ -3910,6 +4212,9 @@ redirectWindow (CompWindow *w)
 
     w->redirected = TRUE;
     w->screen->overlayWindowCount--;
+
+    if (w->screen->overlayWindowCount < 1)
+	showOutputWindow (w->screen);
 }
 
 /* Returns the current viewport for a window. If the window spans more than
@@ -4125,4 +4430,41 @@ outputDeviceForWindow (CompWindow *w)
     }
 
     return output;
+}
+
+Bool
+onCurrentDesktop (CompWindow *w)
+{
+    if (w->desktop == 0xffffffff || w->desktop == w->screen->currentDesktop)
+	return TRUE;
+
+    return FALSE;
+}
+
+void
+setDesktopForWindow (CompWindow   *w,
+		     unsigned int desktop)
+{
+    if (desktop != 0xffffffff)
+    {
+	if (w->type & (CompWindowTypeDesktopMask | CompWindowTypeDockMask))
+	    return;
+
+	if (desktop < 0 || desktop >= w->screen->nDesktop)
+	    return;
+    }
+
+    if (desktop == w->desktop)
+	return;
+
+    w->desktop = desktop;
+
+    if (desktop == 0xffffffff || desktop == w->screen->currentDesktop)
+	showWindow (w);
+    else
+	hideWindow (w);
+
+    setWindowProp (w->screen->display, w->id,
+		   w->screen->display->winDesktopAtom,
+		   w->desktop);
 }

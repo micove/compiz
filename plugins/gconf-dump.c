@@ -60,7 +60,8 @@
 
 #include <glib/gi18n.h>
 #include <gconf/gconf-client.h>
-#include <gconf-compiz-utils.h>
+
+#define APP_NAME "/apps/compiz"
 
 static FILE *schemaFile;
 
@@ -86,6 +87,7 @@ static gchar *actionSufix[] = {
     "button",
     "bell",
     "edge",
+    "edgebutton",
     NULL
 };
 
@@ -140,11 +142,7 @@ gconfValueToString (CompDisplay	    *d,
     case CompOptionTypeBool:
 	return g_strdup (value->b ? "true" : "false");
     case CompOptionTypeColor:
-	return g_strdup_printf ("#%.2x%.2x%.2x%.2x",
-				value->c[0] / 256,
-				value->c[1] / 256,
-				value->c[2] / 256,
-				value->c[3] / 256);
+	return colorToString (value->c);
     case CompOptionTypeInt:
 	return g_strdup_printf ("%d", value->i);
     case CompOptionTypeFloat:
@@ -194,7 +192,7 @@ gconfActionValueToString (CompDisplay	  *d,
     {
 	if (value->action.type & CompBindingTypeKey)
 	{
-	    tmp = gconfKeyBindingToString (d, &value->action.key);
+	    tmp = keyBindingToString (d, &value->action.key);
 	    escaped = g_markup_escape_text (tmp, -1);
 	    g_free (tmp);
 	}
@@ -205,7 +203,7 @@ gconfActionValueToString (CompDisplay	  *d,
     {
 	if (value->action.type & CompBindingTypeButton)
 	{
-	    tmp = gconfButtonBindingToString (d, &value->action.button);
+	    tmp = buttonBindingToString (d, &value->action.button);
 	    escaped = g_markup_escape_text (tmp, -1);
 	    g_free (tmp);
 	}
@@ -268,7 +266,7 @@ getLongDesc (CompOption *o, const char *option_name)
 	g_string_append (str, " (");
 	for (i = 0; i < SCREEN_EDGE_NUM; i++)
 	{
-	    edge = gconfEdgeToString (i);
+	    edge = edgeToString (i);
 
 	    if (i > 0)
 		g_string_append (str, ", ");
@@ -396,6 +394,16 @@ gconfDumpToSchema (CompDisplay *d,
 	    gconfPrintf (3, "<type>string</type>\n");
 	    value = gconfActionValueToString (d, CompBindingTypeKey, &o->value);
 	}
+	else if (strcmp (name + len - 10, "edgebutton") == 0)
+	{
+	    gint button;
+
+	    button = (o->value.action.type & CompBindingTypeEdgeButton) ?
+		o->value.action.edgeButton : 0;
+
+	    gconfPrintf (3, "<type>int</type>\n");
+	    value = g_strdup_printf ("%d", button);
+	}
 	else if (strcmp (name + len - 6, "button") == 0)
 	{
 	    gconfPrintf (3, "<type>string</type>\n");
@@ -423,7 +431,7 @@ gconfDumpToSchema (CompDisplay *d,
 		{
 		    tmp2 = g_strdup_printf ("%s%s%s", tmp1,
 					    (tmp2) ? "," : "",
-					    gconfEdgeToString (i));
+					    edgeToString (i));
 		    g_free (tmp1);
 
 		    tmp1 = tmp2;
@@ -582,7 +590,7 @@ dumpPluginOptions (CompDisplay *d, CompPlugin *p)
 
 	for (i = 0; i < p->vTable->nDeps; i++)
 	{
-	    value.s = p->vTable->deps[i].plugin;
+	    value.s = p->vTable->deps[i].name;
 	    if (p->vTable->deps[i].rule == CompPluginRuleBefore)
 		g_array_append_val (before, value);
 	    else
@@ -836,8 +844,10 @@ CompPluginVTable gconfDumpVTable = {
     0, /* SetDisplayOption */
     0, /* GetScreenOptions */
     0, /* SetScreenOption */
-    0,
-    0
+    0, /* Deps */
+    0, /* nDeps */
+    0, /* Features */
+    0  /* nFeatures */
 };
 
 CompPluginVTable *

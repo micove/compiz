@@ -43,6 +43,7 @@ void
 initTexture (CompScreen  *screen,
 	     CompTexture *texture)
 {
+    texture->refCount	= 1;
     texture->name	= 0;
     texture->target	= GL_TEXTURE_2D;
     texture->pixmap	= None;
@@ -62,6 +63,33 @@ finiTexture (CompScreen  *screen,
 	releasePixmapFromTexture (screen, texture);
 	glDeleteTextures (1, &texture->name);
     }
+}
+
+CompTexture *
+createTexture (CompScreen *screen)
+{
+    CompTexture *texture;
+
+    texture = (CompTexture *) malloc (sizeof (CompTexture));
+    if (!texture)
+	return NULL;
+
+    initTexture (screen, texture);
+
+    return texture;
+}
+
+void
+destroyTexture (CompScreen  *screen,
+		CompTexture *texture)
+{
+    texture->refCount--;
+    if (texture->refCount)
+	return;
+
+    finiTexture (screen, texture);
+
+    free (texture);
 }
 
 static Bool
@@ -141,37 +169,12 @@ readImageToTexture (CompScreen   *screen,
 		    unsigned int *returnWidth,
 		    unsigned int *returnHeight)
 {
-    char	 *image;
-    unsigned int width, height;
-    Bool	 status;
+    void *image;
+    int  width, height;
+    Bool status;
 
-    if (!readPng (imageFileName, &image, &width, &height))
-	return FALSE;
-
-    status = imageToTexture (screen, texture, image, width, height);
-
-    free (image);
-
-    if (returnWidth)
-	*returnWidth = width;
-    if (returnHeight)
-	*returnHeight = height;
-
-    return status;
-}
-
-Bool
-readImageBufferToTexture (CompScreen	      *screen,
-			  CompTexture	      *texture,
-			  const unsigned char *imageBuffer,
-			  unsigned int	      *returnWidth,
-			  unsigned int	      *returnHeight)
-{
-    char	 *image;
-    unsigned int width, height;
-    Bool	 status;
-
-    if (!readPngBuffer (imageBuffer, &image, &width, &height))
+    if (!readImageFromFile (screen->display, imageFileName,
+			    &width, &height, &image))
 	return FALSE;
 
     status = imageToTexture (screen, texture, image, width, height);

@@ -23,12 +23,46 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
+#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <ctype.h>
 #include <math.h>
 
 #include <compiz.h>
+
+struct _Modifier {
+    char *name;
+    int  modifier;
+} modifiers[] = {
+    { "<Shift>",      ShiftMask		 },
+    { "<Control>",    ControlMask	 },
+    { "<Mod1>",	      Mod1Mask		 },
+    { "<Mod2>",	      Mod2Mask		 },
+    { "<Mod3>",	      Mod3Mask		 },
+    { "<Mod4>",	      Mod4Mask		 },
+    { "<Mod5>",	      Mod5Mask		 },
+    { "<Alt>",	      CompAltMask        },
+    { "<Meta>",	      CompMetaMask       },
+    { "<Super>",      CompSuperMask      },
+    { "<Hyper>",      CompHyperMask	 },
+    { "<ModeSwitch>", CompModeSwitchMask },
+};
+
+#define N_MODIFIERS (sizeof (modifiers) / sizeof (struct _Modifier))
+
+static char *edgeName[] = {
+    N_("Left"),
+    N_("Right"),
+    N_("Top"),
+    N_("Bottom"),
+    N_("TopLeft"),
+    N_("TopRight"),
+    N_("BottomLeft"),
+    N_("BottomRight")
+};
 
 CompOption *
 compFindOption (CompOption *option,
@@ -177,6 +211,12 @@ compSetActionOption (CompOption      *option,
 	{
 	    if (action->key.keycode   != value->action.key.keycode ||
 		action->key.modifiers != value->action.key.modifiers)
+		equal = FALSE;
+	}
+
+	if (value->action.type & CompBindingTypeEdgeButton)
+	{
+	    if (action->edgeButton != value->action.edgeButton)
 		equal = FALSE;
 	}
 
@@ -385,4 +425,268 @@ getStringOptionNamed (CompOption *option,
     }
 
     return defaultValue;
+}
+
+unsigned short *
+getColorOptionNamed (CompOption	    *option,
+		     int	    nOption,
+		     char	    *name,
+		     unsigned short *defaultValue)
+{
+    while (nOption--)
+    {
+	if (option->type == CompOptionTypeColor)
+	    if (strcmp (option->name, name) == 0)
+		return option->value.c;
+
+	option++;
+    }
+
+    return defaultValue;
+}
+
+static char *
+stringAppend (char *s,
+	      char *a)
+{
+    char *r;
+    int  len;
+
+    len = strlen (a);
+
+    if (s)
+	len += strlen (s);
+
+    r = malloc (len + 1);
+    if (r)
+    {
+	if (s)
+	{
+	    sprintf (r, "%s%s", s, a);
+	    free (s);
+	}
+	else
+	{
+	    sprintf (r, "%s", a);
+	}
+
+	s = r;
+    }
+
+    return s;
+}
+
+static char *
+modifiersToString (CompDisplay  *d,
+		   unsigned int modMask)
+{
+    char *binding = NULL;
+    int  i;
+
+    for (i = 0; i < N_MODIFIERS; i++)
+    {
+	if (modMask & modifiers[i].modifier)
+	    binding = stringAppend (binding, modifiers[i].name);
+    }
+
+    return binding;
+}
+
+char *
+keyBindingToString (CompDisplay    *d,
+		    CompKeyBinding *key)
+{
+    char *binding;
+
+    binding = modifiersToString (d, key->modifiers);
+
+    if (key->keycode != 0)
+    {
+	KeySym keysym;
+	char   *keyname;
+
+	keysym  = XKeycodeToKeysym (d->display, key->keycode, 0);
+	keyname = XKeysymToString (keysym);
+
+	if (keyname)
+	{
+	    binding = stringAppend (binding, keyname);
+	}
+	else
+	{
+	    char keyCodeStr[256];
+
+	    snprintf (keyCodeStr, 256, "0x%x", key->keycode);
+	    binding = stringAppend (binding, keyCodeStr);
+	}
+    }
+
+    return binding;
+}
+
+char *
+buttonBindingToString (CompDisplay       *d,
+		       CompButtonBinding *button)
+{
+    char *binding;
+    char buttonStr[256];
+
+    binding = modifiersToString (d, button->modifiers);
+
+    snprintf (buttonStr, 256, "Button%d", button->button);
+    binding = stringAppend (binding, buttonStr);
+
+    return binding;
+}
+
+static unsigned int
+stringToModifiers (CompDisplay *d,
+		   const char  *binding)
+{
+    unsigned int mods = 0;
+    int		 i;
+
+    for (i = 0; i < N_MODIFIERS; i++)
+    {
+	if (strcasestr (binding, modifiers[i].name))
+	    mods |= modifiers[i].modifier;
+    }
+
+    return mods;
+}
+
+Bool
+stringToKeyBinding (CompDisplay    *d,
+		    const char     *binding,
+		    CompKeyBinding *key)
+{
+    char	  *ptr;
+    unsigned int  mods;
+    KeySym	  keysym;
+
+    mods = stringToModifiers (d, binding);
+
+    ptr = strrchr (binding, '>');
+    if (ptr)
+	binding = ptr + 1;
+
+    while (*binding && !isalnum (*binding))
+	binding++;
+
+    keysym = XStringToKeysym (binding);
+    if (keysym != NoSymbol)
+    {
+	KeyCode keycode;
+
+	keycode = XKeysymToKeycode (d->display, keysym);
+	if (keycode)
+	{
+	    key->keycode   = keycode;
+	    key->modifiers = mods;
+
+	    return TRUE;
+	}
+    }
+
+    if (strncmp (binding, "0x", 2) == 0)
+    {
+	key->keycode   = strtol (binding, NULL, 0);
+	key->modifiers = mods;
+
+	return TRUE;
+    }
+
+    return FALSE;
+}
+
+Bool
+stringToButtonBinding (CompDisplay	 *d,
+		       const char	 *binding,
+		       CompButtonBinding *button)
+{
+    char	 *ptr;
+    unsigned int mods;
+
+    mods = stringToModifiers (d, binding);
+
+    ptr = strrchr (binding, '>');
+    if (ptr)
+	binding = ptr + 1;
+
+    while (*binding && !isalnum (*binding))
+	binding++;
+
+    if (strncmp (binding, "Button", strlen ("Button")) == 0)
+    {
+	int buttonNum;
+
+	if (sscanf (binding + strlen ("Button"), "%d", &buttonNum) == 1)
+	{
+	    button->button    = buttonNum;
+	    button->modifiers = mods;
+
+	    return TRUE;
+	}
+    }
+
+    return FALSE;
+}
+
+char *
+edgeToString (unsigned int edge)
+{
+    return edgeName[edge];
+}
+
+Bool
+stringToColor (const char     *color,
+	       unsigned short *rgba)
+{
+    int c[4];
+
+    if (sscanf (color, "#%2x%2x%2x%2x", &c[0], &c[1], &c[2], &c[3]) == 4)
+    {
+	rgba[0] = c[0] << 8 | c[0];
+	rgba[1] = c[1] << 8 | c[1];
+	rgba[2] = c[2] << 8 | c[2];
+	rgba[3] = c[3] << 8 | c[3];
+
+	return TRUE;
+    }
+
+    return FALSE;
+}
+
+char *
+colorToString (unsigned short *rgba)
+{
+    char tmp[256];
+
+    snprintf (tmp, 256, "#%.2x%.2x%.2x%.2x",
+	      rgba[0] / 256, rgba[1] / 256, rgba[2] / 256, rgba[3] / 256);
+
+    return strdup (tmp);
+}
+
+char *
+optionTypeToString (CompOptionType type)
+{
+    switch (type) {
+    case CompOptionTypeAction:
+	return "action";
+    case CompOptionTypeBool:
+	return "bool";
+    case CompOptionTypeInt:
+	return "int";
+    case CompOptionTypeFloat:
+	return "float";
+    case CompOptionTypeString:
+	return "string";
+    case CompOptionTypeColor:
+	return "color";
+    case CompOptionTypeList:
+	return "list";
+    }
+
+    return "unknown";
 }

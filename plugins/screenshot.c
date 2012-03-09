@@ -23,7 +23,6 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#define _GNU_SOURCE
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
@@ -165,6 +164,21 @@ shotFilter (const struct dirent *d)
     return 0;
 }
 
+static int
+shotSort (const void *_a,
+	  const void *_b)
+{
+    struct dirent **a = (struct dirent **) _a;
+    struct dirent **b = (struct dirent **) _b;
+    int		  al = strlen ((*a)->d_name);
+    int		  bl = strlen ((*b)->d_name);
+
+    if (al == bl)
+	return strcoll ((*a)->d_name, (*b)->d_name);
+    else
+	return al - bl;
+}
+
 static Bool
 shotPaintScreen (CompScreen		 *s,
 		 const ScreenPaintAttrib *sAttrib,
@@ -192,9 +206,9 @@ shotPaintScreen (CompScreen		 *s,
 	if (ss->grabIndex)
 	{
 	    glPushMatrix ();
-	    glTranslatef (-0.5f, -0.5f, -DEFAULT_Z_CAMERA);
-	    glScalef (1.0f / s->width, -1.0f / s->height, 1.0f);
-	    glTranslatef (0.0f, -s->height, 0.0f);
+
+	    prepareXCoords (s, output, -DEFAULT_Z_CAMERA);
+
 	    glDisableClientState (GL_TEXTURE_COORD_ARRAY);
 	    glEnable (GL_BLEND);
 	    glColor4us (0x2fff, 0x2fff, 0x4fff, 0x4fff);
@@ -211,7 +225,7 @@ shotPaintScreen (CompScreen		 *s,
 	    glEnableClientState (GL_TEXTURE_COORD_ARRAY);
 	    glPopMatrix ();
 	}
-	else
+	else if (output == (s->nOutputDev - 1))
 	{
 	    int w = x2 - x1;
 	    int h = y2 - y1;
@@ -233,10 +247,10 @@ shotPaintScreen (CompScreen		 *s,
 				  GL_RGBA, GL_UNSIGNED_BYTE,
 				  (GLvoid *) buffer);
 
-		    n = scandir (dir, &namelist, shotFilter, versionsort);
+		    n = scandir (dir, &namelist, shotFilter, shotSort);
 		    if (n >= 0)
 		    {
-			char *name;
+			char name[256];
 			int  number = 0;
 
 			if (n > 0)
@@ -249,16 +263,13 @@ shotPaintScreen (CompScreen		 *s,
 			if (n)
 			    free (namelist);
 
-			name = malloc (strlen (dir) + 256);
-			if (name)
+			sprintf (name, "screenshot%d.png", number);
+
+			if (!writeImageToFile (s->display, dir, name, "png",
+					       w, h, buffer))
 			{
-			    sprintf (name, "%s/screenshot%d.png", dir, number);
-
-			    if (!writePngToFile (buffer, name, w, h, w * 4))
-				fprintf (stderr, "%s: failed to write "
-					 "screenshot image", programName);
-
-			    free (name);
+			    fprintf (stderr, "%s: failed to write "
+				     "screenshot image", programName);
 			}
 		    }
 		    else
@@ -277,11 +288,9 @@ shotPaintScreen (CompScreen		 *s,
     return status;
 }
 
-
 static void
 shotHandleMotionEvent (CompScreen *s,
 		       int	  xRoot,
-
 		       int	  yRoot)
 {
     SHOT_SCREEN (s);
@@ -527,8 +536,10 @@ static CompPluginVTable shotVTable = {
     shotSetDisplayOption,
     0, /* GetScreenOptions */
     0, /* SetScreenOption */
-    NULL,
-    0
+    0, /* Deps */
+    0, /* nDeps */
+    0, /* Features */
+    0  /* nFeatures */
 };
 
 CompPluginVTable *
