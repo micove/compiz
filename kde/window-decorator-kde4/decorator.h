@@ -80,8 +80,11 @@ class PluginManager:public KDecorationPlugins {
 
 class Decorator:public KApplication {
     Q_OBJECT public:
-
+#ifdef QT_45
 	Decorator ();
+#else
+        Decorator (Display* display, Qt::HANDLE visual, Qt::HANDLE colormap);
+#endif
 	~Decorator (void);
 
 	static NETRootInfo *rootInfo (void)
@@ -112,18 +115,19 @@ class Decorator:public KApplication {
 				       long data1 = 0,
 				       long data2 = 0,
 				       long data3 = 0);
-
+	
 	bool enableDecorations (Time timestamp);
 	bool x11EventFilter (XEvent *xevent);
 	void changeShadowOptions (decor_shadow_options_t *opt);
 
     public slots:
 	void reconfigure (void);
-	
+
     private:
 	WId fetchFrame (WId window);
 	void updateShadow (void);
 	void updateAllShadowOptions (void);
+	void updateShadowProperties (WId id);
 
     private slots:
 	void handleWindowAdded (WId id);

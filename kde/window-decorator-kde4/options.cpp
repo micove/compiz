@@ -36,7 +36,7 @@ unsigned long
 KWD::Options::updateSettings (void)
 {
     unsigned long changed = 0;
-    KConfigGroup config = mConfig->group("Windows");
+    KConfigGroup config = mConfig->group ("Windows");
 
     changed |= KDecorationOptions::updateSettings (mConfig);
 
@@ -54,7 +54,7 @@ KWD::Options::updateSettings (void)
 					   "Maximize (horizontal only)"),
 			 true));
 
-    config = mConfig->group("MouseBindings");
+    config = mConfig->group ("MouseBindings");
 
     CmdActiveTitlebar1 =
 	mouseCommand (config.readEntry ("CommandActiveTitlebar1",

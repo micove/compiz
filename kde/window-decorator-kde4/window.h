@@ -26,6 +26,7 @@
 
 #include <kdecorationbridge.h>
 #include <KDE/KActionCollection>
+#include <kdeversion.h>
 
 #include <qpixmap.h>
 #include <qwidget.h>
@@ -55,6 +56,7 @@ class Window: public QObject, public KDecorationBridgeUnstable {
 
 	enum Type
 	{
+	    Normal2D,
 	    Normal,
 	    Default,
 	    DefaultActive
@@ -62,7 +64,7 @@ class Window: public QObject, public KDecorationBridgeUnstable {
 
     public:
 	Window (WId parentId, WId clientId, WId frame, Type type,
-		int x = 0, int y = 0, int w = 1, int h = 1);
+		QRect geometry = QRect ());
 	~Window (void);
 
 	virtual bool isActive (void) const;
@@ -111,8 +113,25 @@ class Window: public QObject, public KDecorationBridgeUnstable {
 
 	/* unstable API */
 	virtual bool compositingActive () const;
-	
-	virtual bool eventFilter (QObject* o, QEvent* e);
+
+#if KDE_IS_VERSION(4,3,90)
+	virtual QRect transparentRect () const;
+
+	virtual bool isClientGroupActive ();
+	virtual QList<ClientGroupItem> clientGroupItems () const;
+	virtual long itemId (int index);
+	virtual int visibleClientGroupItem ();
+	virtual void setVisibleClientGroupItem (int index);
+	virtual void moveItemInClientGroup (int index, int before);
+	virtual void moveItemToClientGroup (long itemId, int before);
+	virtual void removeFromClientGroup (int index, const QRect& newGeom);
+	virtual void closeClientGroupItem (int index);
+	virtual void closeAllInClientGroup ();
+	virtual void displayClientMenu (int index, const QPoint& pos);
+
+	virtual WindowOperation
+	    buttonToWindowOperation(Qt::MouseButtons button);
+#endif
 
 	void handleActiveChange (void);
 	void updateFrame (WId frame);
@@ -159,9 +178,6 @@ class Window: public QObject, public KDecorationBridgeUnstable {
 	    return mPixmap;
 	}
 	
-	bool handleMap (void);
-	bool handleConfigure (QSize size);
-	
 	decor_extents_t *border (void)
 	{
 	    return &mBorder;
@@ -181,6 +197,7 @@ class Window: public QObject, public KDecorationBridgeUnstable {
 	    return mFakeRelease;
 	}
 	
+	virtual bool eventFilter (QObject *o, QEvent *e);
 
     private:
 	void createDecoration (void);
@@ -191,12 +208,15 @@ class Window: public QObject, public KDecorationBridgeUnstable {
 				 int rightOffset);
 	void updateProperty (void);
 	void getWindowProtocols (void);
+
+	Options::MouseCommand buttonToCommand (Qt::MouseButtons button);
 	void performMouseCommand (KWD::Options::MouseCommand command,
-				  QMouseEvent		     *qme);
+				  QMouseEvent                *qme);
 	NET::Direction positionToDirection (int pos);
 	Cursor positionToCursor (QPoint pos);
 
     private slots:
+	void resizeDecorationTimeout ();
 	void handlePopupActivated (QAction *action);
 	void handleOpacityPopupActivated (QAction *action);
 	void handleDesktopPopupActivated (QAction *action);

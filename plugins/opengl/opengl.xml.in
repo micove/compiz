@@ -1,0 +1,48 @@
+<compiz>
+    <plugin name="opengl" useBcop="true">
+	<_short>OpenGL</_short>
+	<_long>OpenGL Plugin</_long>
+	<category>General</category>
+	<deps>
+	    <requirement>
+		<plugin>composite</plugin>
+	    </requirement>
+	</deps>
+	<options>
+	    <option name="texture_filter" type="int">
+		<_short>Texture Filter</_short>
+		<_long>Texture filtering</_long>
+		<default>1</default>
+		<min>0</min>
+		<max>2</max>
+		<desc>
+		    <value>0</value>
+		    <_name>Fast</_name>
+		</desc>
+		<desc>
+		    <value>1</value>
+		    <_name>Good</_name>
+		</desc>
+		<desc>
+		    <value>2</value>
+		    <_name>Best</_name>
+		</desc>
+	    </option>
+	    <option name="lighting" type="bool">
+		<_short>Lighting</_short>
+		<_long>Use diffuse light when screen is transformed</_long>
+		<default>true</default>
+	    </option>
+	    <option name="sync_to_vblank" type="bool">
+		<_short>Sync To VBlank</_short>
+		<_long>Only perform screen updates during vertical blanking period</_long>
+		<default>true</default>
+	    </option>
+	    <option name="texture_compression" type="bool">
+		<_short>Texture Compression</_short>
+		<_long>If available use compression for textures converted from images</_long>
+		<default>false</default>
+	    </option>
+	</options>
+    </plugin>
+</compiz>

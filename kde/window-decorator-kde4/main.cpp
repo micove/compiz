@@ -35,7 +35,6 @@
 #include "utils.h"
 
 #include <QX11Info>
-#include <QtDBus/QtDBus>
 
 
 
@@ -51,8 +50,7 @@ main (int argc, char **argv)
 
     options.add ("replace", ki18n ("Replace existing window decorator"));
     options.add ("sm-disable", ki18n ("Disable connection to session manager"));
-    options.add ("blur <type>", ki18n ("Blur type (none/titlebar/all)"), "none");
-
+    options.add ("blur <type>", ki18n ("Blur type (none,titlebar,all)"), "none");
     KAboutData about("kde-window-decorator", "kwin", ki18n ("KDE Window Decorator"),
                      "0.0.1", KLocalizedString(), KAboutData::License_GPL,
                      KLocalizedString(), KLocalizedString(), "http://www.compiz.org", 
@@ -80,7 +78,7 @@ main (int argc, char **argv)
     if (args->isSet ("sm-disable"))
 	app->disableSessionManagement ();
 
-    status = decor_acquire_dm_session (QX11Info::display(),
+    status = decor_acquire_dm_session (QX11Info::display (),
 				       QX11Info::appScreen (),
 				       "kwd", args->isSet ("replace"),
 				       &timestamp);
@@ -92,7 +90,7 @@ main (int argc, char **argv)
 		     "%s: Could not acquire decoration manager "
 		     "selection on screen %d display \"%s\"\n",
 		     argv[0], QX11Info::appScreen (),
-		     DisplayString (QX11Info::display()));
+		     DisplayString (QX11Info::display ()));
 	}
 	else if (status == DECOR_ACQUIRE_STATUS_OTHER_DM_RUNNING)
 	{
@@ -102,19 +100,21 @@ main (int argc, char **argv)
 		     "--replace option to replace the current "
 		     "decoration manager.\n",
 		     argv[0], QX11Info::appScreen (),
-		     DisplayString (QX11Info::display()));
+		     DisplayString (QX11Info::display ()));
 	}
 
 	return 1;
     }
 
-    decor_set_dm_check_hint (QX11Info::display(), QX11Info::appScreen ());
+    decor_set_dm_check_hint (QX11Info::display (), QX11Info::appScreen (),
+			     WINDOW_DECORATION_TYPE_PIXMAP |
+			     WINDOW_DECORATION_TYPE_WINDOW);
 
     if (!app->enableDecorations (timestamp))
     {
 	fprintf (stderr,
 		 "%s: Could not enable decorations on display \"%s\"\n",
-		 argv[0], DisplayString (QX11Info::display()));
+		 argv[0], DisplayString (QX11Info::display ()));
 
 	return 1;
     }
@@ -122,10 +122,7 @@ main (int argc, char **argv)
     if (QX11Info::appScreen () == 0)
         appname = "org.kde.kwin";
     else
-        appname.sprintf("org.kde.kwin-screen-%d", QX11Info::appScreen ());
-
-    QDBusConnection::sessionBus ().interface ()->registerService
-	(appname, QDBusConnectionInterface::DontQueueService);
+        appname.sprintf ("org.kde.kwin-screen-%d", QX11Info::appScreen ());
 
     status = app->exec ();
 

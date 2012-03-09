@@ -1,3 +1,81 @@
+Release 0.9.2.1 (2010-11-06 Sam Spilsbury <sam.spilsbury@canonical.com>)
+========================================================================
+Bugfix release.
+
+
+Release 0.9.2 (2010-10-24 Sam Spilsbury <smspillaz@gmail.com>)
+==============================================================
+Development release.
+
+Made minimization functions wrappable
+
+Decorators now get shadow settings from window properties on the root
+window and not through gconf, kconfig or dbus
+
+Allow resizing from the center of the window
+
+Clean up gtk-window-decorator
+
+Fixed a number of reparenting bugs
+
+Release 0.9.0 (2010-07-03 Sam Spilsbury <smspillaz@gmail.com>)
+==============================================================
+Development release.
+
+Rewritten core in C++.
+
+Rewritten plugin APIs.
+
+Rewritten buildsystem in CMake, supports option code autogeneration,
+plugin build dependency handling, amongst other things.
+
+Smart wrappable functions, enables saving on otherwise useless CPU cycles.
+
+Reparenting window decorations.
+
+Support for tiled textures and screen sizes larger than max_texture_size
+through the use of the copytex plugin.
+
+Composite and OpenGL based rendering dropped from core, split into the
+opengl and composite plugins, which represent a step towards pluggable
+rendering backends.
+
+Ability to run in non composited mode added to gtk-window-decorator
+and kde4-window-decorator.
+
+kde-window-decorator dropped.
+
+Added KDE plugin to integrate with the QT main loop and create a KApplication
+for KCrash support on KDE.
+
+dbus plugin now uses screen number to identify compiz instance.
+
+Dropped multi-screen mode, launch compiz on individual screens instead.
+
+Shape drawing mode added to annotate plugin.
+
+Fixed screen updates issue in annotate plugin.
+
+Added serialization interface, which allows plugins to save/restore activity
+states between plugin and compiz reloads. Serialization info is stored in
+X11 window properties and is automatically dropped by the X Server when
+the window is destroyed.
+
+Added compiztoolbox library plugin used by switchers and screenshot, which
+provide a simple interface for accessing XDG and drawing thumbnails.
+
+Release 0.8.6 (2010-03-28 Danny Baumann <dannybaumann@web.de>)
+==============================================================
+Maintenance release.
+
+Various focus and window placement fixes.
+
+Fixed handling of windows that have a (server-drawn) border.
+
+Fixed handling of window icons that have a colour depth of 1 bit.
+
+Added KDE 4.4 support to KDE4 window decorator.
+
 Release 0.8.4 (2009-10-14 Erkin Bahceci <erkinbah@gmail.com>)
 =============================================================
 Maintenance release.

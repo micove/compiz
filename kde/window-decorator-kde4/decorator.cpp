@@ -54,13 +54,6 @@
 #define SHADOW_COLOR_GREEN 0x0000
 #define SHADOW_COLOR_BLUE  0x0000
 
-#define DBUS_DEST           "org.freedesktop.compiz"
-#define DBUS_SIGNAL_PATH    "/org/freedesktop/compiz/decoration/display"
-#define DBUS_QUERY_PATH     "/org/freedesktop/compiz/decoration/allscreens"
-#define DBUS_INTERFACE      "org.freedesktop.compiz"
-#define DBUS_METHOD_GET     "get"
-#define DBUS_SIGNAL_CHANGED "changed"
-
 int    blurType = BLUR_TYPE_NONE;
 
 decor_shadow_t *KWD::Decorator::mNoBorderShadow = 0;
@@ -79,8 +72,10 @@ struct _cursor cursors[3][3] = {
 KWD::PluginManager::PluginManager (KSharedConfigPtr config):
     KWD::KDecorationPlugins (config)
 {
-    defaultPlugin = (QPixmap::defaultDepth() > 8) ?
-            "kwin3_oxygen" : "kwin3_plastik";
+    if (QPixmap::defaultDepth () > 8)
+	defaultPlugin = "kwin3_oxygen";
+    else
+	defaultPlugin = "kwin3_plastik";
 }
 
 
@@ -92,46 +87,23 @@ KWD::Decorator::Decorator () :
 {
     XSetWindowAttributes attr;
     int			 i, j;
-    QDBusConnection      dbus = QDBusConnection::sessionBus();
 
-    mRootInfo = new NETRootInfo (QX11Info::display(), 0);
+    mRootInfo = new NETRootInfo (QX11Info::display (), 0);
 
     mActiveId = 0;
 
-    KConfigGroup cfg (KSharedConfig::openConfig("plasmarc"), QString("Theme"));
+    KConfigGroup cfg (KSharedConfig::openConfig ("plasmarc"),
+						 QString ("Theme"));
     Plasma::Theme::defaultTheme ()->setThemeName (cfg.readEntry ("name"));
 
     Atoms::init ();
 
     (void *) new KWinAdaptor (this);
-    dbus.registerObject ("/KWin", this);
-    dbus.connect (QString (), "/KWin", "org.kde.KWin", "reloadConfig", this,
-		  SLOT (reconfigure ()));
-
-    dbus.connect (QString (), DBUS_SIGNAL_PATH "/shadow_radius",
-		  DBUS_INTERFACE, DBUS_SIGNAL_CHANGED, this,
-		  SLOT (shadowRadiusChanged (double)));
-
-    dbus.connect (QString (), DBUS_SIGNAL_PATH "/shadow_opacity",
-		  DBUS_INTERFACE, DBUS_SIGNAL_CHANGED, this,
-		  SLOT (shadowOpacityChanged (double)));
-
-    dbus.connect (QString (), DBUS_SIGNAL_PATH "/shadow_x_offset",
-		  DBUS_INTERFACE, DBUS_SIGNAL_CHANGED, this,
-		  SLOT (shadowXOffsetChanged (int)));
-
-    dbus.connect (QString (), DBUS_SIGNAL_PATH "/shadow_y_offset",
-		  DBUS_INTERFACE, DBUS_SIGNAL_CHANGED, this,
-		  SLOT (shadowYOffsetChanged (int)));
-
-    dbus.connect (QString (), DBUS_SIGNAL_PATH "/shadow_color",
-		  DBUS_INTERFACE, DBUS_SIGNAL_CHANGED, this,
-		  SLOT (shadowColorChanged (QString)));
 
     mConfig = new KConfig ("kwinrc");
 
     mOptions = new KWD::Options (mConfig);
-    mPlugins = new PluginManager (KSharedConfig::openConfig("kwinrc"));
+    mPlugins = new PluginManager (KSharedConfig::openConfig ("kwinrc"));
 
     mShadowOptions.shadow_radius   = SHADOW_RADIUS;
     mShadowOptions.shadow_opacity  = SHADOW_OPACITY;
@@ -141,29 +113,37 @@ KWD::Decorator::Decorator () :
     mShadowOptions.shadow_color[1] = SHADOW_COLOR_GREEN;
     mShadowOptions.shadow_color[2] = SHADOW_COLOR_BLUE;
 
+    updateShadowProperties (QX11Info::appRootWindow ());
+
     for (i = 0; i < 3; i++)
     {
 	for (j = 0; j < 3; j++)
 	{
 	    if (cursors[i][j].shape != XC_left_ptr)
 		cursors[i][j].cursor =
-		    XCreateFontCursor (QX11Info::display(), cursors[i][j].shape);
+		    XCreateFontCursor (QX11Info::display (),
+				       cursors[i][j].shape);
 	}
     }
 
     attr.override_redirect = True;
 
-    mCompositeWindow = XCreateWindow (QX11Info::display(), QX11Info::appRootWindow(),
+    mCompositeWindow = XCreateWindow (QX11Info::display (),
+				      QX11Info::appRootWindow (),
 				      -ROOT_OFF_X, -ROOT_OFF_Y, 1, 1, 0,
 				      CopyFromParent,
 				      CopyFromParent,
 				      CopyFromParent,
 				      CWOverrideRedirect, &attr);
 
-    XCompositeRedirectSubwindows (QX11Info::display(), mCompositeWindow,
+    long data = 1;
+    XChangeProperty (QX11Info::display(), mCompositeWindow, Atoms::enlightmentDesktop,
+		      XA_CARDINAL, 32, PropModeReplace, (unsigned char *) &data, 1);
+
+    XCompositeRedirectSubwindows (QX11Info::display (), mCompositeWindow,
 				  CompositeRedirectManual);
 
-    XMapWindow (QX11Info::display(), mCompositeWindow);
+    XMapWindow (QX11Info::display (), mCompositeWindow);
 }
 
 KWD::Decorator::~Decorator (void)
@@ -182,7 +162,7 @@ KWD::Decorator::~Decorator (void)
     if (mSwitcher)
 	delete mSwitcher;
 
-    XDestroyWindow (QX11Info::display(), mCompositeWindow);
+    XDestroyWindow (QX11Info::display (), mCompositeWindow);
 
     delete mOptions;
     delete mPlugins;
@@ -194,6 +174,10 @@ bool
 KWD::Decorator::enableDecorations (Time timestamp)
 {
     QList <WId>::ConstIterator it;
+    unsigned int nchildren;
+    WId       *children;
+    WId       root, parent;
+    long int  select;
 
     mDmSnTimestamp = timestamp;
 
@@ -208,9 +192,11 @@ KWD::Decorator::enableDecorations (Time timestamp)
 
     updateShadow ();
 
-    mDecorNormal = new KWD::Window (mCompositeWindow, QX11Info::appRootWindow(),
+    mDecorNormal = new KWD::Window (mCompositeWindow,
+				    QX11Info::appRootWindow (),
 				    0, Window::Default);
-    mDecorActive = new KWD::Window (mCompositeWindow, QX11Info::appRootWindow(),
+    mDecorActive = new KWD::Window (mCompositeWindow,
+				    QX11Info::appRootWindow (),
 				    0, Window::DefaultActive);
 
     mActiveId = KWindowSystem::activeWindow ();
@@ -228,12 +214,33 @@ KWD::Decorator::enableDecorations (Time timestamp)
     foreach (WId id, KWindowSystem::windows ())
 	handleWindowAdded (id);
 
+    /* Find the switcher and add it too
+     * FIXME: Doing XQueryTree and then
+     * XGetWindowProperty on every window
+     * like this is really expensive, surely
+     * there is a better way to do this */
+
+    XQueryTree (QX11Info::display (), QX11Info::appRootWindow (),
+                &root, &parent, &children, &nchildren);
+
+    for (unsigned int i = 0; i < nchildren; i++)
+    {
+        if (KWD::readWindowProperty (children[i],
+                                     Atoms::switchSelectWindow, &select))
+        {
+            handleWindowAdded(children[i]);
+            break;
+        }
+    }
+
     connect (Plasma::Theme::defaultTheme (), SIGNAL (themeChanged ()),
 	     SLOT (plasmaThemeChanged ()));
 
     // select for client messages
-    XSelectInput (QX11Info::display(), QX11Info::appRootWindow(),
-		  StructureNotifyMask | PropertyChangeMask);
+    XSelectInput (QX11Info::display (), QX11Info::appRootWindow (),
+                  SubstructureNotifyMask |
+                  StructureNotifyMask |
+                  PropertyChangeMask);
 
     return true;
 }
@@ -241,59 +248,7 @@ KWD::Decorator::enableDecorations (Time timestamp)
 void
 KWD::Decorator::updateAllShadowOptions (void)
 {
-    QDBusInterface       *compiz;
-    QDBusReply<QString>  stringReply;
-    QDBusReply<double>   doubleReply;
-    QDBusReply<int>      intReply;
-    int                  c[4];
-
-    compiz = new QDBusInterface (DBUS_DEST, DBUS_QUERY_PATH "/shadow_radius",
-				 DBUS_INTERFACE);
-    doubleReply = compiz->call (DBUS_METHOD_GET);
-    delete compiz;
-
-    if (doubleReply.isValid ())
-	mShadowOptions.shadow_radius = doubleReply.value ();
-
-    compiz = new QDBusInterface (DBUS_DEST, DBUS_QUERY_PATH "/shadow_opacity",
-				 DBUS_INTERFACE);
-    doubleReply = compiz->call (DBUS_METHOD_GET);
-    delete compiz;
-
-    if (doubleReply.isValid ())
-	mShadowOptions.shadow_opacity = doubleReply.value ();
-
-    compiz = new QDBusInterface (DBUS_DEST, DBUS_QUERY_PATH "/shadow_x_offset",
-				 DBUS_INTERFACE);
-    intReply = compiz->call (DBUS_METHOD_GET);
-    delete compiz;
-
-    if (intReply.isValid ())
-	mShadowOptions.shadow_offset_x = intReply.value ();
-
-    compiz = new QDBusInterface (DBUS_DEST, DBUS_QUERY_PATH "/shadow_y_offset",
-				 DBUS_INTERFACE);
-    intReply = compiz->call (DBUS_METHOD_GET);
-    delete compiz;
-
-    if (intReply.isValid ())
-	mShadowOptions.shadow_offset_y = intReply.value ();
-    else
-	mShadowOptions.shadow_offset_y = SHADOW_OFFSET_Y;
-
-    compiz = new QDBusInterface (DBUS_DEST, DBUS_QUERY_PATH "/shadow_color",
-				 DBUS_INTERFACE);
-    stringReply = compiz->call (DBUS_METHOD_GET);
-    delete compiz;
-
-    if (stringReply.isValid () &&
-	sscanf (stringReply.value ().toAscii ().data (), "#%2x%2x%2x%2x",
-		&c[0], &c[1], &c[2], &c[3]) == 4)
-    {
-	mShadowOptions.shadow_color[0] = c[0] << 8 | c[0];
-	mShadowOptions.shadow_color[1] = c[1] << 8 | c[1];
-	mShadowOptions.shadow_color[2] = c[2] << 8 | c[2];
-    }
+    updateShadowProperties (QX11Info::appRootWindow ());
 }
 
 void
@@ -312,7 +267,7 @@ KWD::Decorator::changeShadowOptions (decor_shadow_options_t *opt)
 void
 KWD::Decorator::updateShadow (void)
 {
-    Display	    *xdisplay = QX11Info::display();
+    Display	    *xdisplay = QX11Info::display ();
     Screen	    *xscreen;
     decor_context_t context;
 
@@ -347,11 +302,11 @@ KWD::Decorator::updateShadow (void)
 	nQuad = decor_set_lSrStSbS_window_quads (quads, &context, &layout);
 
 	decor_quads_to_property (data, mNoBorderShadow->pixmap,
-				 &extents, &extents,
+				 &extents, &extents, &extents, &extents,
 				 0, 0, quads, nQuad);
 
 	KWD::trapXError ();
-	XChangeProperty (QX11Info::display(), QX11Info::appRootWindow(),
+	XChangeProperty (QX11Info::display (), QX11Info::appRootWindow (),
 			 Atoms::netWindowDecorBare,
 			 XA_INTEGER,
 			 32, PropModeReplace, (unsigned char *) data,
@@ -360,12 +315,59 @@ KWD::Decorator::updateShadow (void)
     }
 }
 
+void
+KWD::Decorator::updateShadowProperties (WId id)
+{
+    int nItems;
+    long *data;
+    double radius, opacity;
+    int    xOffset, yOffset;
+    QVector<QString> shadowColor;
+
+    if (id != QX11Info::appRootWindow ())
+	return;
+
+    void *propData = KWD::readXProperty (id,
+					  Atoms::compizShadowInfo,
+					  XA_INTEGER,
+					  &nItems);
+
+    if (nItems != 4)
+	return;
+
+    data = reinterpret_cast <long *> (propData);
+
+    radius = data[0];
+    opacity = data[1];
+
+    /* We multiplied by 1000 in compiz to keep
+      * precision, now divide by that much */
+
+    radius /= 1000;
+    opacity /= 1000;
+
+    xOffset = data[2];
+    yOffset = data[3];
+
+    shadowRadiusChanged (radius);
+    shadowOpacityChanged (opacity);
+    shadowXOffsetChanged (xOffset);
+    shadowYOffsetChanged (yOffset);
+
+    shadowColor = KWD::readPropertyString (id, Atoms::compizShadowColor);
+
+    if (shadowColor.size () == 1)
+	shadowColorChanged (shadowColor.at (0));
+
+    XFree (propData);
+}
+
 bool
 KWD::Decorator::x11EventFilter (XEvent *xevent)
 {
     KWD::Window *client;
     int		status;
-    
+
     switch (xevent->type) {
     case ConfigureNotify: {
 	XConfigureEvent *xce = reinterpret_cast <XConfigureEvent *> (xevent);
@@ -375,19 +377,46 @@ KWD::Decorator::x11EventFilter (XEvent *xevent)
 
     } break;
     case SelectionRequest:
-	decor_handle_selection_request (QX11Info::display(), xevent, mDmSnTimestamp);
+	decor_handle_selection_request (QX11Info::display (),
+					xevent, mDmSnTimestamp);
 	break;
     case SelectionClear:
-	status = decor_handle_selection_clear (QX11Info::display(),
+	status = decor_handle_selection_clear (QX11Info::display (),
 					       xevent, 0);
 	if (status == DECOR_SELECTION_GIVE_UP)
 	    KApplication::exit (0);
 
-	break;
+        break;
+    case CreateNotify:
+        /* We only care about windows that aren't managed here */
+        if (!KWindowSystem::hasWId (xevent->xcreatewindow.window))
+        {
+            WId select;
+
+            KWD::trapXError ();
+            XSelectInput (QX11Info::display (), xevent->xcreatewindow.window,
+                          StructureNotifyMask | PropertyChangeMask);
+            KWD::popXError ();
+
+            if (KWD::readWindowProperty (xevent->xcreatewindow.window,
+                                         Atoms::switchSelectWindow,
+                                         (long *) &select))
+                handleWindowAdded (xevent->xcreatewindow.window);
+        }
+
     case PropertyNotify:
-	if (xevent->xproperty.atom == Atoms::netFrameWindow)
+	if (xevent->xproperty.atom == Atoms::netInputFrameWindow)
 	{
 	    handleWindowAdded (xevent->xproperty.window);
+	}
+	else if (xevent->xproperty.atom == Atoms::netOutputFrameWindow)
+	{
+	    handleWindowAdded (xevent->xproperty.window);
+	}
+	else if (xevent->xproperty.atom == Atoms::compizShadowInfo ||
+		 xevent->xproperty.atom == Atoms::compizShadowColor)
+	{
+	    updateShadowProperties (xevent->xproperty.window);
 	}
 	else if (xevent->xproperty.atom == Atoms::switchSelectWindow)
 	{
@@ -440,12 +469,12 @@ KWD::Decorator::x11EventFilter (XEvent *xevent)
 	    if (client->activeChild ())
 		QApplication::sendEvent (client->activeChild (), &qe);
 
-	    XUndefineCursor (QX11Info::display(), client->frameId ());
+	    XUndefineCursor (QX11Info::display (), client->frameId ());
 	}
     } break;
     case MotionNotify:
     {
-	XMotionEvent *xme = reinterpret_cast < XMotionEvent * >(xevent);
+	XMotionEvent *xme = reinterpret_cast <XMotionEvent *> (xevent);
 	QWidget	     *child;
 
 	if (!mFrames.contains (xme->window))
@@ -489,7 +518,7 @@ KWD::Decorator::x11EventFilter (XEvent *xevent)
     case ButtonPress:
     case ButtonRelease:
     {
-	XButtonEvent *xbe = reinterpret_cast <XButtonEvent *>(xevent);
+	XButtonEvent *xbe = reinterpret_cast <XButtonEvent *> (xevent);
 	QWidget	     *child;
 
 	if (!mFrames.contains (xbe->window))
@@ -506,13 +535,12 @@ KWD::Decorator::x11EventFilter (XEvent *xevent)
 	{
 	    XButtonEvent xbe2 = *xbe;
 	    xbe2.window = child->winId ();
-
 	    QPoint p;
-		
+
 	    p = client->mapToChildAt (QPoint (xbe->x, xbe->y));
 	    xbe2.x = p.x ();
 	    xbe2.y = p.y ();
-	    
+
 	    p = child->mapToGlobal(p);
 	    xbe2.x_root = p.x ();
 	    xbe2.y_root = p.y ();
@@ -611,25 +639,16 @@ KWD::Decorator::handleWindowAdded (WId id)
     QMap <WId, KWD::Window *>::ConstIterator it;
     KWD::Window				     *client = 0;
     WId					     select, frame = 0;
+    WId					     oframe = 0, iframe = 0;
     KWD::Window::Type			     type = KWD::Window::Normal;
-    unsigned int			     width, height, border, depth;
-    int					     x, y;
-    XID					     root;
     QWidgetList				     widgets;
+    QRect                                    geometry;
 
     /* avoid adding any of our own top level windows */
-    foreach (QWidget *widget, QApplication::topLevelWidgets()) {
-        if (widget->winId() == id)
+    foreach (QWidget *widget, QApplication::topLevelWidgets ()) {
+        if (widget->winId () == id)
 	    return;
     }
-
-    KWD::trapXError ();
-    XGetGeometry (QX11Info::display(), id, &root, &x, &y, &width, &height,
-		  &border, &depth);
-    if (KWD::popXError ())
-	return;
-
-    KWD::readWindowProperty (id, Atoms::netFrameWindow, (long *) &frame);
 
     if (KWD::readWindowProperty (id, Atoms::switchSelectWindow,
 				 (long *) &select))
@@ -641,11 +660,28 @@ KWD::Decorator::handleWindowAdded (WId id)
             delete mSwitcher;
             mSwitcher = new Switcher (mCompositeWindow, id);
         }
+
+	geometry = mSwitcher->geometry ();
 	frame = None;
     }
     else
     {
-	KWindowInfo wInfo = KWindowSystem::windowInfo (id, NET::WMWindowType, 0);
+        KWindowInfo wInfo;
+
+        KWD::trapXError ();
+        wInfo = KWindowSystem::windowInfo (id, NET::WMGeometry);
+        if (KWD::popXError ())
+            return;
+
+        if (!wInfo.valid ())
+            return;
+
+        KWD::readWindowProperty (id, Atoms::netInputFrameWindow, (long *) &iframe);
+        KWD::readWindowProperty (id, Atoms::netOutputFrameWindow, (long *) &oframe);
+
+        geometry = wInfo.geometry ();
+
+        wInfo = KWindowSystem::windowInfo (id, NET::WMWindowType, 0);
 
 	switch (wInfo.windowType (~0)) {
 	case NET::Normal:
@@ -661,21 +697,37 @@ KWD::Decorator::handleWindowAdded (WId id)
 	    return;
 	}
 
-	type = KWD::Window::Normal;
+	if (iframe)
+	{
+	    type = KWD::Window::Normal;
+	    frame = iframe;
+	}
+	else
+	{
+	    type = KWD::Window::Normal2D;
+	    frame = oframe;
+	}
     }
 
     KWD::trapXError ();
-    XSelectInput (QX11Info::display(), id, StructureNotifyMask | PropertyChangeMask);
+    XSelectInput (QX11Info::display (), id,
+		  StructureNotifyMask | PropertyChangeMask);
     KWD::popXError ();
 
+    if (frame)
+    {
+	XWindowAttributes attr;
+	KWD::trapXError ();
+	XGetWindowAttributes (QX11Info::display (), frame, &attr);
+	if (KWD::popXError ())
+	    frame = None;
+    }
     if (frame)
     {
 	if (!mClients.contains (id))
 	{
 	    client = new KWD::Window (mCompositeWindow, id, frame, type,
-				      x, y,
-				      width + border * 2,
-				      height + border * 2);
+				      geometry);
 
 	    mClients.insert (id, client);
 	    mFrames.insert (frame, client);
@@ -760,7 +812,8 @@ KWD::Decorator::handleWindowChanged (WId		 id,
 
     if (mSwitcher && mSwitcher->xid () == id)
     {
-	mSwitcher->updateGeometry ();
+	if (properties[0] & NET::WMGeometry)
+	    mSwitcher->updateGeometry ();
 	return;
     }
 
@@ -779,7 +832,6 @@ KWD::Decorator::handleWindowChanged (WId		 id,
 	client->updateIcons ();
     if (properties[0] & NET::WMGeometry)
 	client->updateWindowGeometry ();
-	
 }
 
 void
@@ -802,16 +854,16 @@ KWD::Decorator::sendClientMessage (WId  eventWid,
     ev.xclient.format       = 32;
 
     ev.xclient.data.l[0] = value;
-    ev.xclient.data.l[1] = QX11Info::appTime();
+    ev.xclient.data.l[1] = QX11Info::appTime ();
     ev.xclient.data.l[2] = data1;
     ev.xclient.data.l[3] = data2;
     ev.xclient.data.l[4] = data3;
 
-    if (eventWid == QX11Info::appRootWindow())
+    if (eventWid == QX11Info::appRootWindow ())
 	mask = SubstructureRedirectMask | SubstructureNotifyMask;
 
     KWD::trapXError ();
-    XSendEvent (QX11Info::display(), eventWid, false, mask, &ev);
+    XSendEvent (QX11Info::display (), eventWid, false, mask, &ev);
     KWD::popXError ();
 }
 
@@ -862,7 +914,7 @@ KWD::Decorator::shadowColorChanged (QString value)
 
     int c[4];
 
-    if (sscanf (value.toAscii().data(), "#%2x%2x%2x%2x",
+    if (sscanf (value.toAscii ().data (), "#%2x%2x%2x%2x",
 	        &c[0], &c[1], &c[2], &c[3]) == 4)
     {
 	opt.shadow_color[0] = c[0] << 8 | c[0];
@@ -878,7 +930,7 @@ KWD::Decorator::plasmaThemeChanged ()
 {
     if (mSwitcher)
     {
-	WId win = mSwitcher->xid();
+	WId win = mSwitcher->xid ();
 	delete mSwitcher;
 	mSwitcher = new Switcher (mCompositeWindow, win);
     }

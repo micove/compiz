@@ -30,6 +30,8 @@
 #include <stdlib.h>
 #include <QX11Info>
 
+#include <cstdio>
+
 static int trappedErrorCode = 0;
 
 namespace KWD
@@ -39,7 +41,10 @@ namespace KWD
 	Atom switchSelectWindow;
 	Atom switchFgColor;
 	Atom netWmWindowOpacity;
-	Atom netFrameWindow;
+	Atom netInputFrameWindow;
+	Atom netOutputFrameWindow;
+	Atom compizShadowInfo;
+	Atom compizShadowColor;
 	Atom netWindowDecor;
 	Atom netWindowDecorNormal;
 	Atom netWindowDecorActive;
@@ -51,6 +56,7 @@ namespace KWD
 	Atom toolkitActionWindowMenuAtom;
 	Atom toolkitActionForceQuitDialogAtom;
         Atom compizWindowBlurDecor;
+	Atom enlightmentDesktop;
     }
 }
 
@@ -77,7 +83,7 @@ KWD::trapXError (void)
 int
 KWD::popXError (void)
 {
-    XSync (QX11Info::display(), false);
+    XSync (QX11Info::display (), false);
     XSetErrorHandler (oldErrorHandler);
 
     return trappedErrorCode;
@@ -97,7 +103,7 @@ KWD::readXProperty (WId  window,
     int		  result;
 
     KWD::trapXError ();
-    result = XGetWindowProperty (QX11Info::display(), window, property, offset,
+    result = XGetWindowProperty (QX11Info::display (), window, property, offset,
 				 length, false, type,
 				 &actualType, &format, &nItems,
 				 &bytesRemaining, &data);
@@ -110,7 +116,7 @@ KWD::readXProperty (WId  window,
 	if (items)
 	    *items = nItems;
 
-	return reinterpret_cast <void *>(data);
+	return reinterpret_cast <void *> (data);
     }
 
     if (data)
@@ -132,7 +138,7 @@ KWD::readWindowProperty (long window,
     if (data)
     {
 	if (value)
-	    *value = *reinterpret_cast <int *>(data);
+	    *value = *reinterpret_cast <int *> (data);
 
 	XFree (data);
 
@@ -141,6 +147,34 @@ KWD::readWindowProperty (long window,
 
     return false;
 }
+
+QVector<QString>
+KWD::readPropertyString (WId	      id,
+			 Atom	      property)
+{
+    XTextProperty xtp;
+    XGetTextProperty (QX11Info::display (), id, &xtp, property);
+    QVector<QString> ret;
+
+    if (xtp.value)
+    {
+	int  retCount = 0;
+	char **tData = NULL;
+
+	XTextPropertyToStringList (&xtp, &tData, &retCount);
+
+	for (unsigned int i = 0; i < (unsigned int) retCount; i++)
+	{
+	    QString str = QString (tData[i]);
+	    ret.push_back (str);
+	}
+
+	XFreeStringList (tData);
+    }
+
+    return ret;
+}
+
 
 unsigned short
 KWD::readPropertyShort (WId	       id,
@@ -153,7 +187,7 @@ KWD::readPropertyShort (WId	       id,
     unsigned char *data;
 
     KWD::trapXError ();
-    result = XGetWindowProperty (QX11Info::display(), id, property,
+    result = XGetWindowProperty (QX11Info::display (), id, property,
 				 0L, 1L, FALSE, XA_CARDINAL, &actual, &format,
 				 &n, &left, &data);
     if (KWD::popXError ())
@@ -176,9 +210,16 @@ KWD::readPropertyShort (WId	       id,
 void
 KWD::Atoms::init (void)
 {
-    Display *xdisplay = QX11Info::display();
+    Display *xdisplay = QX11Info::display ();
 
-    netFrameWindow = XInternAtom (xdisplay, "_NET_FRAME_WINDOW", false);
+    netInputFrameWindow =
+	XInternAtom (xdisplay, DECOR_INPUT_FRAME_ATOM_NAME, false);
+    netOutputFrameWindow =
+	XInternAtom (xdisplay, DECOR_OUTPUT_FRAME_ATOM_NAME, false);
+    compizShadowInfo =
+	XInternAtom (xdisplay, "_COMPIZ_NET_CM_SHADOW_PROPERTIES", false);
+    compizShadowColor =
+	XInternAtom (xdisplay, "_COMPIZ_NET_CM_SHADOW_COLOR", false);
     netWindowDecor = XInternAtom (xdisplay, DECOR_WINDOW_ATOM_NAME, false);
     netWindowDecorNormal =
 	XInternAtom (xdisplay, DECOR_NORMAL_ATOM_NAME, false);
@@ -204,4 +245,5 @@ KWD::Atoms::init (void)
 		     false);
     compizWindowBlurDecor =
 	XInternAtom (xdisplay, DECOR_BLUR_ATOM_NAME, false);
+    enlightmentDesktop = XInternAtom (xdisplay, "ENLIGHTENMENT_DESKTOP", false);
 }
