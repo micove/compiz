@@ -26,8 +26,11 @@
 #ifndef _COMPPROPERTYWRITER_H
 #define _COMPPROPERTYWRITER_H
 
-#include "core.h"
+#include "core/option.h"
+#include "core/string.h"
+
 #include <X11/Xatom.h>
+#include <X11/X.h>
 
 static const CompOption::Vector nilValues;
 

@@ -110,6 +110,7 @@
 #endif
 
 #define METACITY_GCONF_DIR "/apps/metacity/general"
+#define MUTTER_GCONF_DIR "/apps/mutter/general"
 
 #define COMPIZ_USE_SYSTEM_FONT_KEY		    \
 METACITY_GCONF_DIR "/titlebar_uses_system_font"
@@ -126,22 +127,11 @@ METACITY_GCONF_DIR "/action_middle_click_titlebar"
 #define COMPIZ_RIGHT_CLICK_TITLEBAR_KEY	       \
 METACITY_GCONF_DIR "/action_right_click_titlebar"
 
-#define COMPIZ_GCONF_DIR1 "/apps/compiz/plugins/decoration/allscreens/options"
+#define MUTTER_DRAGGABLE_BORDER_WIDTH_KEY \
+MUTTER_GCONF_DIR "/draggable_border_width"
 
-#define COMPIZ_SHADOW_RADIUS_KEY \
-COMPIZ_GCONF_DIR1 "/shadow_radius"
-
-#define COMPIZ_SHADOW_OPACITY_KEY \
-COMPIZ_GCONF_DIR1 "/shadow_opacity"
-
-#define COMPIZ_SHADOW_COLOR_KEY \
-COMPIZ_GCONF_DIR1 "/shadow_color"
-
-#define COMPIZ_SHADOW_OFFSET_X_KEY \
-COMPIZ_GCONF_DIR1 "/shadow_x_offset"
-
-#define COMPIZ_SHADOW_OFFSET_Y_KEY \
-COMPIZ_GCONF_DIR1 "/shadow_y_offset"
+#define MUTTER_ATTACH_MODAL_DIALOGS_KEY \
+MUTTER_GCONF_DIR "/attach_modal_dialogs"
 
 #define META_THEME_KEY		\
 METACITY_GCONF_DIR "/theme"
@@ -171,6 +161,9 @@ GCONF_DIR "/blur_type"
 
 #define WHEEL_ACTION_KEY   \
 GCONF_DIR "/mouse_wheel_action"
+
+#define USE_TOOLTIPS_KEY \
+GCONF_DIR "/use_tooltips"
 
 #define DBUS_DEST       "org.freedesktop.compiz"
 #define DBUS_PATH       "/org/freedesktop/compiz/decor/screen0"
@@ -256,11 +249,16 @@ typedef struct _decor_settings {
     int middle_click_action;
     int right_click_action;
     int wheel_action;
-    gdouble shadow_radius;
-    gdouble shadow_opacity;
-    gushort shadow_color[3];
-    gint    shadow_offset_x;
-    gint    shadow_offset_y;
+    gdouble active_shadow_radius;
+    gdouble active_shadow_opacity;
+    gushort active_shadow_color[3];
+    gint    active_shadow_offset_x;
+    gint    active_shadow_offset_y;
+    gdouble inactive_shadow_radius;
+    gdouble inactive_shadow_opacity;
+    gushort inactive_shadow_color[3];
+    gint    inactive_shadow_offset_x;
+    gint    inactive_shadow_offset_y;
 #ifdef USE_METACITY
     double   meta_opacity;
     gboolean meta_shade_opacity;
@@ -274,6 +272,9 @@ typedef struct _decor_settings {
     gboolean		    use_system_font;
     gint		    blur_type;
     gchar		    *font;
+    guint    mutter_draggable_border_width;
+    gboolean mutter_attach_modal_dialogs;
+    gboolean use_tooltips;
 } decor_settings_t;
 
 #define DOUBLE_CLICK_ACTION_DEFAULT CLICK_ACTION_MAXIMIZE
@@ -289,10 +290,6 @@ extern decor_settings_t *settings;
 
 extern guint cmdline_options;
 
-/* default pixmaps FIXME: remove */
-extern GdkPixmap *decor_normal_pixmap;
-extern GdkPixmap *decor_active_pixmap;
-
 extern Atom frame_input_window_atom;
 extern Atom frame_output_window_atom;
 extern Atom win_decor_atom;
@@ -307,6 +304,8 @@ extern Atom compiz_shadow_color_atom;
 extern Atom toolkit_action_atom;
 extern Atom toolkit_action_window_menu_atom;
 extern Atom toolkit_action_force_quit_dialog_atom;
+extern Atom net_wm_state_atom;
+extern Atom net_wm_state_modal_atom;
 
 extern Time dm_sn_timestamp;
 
@@ -383,11 +382,16 @@ struct _decor_shadow_info
 {
     decor_frame_t *frame;
     unsigned int  state;
+    gboolean      active;
 };
 
 typedef void (*frame_update_shadow_proc) (Display		 *display,
 					  Screen		 *screen,
 					  decor_frame_t		 *frame,
+					  decor_shadow_t	  **shadow_normal,
+					  decor_context_t	  *context_normal,
+					  decor_shadow_t	  **shadow_max,
+					  decor_context_t	  *context_max,
 					  decor_shadow_info_t    *info,
 					  decor_shadow_options_t *opt_shadow,
 					  decor_shadow_options_t *opt_no_shadow);
@@ -400,13 +404,17 @@ struct _decor_frame {
     decor_extents_t max_win_extents;
     int		    titlebar_height;
     int		    max_titlebar_height;
-    decor_shadow_t *border_shadow;
+    decor_shadow_t *border_shadow_active;
+    decor_shadow_t *border_shadow_inactive;
     decor_shadow_t *border_no_shadow;
-    decor_shadow_t *max_border_shadow;
+    decor_shadow_t *max_border_shadow_active;
+    decor_shadow_t *max_border_shadow_inactive;
     decor_shadow_t *max_border_no_shadow;
-    decor_context_t window_context;
+    decor_context_t window_context_active;
+    decor_context_t window_context_inactive;
     decor_context_t window_context_no_shadow;
-    decor_context_t max_window_context;
+    decor_context_t max_window_context_active;
+    decor_context_t max_window_context_inactive;
     decor_context_t max_window_context_no_shadow;
     PangoFontDescription *titlebar_font;
     PangoContext	 *pango_context;
@@ -457,6 +465,20 @@ typedef struct _decor {
     void	      (*draw) (struct _decor *d);
 } decor_t;
 
+#define WINDOW_TYPE_FRAMES_NUM 5
+typedef struct _default_frame_references
+{
+    char     *name;
+    decor_t  *d;
+} default_frame_references_t;
+
+extern default_frame_references_t default_frames[WINDOW_TYPE_FRAMES_NUM * 2];
+const gchar * window_type_frames[WINDOW_TYPE_FRAMES_NUM];
+
+void     (*theme_get_shadow)		    (decor_frame_t *d,
+					     decor_shadow_options_t *,
+					     gboolean);
+
 void     (*theme_draw_window_decoration)    (decor_t *d);
 gboolean (*theme_calc_decoration_size)      (decor_t *d,
 					     int     client_width,
@@ -466,6 +488,7 @@ gboolean (*theme_calc_decoration_size)      (decor_t *d,
 					     int     *height);
 void     (*theme_update_border_extents)     (decor_frame_t *frame);
 void     (*theme_get_event_window_position) (decor_t *d,
+
 					     gint    i,
 					     gint    j,
 					     gint    width,
@@ -488,9 +511,6 @@ extern char *program_name;
 
 /* list of all decorations */
 extern GHashTable    *frame_table;
-
-#define WINDOW_TYPE_FRAMES_NUM 4
-const gchar * window_type_frames[WINDOW_TYPE_FRAMES_NUM];
 
 /* action menu */
 extern GtkWidget     *action_menu;
@@ -576,6 +596,10 @@ void
 bare_frame_update_shadow (Display		  *xdisplay,
 			   Screen		  *screen,
 			   decor_frame_t	  *frame,
+			   decor_shadow_t	  **shadow_normal,
+			   decor_context_t	  *context_normal,
+			   decor_shadow_t	  **shadow_max,
+			   decor_context_t	  *context_max,
 			   decor_shadow_info_t    *info,
 			   decor_shadow_options_t *opt_shadow,
 			   decor_shadow_options_t *opt_no_shadow);
@@ -584,6 +608,10 @@ void
 decor_frame_update_shadow (Display		  *xdisplay,
 			   Screen		  *screen,
 			   decor_frame_t	  *frame,
+			   decor_shadow_t	  **shadow_normal,
+			   decor_context_t	  *context_normal,
+			   decor_shadow_t	  **shadow_max,
+			   decor_context_t	  *context_max,
 			   decor_shadow_info_t    *info,
 			   decor_shadow_options_t *opt_shadow,
 			   decor_shadow_options_t *opt_no_shadow);
@@ -608,6 +636,15 @@ update_window_decoration_name (WnckWindow *win);
 
 gint
 max_window_name_width (WnckWindow *win);
+
+unsigned int
+populate_frame_type (decor_t *d);
+
+unsigned int
+populate_frame_state (decor_t *d);
+
+unsigned int
+populate_frame_actions (decor_t *d);
 
 void
 update_default_decorations (GdkScreen *screen);
@@ -648,7 +685,7 @@ copy_to_front_buffer (decor_t *d);
 /* wnck.c*/
 
 const gchar *
-get_frame_type (WnckWindowType type);
+get_frame_type (WnckWindow *win);
 
 void
 decorations_changed (WnckScreen *screen);
@@ -782,6 +819,9 @@ get_event_window_position (decor_t *d,
 gfloat
 get_title_scale (decor_frame_t *frame);
 
+void
+cairo_get_shadow (decor_frame_t *, decor_shadow_options_t *opts, gboolean active);
+
 /* gdk.c */
 
 void
@@ -868,6 +908,10 @@ meta_update_border_extents ();
 
 void
 meta_update_button_layout (const char *value);
+
+void
+meta_get_shadow (decor_frame_t *, decor_shadow_options_t *opts, gboolean active);
+
 #endif
 /* switcher.c */
 
@@ -877,6 +921,10 @@ void
 switcher_frame_update_shadow (Display		  *xdisplay,
 			      Screen		  *screen,
 			      decor_frame_t	  *frame,
+			      decor_shadow_t	  **shadow_normal,
+			      decor_context_t	  *context_normal,
+			      decor_shadow_t	  **shadow_max,
+			      decor_context_t	  *context_max,
 			      decor_shadow_info_t    *info,
 			      decor_shadow_options_t *opt_shadow,
 			      decor_shadow_options_t *opt_no_shadow);

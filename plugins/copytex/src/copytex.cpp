@@ -42,18 +42,48 @@ CopyPixmap::bindPixmapToTexture (Pixmap pixmap,
     if (depth != 32 && depth != 24)
 	return GLTexture::List ();
 
-    CopyPixmap *cp = new CopyPixmap (pixmap, width, height, depth);
+    CopyPixmap::Ptr cp (CopyPixmap::create (pixmap, width, height, depth));
     if (!cp->textures.size ())
-	delete cp;
+	return GLTexture::List ();
     else
     {
 	GLTexture::List tl (cp->textures.size ());
 	for (unsigned int i = 0; i < cp->textures.size (); i++)
 	    tl[i] = cp->textures[i];
-	delete cp;
         return tl;
     }
     return GLTexture::List ();
+}
+
+CopyPixmap::Ptr
+CopyPixmap::create (Pixmap pixmap,
+		    int    width,
+		    int    height,
+		    int    depth)
+{
+    int		    maxTS = MIN (MAX_SUB_TEX, GL::maxTextureSize);
+    int 	    nWidth = ceil ((float) width / (float) maxTS);
+    int 	    nHeight = ceil ((float) height / (float) maxTS);
+    CopyPixmap::Ptr cp (new CopyPixmap (pixmap, width, height, depth));
+
+    cp->textures.resize (nWidth * nHeight);
+
+    /* Creating a new CopyPixmap::Ptr here is okay since
+     * the refcount will still effectively be the same */
+    for (int x = 0, w = width; x < nWidth; x++, w -= maxTS)
+	for (int y = 0, h = height; y < nHeight; y++, h -= maxTS)
+	    cp->textures[y + (x * nHeight)] =
+		new CopyTexture (cp,
+				 CompRect (x * maxTS,
+				 	   y * maxTS,
+					   MIN (w, maxTS),
+					   MIN (h, maxTS)));
+
+
+    cp->damage = XDamageCreate (screen->dpy (), cp->pixmap, XDamageReportRawRectangles);
+    CopytexScreen::get (screen)->pixmaps[cp->damage] = cp;
+
+    return cp;
 }
 
 CopyPixmap::CopyPixmap (Pixmap pixmap,
@@ -64,22 +94,6 @@ CopyPixmap::CopyPixmap (Pixmap pixmap,
     damage (damage),
     depth (depth)
 {
-    int maxTS = MIN (MAX_SUB_TEX, GL::maxTextureSize);
-    int nWidth = ceil ((float) width / (float) maxTS);
-    int nHeight = ceil ((float) height / (float) maxTS);
-
-    textures.resize (nWidth * nHeight);
-    for (int x = 0, w = width; x < nWidth; x++, w -= maxTS)
-	for (int y = 0, h = height; y < nHeight; y++, h -= maxTS)
-	    textures[y + (x * nHeight)] =
-		new CopyTexture (this, CompRect (x * maxTS,
-						 y * maxTS,
-						 MIN (w, maxTS),
-						 MIN (h, maxTS)));
-
-
-    damage = XDamageCreate (screen->dpy (), pixmap, XDamageReportRawRectangles);
-    CopytexScreen::get (screen)->pixmaps[damage] = this;
 }
 
 CopyPixmap::~CopyPixmap ()
@@ -90,7 +104,7 @@ CopyPixmap::~CopyPixmap ()
 	CopytexScreen::get (screen)->pixmaps.erase (damage);
 }
 
-CopyTexture::CopyTexture (CopyPixmap *cp, CompRect dim) :
+CopyTexture::CopyTexture (CopyPixmap::Ptr cp, CompRect dim) :
     cp (cp),
     dim (dim),
     damage (0, 0, dim.width (), dim.height ())
@@ -137,11 +151,7 @@ CopyTexture::~CopyTexture ()
     CopyPixmap::Textures::iterator it = std::find (cp->textures.begin (),
 					           cp->textures.end (), this);
     if (it != cp->textures.end ())
-    {
 	cp->textures.erase (it);
-	if (cp->textures.empty ())
-	    delete cp;
-    }
 }
 
 void
@@ -228,11 +238,11 @@ CopytexScreen::handleEvent (XEvent *event)
     {
 	XDamageNotifyEvent *de = (XDamageNotifyEvent *) event;
 
-	std::map<Damage, CopyPixmap*>::iterator it =
+	std::map<Damage, CopyPixmap::Ptr>::iterator it =
 	    pixmaps.find (de->damage);
 	if (it != pixmaps.end ())
 	{
-	    CopyPixmap *cp = it->second;
+	    CopyPixmap::Ptr cp = it->second;
 	    int x1, x2, y1, y2;
 
 	    foreach (CopyTexture *t, cp->textures)

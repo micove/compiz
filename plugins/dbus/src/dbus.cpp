@@ -586,6 +586,7 @@ dbusHandleOptionIntrospectMessage (DBusConnection *connection,
  * int32:`xwininfo -root | grep id: | awk '{ print $4 }'`
  *
  */
+
 bool
 DbusScreen::handleActionMessage (DBusConnection                 *connection,
 				 DBusMessage                    *message,

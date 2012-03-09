@@ -25,6 +25,10 @@
 
 #include "commands.h"
 
+#include "core/abiversion.h"
+#include "core/screen.h"
+
+
 COMPIZ_PLUGIN_20090315 (commands, CommandsPluginVTable);
 
 bool

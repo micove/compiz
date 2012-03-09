@@ -31,7 +31,7 @@
 
 #include "dispatcher.moc"
 
-EventDispatcherCompiz::EventDispatcherCompiz (QObject *parent)
+EventDispatcherCompiz::EventDispatcherCompiz (QObject *)
 {
     mWakeUpPipe[0] = 0;
     mWakeUpPipe[1] = 0;

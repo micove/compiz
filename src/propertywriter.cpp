@@ -23,8 +23,8 @@
  * Authors: Sam Spilsbury <smspillaz@gmail.com>
  */
 
-#include <core/core.h>
 #include <core/propertywriter.h>
+#include <core/screen.h>
 
 PropertyWriter::PropertyWriter ()
 {

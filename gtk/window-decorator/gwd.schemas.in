@@ -77,5 +77,16 @@
                 <long>Shade active windows with metacity theme decorations from opaque to translucent</long>
             </locale>
         </schema>
+        <schema>
+            <key>/schemas/apps/gwd/use_tooltops</key>
+            <applyto>/apps/gwd/use_tooltips</applyto>
+            <owner>gwd</owner>
+            <type>bool</type>
+            <default>true</default>
+            <locale name="C">
+                <short>Use tooltips</short>
+                <long>Show tooltip windows on decorator functions</long>
+            </locale>
+        </schema>
     </schemalist>  
 </gconfschemafile>

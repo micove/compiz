@@ -32,7 +32,7 @@
 #include "privatewindow.h"
 
 bool
-CompScreen::closeWin (CompAction         *action,
+CompScreenImpl::closeWin (CompAction         *action,
 		      CompAction::State  state,
 		      CompOption::Vector &options)
 {
@@ -51,7 +51,7 @@ CompScreen::closeWin (CompAction         *action,
 }
 
 bool
-CompScreen::unmaximizeWin (CompAction         *action,
+CompScreenImpl::unmaximizeWin (CompAction         *action,
 			   CompAction::State  state,
 			   CompOption::Vector &options)
 {
@@ -68,7 +68,7 @@ CompScreen::unmaximizeWin (CompAction         *action,
 }
 
 bool
-CompScreen::minimizeWin (CompAction         *action,
+CompScreenImpl::minimizeWin (CompAction         *action,
 			 CompAction::State  state,
 			 CompOption::Vector &options)
 {
@@ -85,7 +85,7 @@ CompScreen::minimizeWin (CompAction         *action,
 }
 
 bool
-CompScreen::maximizeWin (CompAction         *action,
+CompScreenImpl::maximizeWin (CompAction         *action,
 			 CompAction::State  state,
 			 CompOption::Vector &options)
 {
@@ -102,7 +102,7 @@ CompScreen::maximizeWin (CompAction         *action,
 }
 
 bool
-CompScreen::maximizeWinHorizontally (CompAction         *action,
+CompScreenImpl::maximizeWinHorizontally (CompAction         *action,
 				     CompAction::State  state,
 				     CompOption::Vector &options)
 {
@@ -119,7 +119,7 @@ CompScreen::maximizeWinHorizontally (CompAction         *action,
 }
 
 bool
-CompScreen::maximizeWinVertically (CompAction         *action,
+CompScreenImpl::maximizeWinVertically (CompAction         *action,
 				   CompAction::State  state,
 				   CompOption::Vector &options)
 {
@@ -136,11 +136,11 @@ CompScreen::maximizeWinVertically (CompAction         *action,
 }
 
 bool
-CompScreen::showDesktop (CompAction         *action,
+CompScreenImpl::showDesktop (CompAction         *action,
 			 CompAction::State  state,
 			 CompOption::Vector &options)
 {
-    if (screen->priv->showingDesktopMask == 0)
+    if (screen->showingDesktopMask() == 0)
 	screen->enterShowDesktopMode ();
     else
 	screen->leaveShowDesktopMode (NULL);
@@ -149,7 +149,7 @@ CompScreen::showDesktop (CompAction         *action,
 }
 
 bool
-CompScreen::raiseWin (CompAction         *action,
+CompScreenImpl::raiseWin (CompAction         *action,
 		      CompAction::State  state,
 		      CompOption::Vector &options)
 {
@@ -166,7 +166,7 @@ CompScreen::raiseWin (CompAction         *action,
 }
 
 bool
-CompScreen::lowerWin (CompAction         *action,
+CompScreenImpl::lowerWin (CompAction         *action,
 		      CompAction::State  state,
 		      CompOption::Vector &options)
 {
@@ -183,7 +183,7 @@ CompScreen::lowerWin (CompAction         *action,
 }
 
 bool
-CompScreen::windowMenu (CompAction         *action,
+CompScreenImpl::windowMenu (CompAction         *action,
 			CompAction::State  state,
 			CompOption::Vector &options)
 {
@@ -193,7 +193,7 @@ CompScreen::windowMenu (CompAction         *action,
     xid = CompOption::getIntOptionNamed (options, "window");
 
     w = screen->findTopLevelWindow (xid);
-    if (w && screen->priv->grabs.empty ())
+    if (w && screen->grabsEmpty ())
     {
 	int  x, y, button;
 	Time time;
@@ -213,7 +213,7 @@ CompScreen::windowMenu (CompAction         *action,
 }
 
 bool
-CompScreen::toggleWinMaximized (CompAction         *action,
+CompScreenImpl::toggleWinMaximized (CompAction         *action,
 				CompAction::State  state,
 				CompOption::Vector &options)
 {
@@ -235,7 +235,7 @@ CompScreen::toggleWinMaximized (CompAction         *action,
 }
 
 bool
-CompScreen::toggleWinMaximizedHorizontally (CompAction         *action,
+CompScreenImpl::toggleWinMaximizedHorizontally (CompAction         *action,
 					    CompAction::State  state,
 					    CompOption::Vector &options)
 {
@@ -252,7 +252,7 @@ CompScreen::toggleWinMaximizedHorizontally (CompAction         *action,
 }
 
 bool
-CompScreen::toggleWinMaximizedVertically (CompAction         *action,
+CompScreenImpl::toggleWinMaximizedVertically (CompAction         *action,
 					  CompAction::State  state,
 					  CompOption::Vector &options)
 {
@@ -269,7 +269,7 @@ CompScreen::toggleWinMaximizedVertically (CompAction         *action,
 }
 
 bool
-CompScreen::shadeWin (CompAction         *action,
+CompScreenImpl::shadeWin (CompAction         *action,
 		      CompAction::State  state,
 		      CompOption::Vector &options)
 {

@@ -23,11 +23,11 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#include <core/core.h>
-#include <core/propertywriter.h>
 #include <compiztoolbox/compiztoolbox.h>
 #include "compiztoolbox_options.h"
 
+#include <core/abiversion.h>
+#include <core/propertywriter.h>
 
 bool openGLAvailable;
 
@@ -47,7 +47,7 @@ class CompizToolboxPluginVTable :
 	void fini ();
 };
 
-COMPIZ_PLUGIN_20090315 (compiztoolbox, CompizToolboxPluginVTable);
+COMPIZ_PLUGIN_20090315 (compiztoolbox, CompizToolboxPluginVTable)
 
 CompString
 getXDGUserDir (XDGUserDir userDir)
@@ -123,7 +123,7 @@ getXDGUserDir (XDGUserDir userDir)
 
 
 void
-BaseSwitchScreen::setSelectedWindowHint ()
+BaseSwitchScreen::setSelectedWindowHint (bool focus)
 {
     Window selectedWindowId = None;
     CompOption::Vector opts;
@@ -132,7 +132,13 @@ BaseSwitchScreen::setSelectedWindowHint ()
     if (selectedWindow && !selectedWindow->destroyed ())
     {
 	selectedWindowId = selectedWindow->id ();
-	selectedWindow->moveInputFocusTo ();
+
+	/* FIXME: Changing the input focus here will
+	 * screw up the ordering of windows in
+	 * the switcher, so we probably want to avoid that
+	 */
+	if (focus)
+	    selectedWindow->moveInputFocusTo ();
     }
 
     v = CompOption::Value ((int) selectedWindowId);
@@ -249,7 +255,8 @@ BaseSwitchScreen::compareWindows (CompWindow *w1,
 
 CompWindow *
 BaseSwitchScreen::switchToWindow (bool toNext,
-				  bool autoChangeVPOption)
+				  bool autoChangeVPOption,
+				  bool focus)
 {
     CompWindow               *w = NULL;
     CompWindowList::iterator it;
@@ -328,7 +335,7 @@ BaseSwitchScreen::switchToWindow (bool toNext,
 	    if (popup)
 		CompositeWindow::get (popup)->addDamage ();
 
-	    setSelectedWindowHint ();
+	    setSelectedWindowHint (focus);
 	}
 
 	doWindowDamage (w);
@@ -430,8 +437,8 @@ BaseSwitchWindow::paintThumb (const GLWindowPaintAttrib &attrib,
 	width  = width1;
 	height = height1;
 
-	ww = window->inputRect ().width ();
-	wh = window->inputRect ().height ();
+	ww = window->borderRect ().width ();
+	wh = window->borderRect ().height ();
 
 	if (ww > width)
 	    sAttrib.xScale = width / ww;
@@ -454,9 +461,9 @@ BaseSwitchWindow::paintThumb (const GLWindowPaintAttrib &attrib,
 	updateIconPos (wx, wy, x, y, width, height);
 
 	sAttrib.xTranslate = wx - g.x () +
-			     window->input ().left * sAttrib.xScale;
+			     window->border ().left * sAttrib.xScale;
 	sAttrib.yTranslate = wy - g.y () +
-			     window->input ().top  * sAttrib.yScale;
+			     window->border ().top  * sAttrib.yScale;
 
 	GLFragment::Attrib fragment (sAttrib);
 

@@ -28,6 +28,7 @@
 
 #define SN_API_NOT_YET_FROZEN
 #include <libsn/sn.h>
+#include <core/string.h>
 
 namespace CompSession {
 

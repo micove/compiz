@@ -23,15 +23,15 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#include <cmath>
-#include <cairo-xlib-xrender.h>
-
-#include <core/core.h>
-#include <core/serialization.h>
-#include <opengl/opengl.h>
+#include "annotate_options.h"
 #include <composite/composite.h>
 
-#include "annotate_options.h"
+#include <core/serialization.h>
+
+#include <cairo-xlib-xrender.h>
+#include <opengl/opengl.h>
+
+#include <cmath>
 
 static int annoLastPointerX = 0;
 static int annoLastPointerY = 0;

@@ -41,7 +41,7 @@ extern CompOutput *targetOutput;
 class GLIcon
 {
     public:
-	GLIcon () : icon (NULL) {};
+	GLIcon () : icon (NULL) {}
 
 	CompIcon        *icon;
 	GLTexture::List textures;
@@ -49,7 +49,7 @@ class GLIcon
 
 class PrivateGLScreen :
     public ScreenInterface,
-    public CompositeScreen::PaintHandler,
+    public compiz::composite::PaintHandler,
     public OpenglOptions
 {
     public:
@@ -70,6 +70,9 @@ class PrivateGLScreen :
 
 	void prepareDrawing ();
 
+	bool compositingActive ();
+
+	void controlSwapVideoSync ();
 	void waitForVideoSync ();
 
 	void paintBackground (const CompRegion &region,
@@ -121,6 +124,9 @@ class PrivateGLScreen :
 	bool hasCompositing;
 
 	GLIcon defaultIcon;
+
+	Pixmap rootPixmapCopy;
+	CompSize rootPixmapSize;
 };
 
 class PrivateGLWindow :

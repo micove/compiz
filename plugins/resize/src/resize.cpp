@@ -31,31 +31,32 @@
 #include <X11/Xatom.h>
 #include <X11/cursorfont.h>
 
-#include <core/core.h>
 #include <core/atoms.h>
 #include "resize.h"
 
 COMPIZ_PLUGIN_20090315 (resize, ResizePluginVTable)
 
+#define XWINDOWCHANGES_INIT {0, 0, 0, 0, 0, None, 0}
+
 void
 ResizeScreen::getPaintRectangle (BoxPtr pBox)
 {
-    pBox->x1 = geometry.x - w->input ().left;
-    pBox->y1 = geometry.y - w->input ().top;
+    pBox->x1 = geometry.x - w->border ().left;
+    pBox->y1 = geometry.y - w->border ().top;
     pBox->x2 = geometry.x + geometry.width +
-	       w->serverGeometry ().border () * 2 + w->input ().right;
+	       w->serverGeometry ().border () * 2 + w->border ().right;
 
     if (w->shaded ())
-	pBox->y2 = geometry.y + w->size ().height () + w->input ().bottom;
+	pBox->y2 = geometry.y + w->size ().height () + w->border ().bottom;
     else
 	pBox->y2 = geometry.y + geometry.height +
-	           w->serverGeometry ().border () * 2 + w->input ().bottom;
+		   w->serverGeometry ().border () * 2 + w->border ().bottom;
 }
 
 void
 ResizeWindow::getStretchScale (BoxPtr pBox, float *xScale, float *yScale)
 {
-    CompRect rect (window->inputRect ());
+    CompRect rect (window->borderRect ());
 
     *xScale = (rect.width ())  ? (pBox->x2 - pBox->x1) /
 				 (float) rect.width () : 1.0f;
@@ -72,8 +73,8 @@ ResizeScreen::getStretchRectangle (BoxPtr pBox)
     getPaintRectangle (&box);
     ResizeWindow::get (w)->getStretchScale (&box, &xScale, &yScale);
 
-    pBox->x1 = (int) (box.x1 - (w->output ().left - w->input ().left) * xScale);
-    pBox->y1 = (int) (box.y1 - (w->output ().top - w->input ().top) * yScale);
+    pBox->x1 = (int) (box.x1 - (w->output ().left - w->border ().left) * xScale);
+    pBox->y1 = (int) (box.y1 - (w->output ().top - w->border ().top) * yScale);
     pBox->x2 = (int) (box.x2 + w->output ().right * xScale);
     pBox->y2 = (int) (box.y2 + w->output ().bottom * yScale);
 }
@@ -394,7 +395,7 @@ resizeInitiate (CompAction         *action,
 	rs->pointerDx = x - pointerX;
 	rs->pointerDy = y - pointerY;
 
-	rs->centered =  rs->optionGetResizeFromCenterMatch ().evaluate (w);
+	rs->centered |= rs->optionGetResizeFromCenterMatch ().evaluate (w);
 
 	if ((w->state () & MAXIMIZE_STATE) == MAXIMIZE_STATE)
 	{
@@ -450,7 +451,11 @@ resizeInitiate (CompAction         *action,
 
 	    w->grabNotify (x, y, state, grabMask);
 
-	    if (screen->getOption ("raise_on_click")->value ().b ())
+	    /* Click raise happens implicitly on buttons 1, 2 and 3 so don't
+	     * restack this window again if the action buttonbinding was from
+	     * one of those buttons */
+	    if (screen->getOption ("raise_on_click")->value ().b () &&
+		button != Button1 && button != Button2 && button != Button3)
 		w->updateAttributes (CompStackingUpdateModeAboveFullscreen);
 
 	    /* using the paint rectangle is enough here
@@ -505,10 +510,7 @@ resizeInitiate (CompAction         *action,
 		int top = screen->outputDevs ().at (tco).workArea ().top ();
 		int bottom = screen->outputDevs ().at (bco).workArea ().bottom ();
 
-		if (rs->grabWindowWorkArea)
-		    delete rs->grabWindowWorkArea;
-
-		rs->grabWindowWorkArea = new CompRect (0, 0, 0, 0);
+		rs->grabWindowWorkArea.reset (new CompRect (0, 0, 0, 0));
 		rs->grabWindowWorkArea->setLeft (left);
 		rs->grabWindowWorkArea->setRight (right);
 		rs->grabWindowWorkArea->setTop (top);
@@ -568,7 +570,7 @@ resizeTerminate (CompAction         *action,
     if (rs->w)
     {
 	CompWindow     *w = rs->w;
-	XWindowChanges xwc;
+	XWindowChanges xwc = XWINDOWCHANGES_INIT;
 	unsigned int   mask = 0;
 
 	if (rs->mode == ResizeOptions::ModeNormal)
@@ -668,7 +670,7 @@ ResizeScreen::updateWindowSize ()
     if (w->serverGeometry ().width ()  != geometry.width ||
 	w->serverGeometry ().height () != geometry.height)
     {
-	XWindowChanges xwc;
+	XWindowChanges xwc = XWINDOWCHANGES_INIT;
 
 	xwc.x	   = geometry.x;
 	xwc.y	   = geometry.y;
@@ -712,12 +714,12 @@ ResizeScreen::handleKeyEvent (KeyCode keycode)
 		int x, y, left, top, width, height;
 
 		CompWindow::Geometry server = w->serverGeometry ();
-		CompWindowExtents    input  = w->input ();
+		const CompWindowExtents    &border  = w->border ();
 
-		left   = server.x () - input.left;
-		top    = server.y () - input.top;
-		width  = input.left + server.width () + input.right;
-		height = input.top  + server.height () + input.bottom;
+		left   = server.x () - border.left;
+		top    = server.y () - border.top;
+		width  = border.left + server.width () + border.right;
+		height = border.top  + server.height () + border.bottom;
 
 		x = left + width  * (rKeys[i].dx + 1) / 2;
 		y = top  + height * (rKeys[i].dy + 1) / 2;
@@ -801,16 +803,16 @@ ResizeScreen::handleMotionEvent (int xRoot, int yRoot)
 
 		if (mask & ResizeRightMask)
 			pointerAdjustX = server.x () + server.width () +
-					 w->input ().right - xRoot;
+					 w->border ().right - xRoot;
 		else if (mask & ResizeLeftMask)
-			pointerAdjustX = server.x () - w->input ().left -
+			pointerAdjustX = server.x () - w->border ().left -
 					 xRoot;
 
 		if (mask & ResizeDownMask)
 			pointerAdjustY = server.y () + server.height () +
-					 w->input ().bottom - yRoot;
+					 w->border ().bottom - yRoot;
 		else if (mask & ResizeUpMask)
-			pointerAdjustY = server.y () - w->input ().top - yRoot;
+			pointerAdjustY = server.y () - w->border ().top - yRoot;
 
 		screen->warpPointer (pointerAdjustX, pointerAdjustY);
 
@@ -824,7 +826,7 @@ ResizeScreen::handleMotionEvent (int xRoot, int yRoot)
 	       already set as we don't have a use for the
 	       difference information otherwise */
 
-	    if (centered)
+	    if (centered || optionGetResizeFromCenter ())
 	    {
 		pointerDx += (xRoot - lastPointerX) * 2;
 		pointerDy += (yRoot - lastPointerY) * 2;
@@ -847,25 +849,25 @@ ResizeScreen::handleMotionEvent (int xRoot, int yRoot)
 		if (mask == ResizeLeftMask)
 		{
 		    if (xRoot == 0 &&
-			geometry.x - w->input ().left > grabWindowWorkArea->left ())
+			geometry.x - w->border ().left > grabWindowWorkArea->left ())
 			pointerDx += abs (yRoot - lastPointerY) * -1;
 		}
 		else if (mask == ResizeRightMask)
 		{
 		    if (xRoot == screen->width () -1 &&
-			geometry.x + geometry.width + w->input ().right < grabWindowWorkArea->right ())
+			geometry.x + geometry.width + w->border ().right < grabWindowWorkArea->right ())
 			pointerDx += abs (yRoot - lastPointerY);
 		}
 		if (mask == ResizeUpMask)
 		{
 		    if (yRoot == 0 &&
-			geometry.y - w->input ().top > grabWindowWorkArea->top ())
+			geometry.y - w->border ().top > grabWindowWorkArea->top ())
 			pointerDy += abs (xRoot - lastPointerX) * -1;
 		}
 		else if (mask == ResizeDownMask)
 		{
 		    if (yRoot == screen->height () -1 &&
-			geometry.y + geometry.height + w->input ().bottom < grabWindowWorkArea->bottom ())
+			geometry.y + geometry.height + w->border ().bottom < grabWindowWorkArea->bottom ())
 			pointerDx += abs (yRoot - lastPointerY);
 		}
 	    }
@@ -890,7 +892,8 @@ ResizeScreen::handleMotionEvent (int xRoot, int yRoot)
 	cwi = wi;
 	che = he;
 
-	if (w->constrainNewWindowSize (wi, he, &cwi, &che))
+	if (w->constrainNewWindowSize (wi, he, &cwi, &che) &&
+	    mode != ResizeOptions::ModeNormal)
 	{
 	    Box box;
 
@@ -910,14 +913,14 @@ ResizeScreen::handleMotionEvent (int xRoot, int yRoot)
 	    if (mask & ResizeUpMask)
 	    {
 		int decorTop = savedGeometry.y + savedGeometry.height -
-		    (che + w->input ().top);
+		    (che + w->border ().top);
 
 		if (grabWindowWorkArea->y () > decorTop)
 		    che -= grabWindowWorkArea->y () - decorTop;
 	    }
 	    if (mask & ResizeDownMask)
 	    {
-		int decorBottom = savedGeometry.y + che + w->input ().bottom;
+		int decorBottom = savedGeometry.y + che + w->border ().bottom;
 
 		if (decorBottom >
 		    grabWindowWorkArea->y () + grabWindowWorkArea->height ())
@@ -927,14 +930,14 @@ ResizeScreen::handleMotionEvent (int xRoot, int yRoot)
 	    if (mask & ResizeLeftMask)
 	    {
 		int decorLeft = savedGeometry.x + savedGeometry.width -
-		    (cwi + w->input ().left);
+		    (cwi + w->border ().left);
 
 		if (grabWindowWorkArea->x () > decorLeft)
 		    cwi -= grabWindowWorkArea->x () - decorLeft;
 	    }
 	    if (mask & ResizeRightMask)
 	    {
-		int decorRight = savedGeometry.x + cwi + w->input ().right;
+		int decorRight = savedGeometry.x + cwi + w->border ().right;
 
 		if (decorRight >
 		    grabWindowWorkArea->x () + grabWindowWorkArea->width ())
@@ -947,36 +950,36 @@ ResizeScreen::handleMotionEvent (int xRoot, int yRoot)
 	he = che;
 
 	/* compute rect. for window + borders */
-	wWidth  = wi + w->input ().left + w->input ().right;
-	wHeight = he + w->input ().top + w->input ().bottom;
+	wWidth  = wi + w->border ().left + w->border ().right;
+	wHeight = he + w->border ().top + w->border ().bottom;
 
-	if (centered)
+	if (centered || optionGetResizeFromCenter ())
 	{
 	    if (mask & ResizeLeftMask)
 		wX = geometry.x + geometry.width -
-		     (wi + w->input ().left);
+		     (wi + w->border ().left);
 	    else
-		wX = geometry.x - w->input ().left;
+		wX = geometry.x - w->border ().left;
 
 	    if (mask & ResizeUpMask)
 		wY = geometry.y + geometry.height -
-		     (he + w->input ().top);
+		     (he + w->border ().top);
 	    else
-		wY = geometry.y - w->input ().top;
+		wY = geometry.y - w->border ().top;
 	}
 	else
 	{
 	    if (mask & ResizeLeftMask)
 		wX = savedGeometry.x + savedGeometry.width -
-		     (wi + w->input ().left);
+		     (wi + w->border ().left);
 	    else
-		wX = savedGeometry.x - w->input ().left;
+		wX = savedGeometry.x - w->border ().left;
 
 	    if (mask & ResizeUpMask)
 		wY = savedGeometry.y + savedGeometry.height -
-		     (he + w->input ().top);
+		     (he + w->border ().top);
 	    else
-		wY = savedGeometry.y - w->input ().top;
+		wY = savedGeometry.y - w->border ().top;
 	}
 
 	/* Check if resized edge(s) are near output work-area boundaries */
@@ -1047,12 +1050,12 @@ ResizeScreen::handleMotionEvent (int xRoot, int yRoot)
 	    /* rect. for a minimal height window + borders
 	       (used for the constraining in X axis) */
 	    int minimalInputHeight = minHeight +
-				     w->input ().top + w->input ().bottom;
+				     w->border ().top + w->border ().bottom;
 
 	    /* small hot-spot square (on window's corner or edge) that is to be
 	       constrained to the combined output work-area region */
 	    int x, y;
-	    int width = w->input ().top; /* square size = title bar height */
+	    int width = w->border ().top; /* square size = title bar height */
 	    int height = width;
 	    bool status; /* whether or not hot-spot is in the region */
 
@@ -1200,7 +1203,7 @@ ResizeScreen::handleMotionEvent (int xRoot, int yRoot)
 	    damageRectangle (&box);
 	}
 
-	if (centered)
+	if (centered || optionGetResizeFromCenter ())
 	{
 	    if ((mask & ResizeLeftMask) || (mask & ResizeRightMask))
 		geometry.x -= ((wi - geometry.width) / 2);
@@ -1256,7 +1259,7 @@ ResizeScreen::handleEvent (XEvent *event)
 			CompAction *action = &optionGetInitiateButton ();
 
 			resizeTerminate (action, CompAction::StateTermButton,
-					 noOptions);
+					 noOptions ());
 		    }
 		}
 	    }
@@ -1353,9 +1356,9 @@ ResizeScreen::handleEvent (XEvent *event)
 		    if (rs->w->id () == event->xclient.window)
 		    {
 			resizeTerminate (&optionGetInitiateButton (),
-					 CompAction::StateCancel, noOptions);
+					 CompAction::StateCancel, noOptions ());
 			resizeTerminate (&optionGetInitiateKey (),
-					 CompAction::StateCancel, noOptions);
+					 CompAction::StateCancel, noOptions ());
 		    }
 		}
 	    }
@@ -1363,21 +1366,21 @@ ResizeScreen::handleEvent (XEvent *event)
 	case DestroyNotify:
 	    if (w && w->id () == event->xdestroywindow.window)
 	    {
-		resizeTerminate (&optionGetInitiateButton (), 0, noOptions);
-		resizeTerminate (&optionGetInitiateKey (), 0, noOptions);
+		resizeTerminate (&optionGetInitiateButton (), 0, noOptions ());
+		resizeTerminate (&optionGetInitiateKey (), 0, noOptions ());
 	    }
 	    break;
 	case UnmapNotify:
 	    if (w && w->id () == event->xunmap.window)
 	    {
-		resizeTerminate (&optionGetInitiateButton (), 0, noOptions);
-		resizeTerminate (&optionGetInitiateKey (), 0, noOptions);
+		resizeTerminate (&optionGetInitiateButton (), 0, noOptions ());
+		resizeTerminate (&optionGetInitiateKey (), 0, noOptions ());
 	    }
 	default:
 	    break;
     }
 
-    if (event->type == screen->xkbEvent () && w)
+    if (event->type == screen->xkbEvent ())
     {
 	XkbAnyEvent *xkbEvent = (XkbAnyEvent *) event;
 
@@ -1390,6 +1393,7 @@ ResizeScreen::handleEvent (XEvent *event)
 	    unsigned int mods = 0xffffffff;
 	    bool	 modifierMode = false;
 	    int		 oldMode = mode;
+
 	    if (outlineMask)
 		mods = outlineMask;
 
@@ -1423,10 +1427,38 @@ ResizeScreen::handleEvent (XEvent *event)
 	    if (centeredMask)
 		mods = centeredMask;
 
+	    /* No modifier mode set, check match options */
+	    if (w)
+	    {
+		if (optionGetNormalMatch ().evaluate (w))
+		{
+		    modifierMode = true;
+		    mode = ResizeOptions::ModeNormal;
+		}
+
+		if (optionGetOutlineMatch ().evaluate (w))
+		{
+		    modifierMode = true;
+		    mode = ResizeOptions::ModeOutline;
+		}
+
+		if (optionGetRectangleMatch ().evaluate (w))
+		{
+		    modifierMode = true;
+		    mode = ResizeOptions::ModeRectangle;
+		}
+
+		if (optionGetStretchMatch ().evaluate (w))
+		{
+		    modifierMode = true;
+		    mode = ResizeOptions::ModeStretch;
+		}
+	    }
+
 	    if (!modifierMode)
 		mode = optionGetMode ();
 
-	    if (oldMode != mode)
+	    if (w && oldMode != mode)
 	    {
 		Box box;
 
@@ -1444,10 +1476,20 @@ ResizeScreen::handleEvent (XEvent *event)
 	    }
 
 	    if ((stateEvent->mods & mods) == mods)
+	    {
 		centered = true;
-	    else if ((w &&
-		      !optionGetResizeFromCenterMatch ().evaluate (w)))
+	    }
+	    else if (w)
+	    {
+		if (!optionGetResizeFromCenterMatch ().evaluate (w))
+		    centered = false;
+		else
+		    centered = true;
+	    }
+	    else
+	    {
 		centered = false;
+	    }
 	}
     }
 
@@ -1483,8 +1525,20 @@ ResizeScreen::glPaintRectangle (const GLScreenPaintAttrib &sAttrib,
 				unsigned short            *borderColor,
 				unsigned short            *fillColor)
 {
-    BoxRec   box;
-    GLMatrix sTransform (transform);
+    BoxRec   	   box;
+    GLMatrix 	   sTransform (transform);
+    GLint    	   origSrc, origDst;
+    float_t	   fc[4], bc[4];
+
+    glGetIntegerv (GL_BLEND_SRC, &origSrc);
+    glGetIntegerv (GL_BLEND_DST, &origDst);
+
+    /* Premultiply the alpha values */
+    
+    bc[3] = (float) borderColor[3] / (float) 65535.0f;
+    bc[0] = ((float) borderColor[0] / 65535.0f) * bc[3];
+    bc[1] = ((float) borderColor[1] / 65535.0f) * bc[3];
+    bc[2] = ((float) borderColor[2] / 65535.0f) * bc[3];
 
     getPaintRectangle (&box);
 
@@ -1496,16 +1550,22 @@ ResizeScreen::glPaintRectangle (const GLScreenPaintAttrib &sAttrib,
 
     glDisableClientState (GL_TEXTURE_COORD_ARRAY);
     glEnable (GL_BLEND);
+    glBlendFunc (GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
     /* fill rectangle */
     if (fillColor)
     {
-	glColor4usv (fillColor);
+	fc[3] = (float) fillColor[3] / (float) 65535.0f;
+	fc[0] = ((float) fillColor[0] / 65535.0f) * fc[3];
+	fc[1] = ((float) fillColor[1] / 65535.0f) * fc[3];
+	fc[2] = ((float) fillColor[2] / 65535.0f) * fc[3];
+
+	glColor4f (fc[0], fc[1], fc[2], fc[3]);
 	glRecti (box.x1, box.y2, box.x2, box.y1);
     }
 
     /* draw outline */
-    glColor4usv (borderColor);
+    glColor4f (bc[0], bc[1], bc[2], bc[3]);
     glLineWidth (2.0);
     glBegin (GL_LINE_LOOP);
     glVertex2i (box.x1, box.y1);
@@ -1592,8 +1652,8 @@ ResizeWindow::glPaint (const GLWindowPaintAttrib &attrib,
 	x = window->geometry (). x ();
 	y = window->geometry (). y ();
 
-	xOrigin = x - window->input ().left;
-	yOrigin = y - window->input ().top;
+	xOrigin = x - window->border ().left;
+	yOrigin = y - window->border ().top;
 
 	wTransform.translate (xOrigin, yOrigin, 0.0f);
 	wTransform.scale (xScale, yScale, 1.0f);
@@ -1680,7 +1740,7 @@ ResizeScreen::optionChanged (CompOption		    *option,
 	    mask = &stretchMask;
 	    valueMask = optionGetStretchModifierMask ();
 	    break;
-	case ResizeOptions::CenteredModifier:
+        case ResizeOptions::CenteredModifier:
 	    mask = &centeredMask;
 	    valueMask = optionGetCenteredModifierMask ();
 	    break;
@@ -1704,7 +1764,7 @@ ResizeScreen::ResizeScreen (CompScreen *s) :
     releaseButton (0),
     isConstrained (false),
     offWorkAreaConstrained (true),
-    grabWindowWorkArea (NULL)
+    grabWindowWorkArea ()
 {
     CompOption::Vector atomTemplate;
     Display *dpy = s->dpy ();

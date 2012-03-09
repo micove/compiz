@@ -23,7 +23,7 @@
  * Author: Danny Baumann <dannybaumann@web.de>
  */
 
-#include <core/core.h>
+#include <core/screen.h>
 #include <core/pluginclasshandler.h>
 #include <core/serialization.h>
 

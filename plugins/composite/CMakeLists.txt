@@ -2,4 +2,5 @@ find_package (Compiz REQUIRED)
 
 include (CompizPlugin)
 
-compiz_plugin(composite)
+compiz_plugin (composite)
+

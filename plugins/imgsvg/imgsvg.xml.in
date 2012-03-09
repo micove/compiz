@@ -1,7 +1,7 @@
 <compiz>
     <plugin name="imgsvg" useBcop="true">
-	<_short>Svg</_short>
-	<_long>Svg image loader</_long>
+	<_short>SVG</_short>
+	<_long>SVG image loader</_long>
 	<category>Image Loading</category>
 	<feature>imageext:svg</feature>
 	<feature>imagemime:image/svg+xml</feature>

@@ -23,13 +23,13 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#include <stdlib.h>
-#include <unistd.h>
-#include <poll.h>
-#include <sys/inotify.h>
+#ifndef COMPIZ_INOTIFY_H
+#define COMPIZ_INOTIFY_H
 
-#include <core/core.h>
+#include <core/screen.h>
 #include <core/pluginclasshandler.h>
+
+#include <list>
 
 class InotifyScreen :
     public ScreenInterface,
@@ -64,3 +64,5 @@ class InotifyPluginVTable :
 
 	bool init ();
 };
+
+#endif

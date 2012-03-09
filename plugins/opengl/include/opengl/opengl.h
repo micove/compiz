@@ -35,7 +35,7 @@
 #include <opengl/texture.h>
 #include <opengl/fragment.h>
 
-#define COMPIZ_OPENGL_ABI 3
+#define COMPIZ_OPENGL_ABI 4
 
 #include <core/pluginclasshandler.h>
 
@@ -102,6 +102,8 @@ namespace GL {
     typedef int (*GLXWaitVideoSyncProc) (int	  divisor,
 					 int	  remainder,
 					 unsigned int *count);
+    typedef int (*GLXSwapIntervalProc) (int interval);
+
 
     #ifndef GLX_VERSION_1_3
     typedef struct __GLXFBConfigRec *GLXFBConfig;
@@ -165,6 +167,7 @@ namespace GL {
     extern GLXCopySubBufferProc     copySubBuffer;
     extern GLXGetVideoSyncProc      getVideoSync;
     extern GLXWaitVideoSyncProc     waitVideoSync;
+    extern GLXSwapIntervalProc      swapInterval;
     extern GLXGetFBConfigsProc      getFBConfigs;
     extern GLXGetFBConfigAttribProc getFBConfigAttrib;
     extern GLXCreatePixmapProc      createPixmap;
@@ -303,7 +306,7 @@ class GLScreenInterface :
 
 
 class GLScreen :
-    public WrapableHandler<GLScreenInterface, 5>,
+    public WrapableHandler<GLScreenInterface, 6>,
     public PluginClassHandler<GLScreen, CompScreen, COMPIZ_OPENGL_ABI>,
     public CompOption::Class
 {
@@ -382,6 +385,8 @@ class GLScreen :
 	 * represents the current projection matrix
 	 */
 	const float * projectionMatrix ();
+
+	bool glInitContext (XVisualInfo *);
 
 	WRAPABLE_HND (0, GLScreenInterface, bool, glPaintOutput,
 		      const GLScreenPaintAttrib &, const GLMatrix &,

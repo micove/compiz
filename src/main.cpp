@@ -27,8 +27,6 @@
 #  include <config.h>
 #endif
 
-#include <compiz.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -36,67 +34,34 @@
 #include <string.h>
 #include <sys/wait.h>
 
-#include <core/core.h>
 #include "privatescreen.h"
-
-char *programName;
-char **programArgv;
-int  programArgc;
-
-char *backgroundImage = NULL;
-
-bool shutDown = false;
-bool restartSignal = false;
-
-CompWindow *lastFoundWindow = 0;
-
-bool replaceCurrentWm = false;
-bool indirectRendering = false;
-bool noDetection = false;
-bool useDesktopHints = false;
-bool debugOutput = false;
-bool useCow = true;
-
-std::list <CompString> initialPlugins;
-
-unsigned int pluginClassHandlerIndex = 0;
+#include "privatestackdebugger.h"
 
 void
 CompManager::usage ()
 {
-    printf ("Usage: %s "
-	    "[--replace] "
-	    "[--display DISPLAY]\n       "
-	    "[--indirect-rendering] "
-	    "[--sm-disable] "
-	    "[--sm-client-id ID]\n       "
-	    "[--bg-image PNG] "
-	    "[--no-detection] "
-	    "[--keep-desktop-hints]\n       "
-	    "[--use-root-window] "
-	    "[--debug] "
-	    "[--version] "
-	    "[--help] "
-	    "[PLUGIN]...\n",
-	    programName);
+    printf ("Usage: %s [OPTIONS] [PLUGINS ...]\n"
+            "Options:\n"
+            "  --replace             Replace any existing window managers\n"
+            "  --display DISPLAY     Connect to X display DISPLAY (instead of $DISPLAY)\n"
+            "  --sm-disable          Disable session management\n"
+            "  --sm-client-id ID     Session management client ID\n"
+            "  --keep-desktop-hints  Retain existing desktop hints\n"
+            "  --sync                Make all X calls synchronous\n"
+            "  --debug               Enable debug mode\n"
+            "  --version             Show the program version\n"
+            "  --help                Show this summary\n"
+            , programName);
 }
 
 static void
-signalHandler (int sig)
+chldSignalHandler (int sig)
 {
     int status;
 
     switch (sig) {
     case SIGCHLD:
 	waitpid (-1, &status, WNOHANG | WUNTRACED);
-	break;
-    case SIGHUP:
-	restartSignal = true;
-	break;
-    case SIGINT:
-    case SIGTERM:
-	shutDown = true;
-    default:
 	break;
     }
 }
@@ -120,22 +85,18 @@ CompManager::parseArguments (int argc, char **argv)
 	{
 	    debugOutput = true;
 	}
+	else if (!strcmp (argv[i], "--sync"))
+	{
+	    synchronousX = true;
+	}
 	else if (!strcmp (argv[i], "--display"))
 	{
 	    if (i + 1 < argc)
 		displayName = argv[++i];
 	}
-	else if (!strcmp (argv[i], "--indirect-rendering"))
-	{
-	    indirectRendering = true;
-	}
 	else if (!strcmp (argv[i], "--keep-desktop-hints"))
 	{
 	    useDesktopHints = true;
-	}
-	else if (!strcmp (argv[i], "--use-root-window"))
-	{
-	    useCow = false;
 	}
 	else if (!strcmp (argv[i], "--replace"))
 	{
@@ -149,15 +110,6 @@ CompManager::parseArguments (int argc, char **argv)
 	{
 	    if (i + 1 < argc)
 		clientId = argv[++i];
-	}
-	else if (!strcmp (argv[i], "--no-detection"))
-	{
-	    noDetection = true;
-	}
-	else if (!strcmp (argv[i], "--bg-image"))
-	{
-	    if (i + 1 < argc)
-		backgroundImage = argv[++i];
 	}
 	else if (*argv[i] == '-')
 	{
@@ -185,21 +137,16 @@ CompManager::CompManager () :
 bool
 CompManager::init ()
 {
-    screen = new CompScreen ();
-
-    if (!screen || !screen->priv)
-	return false;
+    std::auto_ptr<CompScreenImpl> screen(new CompScreenImpl ());
 
     if (screen->priv->createFailed ())
     {
-	delete screen;
 	return false;
     }
 
-    modHandler = new ModifierHandler ();
+    ::screen = screen.get();
 
-    if (!modHandler)
-	return false;
+    modHandler = new ModifierHandler ();
 
     if (!plugins.empty ())
     {
@@ -225,8 +172,27 @@ CompManager::init ()
     if (!screen->init (displayName))
 	return false;
 
-    if (!disableSm)
-	CompSession::init (clientId);
+    if (debugOutput)
+    {
+	StackDebugger::SetDefault (new StackDebugger (screen->dpy (),
+						      screen->root (),
+						      boost::bind (&PrivateScreen::queueEvents,
+								   screen->priv.get())));
+    }
+
+     if (!disableSm)
+     {
+	if (clientId == NULL)
+	{
+	    char *desktop_autostart_id = getenv ("DESKTOP_AUTOSTART_ID");
+	    if (desktop_autostart_id != NULL)
+		clientId = strdup (desktop_autostart_id);
+	    unsetenv ("DESKTOP_AUTOSTART_ID");
+ 	}
+ 	CompSession::init (clientId);
+     }
+
+    screen.release ();
 
     return true;
 }
@@ -243,6 +209,8 @@ CompManager::fini ()
     if (!disableSm)
 	CompSession::close ();
 
+    StackDebugger::SetDefault (NULL);
+
     delete screen;
     delete modHandler;
 }
@@ -258,10 +226,7 @@ main (int argc, char **argv)
     programArgc = argc;
     programArgv = argv;
 
-    signal (SIGHUP, signalHandler);
-    signal (SIGCHLD, signalHandler);
-    signal (SIGINT, signalHandler);
-    signal (SIGTERM, signalHandler);
+    signal (SIGCHLD, chldSignalHandler);
 
     if (!manager.parseArguments (argc, argv))
 	return 0;

@@ -27,7 +27,6 @@
 #define _COMPIZ_COMPIZTOOLBOX_H
 
 #include <decoration.h>
-#include <core/core.h>
 #include <core/atoms.h>
 #include <core/countedlist.h>
 #include <core/propertywriter.h>
@@ -41,7 +40,7 @@
 #include <sstream>
 #include <fstream>
 
-#define COMPIZ_COMPIZTOOLBOX_ABI 2
+#define COMPIZ_COMPIZTOOLBOX_ABI 3
 
 typedef enum
 {
@@ -73,11 +72,11 @@ class BaseSwitchScreen
 	virtual ~BaseSwitchScreen () {}
 
 	void handleEvent (XEvent *);
-	void setSelectedWindowHint ();
+	void setSelectedWindowHint (bool focus);
 	void activateEvent (bool activating);
 	void updateForegroundColor ();
 
-	CompWindow *switchToWindow (bool toNext, bool autoChangeVPOption);
+	CompWindow *switchToWindow (bool toNext, bool autoChangeVPOption, bool focus);
 	static bool compareWindows (CompWindow *w1, CompWindow *w2);
 	static Visual *findArgbVisual (Display *dpy, int scr);
 

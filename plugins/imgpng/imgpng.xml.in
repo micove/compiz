@@ -1,7 +1,7 @@
 <compiz>
     <plugin name="imgpng">
-	<_short>Png</_short>
-	<_long>Png image loader</_long>
+	<_short>PNG</_short>
+	<_long>PNG image loader</_long>
 	<category>Image Loading</category>
 	<feature>imageext:png</feature>
 	<feature>imagemime:image/png</feature>

@@ -56,32 +56,6 @@ class PrivateRestriction {
 	RestrictionUnion rest;
 };
 
-typedef union {
-    bool	   b;
-    int		   i;
-    float	   f;
-    unsigned short c[4];
-} ValueUnion;
-
-class PrivateValue {
-    public:
-	PrivateValue ();
-	PrivateValue (const PrivateValue&);
-
-	void reset ();
-	bool checkType (CompOption::Type refType);
-
-	CompOption::Type          type;
-	ValueUnion                value;
-	CompString                string;
-	CompAction                action;
-	CompMatch                 match;
-	CompOption::Type          listType;
-	CompOption::Value::Vector list;
-
-	bool			  active;
-};
-
 class PrivateOption
 {
     public:

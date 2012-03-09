@@ -36,6 +36,7 @@
 
 struct GLWindowPaintAttrib;
 class GLScreen;
+class GLTexture;
 
 /**
  * Describes a texture modification fragment program

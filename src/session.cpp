@@ -23,11 +23,13 @@
  * Author: Radek Doulik <rodo@novell.com>
  */
 
+
+#include "core/session.h"
+#include "core/screen.h"
+
 #ifdef HAVE_CONFIG_H
 #  include <config.h>
 #endif
-
-#include <compiz.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -40,9 +42,6 @@
 #include <X11/ICE/ICElib.h>
 
 #include <boost/bind.hpp>
-
-#include <core/session.h>
-#include <core/core.h>
 
 #define SM_DEBUG(x)
 
@@ -221,7 +220,7 @@ static void
 dieCallback (SmcConn   connection,
 	     SmPointer clientData)
 {
-    screen->sessionEvent (CompSession::EventDie, noOptions);
+    screen->sessionEvent (CompSession::EventDie, noOptions ());
 
     CompSession::close ();
     exit (0);
@@ -231,14 +230,14 @@ static void
 saveCompleteCallback (SmcConn	connection,
 		      SmPointer clientData)
 {
-    screen->sessionEvent (CompSession::EventSaveComplete, noOptions);
+    screen->sessionEvent (CompSession::EventSaveComplete, noOptions ());
 }
 
 static void
 shutdownCancelledCallback (SmcConn   connection,
 			   SmPointer clientData)
 {
-    screen->sessionEvent (CompSession::EventShutdownCancelled, noOptions);
+    screen->sessionEvent (CompSession::EventShutdownCancelled, noOptions ());
 }
 
 void
@@ -286,6 +285,8 @@ CompSession::init (char *prevClientId)
 	    connected = true;
 	    if (prevClientId)
 		smPrevClientId = strdup (prevClientId);
+	    setRestartStyle (smcConnection, SmRestartImmediately);
+	    
 	}
     }
 }

@@ -1,12 +1,10 @@
 option (BUILD_GTK "Build gtk-window-decorator and Gnome related toold" 1)
 option (BUILD_METACITY "Gtk-window-decorator metacity theme support" 1)
-option (BUILD_GNOME "Gnome settings module" 1)
-option (BUILD_GNOME_KEYBINDINGS "Gnome keybindings" 1)
+option (BUILD_GNOME "GNOME integration" 1)
 
 compiz_set (USE_GTK ${BUILD_GTK})
 compiz_set (USE_METACITY ${BUILD_METACITY})
 compiz_set (USE_GNOME ${BUILD_GNOME})
-compiz_set (USE_GNOME_KEYBINDINGS ${BUILD_GNOME_KEYBINDINGS})
 
 if (USE_GTK)
     pkg_check_modules (GTK_WINDOW_DECORATOR
@@ -80,8 +78,6 @@ endif (USE_GTK)
 
 if (NOT USE_GTK)
     compiz_set (USE_METACITY 0)
-    compiz_set (USE_GNOME 0)
-    compiz_set (USE_GNOME_KEYBINDINGS 0)
 endif (NOT USE_GTK)
 
 configure_file (

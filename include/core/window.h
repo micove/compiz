@@ -41,6 +41,8 @@
 #include <core/size.h>
 #include <core/point.h>
 #include <core/region.h>
+#include <core/windowgeometry.h>
+#include <core/windowextents.h>
 
 #include <core/wrapsystem.h>
 
@@ -93,6 +95,7 @@ struct CompStartupSequence;
 #define CompWindowStateBelowMask	    (1 << 10)
 #define CompWindowStateDemandsAttentionMask (1 << 11)
 #define CompWindowStateDisplayModalMask	    (1 << 12)
+#define CompWindowStateFocusedMask	    (1 << 13)
 
 #define MAXIMIZE_STATE (CompWindowStateMaximizedHorzMask | \
 			CompWindowStateMaximizedVertMask)
@@ -199,12 +202,15 @@ enum CompWindowNotify {
  * Specifies the left, right, top and bottom positions of a window's
  * geometry
  */
-struct CompWindowExtents {
-    int left;
-    int right;
-    int top;
-    int bottom;
-};
+typedef compiz::window::extents::Extents CompWindowExtents;
+
+namespace compiz
+{
+    namespace window
+    {
+        unsigned int fillStateData (unsigned int state, Atom *data);
+    }
+}
 
 /**
  * Specifies the area of the screen taken up by strut windows
@@ -256,6 +262,8 @@ class WindowInterface : public WrapableInterface<CompWindow, WindowInterface>
 	virtual bool alpha ();
 	virtual bool isFocussable ();
 	virtual bool managed ();
+
+	virtual bool focused ();
 };
 
 /**
@@ -263,35 +271,21 @@ class WindowInterface : public WrapableInterface<CompWindow, WindowInterface>
  * window state, geometry, etc. between Compiz and the X server.
  */
 class CompWindow :
-    public WrapableHandler<WindowInterface, 19>,
+    public WrapableHandler<WindowInterface, 20>,
     public PluginClassStorage
 {
     public:
 
-    /**
-     * A mutable object about the dimensions and location of a CompWindow.
-     */
-	class Geometry : public CompRect
-    {
-	    public:
-		Geometry ();
-		Geometry (int, int, int, int, int);
-
-		int border () const;
-
-		void set (int, int, int, int, int);
-		void setBorder (int);
-
-	    private:
-		int mBorder;
-	};
-
+	typedef compiz::window::Geometry Geometry;
 	typedef boost::function<void (CompWindow *)> ForEach;
 	typedef std::map<Window, CompWindow *> Map;
 
     public:
 	CompWindow *next;
 	CompWindow *prev;
+
+	CompWindow *serverNext;
+	CompWindow *serverPrev;
 
     public:
 	~CompWindow ();
@@ -325,7 +319,11 @@ class CompWindow :
 	int serverHeight () const;
 	const CompSize serverSize () const;
 
-	/* includes decorations */
+	/* effective decoration extents */
+	CompRect borderRect () const;
+	CompRect serverBorderRect () const;
+
+	/* frame window geometry */
 	CompRect inputRect () const;
 	CompRect serverInputRect () const;
 
@@ -474,8 +472,8 @@ class CompWindow :
 
 	bool shaded ();
 
+	CompWindowExtents & border () const;
 	CompWindowExtents & input () const;
-
 	CompWindowExtents & output () const;
 
 	XSizeHints & sizeHints () const;
@@ -546,13 +544,17 @@ class CompWindow :
 	WRAPABLE_HND (17, WindowInterface, bool, isFocussable);
 	WRAPABLE_HND (18, WindowInterface, bool, managed);
 
+	WRAPABLE_HND (19, WindowInterface, bool, focused);
+
 	friend class PrivateWindow;
-	friend class CompScreen;
+	friend class CompScreenImpl;
 	friend class PrivateScreen;
 	friend class ModifierHandler;
 	friend class CoreWindow;
+	friend class StackDebugger;
 
     private:
+
 	CompWindow (Window	      aboveId,
 		    XWindowAttributes &wa,
 		    PrivateWindow     *priv);

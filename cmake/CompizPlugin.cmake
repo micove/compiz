@@ -136,50 +136,6 @@ macro (_prepare_directories)
     endif ("${COMPIZ_PLUGIN_INSTALL_TYPE}" STREQUAL "package")
 endmacro (_prepare_directories)
 
-# parse plugin macro parameter
-macro (_get_plugin_parameters _prefix)
-    set (_current_var _foo)
-    set (_supported_var PKGDEPS PLUGINDEPS LDFLAGSADD CFLAGSADD LIBRARIES LIBDIRS INCDIRS)
-    foreach (_val ${_supported_var})
-	set (${_prefix}_${_val})
-    endforeach (_val)
-    foreach (_val ${ARGN})
-	set (_found FALSE)
-	foreach (_find ${_supported_var})
-	    if ("${_find}" STREQUAL "${_val}")
-		set (_found TRUE)
-	    endif ("${_find}" STREQUAL "${_val}")
-	endforeach (_find)
-
-	if (_found)
-	    set (_current_var ${_prefix}_${_val})
-	else (_found)
-	    list (APPEND ${_current_var} ${_val})
-	endif (_found)
-    endforeach (_val)
-endmacro (_get_plugin_parameters)
-
-# check pkgconfig dependencies
-macro (_check_plugin_pkg_deps _prefix)
-    set (${_prefix}_HAS_PKG_DEPS TRUE)
-    foreach (_val ${ARGN})
-        string (REGEX REPLACE "[<>=\\.]" "_" _name ${_val})
-	string (TOUPPER ${_name} _name)
-
-	compiz_pkg_check_modules (_${_name} ${_val})
-
-	if (_${_name}_FOUND)
-	    list (APPEND ${_prefix}_PKG_LIBDIRS "${_${_name}_LIBRARY_DIRS}")
-	    list (APPEND ${_prefix}_PKG_LIBRARIES "${_${_name}_LIBRARIES}")
-	    list (APPEND ${_prefix}_PKG_INCDIRS "${_${_name}_INCLUDE_DIRS}")
-	else ()
-	    set (${_prefix}_HAS_PKG_DEPS FALSE)
-	    compiz_set (COMPIZ_${_prefix}_MISSING_DEPS "${COMPIZ_${_prefix}_MISSING_DEPS} ${_val}")
-	    set(__pkg_config_checked__${_name} 0 CACHE INTERNAL "" FORCE)
-	endif ()
-    endforeach ()
-endmacro ()
-
 # check plugin dependencies
 macro (_check_plugin_plugin_deps _prefix)
     set (${_prefix}_HAS_PLUGIN_DEPS TRUE)
@@ -216,11 +172,8 @@ macro (_check_plugin_plugin_deps _prefix)
     endforeach ()
 endmacro ()
 
-
-
-
 # main function
-function (_build_compiz_plugin plugin)
+macro (_build_compiz_plugin plugin)
     string (TOUPPER ${plugin} _PLUGIN)
 
     if (COMPIZ_PLUGIN_INSTALL_TYPE)
@@ -235,7 +188,7 @@ function (_build_compiz_plugin plugin)
 	)
     endif (COMPIZ_PLUGIN_INSTALL_TYPE)
 
-    _get_plugin_parameters (${_PLUGIN} ${ARGN})
+    _get_parameters (${_PLUGIN} ${ARGN})
     _prepare_directories ()
 
     find_file (
@@ -259,7 +212,7 @@ function (_build_compiz_plugin plugin)
     # check dependencies
     compiz_unset (COMPIZ_${_PLUGIN}_MISSING_DEPS)
     _check_plugin_plugin_deps (${_PLUGIN} ${${_PLUGIN}_PLUGINDEPS})
-    _check_plugin_pkg_deps (${_PLUGIN} ${${_PLUGIN}_PKGDEPS})
+    _check_pkg_deps (${_PLUGIN} ${${_PLUGIN}_PKGDEPS})
 
     if (${_PLUGIN}_HAS_PKG_DEPS AND ${_PLUGIN}_HAS_PLUGIN_DEPS)
 
@@ -357,6 +310,30 @@ function (_build_compiz_plugin plugin)
 	add_definitions (-DPREFIX='\"${PLUGIN_PREFIX}\"'
 			 ${COMPIZ_DEFINITIONS_ADD})
 
+	foreach (_def ${_PLUGIN}_DEFSADD)
+	    add_definitions (-D${_def})
+	endforeach (_def)
+
+	# Need to know the include-dirs for the internal
+	# modules to this plugin, core (if built with core)
+	# and any other plugins that we depend on
+
+	get_property (${_PLUGIN}_MOD_INCLUDE_DIRS
+		      GLOBAL
+		      PROPERTY ${_PLUGIN}_MOD_INCLUDE_DIRS)
+
+	get_property (CORE_MOD_INCLUDE_DIRS
+		      GLOBAL
+		      PROPERTY CORE_MOD_INCLUDE_DIRS)
+
+	foreach (_plugindep ${${_PLUGIN}_PLUGINDEPS})
+	    string (TOUPPER ${_plugindep} _PLUGINDEP)
+	    get_property (${_PLUGINDEP}_MOD_INCLUDE_DIRS
+			  GLOBAL
+			  PROPERTY ${_PLUGINDEP}_MOD_INCLUDE_DIRS)
+	    list (APPEND ${_PLUGIN}_PLUGINDEP_MOD_INCLUDE_DIRS ${${_PLUGINDEP}_MOD_INCLUDE_DIRS})
+	endforeach (_plugindep)
+
 	include_directories (
             ${CMAKE_CURRENT_SOURCE_DIR}/src
             ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -365,14 +342,31 @@ function (_build_compiz_plugin plugin)
             ${${_PLUGIN}_PKG_INCDIRS}
             ${${_PLUGIN}_INCDIRS}
             ${COMPIZ_INCLUDE_DIRS}
+            ${PLUGIN_PREFIX}/include
+            ${CMAKE_INCLUDE_PATH}
+	    ${${_PLUGIN}_MOD_INCLUDE_DIRS}
+	    ${CORE_MOD_INCLUDE_DIRS}
+	    ${${_PLUGIN}_PLUGINDEP_MOD_INCLUDE_DIRS}
 	)
+
+	get_property (${_PLUGIN}_MOD_LIBRARY_DIRS
+		      GLOBAL
+		      PROPERTY ${_PLUGIN}_MOD_LIBRARY_DIRS)
+
+	set (SYSTEM_LINK_DIRS
+	     "/usr/lib"
+	     "/usr/lib32"
+	     "/usr/lib64"
+	     "/usr/lib/${CMAKE_LIBRARY_ARCHITECTURE}")
 
 	link_directories (
             ${COMPIZ_LINK_DIRS}
             ${${_PLUGIN}_PKG_LIBDIRS}
             ${${_PLUGIN}_LIBDIRS}
+            ${COMPIZ_LIBDIR}
             ${PLUGIN_LIBDIR}
-            ${COMPIZ_LIBDIR}/compiz
+	    ${${_PLUGIN}_MOD_LIBRARY_DIRS}
+            ${SYSTEM_LINK_DIRS}
 	)
 
 	add_library (
@@ -404,11 +398,17 @@ function (_build_compiz_plugin plugin)
 	    )
 	endif (COMPIZ_BUILD_WITH_RPATH)
 
+	get_property (${_PLUGIN}_MOD_LIBRARIES
+		      GLOBAL
+		      PROPERTY ${_PLUGIN}_MOD_LIBRARIES)
+
 	target_link_libraries (
 	    ${plugin} ${COMPIZ_LIBRARIES}
 		      ${${_PLUGIN}_LOCAL_LIBRARIES}
 		      ${${_PLUGIN}_PKG_LIBRARIES}
 		      ${${_PLUGIN}_LIBRARIES}
+		      ${${_PLUGIN}_MOD_LIBRARIES}
+		      compiz_core
 	)
 
 	install (
@@ -418,12 +418,33 @@ function (_build_compiz_plugin plugin)
 
 	compiz_add_uninstall ()
 
+	if (NOT COMPIZ_PLUGIN_PACK_BUILD)
+		set (CMAKE_PROJECT_NAME plugin-${plugin})
+
+		if (EXISTS ${CMAKE_SOURCE_DIR}/VERSION)
+			file (READ ${CMAKE_SOURCE_DIR}/VERSION COMPIZ_RELEASE_VERSION LIMIT 12 OFFSET 0)
+		endif (EXISTS ${CMAKE_SOURCE_DIR}/VERSION)
+
+		if (NOT COMPIZ_RELEASE_VERSION)
+			set (COMPIZ_RELEASE_VERSION "0.0.1-git")
+		endif (NOT COMPIZ_RELEASE_VERSION)
+
+		string (STRIP ${COMPIZ_RELEASE_VERSION} COMPIZ_RELEASE_VERSION)
+
+		set (VERSION ${COMPIZ_RELEASE_VERSION})
+
+		compiz_add_git_dist ()
+		compiz_add_release ()
+		compiz_add_distcheck ()
+		compiz_add_release_signoff ()
+	endif (NOT COMPIZ_PLUGIN_PACK_BUILD)
+
     else ()
 	message (STATUS "[WARNING] One or more dependencies for compiz plugin ${plugin} not found. Skipping plugin.")
 	message (STATUS "Missing dependencies :${COMPIZ_${_PLUGIN}_MISSING_DEPS}")
 	compiz_set (COMPIZ_${_PLUGIN}_BUILD FALSE)
     endif ()
-endfunction ()
+endmacro ()
 
 macro (compiz_plugin plugin)
     string (TOUPPER ${plugin} _PLUGIN)

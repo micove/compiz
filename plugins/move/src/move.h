@@ -23,13 +23,14 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#include <core/core.h>
+#include "move_options.h"
+
+#include <core/screen.h>
 #include <core/pluginclasshandler.h>
 
 #include <composite/composite.h>
 #include <opengl/opengl.h>
 
-#include "move_options.h"
 
 #define NUM_KEYS (sizeof (mKeys) / sizeof (mKeys[0]))
 
@@ -51,6 +52,7 @@ struct _MoveKeys {
 
 class MoveScreen :
     public ScreenInterface,
+    public CompositeScreenInterface,
     public PluginClassHandler<MoveScreen,CompScreen>,
     public MoveOptions
 {
@@ -58,9 +60,14 @@ class MoveScreen :
 	MoveScreen (CompScreen *screen);
 	~MoveScreen ();
 
+	CompositeScreen *cScreen;
+
 	void updateOpacity ();
 
 	void handleEvent (XEvent *);
+
+	bool registerPaintHandler (compiz::composite::PaintHandler *pHnd);
+	void unregisterPaintHandler ();
 
 	CompWindow *w;
 	int        savedX;

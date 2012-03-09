@@ -213,7 +213,7 @@ CubeScreen::paintOrder () const
 bool
 CubeScreen::cubeShouldPaintAllViewports ()
 {
-    WRAPABLE_HND_FUNC_RETURN (8, bool, cubeShouldPaintAllViewports);
+    WRAPABLE_HND_FUNCTN_RETURN (bool, cubeShouldPaintAllViewports);
     
     return priv->mPaintAllViewports;
 }
@@ -816,7 +816,7 @@ CubeScreen::cubeCheckOrientation (const GLScreenPaintAttrib &sAttrib,
 				  CompOutput                *output,
 				  std::vector<GLVector>     &points)
 {
-    WRAPABLE_HND_FUNC_RETURN (5, bool, cubeCheckOrientation, sAttrib, transform, output, points)
+    WRAPABLE_HND_FUNCTN_RETURN (bool, cubeCheckOrientation, sAttrib, transform, output, points)
     GLMatrix sTransform = transform;
     GLMatrix mvp, pm (priv->gScreen->projectionMatrix ());
     GLVector pntA, pntB, pntC;
@@ -863,7 +863,7 @@ CubeScreen::cubeShouldPaintViewport (const GLScreenPaintAttrib &sAttrib,
 				     CompOutput                *output,
 				     PaintOrder                order)
 {
-    WRAPABLE_HND_FUNC_RETURN (7, bool, cubeShouldPaintViewport, sAttrib, transform, output, order)
+    WRAPABLE_HND_FUNCTN_RETURN (bool, cubeShouldPaintViewport, sAttrib, transform, output, order)
 
     bool  ftb;
     float pointZ;
@@ -1048,7 +1048,7 @@ PrivateCubeScreen::paintAllViewports (const GLScreenPaintAttrib &sAttrib,
 void
 CubeScreen::cubeGetRotation (float &x, float &v, float &progress)
 {
-    WRAPABLE_HND_FUNC (0, cubeGetRotation, x, v, progress)
+    WRAPABLE_HND_FUNCTN (cubeGetRotation, x, v, progress)
 
     x        = 0.0f;
     v        = 0.0f;
@@ -1058,7 +1058,7 @@ CubeScreen::cubeGetRotation (float &x, float &v, float &progress)
 void
 CubeScreen::cubeClearTargetOutput (float xRotate, float vRotate)
 {
-    WRAPABLE_HND_FUNC (1, cubeClearTargetOutput, xRotate, vRotate)
+    WRAPABLE_HND_FUNCTN (cubeClearTargetOutput, xRotate, vRotate)
 
     if (priv->mSky.size () > 0)
     {
@@ -1092,7 +1092,7 @@ CubeScreen::cubePaintTop (const GLScreenPaintAttrib &sAttrib,
 			  CompOutput                *output,
 			  int                       size)
 {
-    WRAPABLE_HND_FUNC (2, cubePaintTop, sAttrib, transform, output, size)
+    WRAPABLE_HND_FUNCTN (cubePaintTop, sAttrib, transform, output, size)
 
     GLScreenPaintAttrib sa = sAttrib;
     GLMatrix            sTransform = transform;
@@ -1159,7 +1159,7 @@ CubeScreen::cubePaintBottom (const GLScreenPaintAttrib &sAttrib,
 			     CompOutput                *output,
 			     int                       size)
 {
-    WRAPABLE_HND_FUNC (3, cubePaintBottom, sAttrib, transform, output, size)
+    WRAPABLE_HND_FUNCTN (cubePaintBottom, sAttrib, transform, output, size)
 
     GLScreenPaintAttrib sa = sAttrib;
     GLMatrix            sTransform = transform;
@@ -1216,7 +1216,7 @@ CubeScreen::cubePaintInside (const GLScreenPaintAttrib &sAttrib,
 			     CompOutput                *output,
 			     int                       size)
 {
-    WRAPABLE_HND_FUNC (4, cubePaintInside, sAttrib, transform, output, size)
+    WRAPABLE_HND_FUNCTN (cubePaintInside, sAttrib, transform, output, size)
 }
 
 void 
@@ -1272,7 +1272,7 @@ CubeScreen::cubePaintViewport (const GLScreenPaintAttrib &sAttrib,
 			       CompOutput                *output,
 			       unsigned int              mask)
 {
-    WRAPABLE_HND_FUNC (6, cubePaintViewport, sAttrib, transform, region, output, mask)
+    WRAPABLE_HND_FUNCTN (cubePaintViewport, sAttrib, transform, region, output, mask)
 
     priv->gScreen->glPaintTransformedOutput (sAttrib, transform, region, 
 					     output, mask);

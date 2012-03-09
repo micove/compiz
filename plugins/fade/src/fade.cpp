@@ -28,50 +28,41 @@
 
 COMPIZ_PLUGIN_20090315 (fade, FadePluginVTable);
 
+bool
+FadeScreen::bell (CompAction         *action,
+		  CompAction::State  state,
+		  CompOption::Vector &options)
+{
+    if (optionGetFullscreenVisualBell () && CompOption::getBoolOptionNamed (options, "fullscreen", false))
+    {
+	foreach (CompWindow *w, screen->windows ())
+	{
+	    if (w->destroyed ())
+		continue;
+
+	    if (!w->isViewable ())
+		continue;
+
+	    FadeWindow::get (w)->dim (false);
+	}
+
+	cScreen->damageScreen ();
+    }
+    else
+    {
+	CompWindow *w = screen->findWindow (CompOption::getIntOptionNamed (options, "window", 0));
+
+	if (w)
+	    FadeWindow::get (w)->dim (true);
+    }
+
+    return true;
+}
+
 void
 FadeScreen::handleEvent (XEvent *event)
 {
     CompWindow *w;
-
-    if (event->type == screen->xkbEvent ())
-    {
-	XkbAnyEvent *xkbEvent = (XkbAnyEvent *) event;
-
-	if (xkbEvent->xkb_type == XkbBellNotify)
-	{
-	    XkbBellNotifyEvent *xkbBellEvent = (XkbBellNotifyEvent *) xkbEvent;
-
-	    w = screen->findWindow (xkbBellEvent->window);
-	    if (!w)
-		w = screen->findWindow (screen->activeWindow ());
-
-	    if (w)
-	    {
-		if (optionGetVisualBell ())
-		{
-		    if (optionGetFullscreenVisualBell ())
-		    {
-			foreach (CompWindow *w, screen->windows ())
-			{
-			    if (w->destroyed ())
-				continue;
-
-			    if (!w->isViewable ())
-				continue;
-
-			    FadeWindow::get (w)->dim (false);
-			}
-
-			cScreen->damageScreen ();
-		    }
-		    else
-		    {
-			FadeWindow::get (w)->dim (true);
-		    }
-		}
-	    }
-	}
-    }
 
     screen->handleEvent (event);
 
@@ -317,6 +308,8 @@ FadeScreen::FadeScreen (CompScreen *s) :
     cScreen (CompositeScreen::get (s))
 {
     fadeTime = 1000.0f / optionGetFadeSpeed ();
+
+    optionSetVisualBellInitiate (boost::bind (&FadeScreen::bell, this, _1, _2, _3));
 
     ScreenInterface::setHandler (screen);
     CompositeScreenInterface::setHandler (cScreen);

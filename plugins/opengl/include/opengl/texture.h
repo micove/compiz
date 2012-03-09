@@ -28,13 +28,16 @@
 #ifndef _GLTEXTURE_H
 #define _GLTEXTURE_H
 
-#include <X11/Xlib-xcb.h>
+#include "core/region.h"
+#include "core/string.h"
 
+#include <X11/Xlib-xcb.h>
 #include <GL/gl.h>
+
+#include <boost/function.hpp>
 
 #include <vector>
 
-#include <core/region.h>
 
 #define POWER_OF_TWO(v) ((v & (v - 1)) == 0)
 

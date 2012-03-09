@@ -25,10 +25,12 @@
  *          David Reveman <davidr@novell.com>
  */
 
-#include <core/core.h>
-#include <composite/composite.h>
+#include "composite/composite.h"
 
 #include "privates.h"
+
+#include "core/abiversion.h"
+
 
 class CompositePluginVTable :
     public CompPlugin::VTableForScreenAndWindow<CompositeScreen, CompositeWindow>

@@ -24,12 +24,25 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <core/core.h>
+#include <core/screen.h>
 #include <core/atoms.h>
 #include <core/timer.h>
 #include <core/pluginclasshandler.h>
 
 #include "place_options.h"
+#include "screen-size-change.h"
+#include "smart.h"
+
+namespace compiz
+{
+
+    namespace place
+    {
+
+	CompWindowList collectStrutWindows (const CompWindowList &allWindows);
+    }
+
+}
 
 class PlaceScreen :
     public PluginClassHandler<PlaceScreen, CompScreen>,
@@ -41,7 +54,7 @@ class PlaceScreen :
 	~PlaceScreen ();
 
 	void handleEvent (XEvent *event);
-	void doHandleScreenSizeChange (bool, int, int);
+	void doHandleScreenSizeChange (int, int);
 	bool handleScreenSizeChangeFallback (int width, int height);
 	void handleScreenSizeChange (int width, int height);
 	bool getPointerPosition (CompPoint &p);
@@ -50,6 +63,7 @@ class PlaceScreen :
 	CompSize mPrevSize;
 	int	 mStrutWindowCount;
 	CompTimer mResChangeFallbackHandle;
+	CompWindowList mStrutWindows;
 	
 	Atom fullPlacementAtom;
 };
@@ -59,6 +73,8 @@ class PlaceScreen :
 
 class PlaceWindow :
     public PluginClassHandler<PlaceWindow, CompWindow>,
+    public compiz::place::ScreenSizeChangeObject,
+    public compiz::place::Placeable,
     public WindowInterface
 {
     public:
@@ -69,17 +85,27 @@ class PlaceWindow :
 	
 	CompRect
 	doValidateResizeRequest (unsigned int &,
-				      XWindowChanges *,
-				      unsigned int,
-				      bool);
+				 XWindowChanges *,
+				 bool,
+				 bool);
 	void validateResizeRequest (unsigned int   &mask,
 				    XWindowChanges *xwc,
 				    unsigned int   source);
 	void grabNotify (int, int, unsigned int, unsigned int);    
-	bool mSavedOriginal;
-	CompRect mOrigVpRelRect;
+
 	CompPoint mPrevServer;
-	
+
+    protected:
+
+	void applyGeometry (compiz::window::Geometry &ng,
+			    compiz::window::Geometry &og);
+	const compiz::window::Geometry & getGeometry () const;
+	const CompPoint & getViewport () const;
+	const CompRect & getWorkarea (const compiz::window::Geometry &g) const;
+	const CompRect & getWorkarea () const;
+	const compiz::window::extents::Extents & getExtents () const;
+
+	unsigned int getState () const;
 
     private:
 	typedef enum {
@@ -107,12 +133,12 @@ class PlaceWindow :
 	void placeCentered (const CompRect& workArea, CompPoint& pos);
 	void placeRandom (const CompRect& workArea, CompPoint& pos);
 	void placePointer (const CompRect& workArea, CompPoint& pos);
-	void placeSmart (const CompRect& workArea, CompPoint& pos);
+	void placeSmart (CompPoint& pos, const compiz::place::Placeable::Vector &);
 
-	bool cascadeFindFirstFit (const CompWindowList& windows,
+	bool cascadeFindFirstFit (const Placeable::Vector &placeabless,
 				  const CompRect& workArea,
 				  CompPoint &pos);
-	void cascadeFindNext (const CompWindowList& windows,
+	void cascadeFindNext (const Placeable::Vector &placeables,
 			      const CompRect& workArea,
 			      CompPoint &pos);
 

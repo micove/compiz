@@ -38,7 +38,6 @@ extern "C" {
 
 #define DECOR_SUPPORTING_DM_CHECK_ATOM_NAME     "_COMPIZ_SUPPORTING_DM_CHECK"
 #define DECOR_BARE_ATOM_NAME                    "_COMPIZ_WINDOW_DECOR_BARE"
-#define DECOR_NORMAL_ATOM_NAME                  "_COMPIZ_WINDOW_DECOR_NORMAL"
 #define DECOR_ACTIVE_ATOM_NAME                  "_COMPIZ_WINDOW_DECOR_ACTIVE"
 #define DECOR_WINDOW_ATOM_NAME                  "_COMPIZ_WINDOW_DECOR"
 #define DECOR_BLUR_ATOM_NAME                    "_COMPIZ_WM_WINDOW_BLUR_DECOR"
@@ -79,6 +78,34 @@ extern "C" {
 #define PAD_BOTTOM (1 << 1)
 #define PAD_LEFT   (1 << 2)
 #define PAD_RIGHT  (1 << 3)
+
+#define DECOR_WINDOW_STATE_FOCUS (1 << 0)
+#define DECOR_WINDOW_STATE_MAXIMIZED_VERT (1 << 1)
+#define DECOR_WINDOW_STATE_MAXIMIZED_HORZ (1 << 2)
+#define DECOR_WINDOW_STATE_SHADED (1 << 3)
+
+#define DECOR_WINDOW_TYPE_NORMAL (1 << 0)
+#define DECOR_WINDOW_TYPE_DIALOG (1 << 1)
+#define DECOR_WINDOW_TYPE_MODAL_DIALOG (1 << 2)
+#define DECOR_WINDOW_TYPE_MENU (1 << 3)
+#define DECOR_WINDOW_TYPE_UTILITY (1 << 4)
+
+#define DECOR_WINDOW_ACTION_RESIZE_HORZ (1 << 0)
+#define DECOR_WINDOW_ACTION_RESIZE_VERT (1 << 1)
+#define DECOR_WINDOW_ACTION_CLOSE (1 << 2)
+#define DECOR_WINDOW_ACTION_MINIMIZE (1 << 3)
+#define DECOR_WINDOW_ACTION_UNMINIMIZE (1 << 4)
+#define DECOR_WINDOW_ACTION_MAXIMIZE_HORZ (1 << 5)
+#define DECOR_WINDOW_ACTION_MAXIMIZE_VERT (1 << 6)
+#define DECOR_WINDOW_ACTION_UNMAXIMIZE_HORZ (1 << 7)
+#define DECOR_WINDOW_ACTION_UNMAXIMIZE_VERT (1 << 8)
+#define DECOR_WINDOW_ACTION_SHADE (1 << 9)
+#define DECOR_WINDOW_ACTION_UNSHADE (1 << 10)
+#define DECOR_WINDOW_ACTION_STICK (1 << 11)
+#define DECOR_WINDOW_ACTION_UNSTICK (1 << 12)
+#define DECOR_WINDOW_ACTION_FULLSCREEN (1 << 13)
+#define DECOR_WINDOW_ACTION_ABOVE (1 << 14)
+#define DECOR_WINDOW_ACTION_BELOW (1 << 15)
 
 #define BORDER_TOP    0
 #define BORDER_BOTTOM 1
@@ -174,32 +201,45 @@ typedef void (*decor_draw_func_t) (Display	   *xdisplay,
 				   decor_context_t *context,
 				   void		   *closure);
 
+#define PROP_HEADER_SIZE 3
 #define WINDOW_PROP_SIZE 12
-#define BASE_PROP_SIZE 21
+#define BASE_PROP_SIZE 22
 #define QUAD_PROP_SIZE 9
 #define N_QUADS_MAX    24
 
 int
 decor_version (void);
 
+long *
+decor_alloc_property (unsigned int n,
+		      unsigned int type);
+
 void
 decor_quads_to_property (long		 *data,
+			 unsigned int    n,
 			 Pixmap		 pixmap,
-			 decor_extents_t *frame_input,
-			 decor_extents_t *input,
-			 decor_extents_t *frame_max_input,
-			 decor_extents_t *max_input,
+			 decor_extents_t *frame,
+			 decor_extents_t *border,
+			 decor_extents_t *max_frame,
+			 decor_extents_t *max_border,
 			 int		 min_width,
 			 int		 min_height,
 			 decor_quad_t    *quad,
-			 int		 nQuad);
+			 int		 nQuad,
+			 unsigned int	 frame_state,
+			 unsigned int    frame_type,
+			 unsigned int    frame_actions);
 
 void
 decor_gen_window_property (long		   *data,
+			   unsigned int    n,
 			   decor_extents_t *input,
 			   decor_extents_t *max_input,
 			   int		   min_width,
-			   int		   min_height);
+			   int		   min_height,
+			   unsigned int	   frame_state,
+			   unsigned int    frame_type,
+			   unsigned int    frame_actions);
 
 int
 decor_property_get_version (long *data);
@@ -208,7 +248,11 @@ int
 decor_property_get_type (long *data);
 
 int
+decor_property_get_num (long *data);
+
+int
 decor_pixmap_property_to_quads (long		 *data,
+				unsigned int     n,
 				int		 size,
 				Pixmap		 *pixmap,
 				decor_extents_t  *frame_input,
@@ -217,15 +261,38 @@ decor_pixmap_property_to_quads (long		 *data,
 				decor_extents_t  *max_input,
 				int		 *min_width,
 				int		 *min_height,
+				unsigned int     *frame_type,
+				unsigned int     *frame_state,
+				unsigned int     *frame_actions,
 				decor_quad_t    *quad);
 
 int
+decor_match_pixmap (long		 *data,
+		    int		 size,
+		    Pixmap		 *pixmap,
+		    decor_extents_t  *frame,
+		    decor_extents_t  *border,
+		    decor_extents_t  *max_frame,
+		    decor_extents_t  *max_border,
+		    int min_width,
+		    int min_height,
+		    unsigned int frame_type,
+		    unsigned int frame_state,
+		    unsigned int frame_actions,
+		    decor_quad_t     *quad,
+		    unsigned int     n_quad);
+
+int
 decor_window_property (long	       *data,
+		       unsigned int    n,
 		       int	       size,
 		       decor_extents_t *input,
 		       decor_extents_t *max_input,
 		       int	       *min_width,
-		       int	       *min_height);
+		       int	       *min_height,
+		       unsigned int    *frame_type,
+		       unsigned int    *frame_state,
+		       unsigned int    *frame_actions);
 
 void
 decor_region_to_blur_property (long   *data,

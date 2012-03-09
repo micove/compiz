@@ -55,7 +55,9 @@
 			<_short>Window values</_short>
 			<_long>Opacity values for windows</_long>
 			<type>int</type>
-			<default/>
+			<default>
+			    <value>90</value>
+			</default>
 			<min>0</min>
 			<max>100</max>
 		    </option>
@@ -102,7 +104,9 @@
 			<_short>Window values</_short>
 			<_long>Brightness values for windows</_long>
 			<type>int</type>
-			<default/>
+			<default>
+			    <value>90</value>
+			</default>
 			<min>0</min>
 			<max>100</max>
 		    </option>
@@ -149,7 +153,9 @@
 			<_short>Window values</_short>
 			<_long>Saturation values for windows</_long>
 			<type>int</type>
-			<default/>
+			<default>
+			    <value>90</value>
+			</default>
 			<min>0</min>
 			<max>100</max>
 		    </option>

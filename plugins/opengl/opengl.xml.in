@@ -31,7 +31,7 @@
 	    <option name="lighting" type="bool">
 		<_short>Lighting</_short>
 		<_long>Use diffuse light when screen is transformed</_long>
-		<default>true</default>
+		<default>false</default>
 	    </option>
 	    <option name="sync_to_vblank" type="bool">
 		<_short>Sync To VBlank</_short>

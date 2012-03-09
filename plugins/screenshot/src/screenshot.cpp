@@ -25,6 +25,17 @@
 
 #include "screenshot.h"
 
+#include <dirent.h>
+
+#if defined(HAVE_SCANDIR_POSIX)
+  // POSIX (2008) defines the comparison function like this:
+  #define scandir(a,b,c,d) scandir((a), (b), (c), (int(*)(const dirent **, const dirent **))(d));
+#else
+  #define scandir(a,b,c,d) scandir((a), (b), (c), (int(*)(const void*,const void*))(d));
+#endif
+
+
+
 COMPIZ_PLUGIN_20090315 (screenshot, ShotPluginVTable)
 
 bool

@@ -23,6 +23,13 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
+#include "imgsvg_options.h"
+
+#include <composite/composite.h>
+#include <decoration.h>
+#include <core/screen.h>
+#include <core/pluginclasshandler.h>
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -32,17 +39,10 @@
 
 #include <X11/Xatom.h>
 #include <X11/extensions/shape.h>
-
-#include <core/core.h>
-#include <core/pluginclasshandler.h>
-#include <composite/composite.h>
 #include <opengl/opengl.h>
-#include <decoration.h>
 
-#include <iostream>
-#include <fstream>
+#include <iosfwd>
 
-#include "imgsvg_options.h"
 
 #define SVG_SCREEN(s) SvgScreen *ss = SvgScreen::get (s)
 #define SVG_WINDOW(w) SvgWindow *sw = SvgWindow::get (w)

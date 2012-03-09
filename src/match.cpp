@@ -29,8 +29,6 @@
 #include <boost/foreach.hpp>
 #define foreach BOOST_FOREACH
 
-#include <core/core.h>
-
 #include <core/screen.h>
 #include <core/match.h>
 #include <core/window.h>
@@ -116,8 +114,13 @@ class CoreExp : public CompMatch::Expression {
 CompMatch::Expression *
 CompScreen::matchInitExp (const CompString& str)
 {
-    WRAPABLE_HND_FUNC_RETURN (10, CompMatch::Expression *, matchInitExp, str)
+    WRAPABLE_HND_FUNCTN_RETURN (CompMatch::Expression *, matchInitExp, str);
+    return _matchInitExp (str);
+}
 
+CompMatch::Expression *
+CompScreenImpl::_matchInitExp (const CompString& str)
+{
     return new CoreExp (str);
 }
 
@@ -145,8 +148,13 @@ matchUpdateMatchOptions (CompOption::Vector& options)
 void
 CompScreen::matchExpHandlerChanged ()
 {
-    WRAPABLE_HND_FUNC (11, matchExpHandlerChanged)
+    WRAPABLE_HND_FUNCTN (matchExpHandlerChanged);
+    _matchExpHandlerChanged ();
+}
 
+void
+CompScreenImpl::_matchExpHandlerChanged ()
+{
     foreach (CompPlugin *p, CompPlugin::getPlugins ())
     {
 	CompOption::Vector &options = p->vTable->getOptions ();
@@ -157,7 +165,13 @@ CompScreen::matchExpHandlerChanged ()
 void
 CompScreen::matchPropertyChanged (CompWindow *w)
 {
-    WRAPABLE_HND_FUNC (12, matchPropertyChanged, w)
+    WRAPABLE_HND_FUNCTN (matchPropertyChanged, w);
+    _matchPropertyChanged (w);
+}
+
+void
+CompScreenImpl::_matchPropertyChanged (CompWindow *w)
+{
 }
 
 static void

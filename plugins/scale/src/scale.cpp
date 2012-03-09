@@ -130,7 +130,7 @@ ScaleWindow::scalePaintDecoration (const GLWindowPaintAttrib& attrib,
 				   const CompRegion&          region,
 				   unsigned int               mask)
 {
-    WRAPABLE_HND_FUNC (0, scalePaintDecoration, attrib, transform, region, mask)
+    WRAPABLE_HND_FUNCTN (scalePaintDecoration, attrib, transform, region, mask)
 
     if (priv->spScreen->optionGetOverlayIcon () != ScaleOptions::OverlayIconNone)
     {
@@ -257,9 +257,74 @@ ScaleWindowInterface::setScaledPaintAttributes (GLWindowPaintAttrib& attrib)
 bool
 ScaleWindow::setScaledPaintAttributes (GLWindowPaintAttrib& attrib)
 {
-    WRAPABLE_HND_FUNC_RETURN (1, bool, setScaledPaintAttributes, attrib)
+    WRAPABLE_HND_FUNCTN_RETURN (bool, setScaledPaintAttributes, attrib)
 
     bool drawScaled = false;
+
+    /* Windows that wouldn't be visible before and after entering
+     * scale mode (because some plugin modified CompWindow::focus)
+     * should be faded in and out */
+    if (window->state () & CompWindowStateHiddenMask)
+    {
+	GLfloat factor = 0;
+	GLfloat targetX, targetY, targetScale;
+	GLfloat scaleFactor, xFactor, yFactor, divFactor = 3.0f;
+
+	if (priv->slot)
+	{
+	    targetX = priv->slot->x ();
+	    targetY = priv->slot->y ();
+	    targetScale = priv->slot->scale;
+	}
+	else
+	{
+	    targetX = priv->lastTargetX;
+	    targetY = priv->lastTargetY;
+	    targetScale = priv->lastTargetScale;
+	}
+
+	/* Don't FDIV0 */
+	if (targetScale - priv->scale == 0.0f)
+	{
+	    divFactor -= 1.0f;
+	    scaleFactor = 1.0f;
+	}
+	else
+	    scaleFactor = (1.0f - priv->scale) / (1.0f - targetScale);
+
+	if (targetX - ((float) window->x () + priv->tx) == 0.0f)
+	{
+	    divFactor -= 1.0f;
+	    xFactor = 1.0f;
+	}
+	else
+	{
+	    float distActual = fabsf (window->x () - ((float) window->x () + priv->tx));
+	    float distTarget = fabsf (window->x () - targetX);
+
+	    xFactor = distActual / distTarget;
+	}
+
+	if (targetY - ((float) window->y () + priv->ty) == 0.0f)
+	{
+	    divFactor -= 1.0f;
+	    yFactor = 1.0f;
+	}
+	else
+	{
+	    float distActual = fabsf (window->y () - ((float) window->y () + priv->ty));
+	    float distTarget = fabsf (window->y () - targetY);
+
+	    yFactor = distActual / distTarget;
+	}
+
+	if (divFactor)
+	    factor = (scaleFactor + xFactor + yFactor) / divFactor;
+	else
+	    factor = 1.0f;
+
+	attrib.opacity *= factor;
+    }
 
     if (priv->adjust || priv->slot)
     {
@@ -535,8 +600,8 @@ PrivateScaleScreen::findBestSlots ()
 		sx = (slots[i].x2 () + slots[i].x1 ()) / 2;
 		sy = (slots[i].y2 () + slots[i].y1 ()) / 2;
 
-		cx = w->serverX () + w->width () / 2;
-		cy = w->serverY () + w->height () / 2;
+		cx = (w->serverX () - (w->defaultViewport ().x () - screen->vp ().x ()) * screen->width ()) + w->width () / 2;
+		cy = (w->serverY () - (w->defaultViewport ().y () - screen->vp ().y ()) * screen->height ()) + w->height () / 2;
 
 		cx -= sx;
 		cy -= sy;
@@ -571,6 +636,9 @@ PrivateScaleScreen::fillInWindows ()
 		return true;
 
 	    sw->priv->slot = &slots[sw->priv->sid];
+
+	    /* Auxilary items reparented into windows are clickable so we want to care about
+	     * them when calculating the slot size */
 
 	    width  = w->width ()  + w->input ().left + w->input ().right;
 	    height = w->height () + w->input ().top  + w->input ().bottom;
@@ -608,7 +676,7 @@ ScaleScreenInterface::layoutSlotsAndAssignWindows ()
 bool
 ScaleScreen::layoutSlotsAndAssignWindows ()
 {
-    WRAPABLE_HND_FUNC_RETURN (0, bool, layoutSlotsAndAssignWindows)
+    WRAPABLE_HND_FUNCTN_RETURN (bool, layoutSlotsAndAssignWindows)
 
     /* create a grid of slots */
     priv->layoutSlots ();
@@ -658,30 +726,61 @@ ScaleScreen::getWindows () const
 bool
 PrivateScaleScreen::layoutThumbs ()
 {
-    windows.clear ();
+    bool ret = false;
+    std::map <ScaleWindow *, ScaleSlot> slotWindows;
+    CompWindowList          allWindows;
 
-    /* add windows scale list, top most window first */
-    foreach (CompWindow *w, screen->windows ())
+    for (int i = 0; i < screen->vpSize ().height (); i++)
     {
-	SCALE_WINDOW (w);
+	for (int j = 0; j < screen->vpSize ().width (); j++)
+	{
+	    windows.clear ();
+	    slots.clear ();
 
-	if (sw->priv->slot)
-	    sw->priv->adjust = true;
+	    /* add windows scale list, top most window first */
+	    foreach (CompWindow *w, screen->windows ())
+	    {
+		SCALE_WINDOW (w);
 
-	sw->priv->slot = NULL;
+		if (w->defaultViewport () != CompPoint (j, i))
+		    continue;
 
-	if (!sw->priv->isScaleWin ())
-	    continue;
+		if (sw->priv->slot)
+		    sw->priv->adjust = true;
 
-	windows.push_back (sw);
+		sw->priv->slot = NULL;
+
+		if (!sw->priv->isScaleWin ())
+		    continue;
+
+		windows.push_back (sw);
+	    }
+
+	    if (!windows.empty ())
+	    {
+		slots.resize (windows.size ());
+		ret |= ScaleScreen::get (screen)->layoutSlotsAndAssignWindows ();
+
+		foreach (ScaleWindow *sw, windows)
+		    slotWindows[sw] = *sw->priv->slot;
+	    }
+	}
     }
 
-    if (windows.empty ())
-	return false;
+    slots.clear ();
+    windows.clear ();
 
-    slots.resize (windows.size ());
+    for (std::map<ScaleWindow *, ScaleSlot>::iterator it = slotWindows.begin ();
+	 it != slotWindows.end (); it++)
+    {
+	slots.push_back (it->second);
+	windows.push_back (it->first);
+	it->first->priv->slot = &slots.back ();
+	it->first->priv->slot->setX (it->first->priv->slot->x () + (it->first->priv->window->defaultViewport ().x () - screen->vp ().x ()) * screen->width ());
+	it->first->priv->slot->setY (it->first->priv->slot->y () + (it->first->priv->window->defaultViewport ().y () - screen->vp ().y ()) * screen->height ());
+    }
 
-    return ScaleScreen::get (screen)->layoutSlotsAndAssignWindows ();
+    return ret;
 }
 
 bool
@@ -907,6 +1006,8 @@ PrivateScaleScreen::scaleTerminate (CompAction         *action,
     SCALE_SCREEN (screen);
 
     Window xid;
+    int    selectX = CompOption::getIntOptionNamed (options, "select_x", -1);
+    int    selectY = CompOption::getIntOptionNamed (options, "select_y", -1);
 
     if (ss->priv->actionShouldToggle (action, state))
 	return false;
@@ -917,6 +1018,13 @@ PrivateScaleScreen::scaleTerminate (CompAction         *action,
 
     if (!ss->priv->grab)
 	return false;
+
+    if (selectX != -1 &&
+	selectY != -1)
+    {
+	if (!ss->priv->selectWindowAt (selectX, selectY, true))
+	    return false;
+    }
 
     if (ss->priv->grabIndex)
     {
@@ -937,8 +1045,17 @@ PrivateScaleScreen::scaleTerminate (CompAction         *action,
 
 	    if (sw->priv->slot)
 	    {
+		sw->priv->lastTargetScale = sw->priv->slot->scale;
+		sw->priv->lastTargetX     = sw->priv->slot->x ();
+		sw->priv->lastTargetY     = sw->priv->slot->y ();
 		sw->priv->slot   = NULL;
 		sw->priv->adjust = true;
+	    }
+	    else
+	    {
+		sw->priv->lastTargetScale = 1.0f;
+		sw->priv->lastTargetX = w->x ();
+		sw->priv->lastTargetY = w->y ();
 	    }
 	}
 
@@ -968,6 +1085,10 @@ PrivateScaleScreen::scaleTerminate (CompAction         *action,
 	action->setState (action->state () | CompAction::StateTermKey);
 
     ss->priv->lastActiveNum = 0;
+
+    if (selectX != -1 &&
+	selectY != -1)
+	return true;
 
     return false;
 }
@@ -1060,7 +1181,9 @@ PrivateScaleScreen::scaleInitiateCommon (CompAction         *action,
 					 CompAction::State  state,
 					 CompOption::Vector &options)
 {
-    if (screen->otherGrabExist ("scale", NULL))
+    int noAutoGrab = CompOption::getIntOptionNamed (options, "no_auto_grab", 0);
+
+    if (screen->otherGrabExist ("scale", NULL) && !noAutoGrab)
 	return false;
 
     match = CompOption::getMatchOptionNamed (options, "match",
@@ -1073,16 +1196,22 @@ PrivateScaleScreen::scaleInitiateCommon (CompAction         *action,
     if (!layoutThumbs ())
 	return false;
 
-    if (state & CompAction::StateInitEdgeDnd)
+    /* Another plugin may be using us externally */
+    grab = noAutoGrab;
+
+    if (!grab)
     {
-	if (ensureDndRedirectWindow ())
-	    grab = true;
-    }
-    else if (!grabIndex)
-    {
-	grabIndex = screen->pushGrab (cursor, "scale");
-	if (grabIndex)
-	    grab = true;
+	if (state & CompAction::StateInitEdgeDnd)
+	{
+	    if (ensureDndRedirectWindow ())
+		grab = true;
+	}
+	else if (!grabIndex)
+	{
+	    grabIndex = screen->pushGrab (cursor, "scale");
+	    if (grabIndex)
+		grab = true;
+	}
     }
 
     if (grab)
@@ -1132,7 +1261,7 @@ ScaleWindowInterface::scaleSelectWindow ()
 void
 ScaleWindow::scaleSelectWindow ()
 {
-    WRAPABLE_HND_FUNC (2, scaleSelectWindow)
+    WRAPABLE_HND_FUNCTN (scaleSelectWindow)
 
     if (priv->spScreen->selectedWindow != priv->window->id ())
     {
@@ -1480,7 +1609,7 @@ PrivateScaleScreen::handleEvent (XEvent *event)
 		bool       focus = false;
 		CompOption *o = screen->getOption ("click_to_focus");
 
-		if (o && o->value ().b ())
+		if (o && !o->value ().b ())
 		    focus = true;
 
 		selectWindowAt (event->xmotion.x_root,
@@ -1511,7 +1640,7 @@ PrivateScaleScreen::handleEvent (XEvent *event)
 		    bool       focus = false;
 		    CompOption *o = screen->getOption ("click_to_focus");
 
-		    if (o && o->value ().b ())
+		    if (o && !o->value ().b ())
 			focus = true;
 
 		    if (w->id () == dndTarget)
@@ -1521,10 +1650,7 @@ PrivateScaleScreen::handleEvent (XEvent *event)
 			state != ScaleScreen::In &&
 			w->id () == dndTarget)
 		    {
-			int x = event->xclient.data.l[2] >> 16;
-			int y = event->xclient.data.l[2] & 0xffff;
-
-			ScaleWindow *sw = checkForWindowAt (x, y);
+			ScaleWindow *sw = checkForWindowAt (pointerX, pointerY);
 			if (sw && sw->priv->isScaleWin ())
 			{
 			    int time;
@@ -1533,14 +1659,18 @@ PrivateScaleScreen::handleEvent (XEvent *event)
 
 			    if (hover.active ())
 			    {
-				if (w->id () != selectedWindow)
+				int lastMotion = sqrt (pow (pointerX - lastPointerX, 2) + pow (pointerY - lastPointerY, 2));
+				
+				if (sw->window->id () != selectedWindow || lastMotion > optionGetDndDistance ())
 				    hover.stop ();
 			    }
 
 			    if (!hover.active ())
+			    {
 				hover.start (time, (float) time * 1.2);
+			    }
 
-			    selectWindowAt (x, y, focus);
+			    selectWindowAt (pointerX, pointerY, focus);
 			}
 			else
 			{
@@ -1755,6 +1885,9 @@ PrivateScaleWindow::PrivateScaleWindow (CompWindow *w) :
     yVelocity (0.0),
     scaleVelocity (0.0),
     scale (1.0),
+    lastTargetScale (1.0f),
+    lastTargetX (w->x ()),
+    lastTargetY (w->y ()),
     tx (0.0),
     ty (0.0),
     delta (1.0),

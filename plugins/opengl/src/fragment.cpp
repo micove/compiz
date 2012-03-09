@@ -23,16 +23,17 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
+#include "privatefragment.h"
+#include "privates.h"
+
+#include "core/string.h"
+
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 #define foreach BOOST_FOREACH
 
-#include <core/core.h>
 #include <opengl/texture.h>
-#include <opengl/fragment.h>
-#include "privatefragment.h"
-#include "privates.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -84,7 +85,7 @@ namespace GLFragment {
 
     class HeaderOp {
 	public:
-	    HeaderOp () : type (OpTypeHeaderTemp), name ("") {};
+	    HeaderOp () : type (OpTypeHeaderTemp), name ("") {}
 	public:
 	    OpType     type;
 	    CompString name;
@@ -118,7 +119,7 @@ namespace GLFragment {
 
     class PrivateFunctionData {
 	public:
-	    PrivateFunctionData () : header (0), body (0), status (true) {};
+	    PrivateFunctionData () : header (0), body (0), status (true) {}
 	    PrivateFunctionData (const PrivateFunctionData&, CompString);
 
 	public:

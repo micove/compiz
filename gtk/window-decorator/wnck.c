@@ -26,14 +26,42 @@
 #include "gtk-window-decorator.h"
 
 const gchar *
-get_frame_type (WnckWindowType wnck_type)
+get_frame_type (WnckWindow *win)
 {
+    WnckWindowType wnck_type = wnck_window_get_window_type (win);
+
     switch (wnck_type)
     {
 	case WNCK_WINDOW_NORMAL:
 	    return "normal";
 	case WNCK_WINDOW_DIALOG:
+	{
+	    Atom	  actual;
+	    int		  result, format;
+	    unsigned long n, left;
+	    unsigned char *data;
+
+	    result = XGetWindowProperty (gdk_x11_get_default_xdisplay (), wnck_window_get_xid (win),
+					 net_wm_state_atom,
+					 0L, 1024L, FALSE, XA_ATOM, &actual, &format,
+					 &n, &left, &data);
+
+	    if (result == Success && data)
+	    {
+		Atom *a = (Atom *) data;
+
+		while (n--)
+		    if (*a++ == net_wm_state_modal_atom)
+		    {
+			XFree ((void *) data);
+			return "modal_dialog";
+		    }
+
+
+	    }
+
 	    return "dialog";
+	}
 	case WNCK_WINDOW_MENU:
 	    return "menu";
 	case WNCK_WINDOW_UTILITY:
@@ -147,7 +175,7 @@ decorations_changed (WnckScreen *screen)
 
     update_titlebar_font ();
     gwd_process_frames (update_frames_border_extents,
-			window_type_frames,
+                        window_type_frames,
 			WINDOW_TYPE_FRAMES_NUM,
 			NULL);
     update_shadow ();
@@ -269,7 +297,7 @@ add_frame_window (WnckWindow *win,
 
     d->active = wnck_window_is_active (win);
     d->win = win;
-    d->frame = gwd_get_decor_frame (get_frame_type (wnck_window_get_window_type (win)));
+    d->frame = gwd_get_decor_frame (get_frame_type (win));
     d->last_pos_entered = NULL;
 
     attr.event_mask = ButtonPressMask | EnterWindowMask |
@@ -560,7 +588,62 @@ active_window_changed (WnckScreen *screen)
 	if (d && d->pixmap)
 	{
 	    d->active = wnck_window_is_active (win);
-	    queue_decor_draw (d);
+
+            decor_frame_t *frame = d->decorated ? d->frame : gwd_get_decor_frame (get_frame_type (win));
+
+	    if ((d->state & META_MAXIMIZED) == META_MAXIMIZED)
+	    {
+		if (!d->frame_window)
+		{
+		   if (d->active)
+		   {
+		       d->context = &frame->max_window_context_active;
+		       d->shadow  = frame->max_border_shadow_active;
+		   }
+		   else
+		   {
+		       d->context = &frame->max_window_context_inactive;
+		       d->shadow  = frame->max_border_shadow_inactive;
+		   }
+                }
+                else
+                {
+		   d->shadow  = d->frame->max_border_no_shadow;
+                }
+	    }
+	    else
+	    {
+	       if (!d->frame_window)
+	       {
+		   if (d->active)
+		   {
+		       d->context = &frame->window_context_active;
+		       d->shadow  = frame->border_shadow_active;
+		   }
+		   else
+		   {
+		       d->context = &frame->window_context_inactive;
+		       d->shadow  = frame->border_shadow_inactive;
+		   }
+	       }
+	       else
+	       {
+		   d->shadow  = d->frame->border_no_shadow;
+	       }
+	    }
+
+            if (!d->decorated)
+                gwd_decor_frame_unref (frame);
+
+	    /* We need to update the decoration size here
+	    * since the shadow size might have changed and
+	    * in that case the decoration will be redrawn,
+	    * however if the shadow size doesn't change
+	    * then we need to redraw the decoration anyways
+	    * since the image would have changed */
+	    if (!update_window_decoration_size (d->win) && d->decorated)
+	       queue_decor_draw (d);
+
 	}
     }
 
@@ -571,7 +654,62 @@ active_window_changed (WnckScreen *screen)
 	if (d && d->pixmap)
 	{
 	    d->active = wnck_window_is_active (win);
-	    queue_decor_draw (d);
+
+            decor_frame_t *frame = d->decorated ? d->frame : gwd_get_decor_frame (get_frame_type (win));
+
+	    if ((d->state & META_MAXIMIZED) == META_MAXIMIZED)
+	    {
+		if (!d->frame_window)
+		{
+		   if (d->active)
+		   {
+		       d->context = &frame->max_window_context_active;
+		       d->shadow  = frame->max_border_shadow_active;
+		   }
+		   else
+		   {
+		       d->context = &frame->max_window_context_inactive;
+		       d->shadow  = frame->max_border_shadow_inactive;
+		   }
+		}
+		else
+		{
+		   d->shadow  = frame->max_border_no_shadow;
+		}
+	    }
+	    else
+	    {
+		if (!d->frame_window)
+		{
+		   if (d->active)
+		   {
+		       d->context = &frame->window_context_active;
+		       d->shadow  = frame->border_shadow_active;
+		   }
+		   else
+		   {
+		       d->context = &frame->window_context_inactive;
+		       d->shadow  = frame->border_shadow_inactive;
+		   }
+		}
+		else
+		{
+		   d->shadow =  frame->border_no_shadow;
+		}
+	    }
+
+            if (!d->decorated)
+                gwd_decor_frame_unref (frame);
+
+	    /* We need to update the decoration size here
+	    * since the shadow size might have changed and
+	    * in that case the decoration will be redrawn,
+	    * however if the shadow size doesn't change
+	    * then we need to redraw the decoration anyways
+	    * since the image would have changed */
+	    if (!update_window_decoration_size (d->win) && d->decorated)
+	       queue_decor_draw (d);
+
 	}
     }
 }
@@ -662,19 +800,19 @@ connect_screen (WnckScreen *screen)
     GList *windows;
 
     g_signal_connect_object (G_OBJECT (screen), "active_window_changed",
-			     G_CALLBACK (active_window_changed),
-			     0, 0);
+                             G_CALLBACK (active_window_changed),
+                             0, 0);
     g_signal_connect_object (G_OBJECT (screen), "window_opened",
-			     G_CALLBACK (window_opened),
-			     0, 0);
+                             G_CALLBACK (window_opened),
+                             0, 0);
     g_signal_connect_object (G_OBJECT (screen), "window_closed",
-			     G_CALLBACK (window_closed),
-			     0, 0);
+                             G_CALLBACK (window_closed),
+                             0, 0);
 
     windows = wnck_screen_get_windows (screen);
     while (windows != NULL)
     {
-	window_opened (screen, windows->data);
-	windows = windows->next;
+        window_opened (screen, windows->data);
+        windows = windows->next;
     }
 }

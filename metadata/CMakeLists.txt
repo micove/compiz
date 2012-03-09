@@ -9,9 +9,9 @@ mark_as_advanced (FORCE XSLTPROC_EXECUTABLE)
 if (XSLTPROC_EXECUTABLE)
 
     add_custom_command (
-	OUTPUT ${CMAKE_BINARY_DIR}/generated/core.xml.in
+	OUTPUT ${compiz_BINARY_DIR}/generated/core.xml.in
 	COMMAND ${XSLTPROC_EXECUTABLE}
-		-o ${CMAKE_BINARY_DIR}/generated/core.xml.in
+		-o ${compiz_BINARY_DIR}/generated/core.xml.in
 		--param default_plugins "\"'${COMPIZ_DEFAULT_PLUGINS}'\""
 		${CMAKE_SOURCE_DIR}/xslt/default_plugins.xslt
 		${CMAKE_CURRENT_SOURCE_DIR}/core.xml.in
@@ -48,5 +48,15 @@ if (USE_GCONF)
     )
     add_custom_target (core-gconf-schema ALL
 	DEPENDS ${CMAKE_BINARY_DIR}/generated/compiz-core.schemas
+    )
+endif ()
+if (USE_GSETTINGS)
+    compiz_gsettings_schema (
+	${CMAKE_BINARY_DIR}/generated/core.xml
+	${CMAKE_BINARY_DIR}/generated/org.freedesktop.compiz.gschema.xml
+	${datadir}/glib-2.0/schemas
+    )
+    add_custom_target (core-settings-schema ALL
+	DEPENDS ${CMAKE_BINARY_DIR}/generated/org.freedesktop.compiz.gschema.xml
     )
 endif ()

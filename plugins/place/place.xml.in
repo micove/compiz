@@ -20,7 +20,7 @@
 		<_short>Placement Mode</_short>
 		<_long>Algorithm to use for window placement</_long>
 		<default>0</default>
-		<min>0</min>
+		<min>2</min>
 		<max>5</max>
 		<desc>
 		    <value>0</value>

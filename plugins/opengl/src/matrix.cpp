@@ -46,11 +46,15 @@
  * From Mesa 3-D graphics library.
  */
 
-#include <compiz.h>
+#include <core/output.h>
+
+#include <opengl/matrix.h>
+
 #include <string.h>
 #include <math.h>
-#include <core/core.h>
-#include <opengl/matrix.h>
+#include <cassert>
+
+#define DEG2RAD (M_PI / 180.0f)
 
 /**
  * Identity matrix.

@@ -26,9 +26,11 @@
  * Copyright (C) 2009 Sam Spilsbury <smspillaz@gmail.com>
  */
 
-#include <core/core.h>
+#include <core/screen.h>
 #include <core/pluginclasshandler.h>
+
 #include <cstring>
+#include <vector>
 #include <poll.h>
 
 #define DBUS_API_SUBJECT_TO_CHANGE

@@ -33,11 +33,6 @@
 
 #include "composite_options.h"
 
-#if COMPOSITE_MAJOR > 0 || COMPOSITE_MINOR > 2
-#define USE_COW
-extern bool       useCow;
-#endif
-
 extern CompPlugin::VTable *compositeVTable;
 
 extern CompWindow *lastDamagedWindow;
@@ -64,7 +59,7 @@ class PrivateCompositeScreen :
 
 	void detectRefreshRate ();
 
-	int getTimeToNextRedraw (struct timeval *tv);
+	void scheduleRepaint ();
 
     public:
 
@@ -95,23 +90,19 @@ class PrivateCompositeScreen :
 	int overlayWindowCount;
 
 	struct timeval lastRedraw;
-	int            nextRedraw;
 	int            redrawTime;
 	int            optimalRedrawTime;
-	int            frameStatus;
-	int            timeMult;
-	bool           idle;
-	int            timeLeft;
+	bool           scheduled, painting, reschedule;
 
 	bool slowAnimations;
 
 	CompTimer paintTimer;
 
-	bool active;
-	CompositeScreen::PaintHandler *pHnd;
+	compiz::composite::PaintHandler *pHnd;
 
 	CompositeFPSLimiterMode FPSLimiterMode;
-	int frameTimeAccumulator;
+
+	CompWindowList withDestroyedWindows;
 };
 
 class PrivateCompositeWindow : WindowInterface
@@ -136,6 +127,7 @@ class PrivateCompositeWindow : WindowInterface
 	CompositeScreen *cScreen;
 
 	Pixmap	      pixmap;
+	CompSize      size;
 
 	Damage	      damage;
 

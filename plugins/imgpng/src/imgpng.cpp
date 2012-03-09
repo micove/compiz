@@ -25,6 +25,15 @@
 
 #include "imgpng.h"
 
+#include "core/abiversion.h"
+
+#include <fstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <setjmp.h>
+
+
 COMPIZ_PLUGIN_20090315 (imgpng, PngPluginVTable)
 
 PngScreen::PngScreen (CompScreen *screen) :
@@ -207,7 +216,7 @@ stdioWriteFunc (png_structp png,
 
 bool
 PngScreen::writePng (unsigned char *buffer,
-		     std::ofstream &file,
+		     std::ostream  &file,
 		     CompSize      &size,
 		     int           stride)
 {

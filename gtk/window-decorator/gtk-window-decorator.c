@@ -49,6 +49,10 @@ Atom toolkit_action_atom;
 Atom toolkit_action_window_menu_atom;
 Atom toolkit_action_force_quit_dialog_atom;
 
+Atom net_wm_state_atom;
+Atom net_wm_state_modal_atom;
+
+
 Time dm_sn_timestamp;
 
 struct _cursor cursor[3][3] = {
@@ -78,8 +82,20 @@ struct _pos pos[3][3] = {
     { 6, 2, 16, 16,   0, 0, 0, 0, 0, 0 }
 };
 
-const gchar * window_type_frames[WINDOW_TYPE_FRAMES_NUM] = {
-    "normal", "dialog", "menu", "utility"
+#define WINDOW_TYPE_FRAMES_NUM 5
+default_frame_references_t default_frames[WINDOW_TYPE_FRAMES_NUM  * 2] = {
+    /* active */
+    {"normal", NULL },
+    {"dialog", NULL },
+    {"modal_dialog", NULL },
+    {"menu", NULL },
+    {"utility", NULL},
+    /* inactive */
+    {"normal", NULL },
+    {"dialog", NULL },
+    {"modal_dialog", NULL },
+    {"menu", NULL },
+    {"utility", NULL}
 };
 
 char *program_name;
@@ -108,6 +124,10 @@ XRenderPictFormat *xformat_rgb;
 
 decor_settings_t *settings;
 
+const gchar * window_type_frames[WINDOW_TYPE_FRAMES_NUM] = {
+    "normal", "modal_dialog", "dialog", "menu", "utility"
+};
+
 int
 main (int argc, char *argv[])
 {
@@ -121,7 +141,7 @@ main (int argc, char *argv[])
     Window        root_ret, parent_ret;
     Window        *children = NULL;
     GList	  *windows, *win;
-    decor_frame_t *default_p, *bare_p, *switcher_p;
+    decor_frame_t *bare_p, *switcher_p;
 
 #ifdef USE_METACITY
     char       *meta_theme = NULL;
@@ -144,14 +164,22 @@ main (int argc, char *argv[])
     settings->blur_type = BLUR_TYPE_NONE;
     settings->use_system_font = FALSE;
 
-    settings->shadow_radius   = SHADOW_RADIUS;
-    settings->shadow_opacity  = SHADOW_OPACITY;
-    settings->shadow_color[0] = SHADOW_COLOR_RED;
-    settings->shadow_color[1] = SHADOW_COLOR_GREEN;
-    settings->shadow_color[2] = SHADOW_COLOR_BLUE;
-    settings->shadow_offset_x = SHADOW_OFFSET_X;
-    settings->shadow_offset_y = SHADOW_OFFSET_Y;
+    settings->active_shadow_radius   = SHADOW_RADIUS;
+    settings->active_shadow_opacity  = SHADOW_OPACITY;
+    settings->active_shadow_color[0] = SHADOW_COLOR_RED;
+    settings->active_shadow_color[1] = SHADOW_COLOR_GREEN;
+    settings->active_shadow_color[2] = SHADOW_COLOR_BLUE;
+    settings->active_shadow_offset_x = SHADOW_OFFSET_X;
+    settings->active_shadow_offset_y = SHADOW_OFFSET_Y;
+    settings->inactive_shadow_radius   = SHADOW_RADIUS;
+    settings->inactive_shadow_opacity  = SHADOW_OPACITY;
+    settings->inactive_shadow_color[0] = SHADOW_COLOR_RED;
+    settings->inactive_shadow_color[1] = SHADOW_COLOR_GREEN;
+    settings->inactive_shadow_color[2] = SHADOW_COLOR_BLUE;
+    settings->inactive_shadow_offset_x = SHADOW_OFFSET_X;
+    settings->inactive_shadow_offset_y = SHADOW_OFFSET_Y;
     settings->decoration_alpha = 0.5;
+    settings->use_tooltips = TRUE;
 
 #ifdef USE_METACITY
 
@@ -164,6 +192,9 @@ main (int argc, char *argv[])
 #endif
 
     settings->font = strdup ("Sans Bold 12");
+
+    settings->mutter_draggable_border_width = 10;
+    settings->mutter_attach_modal_dialogs = FALSE;
 
     for (i = 0; i < argc; i++)
     {
@@ -271,6 +302,9 @@ main (int argc, char *argv[])
 	XInternAtom (xdisplay, "_COMPIZ_TOOLKIT_ACTION_FORCE_QUIT_DIALOG",
 		     FALSE);
 
+    net_wm_state_atom = XInternAtom (xdisplay,"_NET_WM_STATE", 0);
+    net_wm_state_modal_atom = XInternAtom (xdisplay, "_NET_WM_STATE_MODAL", 0);
+
     status = decor_acquire_dm_session (xdisplay,
 				       gdk_screen_get_number (gdkscreen),
 				       "gwd", replace, &dm_sn_timestamp);
@@ -315,6 +349,7 @@ main (int argc, char *argv[])
     theme_get_event_window_position = get_event_window_position;
     theme_get_button_position       = get_button_position;
     theme_get_title_scale	    = get_title_scale;
+    theme_get_shadow                = cairo_get_shadow;
 
 #ifdef USE_METACITY
     if (meta_theme)
@@ -337,6 +372,7 @@ main (int argc, char *argv[])
 	theme_get_event_window_position = meta_get_event_window_position;
 	theme_get_button_position	    = meta_get_button_position;
 	theme_get_title_scale	    = meta_get_title_scale;
+	theme_get_shadow            = meta_get_shadow;
     }
 #endif
 
@@ -403,7 +439,6 @@ main (int argc, char *argv[])
     /* Keep the default, bare and switcher decorations around
      * since otherwise they will be spuriously recreated */
 
-    default_p = gwd_get_decor_frame ("default");
     bare_p = gwd_get_decor_frame ("bare");
     switcher_p = gwd_get_decor_frame ("switcher");
 
@@ -434,7 +469,6 @@ main (int argc, char *argv[])
     if (tip_window)
 	gtk_widget_destroy (GTK_WIDGET (tip_window));
 
-    gwd_decor_frame_unref (default_p);
     gwd_decor_frame_unref (bare_p);
     gwd_decor_frame_unref (switcher_p);
 

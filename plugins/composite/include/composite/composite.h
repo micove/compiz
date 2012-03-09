@@ -30,11 +30,13 @@
 
 #include <X11/extensions/Xcomposite.h>
 
-#define COMPIZ_COMPOSITE_ABI 1
+#define COMPIZ_COMPOSITE_ABI 4
 
-#include <core/pluginclasshandler.h>
-#include <core/timer.h>
-#include <core/core.h>
+#include "core/pluginclasshandler.h"
+#include "core/timer.h"
+#include "core/output.h"
+#include "core/screen.h"
+#include "core/wrapsystem.h"
 
 #define COMPOSITE_SCREEN_DAMAGE_PENDING_MASK (1 << 0)
 #define COMPOSITE_SCREEN_DAMAGE_REGION_MASK  (1 << 1)
@@ -91,6 +93,26 @@ class PrivateCompositeWindow;
 class CompositeScreen;
 class CompositeWindow;
 
+namespace compiz
+{
+namespace composite
+{
+class PaintHandler {
+public:
+    virtual ~PaintHandler () {};
+
+    virtual void paintOutputs (CompOutput::ptrList &outputs,
+			       unsigned int        mask,
+			       const CompRegion    &region) = 0;
+
+    virtual bool hasVSync () { return false; };
+
+    virtual void prepareDrawing () {};
+    virtual bool compositingActive () { return false; };
+};
+}
+}
+
 /**
  * Wrapable function interface for CompositeScreen
  */
@@ -129,41 +151,38 @@ class CompositeScreenInterface :
 	 * evaluated for repainting
 	 */
 	virtual const CompWindowList & getWindowPaintList ();
+
+	/**
+	 * Hookable function to register a new paint handler, overload
+	 * and insert your own paint handler if you want to prevent
+	 * another one from being loaded
+	 */
+	virtual bool registerPaintHandler (compiz::composite::PaintHandler *pHnd);
+
+	/**
+	 * Hookable function to notify unregistration of a paint handler
+	 *
+	 */
+	virtual void unregisterPaintHandler ();
+
+	/**
+	 * Hookable function to damage regions directly
+	 */
+	virtual void damageRegion (const CompRegion &r);
 };
 
 
 class CompositeScreen :
-    public WrapableHandler<CompositeScreenInterface, 4>,
+    public WrapableHandler<CompositeScreenInterface, 7>,
     public PluginClassHandler<CompositeScreen, CompScreen, COMPIZ_COMPOSITE_ABI>,
     public CompOption::Class
 {
-    public:
-
-	class PaintHandler {
-	    public:
-		virtual ~PaintHandler () {};
-
-		virtual void paintOutputs (CompOutput::ptrList &outputs,
-					   unsigned int        mask,
-					   const CompRegion    &region) = 0;
-
-		virtual bool hasVSync () { return false; };
-
-		virtual void prepareDrawing () {};
-	};
-
     public:
 	CompositeScreen (CompScreen *s);
 	~CompositeScreen ();
 
 	CompOption::Vector & getOptions ();
         bool setOption (const CompString &name, CompOption::Value &value);
-
-	/** 
-	 * Register a dispatch PaintHandler for a rendering plugin
-	 */	
-	bool registerPaintHandler (PaintHandler *pHnd);
-        void unregisterPaintHandler ();
 
 	bool compositingActive ();
 
@@ -178,11 +197,6 @@ class CompositeScreen :
 	 */
 	void damageScreen ();
 
-	/**
-	 * Adds a specific region to be redrawn on the next
-	 * event loop
-	 */
-	void damageRegion (const CompRegion &);
 	void damagePending ();
 	
 
@@ -219,6 +233,15 @@ class CompositeScreen :
 
 	WRAPABLE_HND (3, CompositeScreenInterface, const CompWindowList &,
 		      getWindowPaintList);
+
+	WRAPABLE_HND (4, CompositeScreenInterface, bool, registerPaintHandler, compiz::composite::PaintHandler *);
+	WRAPABLE_HND (5, CompositeScreenInterface, void, unregisterPaintHandler);
+
+	/**
+	 * Adds a specific region to be redrawn on the next
+	 * event loop
+	 */
+	WRAPABLE_HND (6, CompositeScreenInterface, void, damageRegion, const CompRegion &);
 
 	friend class PrivateCompositeDisplay;
 
@@ -321,6 +344,12 @@ class CompositeWindow :
 	 * Returns the window pixmap
 	 */
 	Pixmap pixmap ();
+
+	/**
+	 * Pixmap size at the time the pixmap was last bound
+	 */
+
+	const CompSize & size ();
 
 	/**
 	 * Forces this window to be composited so that the X Server

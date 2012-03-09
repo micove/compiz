@@ -28,8 +28,11 @@
 #ifndef _COMPOUTPUT_H
 #define _COMPOUTPUT_H
 
-#include <core/core.h>
-#include <core/rect.h>
+#include "core/rect.h"
+#include "core/string.h"
+
+#include <list>
+#include <vector>
 
 /**
  * Represents a phisically attached screen in Compiz, where this

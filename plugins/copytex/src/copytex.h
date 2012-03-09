@@ -22,11 +22,12 @@
  * http://live.gnome.org/Luminocity
  */
 
-#include <core/core.h>
 #include <core/pluginclasshandler.h>
 
 #include <composite/composite.h>
 #include <opengl/opengl.h>
+
+#include <boost/shared_ptr.hpp>
 
 #include <X11/extensions/XShm.h>
 
@@ -41,11 +42,13 @@ class CopyTexture;
 class CopyPixmap {
     public:
 	typedef std::vector <CopyTexture *> Textures;
+	typedef boost::shared_ptr <CopyPixmap> Ptr;
 
-	CopyPixmap (Pixmap pixmap,
-		    int width,
-		    int height,
-		    int depth);
+	static CopyPixmap::Ptr
+	create (Pixmap pixmap,
+		int    width,
+		int    height,
+		int    depth);
 
 	~CopyPixmap ();
 
@@ -60,11 +63,18 @@ class CopyPixmap {
 	Pixmap pixmap;
 	Damage damage;
 	int    depth;
+
+    private:
+
+	CopyPixmap (Pixmap pixmap,
+		    int width,
+		    int height,
+		    int depth);
 };
 
 class CopyTexture : public GLTexture {
     public:
-	CopyTexture (CopyPixmap *cp, CompRect dim);
+	CopyTexture (boost::shared_ptr <CopyPixmap> cp, CompRect dim);
 	~CopyTexture ();
 
 	void enable (Filter filter);
@@ -77,9 +87,9 @@ class CopyTexture : public GLTexture {
 	}
 
     public:
-	CopyPixmap *cp;
-	CompRect   dim;
-	CompRect   damage;
+	CopyPixmap::Ptr cp;
+	CompRect        dim;
+	CompRect        damage;
 };
 
 class CopytexScreen :
@@ -97,7 +107,7 @@ class CopytexScreen :
 
 	int damageNotify;
 
-	std::map <Damage, CopyPixmap *> pixmaps;
+	std::map <Damage, CopyPixmap::Ptr> pixmaps;
 
 	GLTexture::BindPixmapHandle hnd;
 };

@@ -81,6 +81,7 @@ namespace Atoms {
     extern Atom winStateBelow;
     extern Atom winStateDemandsAttention;
     extern Atom winStateDisplayModal;
+    extern Atom winStateFocused;
 
     extern Atom winActionMove;
     extern Atom winActionResize;

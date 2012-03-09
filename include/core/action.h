@@ -28,11 +28,12 @@
 #ifndef _COMPACTION_H
 #define _COMPACTION_H
 
+#include "core/option.h"
+
 #include <boost/function.hpp>
 
 #include <X11/Xlib-xcb.h>
 
-#include <core/option.h>
 
 class PrivateAction;
 
@@ -73,7 +74,8 @@ class CompAction {
 	    StateCommit      = 1 <<  9,
 	    StateCancel      = 1 << 10,
 	    StateAutoGrab    = 1 << 11,
-	    StateNoEdgeDelay = 1 << 12
+	    StateNoEdgeDelay = 1 << 12,
+	    StateTermTapped  = 1 << 13
 	} StateEnum;
 
 	/**
@@ -154,7 +156,7 @@ class CompAction {
 
 	void copyState (const CompAction &action);
 
-	bool operator== (const CompAction& val);
+	bool operator== (const CompAction& val) const;
 	CompAction & operator= (const CompAction &action);
 
 	bool keyFromString (const CompString &str);
@@ -169,7 +171,7 @@ class CompAction {
 
 	bool active ();
 
-	friend class CompScreen;
+	friend class CompScreenImpl;
 
     private:
 	PrivateAction *priv;

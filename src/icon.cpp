@@ -27,7 +27,7 @@
 
 #include <core/icon.h>
 
-CompIcon::CompIcon (CompScreen *screen, unsigned int width,
+CompIcon::CompIcon (unsigned int width,
 		    unsigned int height) :
     CompSize (width, height),
     mData (new unsigned char[width * height * 4])

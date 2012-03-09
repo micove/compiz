@@ -1,3 +1,5 @@
+#ifndef COMPIZ_CLONE_H
+#define COMPIZ_CLONE_H
 /*
  * Copyright © 2006 Novell, Inc.
  *
@@ -28,15 +30,13 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#include <cmath>
-
-#include <core/core.h>
-#include <core/pluginclasshandler.h>
-
-#include <composite/composite.h>
-#include <opengl/opengl.h>
 
 #include "clone_options.h"
+
+#include <core/pluginclasshandler.h>
+#include <composite/composite.h>
+
+#include <opengl/opengl.h>
 
 class Clone
 {
@@ -145,3 +145,5 @@ class ClonePluginVTable :
 
 	bool init ();
 };
+
+#endif

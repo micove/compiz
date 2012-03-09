@@ -23,13 +23,9 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#include <stdlib.h>
-#include <string.h>
-#include <dirent.h>
-
 #include "screenshot_options.h"
 
-#include <core/core.h>
+#include <core/screen.h>
 #include <core/propertywriter.h>
 
 #include <compiztoolbox/compiztoolbox.h>

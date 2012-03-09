@@ -26,7 +26,7 @@
 #ifndef _ROTATE_H
 #define _ROTATE_H
 
-#include <core/core.h>
+#include <core/screen.h>
 #include <core/pluginclasshandler.h>
 
 #include <composite/composite.h>

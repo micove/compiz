@@ -28,11 +28,15 @@
 void
 decor_update_window_property (decor_t *d)
 {
-    long	    data[256];
+    long	    *data;
     Display	    *xdisplay =
 	GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
     decor_extents_t extents = d->frame->win_extents;
     gint	    nQuad;
+    unsigned int    nOffset = 1;
+    unsigned int   frame_type = populate_frame_type (d);
+    unsigned int   frame_state = populate_frame_state (d);
+    unsigned int   frame_actions = populate_frame_actions (d);
     decor_quad_t    quads[N_QUADS_MAX];
     int		    w, h;
     gint	    stretch_offset;
@@ -56,16 +60,18 @@ decor_update_window_property (decor_t *d)
 
     if (d->frame_window)
     {
-	decor_gen_window_property (data, &extents, &extents, 20, 20);
+        data = decor_alloc_property (nOffset, WINDOW_DECORATION_TYPE_WINDOW);
+        decor_gen_window_property (data, nOffset - 1, &extents, &extents, 20, 20, frame_type, frame_state, frame_actions);
     }
     else
     {
-	decor_quads_to_property (data, GDK_PIXMAP_XID (d->pixmap),
+        data = decor_alloc_property (nOffset, WINDOW_DECORATION_TYPE_PIXMAP);
+        decor_quads_to_property (data, nOffset - 1, GDK_PIXMAP_XID (d->pixmap),
 			     &extents, &extents,
 			     &extents, &extents,
 			     ICON_SPACE + d->button_width,
 			     0,
-			     quads, nQuad);
+			     quads, nQuad, frame_type, frame_state, frame_actions);
     }
 
     gdk_error_trap_push ();
@@ -73,7 +79,7 @@ decor_update_window_property (decor_t *d)
 		     win_decor_atom,
 		     XA_INTEGER,
 		     32, PropModeReplace, (guchar *) data,
-		     BASE_PROP_SIZE + QUAD_PROP_SIZE * nQuad);
+		     PROP_HEADER_SIZE + BASE_PROP_SIZE + QUAD_PROP_SIZE * N_QUADS_MAX);
     gdk_display_sync (gdk_display_get_default ());
     gdk_error_trap_pop ();
 
@@ -115,30 +121,37 @@ decor_update_window_property (decor_t *d)
 				&bottom, w / 2,
 				&left, h / 2,
 				&right, h / 2);
+
+    free (data);
 }
 
 void
 decor_update_switcher_property (decor_t *d)
 {
-    long	 data[256];
+    long	 *data;
     Display	 *xdisplay = GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
     gint	 nQuad;
     decor_quad_t quads[N_QUADS_MAX];
+    unsigned int    nOffset = 1;
+    unsigned int   frame_type = populate_frame_type (d);
+    unsigned int   frame_state = populate_frame_state (d);
+    unsigned int   frame_actions = populate_frame_actions (d);
     GtkStyle     *style;
     long         fgColor[4];
     
-    nQuad = decor_set_lSrStSbX_window_quads (quads, &d->frame->window_context,
+    nQuad = decor_set_lSrStSbX_window_quads (quads, &d->frame->window_context_active,
 					     &d->border_layout,
 					     d->border_layout.top.x2 -
 					     d->border_layout.top.x1 -
-					     d->frame->window_context.extents.left -
-						 d->frame->window_context.extents.right -
+					     d->frame->window_context_active.extents.left -
+						 d->frame->window_context_active.extents.right -
 						     32);
     
-    decor_quads_to_property (data, GDK_PIXMAP_XID (d->pixmap),
+    data = decor_alloc_property (nOffset, WINDOW_DECORATION_TYPE_PIXMAP);
+    decor_quads_to_property (data, nOffset - 1, GDK_PIXMAP_XID (d->pixmap),
 			     &d->frame->win_extents, &d->frame->win_extents,
 			     &d->frame->win_extents, &d->frame->win_extents,
-			     0, 0, quads, nQuad);
+			     0, 0, quads, nQuad, frame_type, frame_state, frame_actions);
     
     style = gtk_widget_get_style (d->frame->style_window_rgba);
     
@@ -152,10 +165,11 @@ decor_update_switcher_property (decor_t *d)
 		     win_decor_atom,
 		     XA_INTEGER,
 		     32, PropModeReplace, (guchar *) data,
-		     BASE_PROP_SIZE + QUAD_PROP_SIZE * nQuad);
+		     PROP_HEADER_SIZE + BASE_PROP_SIZE + QUAD_PROP_SIZE * N_QUADS_MAX);
     XChangeProperty (xdisplay, d->prop_xid, switcher_fg_atom,
 		     XA_INTEGER, 32, PropModeReplace, (guchar *) fgColor, 4);
     gdk_display_sync (gdk_display_get_default ());
     gdk_error_trap_pop ();
-    
+
+    free (data);
 }

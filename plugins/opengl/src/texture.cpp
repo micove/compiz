@@ -27,13 +27,10 @@
 #  include <config.h>
 #endif
 
-#include <compiz.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <core/core.h>
 #include <opengl/texture.h>
 #include <privatetexture.h>
 #include "privates.h"
@@ -289,7 +286,7 @@ PrivateTexture::loadImageData (const char   *image,
 			       GLenum       format,
 			       GLenum       type)
 {
-#warning Add support for multiple textures
+/* TODO Add support for multiple textures */
     if ((int) width > GL::maxTextureSize || (int) height > GL::maxTextureSize)
 	return GLTexture::List ();
 
