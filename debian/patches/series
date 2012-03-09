@@ -3,3 +3,4 @@
 030_no_fade_in_staticswicher.patch
 060_move_checks_to_compiz.patch
 065_add_bailer_and_detection_plugins.patch
+bzr_3043.patch
