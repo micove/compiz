@@ -33,11 +33,11 @@
 #include <math.h>
 #include <unistd.h>
 
-#include <X11/Xatom.h>
-#include <X11/extensions/shape.h>
-
 #include <compiz.h>
 #include <decoration.h>
+
+#include <X11/Xatom.h>
+#include <X11/extensions/shape.h>
 
 static CompMetadata decorMetadata;
 
@@ -132,6 +132,8 @@ typedef struct _DecorScreen {
 typedef struct _DecorWindow {
     WindowDecoration *wd;
     Decoration	     *decor;
+
+    CompTimeoutHandle resizeUpdateHandle;
 } DecorWindow;
 
 #define GET_DECOR_DISPLAY(d)				      \
@@ -1131,21 +1133,14 @@ decorSetDisplayOption (CompPlugin      *plugin,
     case DECOR_DISPLAY_OPTION_COMMAND:
 	if (compSetStringOption (o, value))
 	{
-	    if (display->screens && *o->value.s != '\0')
-	    {
-		DECOR_SCREEN (display->screens);
+	    CompScreen *s;
 
-		/* run decorator command if no decorator is present on
-		   first screen */
+	    for (s = display->screens; s; s = s->next)
+	    {
+		DECOR_SCREEN (s);
+
 		if (!ds->dmWin)
-		{
-		    if (fork () == 0)
-		    {
-			putenv (display->displayString);
-			execl ("/bin/sh", "/bin/sh", "-c", o->value.s, NULL);
-			exit (0);
-		    }
-		}
+		    runCommand (s, o->value.s);
 	    }
 
 	    return TRUE;
@@ -1202,6 +1197,20 @@ decorWindowMoveNotify (CompWindow *w,
     WRAP (ds, w->screen, windowMoveNotify, decorWindowMoveNotify);
 }
 
+static Bool
+decorResizeUpdateTimeout (void *closure)
+{
+    CompWindow *w = (CompWindow *) closure;
+
+    DECOR_WINDOW (w);
+
+    decorWindowUpdate (w, TRUE);
+
+    dw->resizeUpdateHandle = 0;
+
+    return FALSE;
+}
+
 static void
 decorWindowResizeNotify (CompWindow *w,
 			 int	    dx,
@@ -1210,9 +1219,16 @@ decorWindowResizeNotify (CompWindow *w,
 			 int	    dheight)
 {
     DECOR_SCREEN (w->screen);
+    DECOR_WINDOW (w);
 
-    if (!decorWindowUpdate (w, TRUE))
-	updateWindowDecorationScale (w);
+    /* FIXME: we should not need a timer for calling decorWindowUpdate, and only call
+       updateWindowDecorationScale if decorWindowUpdate returns FALSE. Unfortunately,
+       decorWindowUpdate may call updateWindowOutputExtents, which may call
+       WindowResizeNotify. As we never should call a wrapped function that's currently
+       processed, we need the timer for the moment. updateWindowOutputExtents should be
+       fixed so that it does not emit a resize notification. */
+    dw->resizeUpdateHandle = compAddTimeout (0, decorResizeUpdateTimeout, w);
+    updateWindowDecorationScale (w);
 
     UNWRAP (ds, w->screen, windowResizeNotify);
     (*w->screen->windowResizeNotify) (w, dx, dy, dwidth, dheight);
@@ -1220,7 +1236,8 @@ decorWindowResizeNotify (CompWindow *w,
 }
 
 static void
-decorWindowStateChangeNotify (CompWindow *w)
+decorWindowStateChangeNotify (CompWindow   *w,
+			      unsigned int lastState)
 {
     DECOR_SCREEN (w->screen);
     DECOR_WINDOW (w);
@@ -1237,7 +1254,7 @@ decorWindowStateChangeNotify (CompWindow *w)
     }
 
     UNWRAP (ds, w->screen, windowStateChangeNotify);
-    (*w->screen->windowStateChangeNotify) (w);
+    (*w->screen->windowStateChangeNotify) (w, lastState);
     WRAP (ds, w->screen, windowStateChangeNotify, decorWindowStateChangeNotify);
 }
 
@@ -1419,6 +1436,8 @@ decorInitWindow (CompPlugin *p,
     dw->wd    = NULL;
     dw->decor = NULL;
 
+    dw->resizeUpdateHandle = 0;
+
     w->privates[ds->windowPrivateIndex].ptr = dw;
 
     if (!w->attrib.override_redirect)
@@ -1438,6 +1457,9 @@ decorFiniWindow (CompPlugin *p,
 
     if (!w->destroyed)
 	decorWindowUpdate (w, FALSE);
+
+    if (dw->resizeUpdateHandle)
+	compRemoveTimeout (dw->resizeUpdateHandle);
 
     if (dw->wd)
 	destroyWindowDecoration (w->screen, dw->wd);

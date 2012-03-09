@@ -32,6 +32,7 @@
 
 static const KCmdLineOptions options[] = {
     { "replace", "Replace existing window decorator", 0 },
+    { "sm-disable", "Disable connection to session manager", 0 },
     { "opacity <value>", "Decoration opacity", "0.75" },
     { "no-opacity-shade", "No decoration opacity shading", 0 },
     { "active-opacity <value>", "Active decoration opacity", "1.0" },
@@ -83,6 +84,9 @@ main (int argc, char **argv)
 
     app = new KWD::Decorator ();
 
+    if (args->isSet ("sm-disable"))
+	app->disableSessionManagement ();
+
     if (!XDamageQueryExtension (qt_xdisplay (), &event, &error))
     {
 	fprintf (stderr,
@@ -92,7 +96,7 @@ main (int argc, char **argv)
 	return 1;
     }
 
-    status = decor_acquire_dm_session (qt_xdisplay (), 0, "kwd",
+    status = decor_acquire_dm_session (qt_xdisplay (), qt_xscreen (), "kwd",
 				       args->isSet ("replace"),
 				       &timestamp);
     if (status != DECOR_ACQUIRE_STATUS_SUCCESS)
@@ -102,7 +106,7 @@ main (int argc, char **argv)
 	    fprintf (stderr,
 		     "%s: Could not acquire decoration manager "
 		     "selection on screen %d display \"%s\"\n",
-		     argv[0], 0, DisplayString (qt_xdisplay ()));
+		     argv[0], qt_xscreen (), DisplayString (qt_xdisplay ()));
 	}
 	else if (status == DECOR_ACQUIRE_STATUS_OTHER_DM_RUNNING)
 	{
@@ -111,13 +115,13 @@ main (int argc, char **argv)
 		     "has a decoration manager; try using the "
 		     "--replace option to replace the current "
 		     "decoration manager.\n",
-		     argv[0], 0, DisplayString (qt_xdisplay ()));
+		     argv[0], qt_xscreen (), DisplayString (qt_xdisplay ()));
 	}
 
 	return 1;
     }
 
-    decor_set_dm_check_hint (qt_xdisplay (), 0);
+    decor_set_dm_check_hint (qt_xdisplay (), qt_xscreen ());
 
     if (!app->enableDecorations (timestamp, event))
     {

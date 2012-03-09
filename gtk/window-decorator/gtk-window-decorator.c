@@ -93,6 +93,12 @@
 #define COMPIZ_DOUBLE_CLICK_TITLEBAR_KEY	       \
     METACITY_GCONF_DIR "/action_double_click_titlebar"
 
+#define COMPIZ_MIDDLE_CLICK_TITLEBAR_KEY	       \
+    METACITY_GCONF_DIR "/action_middle_click_titlebar"
+
+#define COMPIZ_RIGHT_CLICK_TITLEBAR_KEY	       \
+    METACITY_GCONF_DIR "/action_right_click_titlebar"
+
 #define COMPIZ_GCONF_DIR1 "/apps/compiz/plugins/decoration/allscreens/options"
 
 #define COMPIZ_SHADOW_RADIUS_KEY \
@@ -110,33 +116,11 @@
 #define COMPIZ_SHADOW_OFFSET_Y_KEY \
     COMPIZ_GCONF_DIR1 "/shadow_offset_y"
 
-#define META_AUDIBLE_BELL_KEY	       \
-    METACITY_GCONF_DIR "/audible_bell"
-
-#define META_VISUAL_BELL_KEY	      \
-    METACITY_GCONF_DIR "/visual_bell"
-
-#define META_VISUAL_BELL_TYPE_KEY	   \
-    METACITY_GCONF_DIR "/visual_bell_type"
-
 #define META_THEME_KEY		\
     METACITY_GCONF_DIR "/theme"
 
 #define META_BUTTON_LAYOUT_KEY		\
     METACITY_GCONF_DIR "/button_layout"
-
-#define COMPIZ_GCONF_DIR2 "/apps/compiz/general/allscreens/options"
-
-#define COMPIZ_AUDIBLE_BELL_KEY	      \
-    COMPIZ_GCONF_DIR2 "/audible_bell"
-
-#define COMPIZ_GCONF_DIR3 "/apps/compiz/plugins/fade/screen0/options"
-
-#define COMPIZ_VISUAL_BELL_KEY	     \
-    COMPIZ_GCONF_DIR3 "/visual_bell"
-
-#define COMPIZ_FULLSCREEN_VISUAL_BELL_KEY	\
-    COMPIZ_GCONF_DIR3 "/fullscreen_visual_bell"
 
 #define GCONF_DIR "/apps/gwd"
 
@@ -157,6 +141,9 @@
 
 #define BLUR_TYPE_KEY	   \
     GCONF_DIR "/blur_type"
+
+#define WHEEL_ACTION_KEY   \
+    GCONF_DIR "/mouse_wheel_action"
 
 #define DBUS_DEST       "org.freedesktop.compiz"
 #define DBUS_PATH       "/org/freedesktop/compiz/decoration/allscreens"
@@ -213,11 +200,29 @@ typedef struct {
 } MwmHints;
 
 enum {
-    DOUBLE_CLICK_SHADE,
-    DOUBLE_CLICK_MAXIMIZE
+    CLICK_ACTION_NONE,
+    CLICK_ACTION_SHADE,
+    CLICK_ACTION_MAXIMIZE,
+    CLICK_ACTION_MINIMIZE,
+    CLICK_ACTION_RAISE,
+    CLICK_ACTION_LOWER,
+    CLICK_ACTION_MENU
 };
 
-int double_click_action = DOUBLE_CLICK_SHADE;
+enum {
+    WHEEL_ACTION_NONE,
+    WHEEL_ACTION_SHADE
+};
+
+#define DOUBLE_CLICK_ACTION_DEFAULT CLICK_ACTION_MAXIMIZE
+#define MIDDLE_CLICK_ACTION_DEFAULT CLICK_ACTION_LOWER
+#define RIGHT_CLICK_ACTION_DEFAULT  CLICK_ACTION_MENU
+#define WHEEL_ACTION_DEFAULT        WHEEL_ACTION_NONE
+
+int double_click_action = DOUBLE_CLICK_ACTION_DEFAULT;
+int middle_click_action = MIDDLE_CLICK_ACTION_DEFAULT;
+int right_click_action  = RIGHT_CLICK_ACTION_DEFAULT;
+int wheel_action        = WHEEL_ACTION_DEFAULT;
 
 static gboolean minimal = FALSE;
 
@@ -2379,17 +2384,12 @@ draw_switcher_foreground (decor_t *d)
 {
     cairo_t	  *cr;
     GtkStyle	  *style;
-    decor_color_t color;
     double	  alpha = SWITCHER_ALPHA / 65535.0;
 
     if (!d->pixmap || !d->buffer_pixmap)
 	return;
 
     style = gtk_widget_get_style (style_window);
-
-    color.r = style->bg[GTK_STATE_NORMAL].red   / 65535.0;
-    color.g = style->bg[GTK_STATE_NORMAL].green / 65535.0;
-    color.b = style->bg[GTK_STATE_NORMAL].blue  / 65535.0;
 
     cr = gdk_cairo_create (GDK_DRAWABLE (d->buffer_pixmap));
 
@@ -3166,7 +3166,7 @@ update_window_decoration_name (WnckWindow *win)
     name = wnck_window_get_name (win);
     if (name && (name_length = strlen (name)))
     {
-	gint w, n_line;
+	gint w;
 
 	if (theme_draw_window_decoration != draw_window_decoration)
 	{
@@ -3186,8 +3186,6 @@ update_window_decoration_name (WnckWindow *win)
 
 	pango_layout_set_width (d->layout, w * PANGO_SCALE);
 	pango_layout_set_text (d->layout, name, name_length);
-
-	n_line = pango_layout_get_line_count (d->layout);
 
 	line = pango_layout_get_line (d->layout, 0);
 
@@ -3604,8 +3602,6 @@ update_switcher_window (WnckWindow *win,
 	name = wnck_window_get_name (selected_win);
 	if (name && (name_length = strlen (name)))
 	{
-	    gint n_line;
-
 	    if (!d->layout)
 	    {
 		d->layout = pango_layout_new (pango_context);
@@ -3621,8 +3617,6 @@ update_switcher_window (WnckWindow *win,
 		    switcher_context.right_space - 64;
 		pango_layout_set_width (d->layout, tw * PANGO_SCALE);
 		pango_layout_set_text (d->layout, name, name_length);
-
-		n_line = pango_layout_get_line_count (d->layout);
 
 		line = pango_layout_get_line (d->layout, 0);
 
@@ -3878,10 +3872,10 @@ window_actions_changed (WnckWindow *win)
     if (d->decorated)
     {
 	update_window_decoration_actions (win);
-	if (update_window_decoration_size (win))
-	    update_event_windows (win);
-	else
+	if (!update_window_decoration_size (win))
 	    queue_decor_draw (d);
+
+    	update_event_windows (win);
     }
 }
 
@@ -4689,6 +4683,62 @@ unstick_button_event (WnckWindow *win,
     }
 }
 
+static void
+handle_title_button_event (WnckWindow   *win,
+			   int          action,
+			   XButtonEvent *event)
+{
+    switch (action) {
+    case CLICK_ACTION_SHADE:
+	if (wnck_window_is_shaded (win))
+	    wnck_window_unshade (win);
+	else
+	    wnck_window_shade (win);
+	break;
+    case CLICK_ACTION_MAXIMIZE:
+	if (wnck_window_is_maximized (win))
+	    wnck_window_unmaximize (win);
+	else
+	    wnck_window_maximize (win);
+	break;
+    case CLICK_ACTION_MINIMIZE:
+	if (!wnck_window_is_minimized (win))
+	    wnck_window_minimize (win);
+	break;
+    case CLICK_ACTION_RAISE:
+	restack_window (win, Above);
+	break;
+    case CLICK_ACTION_LOWER:
+	restack_window (win, Below);
+	break;
+    case CLICK_ACTION_MENU:
+	action_menu_map (win, event->button, event->time);
+	break;
+    }
+}
+
+static void
+handle_mouse_wheel_title_event (WnckWindow   *win,
+				unsigned int button)
+{
+    switch (wheel_action) {
+    case WHEEL_ACTION_SHADE:
+	if (button == 4)
+	{
+	    if (!wnck_window_is_shaded (win))
+		wnck_window_shade (win);
+	}
+	else if (button == 5)
+	{
+	    if (wnck_window_is_shaded (win))
+		wnck_window_unshade (win);
+	}
+	break;
+    default:
+	break;
+    }
+}
+
 static double
 square (double x)
 {
@@ -4723,21 +4773,8 @@ title_event (WnckWindow *win,
 	    dist (xevent->xbutton.x, xevent->xbutton.y,
 		  last_button_x, last_button_y) < DOUBLE_CLICK_DISTANCE)
 	{
-	    switch (double_click_action) {
-	    case DOUBLE_CLICK_SHADE:
-		if (wnck_window_is_shaded (win))
-		    wnck_window_unshade (win);
-		else
-		    wnck_window_shade (win);
-		break;
-	    case DOUBLE_CLICK_MAXIMIZE:
-		if (wnck_window_is_maximized (win))
-		    wnck_window_unmaximize (win);
-		else
-		    wnck_window_maximize (win);
-	    default:
-		break;
-	    }
+	    handle_title_button_event (win, double_click_action,
+				       &xevent->xbutton);
 
 	    last_button_num	= 0;
 	    last_button_xwindow = None;
@@ -4760,13 +4797,18 @@ title_event (WnckWindow *win,
     }
     else if (xevent->xbutton.button == 2)
     {
-	restack_window (win, Below);
+	handle_title_button_event (win, middle_click_action,
+				   &xevent->xbutton);
     }
     else if (xevent->xbutton.button == 3)
     {
-	action_menu_map (win,
-			 xevent->xbutton.button,
-			 xevent->xbutton.time);
+	handle_title_button_event (win, right_click_action,
+				   &xevent->xbutton);
+    }
+    else if (xevent->xbutton.button == 4 ||
+	     xevent->xbutton.button == 5)
+    {
+	handle_mouse_wheel_title_event (win, xevent->xbutton.button);
     }
 }
 
@@ -5701,21 +5743,51 @@ titlebar_font_changed (GConfClient *client)
 }
 
 static void
-double_click_titlebar_changed (GConfClient *client)
+titlebar_click_action_changed (GConfClient *client,
+			       const gchar *key,
+			       int         *action_value,
+			       int          default_value)
 {
     gchar *action;
 
-    double_click_action = DOUBLE_CLICK_MAXIMIZE;
+    *action_value = default_value;
 
-    action = gconf_client_get_string (client,
-				      COMPIZ_DOUBLE_CLICK_TITLEBAR_KEY,
-				      NULL);
+    action = gconf_client_get_string (client, key, NULL);
     if (action)
     {
 	if (strcmp (action, "toggle_shade") == 0)
-	    double_click_action = DOUBLE_CLICK_SHADE;
+	    *action_value = CLICK_ACTION_SHADE;
 	else if (strcmp (action, "toggle_maximize") == 0)
-	    double_click_action = DOUBLE_CLICK_MAXIMIZE;
+	    *action_value = CLICK_ACTION_MAXIMIZE;
+	else if (strcmp (action, "minimize") == 0)
+	    *action_value = CLICK_ACTION_MINIMIZE;
+	else if (strcmp (action, "raise") == 0)
+	    *action_value = CLICK_ACTION_RAISE;
+	else if (strcmp (action, "lower") == 0)
+	    *action_value = CLICK_ACTION_LOWER;
+	else if (strcmp (action, "menu") == 0)
+	    *action_value = CLICK_ACTION_MENU;
+	else if (strcmp (action, "none") == 0)
+	    *action_value = CLICK_ACTION_NONE;
+
+	g_free (action);
+    }
+}
+
+static void
+wheel_action_changed (GConfClient *client)
+{
+    gchar *action;
+
+    wheel_action = WHEEL_ACTION_DEFAULT;
+
+    action = gconf_client_get_string (client, WHEEL_ACTION_KEY, NULL);
+    if (action)
+    {
+	if (strcmp (action, "shade") == 0)
+	    wheel_action = WHEEL_ACTION_SHADE;
+	else if (strcmp (action, "none") == 0)
+	    wheel_action = WHEEL_ACTION_NONE;
 
 	g_free (action);
     }
@@ -6021,47 +6093,6 @@ shadow_settings_changed (GConfClient *client)
     return changed;
 }
 
-static void
-bell_settings_changed (GConfClient *client)
-{
-    gboolean audible, visual, fullscreen;
-    gchar    *type;
-
-    audible = gconf_client_get_bool (client,
-				     META_AUDIBLE_BELL_KEY,
-				     NULL);
-
-    visual = gconf_client_get_bool (client,
-				    META_VISUAL_BELL_KEY,
-				    NULL);
-
-    type = gconf_client_get_string (client,
-				    META_VISUAL_BELL_TYPE_KEY,
-				    NULL);
-
-    if (type && strcmp (type, "fullscreen") == 0)
-	fullscreen = TRUE;
-    else
-	fullscreen = FALSE;
-
-    g_free (type);
-
-    gconf_client_set_bool (client,
-			   COMPIZ_AUDIBLE_BELL_KEY,
-			   audible,
-			   NULL);
-
-    gconf_client_set_bool (client,
-			   COMPIZ_VISUAL_BELL_KEY,
-			   visual,
-			   NULL);
-
-    gconf_client_set_bool (client,
-			   COMPIZ_FULLSCREEN_VISUAL_BELL_KEY,
-			   fullscreen,
-			   NULL);
-}
-
 static gboolean
 blur_settings_changed (GConfClient *client)
 {
@@ -6275,7 +6306,25 @@ value_changed (GConfClient *client,
     }
     else if (strcmp (key, COMPIZ_DOUBLE_CLICK_TITLEBAR_KEY) == 0)
     {
-	double_click_titlebar_changed (client);
+	titlebar_click_action_changed (client, key,
+				       &double_click_action,
+				       DOUBLE_CLICK_ACTION_DEFAULT);
+    }
+    else if (strcmp (key, COMPIZ_MIDDLE_CLICK_TITLEBAR_KEY) == 0)
+    {
+	titlebar_click_action_changed (client, key,
+				       &middle_click_action,
+				       MIDDLE_CLICK_ACTION_DEFAULT);
+    }
+    else if (strcmp (key, COMPIZ_RIGHT_CLICK_TITLEBAR_KEY) == 0)
+    {
+	titlebar_click_action_changed (client, key,
+				       &right_click_action,
+				       RIGHT_CLICK_ACTION_DEFAULT);
+    }
+    else if (strcmp (key, WHEEL_ACTION_KEY) == 0)
+    {
+	wheel_action_changed (client);
     }
     else if (strcmp (key, COMPIZ_SHADOW_RADIUS_KEY)   == 0 ||
 	     strcmp (key, COMPIZ_SHADOW_OPACITY_KEY)  == 0 ||
@@ -6290,12 +6339,6 @@ value_changed (GConfClient *client,
     {
 	if (blur_settings_changed (client))
 	    changed = TRUE;
-    }
-    else if (strcmp (key, META_AUDIBLE_BELL_KEY)     == 0 ||
-	     strcmp (key, META_VISUAL_BELL_KEY)      == 0 ||
-	     strcmp (key, META_VISUAL_BELL_TYPE_KEY) == 0)
-    {
-	bell_settings_changed (client);
     }
     else if (strcmp (key, USE_META_THEME_KEY) == 0 ||
 	     strcmp (key, META_THEME_KEY) == 0)
@@ -6482,16 +6525,6 @@ init_settings (WnckScreen *screen)
 			  GCONF_CLIENT_PRELOAD_ONELEVEL,
 			  NULL);
 
-    gconf_client_add_dir (gconf,
-			  COMPIZ_GCONF_DIR2,
-			  GCONF_CLIENT_PRELOAD_ONELEVEL,
-			  NULL);
-
-    gconf_client_add_dir (gconf,
-			  COMPIZ_GCONF_DIR3,
-			  GCONF_CLIENT_PRELOAD_ONELEVEL,
-			  NULL);
-
     g_signal_connect (G_OBJECT (gconf),
 		      "value_changed",
 		      G_CALLBACK (value_changed),
@@ -6625,9 +6658,20 @@ init_settings (WnckScreen *screen)
     update_titlebar_font ();
 
 #ifdef USE_GCONF
-    double_click_titlebar_changed (gconf);
+    titlebar_click_action_changed (gconf,
+				   COMPIZ_DOUBLE_CLICK_TITLEBAR_KEY,
+				   &double_click_action,
+				   DOUBLE_CLICK_ACTION_DEFAULT);
+    titlebar_click_action_changed (gconf,
+				   COMPIZ_MIDDLE_CLICK_TITLEBAR_KEY,
+				   &middle_click_action,
+				   MIDDLE_CLICK_ACTION_DEFAULT);
+    titlebar_click_action_changed (gconf,
+				   COMPIZ_RIGHT_CLICK_TITLEBAR_KEY,
+				   &right_click_action,
+				   RIGHT_CLICK_ACTION_DEFAULT);
+    wheel_action_changed (gconf);
     shadow_settings_changed (gconf);
-    bell_settings_changed (gconf);
     blur_settings_changed (gconf);
 #endif
 
@@ -6779,8 +6823,9 @@ main (int argc, char *argv[])
     panel_action_run_dialog_atom =
 	XInternAtom (xdisplay, "_GNOME_PANEL_ACTION_RUN_DIALOG", FALSE);
 
-    status = decor_acquire_dm_session (xdisplay, 0, "gwd", replace,
-				       &dm_sn_timestamp);
+    status = decor_acquire_dm_session (xdisplay,
+				       gdk_screen_get_number (gdkscreen),
+				       "gwd", replace, &dm_sn_timestamp);
     if (status != DECOR_ACQUIRE_STATUS_SUCCESS)
     {
 	if (status == DECOR_ACQUIRE_STATUS_FAILED)
@@ -6788,7 +6833,8 @@ main (int argc, char *argv[])
 	    fprintf (stderr,
 		     "%s: Could not acquire decoration manager "
 		     "selection on screen %d display \"%s\"\n",
-		     program_name, 0, DisplayString (xdisplay));
+		     program_name, gdk_screen_get_number (gdkscreen),
+		     DisplayString (xdisplay));
 	}
 	else if (status == DECOR_ACQUIRE_STATUS_OTHER_DM_RUNNING)
 	{
@@ -6797,7 +6843,8 @@ main (int argc, char *argv[])
 		     "has a decoration manager; try using the "
 		     "--replace option to replace the current "
 		     "decoration manager.\n",
-		     program_name, 0, DisplayString (xdisplay));
+		     program_name, gdk_screen_get_number (gdkscreen),
+		     DisplayString (xdisplay));
 	}
 
 	return 1;
@@ -6844,7 +6891,7 @@ main (int argc, char *argv[])
 	return 1;
     }
 
-    decor_set_dm_check_hint (xdisplay, 0);
+    decor_set_dm_check_hint (xdisplay, gdk_screen_get_number (gdkscreen));
 
     update_default_decorations (gdkscreen);
 

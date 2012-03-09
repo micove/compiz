@@ -323,15 +323,12 @@ resizeInitiate (CompDisplay     *d,
     w = findWindowAtDisplay (d, xid);
     if (w && (w->actions & CompWindowActionResizeMask))
     {
-	unsigned int mods;
 	unsigned int mask;
 	int          x, y;
 	int	     button;
 	int	     i;
 
 	RESIZE_SCREEN (w->screen);
-
-	mods = getIntOptionNamed (option, nOption, "modifiers", 0);
 
 	x = getIntOptionNamed (option, nOption, "x",
 			       w->serverX + (w->serverWidth / 2));
@@ -393,27 +390,37 @@ resizeInitiate (CompDisplay     *d,
 	rd->pointerDx = x - pointerX;
 	rd->pointerDy = y - pointerY;
 
-	rd->mode = rd->opt[RESIZE_DISPLAY_OPTION_MODE].value.i;
-	for (i = 0; i <= RESIZE_MODE_LAST; i++)
+	if ((w->state & MAXIMIZE_STATE) == MAXIMIZE_STATE)
 	{
-	    if (action == &rd->opt[i].value.action)
-	    {
-		rd->mode = i;
-		break;
-	    }
+	    /* if the window is fully maximized, showing the outline or
+	       rectangle would be visually distracting as the window can't
+	       be resized anyway; so we better don't use them in this case */
+	    rd->mode = RESIZE_MODE_NORMAL;
 	}
-
-	if (i > RESIZE_MODE_LAST)
+	else
 	{
-	    int index;
-
+	    rd->mode = rd->opt[RESIZE_DISPLAY_OPTION_MODE].value.i;
 	    for (i = 0; i <= RESIZE_MODE_LAST; i++)
 	    {
-		index = RESIZE_DISPLAY_OPTION_NORMAL_MATCH + i;
-		if (matchEval (&rd->opt[index].value.match, w))
+		if (action == &rd->opt[i].value.action)
 		{
 		    rd->mode = i;
 		    break;
+		}
+	    }
+
+	    if (i > RESIZE_MODE_LAST)
+	    {
+		int index;
+
+		for (i = 0; i <= RESIZE_MODE_LAST; i++)
+		{
+		    index = RESIZE_DISPLAY_OPTION_NORMAL_MATCH + i;
+		    if (matchEval (&rd->opt[index].value.match, w))
+		    {
+			rd->mode = i;
+			break;
+		    }
 		}
 	    }
 	}
@@ -1033,7 +1040,7 @@ resizePaintOutput (CompScreen              *s,
     RESIZE_SCREEN (s);
     RESIZE_DISPLAY (s->display);
 
-    if (rd->w)
+    if (rd->w && (s == rd->w->screen))
     {
 	if (rd->mode == RESIZE_MODE_STRETCH)
 	    mask |= PAINT_SCREEN_WITH_TRANSFORMED_WINDOWS_MASK;
@@ -1043,7 +1050,7 @@ resizePaintOutput (CompScreen              *s,
     status = (*s->paintOutput) (s, sAttrib, transform, region, output, mask);
     WRAP (rs, s, paintOutput, resizePaintOutput);
 
-    if (status && rd->w)
+    if (status && rd->w && (s == rd->w->screen))
     {
 	unsigned short *border, *fill;
 

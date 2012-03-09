@@ -967,7 +967,7 @@ updatePlugins (CompDisplay *d)
 	{
 	    CompOptionValue *value;
 
-	    value = realloc (d->plugin.list.value, sizeof (CompOption) *
+	    value = realloc (d->plugin.list.value, sizeof (CompOptionValue) *
 			     (d->plugin.list.nValue + 1));
 	    if (value)
 	    {
@@ -1238,13 +1238,15 @@ updateModifierMappings (CompDisplay *d)
 {
     unsigned int    modMask[CompModNum];
     int		    i, minKeycode, maxKeycode, keysymsPerKeycode = 0;
+    KeySym*         key;
 
     for (i = 0; i < CompModNum; i++)
 	modMask[i] = 0;
 
     XDisplayKeycodes (d->display, &minKeycode, &maxKeycode);
-    XGetKeyboardMapping (d->display, minKeycode, (maxKeycode - minKeycode + 1),
-			 &keysymsPerKeycode);
+    key = XGetKeyboardMapping (d->display,
+			       minKeycode, (maxKeycode - minKeycode + 1),
+		     	       &keysymsPerKeycode);
 
     if (d->modMap)
 	XFreeModifiermap (d->modMap);
@@ -1329,6 +1331,9 @@ updateModifierMappings (CompDisplay *d)
 		updatePassiveGrabs (s);
 	}
     }
+
+    if (key)
+	XFree (key);
 }
 
 unsigned int
@@ -1429,11 +1434,6 @@ waitForVideoSync (CompScreen *s)
     unsigned int sync;
 
     if (!s->opt[COMP_SCREEN_OPTION_SYNC_TO_VBLANK].value.b)
-	return;
-
-    /* we currently can't handle sync to vblank when we have more than one
-       output device */
-    if (s->nOutputDev > 1)
 	return;
 
     if (s->getVideoSync)
@@ -2307,15 +2307,12 @@ addDisplay (char *name)
     d->xineramaExtension = XineramaQueryExtension (dpy,
 						   &d->xineramaEvent,
 						   &d->xineramaError);
+    
+    d->nScreenInfo = 0;
     if (d->xineramaExtension)
-    {
-	d->screenInfo = XineramaQueryScreens (dpy, &d->nScreenInfo);
-    }
+	d->screenInfo  = XineramaQueryScreens (dpy, &d->nScreenInfo);
     else
-    {
 	d->screenInfo  = NULL;
-	d->nScreenInfo = 0;
-    }
 
     compDisplays = d;
 
@@ -2664,21 +2661,14 @@ CompWindow *
 findWindowAtDisplay (CompDisplay *d,
 		     Window      id)
 {
-    if (lastFoundWindow && lastFoundWindow->id == id)
-    {
-	return lastFoundWindow;
-    }
-    else
-    {
-	CompScreen *s;
-	CompWindow *w;
+    CompScreen *s;
+    CompWindow *w;
 
-	for (s = d->screens; s; s = s->next)
-	{
-	    w = findWindowAtScreen (s, id);
-	    if (w)
-		return w;
-	}
+    for (s = d->screens; s; s = s->next)
+    {
+	w = findWindowAtScreen (s, id);
+	if (w)
+	    return w;
     }
 
     return 0;
@@ -2688,21 +2678,14 @@ CompWindow *
 findTopLevelWindowAtDisplay (CompDisplay *d,
 			     Window      id)
 {
-    if (lastFoundWindow && lastFoundWindow->id == id)
-    {
-	return lastFoundWindow;
-    }
-    else
-    {
-	CompScreen *s;
-	CompWindow *w;
+    CompScreen *s;
+    CompWindow *w;
 
-	for (s = d->screens; s; s = s->next)
-	{
-	    w = findTopLevelWindowAtScreen (s, id);
-	    if (w)
-		return w;
-	}
+    for (s = d->screens; s; s = s->next)
+    {
+	w = findTopLevelWindowAtScreen (s, id);
+	if (w)
+	    return w;
     }
 
     return 0;

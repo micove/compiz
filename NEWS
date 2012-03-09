@@ -1,3 +1,29 @@
+Release 0.6.2 (2007-10-18 Danny Baumann <dannybaumann@web.de>)
+==============================================================
+Stable release.
+
+Support for automatically starting one decorator per screen.
+
+Various stacking problem fixes.
+
+Fixes for various focus issues.
+
+Minor other bug fixes.
+
+Release 0.6.0 (2007-10-01 Danny Baumann <dannybaumann@web.de>)
+==============================================================
+Third stable release of Compiz.
+
+Improved focus stealing prevention.
+
+Improved dynamic desktop resizing support.
+
+Added button action configuration options to gtk-window-decorator.
+
+Added UTF-8 window title support to kde-window-decorator.
+
+Various bug fixes and improvements.
+
 Release 0.5.2 (2007-08-03 David Reveman <davidr@novell.com>)
 ============================================================
 Development release.

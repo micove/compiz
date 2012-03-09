@@ -54,15 +54,16 @@
 #include <qcursor.h>
 #include <qpopupmenu.h>
 
-KWD::Window::Window (QWidget *parent,
-		     WId     clientId,
-		     WId     frame,
-		     Type    type,
-		     int     x,
-		     int     y,
-		     int     w,
-		     int     h): QWidget (parent, 0),
+KWD::Window::Window (WId  parentId,
+		     WId  clientId,
+		     WId  frame,
+		     Type type,
+		     int  x,
+		     int  y,
+		     int  w,
+		     int  h): QWidget (0, 0),
     mType (type),
+    mParentId (parentId),
     mFrame (0),
     mClientId (clientId),
     mSelectedId (0),
@@ -89,13 +90,15 @@ KWD::Window::Window (QWidget *parent,
 
     if (mType == Normal || mType == Switcher)
     {
-	KWin::WindowInfo wInfo = KWin::windowInfo (mClientId, NET::WMState, 0);
+	KWin::WindowInfo wInfo = KWin::windowInfo (mClientId, NET::WMState |
+						   NET::WMVisibleName, 0);
 
 	mState = wInfo.state ();
 
 	if (mType == Normal)
 	{
-	    mName = KWin::readNameProperty (mClientId, XA_WM_NAME);
+	    mName = wInfo.visibleName ();
+
 	    mIcons = QIconSet (KWin::icon (mClientId, 16, 16, TRUE),
 			       KWin::icon (mClientId, 32, 32, TRUE));
 	    mOpacity = readPropertyShort (mClientId, Atoms::netWmWindowOpacity,
@@ -932,7 +935,7 @@ KWD::Window::updateShadow (void)
     /* use default shadow if such exist */
     if (!mUniqueHorzShape && !mUniqueVertShape)
     {
-	mShadow = Decorator::defaultWindowShadow (&mContext);
+	mShadow = Decorator::defaultWindowShadow (&mContext, &mBorder);
 	if (mShadow)
 	    decor_shadow_reference (mShadow);
     }
@@ -1153,14 +1156,11 @@ KWD::Window::resizeDecoration (bool force)
     {
 	mPendingMap = 1;
 
+	XReparentWindow (qt_xdisplay (), winId (), mParentId, 0, 0);
+
 	show ();
 
 	mMapped = true;
-
-	/* XXX: is there a more appropriate way to achieve this?
-	   add WType_TopLevel flag so that visualRect isn't clipped
-	   to parent. */
-	setWFlags (getWFlags () | WType_TopLevel);
 
 	if (mDamageId != winId ())
 	{
@@ -1498,9 +1498,6 @@ KWD::Window::reloadDecoration (void)
     delete mDecor;
     mDecor = 0;
 
-    setWFlags (getWFlags () & ~WType_TopLevel);
-    hide ();
-
     mMapped   = false;
     mShapeSet = false;
 
@@ -1689,17 +1686,21 @@ KWD::Window::updateState (void)
 void
 KWD::Window::updateName (void)
 {
+    KWin::WindowInfo wInfo;
+    WId              window;
+
     if (mType == Switcher)
     {
 	if (!mSelectedId)
 	    return;
-
-	mName = KWin::readNameProperty (mSelectedId, XA_WM_NAME);
+	window = mSelectedId;
     }
     else
-    {
-	mName = KWin::readNameProperty (mClientId, XA_WM_NAME);
-    }
+	window = mClientId;
+
+    wInfo = KWin::windowInfo (window, NET::WMVisibleName, 0);
+
+    mName = wInfo.visibleName ();
 
     mDecor->captionChange ();
 }

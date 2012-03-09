@@ -801,9 +801,18 @@ placeRandom (CompWindow *window,
 	     int	*x,
 	     int	*y)
 {
-    *x = workarea->x + rand () % (workarea->width - get_window_width (window));
-    *y = workarea->y + rand () % (workarea->height -
-				  get_window_height (window));
+    int remainX, remainY;
+
+    *x = workarea->x;
+    *y = workarea->y;
+
+    remainX = workarea->width - get_window_width (window);
+    if (remainX > 0)
+	*x += rand () % remainX;
+
+    remainY = workarea->height - get_window_height (window);
+    if (remainY > 0)
+	*y += rand () % remainY;
 }
 
 static void
@@ -1159,7 +1168,7 @@ placeWin (CompWindow *window,
 
 	    /* clip to screen if parent is visible in current viewport */
 	    if (parent->serverX < parent->screen->width &&
-		parent->serverX + parent->screen->width > 0)
+		parent->serverX + parent->serverWidth > 0)
 	    {
 		XRectangle area;
 

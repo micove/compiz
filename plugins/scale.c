@@ -2064,6 +2064,8 @@ scaleFiniScreen (CompPlugin *p,
     if (ss->windowsSize)
 	free (ss->windows);
 
+    freeWindowPrivateIndex (s, ss->windowPrivateIndex);
+
     compFiniScreenOptions (s, ss->opt, SCALE_SCREEN_OPTION_NUM);
 
     free (ss);

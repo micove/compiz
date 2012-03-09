@@ -185,8 +185,10 @@ static Bool
 autoRaiseTimeout (void *closure)
 {
     CompDisplay *display = closure;
+    CompWindow *w = findWindowAtDisplay (display, display->activeWindow);
 
-    if (display->autoRaiseWindow == display->activeWindow)
+    if (display->autoRaiseWindow == display->activeWindow ||
+	display->autoRaiseWindow == w->transientFor)
     {
 	CompWindow *w;
 
@@ -198,8 +200,8 @@ autoRaiseTimeout (void *closure)
     return FALSE;
 }
 
-#define REAL_MOD_MASK (ShiftMask | ControlMask | Mod1Mask | \
-		       Mod2Mask | Mod3Mask | Mod4Mask | Mod5Mask)
+#define REAL_MOD_MASK (ShiftMask | ControlMask | Mod1Mask | Mod2Mask | \
+		       Mod3Mask | Mod4Mask | Mod5Mask | CompNoMask)
 
 static Bool
 isCallBackBinding (CompOption	   *option,
@@ -1304,9 +1306,9 @@ handleEvent (CompDisplay *d,
 		if (w->state & CompWindowStateHiddenMask)
 		{
 		    w->minimized = FALSE;
-		    w->state &= ~CompWindowStateHiddenMask;
 
-		    changeWindowState (w, w->state);
+		    changeWindowState (w,
+				       w->state & ~CompWindowStateHiddenMask);
 
 		    updateClientListForScreen (w->screen);
 		}
@@ -1590,7 +1592,15 @@ handleEvent (CompDisplay *d,
 	{
 	    w = findWindowAtDisplay (d, event->xclient.window);
 	    if (w)
-		activateWindow (w);
+	    {
+		/* use focus stealing prevention if request came from an
+		   application (which means data.l[0] is 1 */
+		if (event->xclient.data.l[0] != 1 ||
+		    allowWindowFocus (w, 0, event->xclient.data.l[1]))
+		{
+		    activateWindow (w);
+		}
+	    }
 	}
 	else if (event->xclient.message_type == d->winOpacityAtom)
 	{
@@ -1674,12 +1684,10 @@ handleEvent (CompDisplay *d,
 				  CompWindowStateMaximizedVertMask))
 			stackingUpdateMode = CompStackingUpdateModeNormal;
 
-		    w->state = wState;
+		    changeWindowState (w, wState);
 
 		    recalcWindowType (w);
 		    recalcWindowActions (w);
-
-		    changeWindowState (w, w->state);
 
 		    updateWindowAttributes (w, stackingUpdateMode);
 		}
@@ -1864,15 +1872,33 @@ handleEvent (CompDisplay *d,
 	w = findWindowAtDisplay (d, event->xmaprequest.window);
 	if (w)
 	{
-	    if (w->minimized)
-		unminimizeWindow (w);
+	    XWindowAttributes attr;
+	    Bool              doMapProcessing = TRUE;
 
-	    (*w->screen->leaveShowDesktopMode) (w->screen, w);
+	    /* We should check the override_redirect flag here, because the
+	       client might have changed it while being unmapped. */
+	    if (XGetWindowAttributes (d->display, w->id, &attr))
+	    {
+		if (w->attrib.override_redirect != attr.override_redirect)
+		{
+		    w->attrib.override_redirect = attr.override_redirect;
+		    recalcWindowType (w);
+		    recalcWindowActions (w);
+
+		    (*d->matchPropertyChanged) (d, w);
+		}
+	    }
 
 	    w->managed = TRUE;
 
-	    if (!(w->state & CompWindowStateHiddenMask))
+	    if (w->state & CompWindowStateHiddenMask)
+		if (!w->minimized && !w->inShowDesktopMode)
+		    doMapProcessing = FALSE;
+
+	    if (doMapProcessing)
 	    {
+		Bool allowFocus;
+
 		w->initialViewportX = w->screen->x;
 		w->initialViewportY = w->screen->y;
 
@@ -1897,17 +1923,14 @@ handleEvent (CompDisplay *d,
 		    w->placed   = TRUE;
 		}
 
-		w->pendingMaps++;
+		allowFocus = allowWindowFocus (w, NO_FOCUS_MASK, 0);
 
-		XMapWindow (d->display, event->xmaprequest.window);
+		updateWindowAttributes (w, CompStackingUpdateModeInitialMap);
 
-		updateWindowAttributes (w, CompStackingUpdateModeNormal);
-
-		if (focusWindowOnMap (w))
-		{
-		    moveInputFocusToWindow (w);
-		}
-		else if (w->type & ~CompWindowTypeSplashMask)
+		if (!allowFocus &&
+		    (w->type & ~(CompWindowTypeSplashMask |
+				 CompWindowTypeDockMask   |
+				 CompWindowTypeDesktopMask)))
 		{
 		    CompWindow *p;
 
@@ -1919,6 +1942,20 @@ handleEvent (CompDisplay *d,
 		    if (p)
 			restackWindowBelow (w, p);
 		}
+
+		if (w->minimized)
+		    unminimizeWindow (w);
+
+		(*w->screen->leaveShowDesktopMode) (w->screen, w);
+
+		if (!(w->state & CompWindowStateHiddenMask))
+		{
+		    w->pendingMaps++;
+		    XMapWindow (d->display, w->id);
+		}
+
+		if (allowFocus)
+		    moveInputFocusToWindow (w);
 	    }
 
 	    setWindowProp (d, w->id, d->winDesktopAtom, w->desktop);
@@ -1943,6 +1980,46 @@ handleEvent (CompDisplay *d,
 	    xwc.border_width = event->xconfigurerequest.border_width;
 
 	    moveResizeWindow (w, &xwc, event->xconfigurerequest.value_mask, 0);
+
+	    if (event->xconfigurerequest.value_mask & CWStackMode)
+	    {
+		Window     above    = None;
+		CompWindow *sibling = NULL;
+
+		if (event->xconfigurerequest.value_mask & CWSibling)
+		{
+		    above   = event->xconfigurerequest.above;
+		    sibling = findTopLevelWindowAtDisplay (d, above);
+		}
+
+		switch (event->xconfigurerequest.detail) {
+		case Above:
+		    if (allowWindowFocus (w, NO_FOCUS_MASK, 0))
+		    {
+			if (above)
+			{
+			    if (sibling)
+				restackWindowAbove (w, sibling);
+			}
+			else
+			    raiseWindow (w);
+		    }
+		    break;
+		case Below:
+		    if (above)
+		    {
+			if (sibling)
+			    restackWindowBelow (w, sibling);
+		    }
+		    else
+			lowerWindow (w);
+		    break;
+		default:
+		    /* no handling of the TopIf, BottomIf, Opposite cases -
+		       there will hardly be any client using that */
+		    break;
+		}
+	    }
 	}
 	else
 	{

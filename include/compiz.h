@@ -26,7 +26,7 @@
 #ifndef _COMPIZ_H
 #define _COMPIZ_H
 
-#define ABIVERSION 20070708
+#define ABIVERSION 20070915
 
 #include <stdio.h>
 #include <sys/time.h>
@@ -131,6 +131,10 @@ typedef struct _CompWalker        CompWalker;
 #define CompWindowTypeModalDialogMask  (1 << 14)
 #define CompWindowTypeFullscreenMask   (1 << 15)
 #define CompWindowTypeUnknownMask      (1 << 16)
+
+#define NO_FOCUS_MASK (CompWindowTypeDesktopMask | \
+		       CompWindowTypeDockMask    | \
+		       CompWindowTypeSplashMask)
 
 #define CompWindowStateModalMask	    (1 <<  0)
 #define CompWindowStateStickyMask	    (1 <<  1)
@@ -1676,7 +1680,9 @@ typedef Bool (*DamageCursorRectProc) (CompCursor *c,
 typedef void (*GetOutputExtentsForWindowProc) (CompWindow	 *w,
 					       CompWindowExtents *output);
 
-typedef unsigned int (*GetAllowedActionsForWindowProc) (CompWindow *w);
+typedef void (*GetAllowedActionsForWindowProc) (CompWindow   *w,
+						unsigned int *setActions,
+						unsigned int *clearActions);
 
 typedef Bool (*FocusWindowProc) (CompWindow *window);
 
@@ -1710,7 +1716,8 @@ typedef void (*WindowGrabNotifyProc) (CompWindow   *window,
 
 typedef void (*WindowUngrabNotifyProc) (CompWindow *window);
 
-typedef void (*WindowStateChangeNotifyProc) (CompWindow *window);
+typedef void (*WindowStateChangeNotifyProc) (CompWindow   *window,
+					     unsigned int lastState);
 
 typedef void (*WindowAddNotifyProc) (CompWindow *window);
 
@@ -2307,7 +2314,8 @@ typedef void (*FiniPluginForWindowProc) (CompPlugin *plugin,
 typedef enum {
     CompStackingUpdateModeNone = 0,
     CompStackingUpdateModeNormal,
-    CompStackingUpdateModeAboveFullscreen
+    CompStackingUpdateModeAboveFullscreen,
+    CompStackingUpdateModeInitialMap
 } CompStackingUpdateMode;
 
 struct _CompWindowExtents {
@@ -2356,7 +2364,6 @@ struct _CompWindow {
     unsigned int      wmType;
     unsigned int      type;
     unsigned int      state;
-    unsigned int      lastState;
     unsigned int      actions;
     unsigned int      protocols;
     unsigned int      mwmDecor;
@@ -2657,8 +2664,10 @@ void
 getOutputExtentsForWindow (CompWindow	     *w,
 			   CompWindowExtents *output);
 
-unsigned int
-getAllowedActionsForWindow (CompWindow *w);
+void
+getAllowedActionsForWindow (CompWindow   *w,
+			    unsigned int *setActions,
+			    unsigned int *clearActions);
 
 void
 addWindowDamage (CompWindow *w);
@@ -2713,7 +2722,8 @@ void
 windowUngrabNotify (CompWindow *w);
 
 void
-windowStateChangeNotify (CompWindow *w);
+windowStateChangeNotify (CompWindow   *w,
+			 unsigned int lastState);
 
 void
 moveInputFocusToWindow (CompWindow *w);
@@ -2778,7 +2788,9 @@ setWindowUserTime (CompWindow *w,
 		   Time       time);
 
 Bool
-focusWindowOnMap (CompWindow *w);
+allowWindowFocus (CompWindow   *w,
+		  unsigned int noFocusMask,
+		  Time         timestamp);
 
 void
 unredirectWindow (CompWindow *w);
