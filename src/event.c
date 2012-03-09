@@ -1255,18 +1255,10 @@ handleEvent (CompDisplay *d,
 
 	    if (s->nExpose == s->sizeExpose)
 	    {
-		if (s->exposeRects)
-		{
-		    s->exposeRects = realloc (s->exposeRects,
+		s->exposeRects = realloc (s->exposeRects,
 					      (s->sizeExpose + more) *
 					      sizeof (XRectangle));
-		    s->sizeExpose += more;
-		}
-		else
-		{
-		    s->exposeRects = malloc (more * sizeof (XRectangle));
-		    s->sizeExpose = more;
-		}
+		s->sizeExpose += more;
 	    }
 
 	    s->exposeRects[s->nExpose].x      = event->xexpose.x;
@@ -1733,6 +1725,8 @@ handleEvent (CompDisplay *d,
 		}
 
 		wState = constrainWindowState (wState, w->actions);
+		if (w->id == d->activeWindow)
+		    wState &= ~CompWindowStateDemandsAttentionMask;
 
 		if (wState != w->state)
 		{
@@ -1884,7 +1878,10 @@ handleEvent (CompDisplay *d,
 	    if (w)
 	    {
 		if (event->xclient.data.l[0] == IconicState)
-		    minimizeWindow (w);
+		{
+		    if (w->actions & CompWindowActionMinimizeMask)
+			minimizeWindow (w);
+		}
 		else if (event->xclient.data.l[0] == NormalState)
 		    unminimizeWindow (w);
 	    }
@@ -1974,17 +1971,31 @@ handleEvent (CompDisplay *d,
 
 		if (!w->placed)
 		{
-		    int newX, newY;
+		    int            newX, newY;
+		    int            gravity = w->sizeHints.win_gravity;
+		    XWindowChanges xwc;
+		    unsigned int   xwcm;
 
-		    if ((*w->screen->placeWindow) (w, w->serverX, w->serverY,
+		    /* adjust for gravity */
+		    xwc.x      = w->serverX;
+		    xwc.y      = w->serverY;
+		    xwc.width  = w->serverWidth;
+		    xwc.height = w->serverHeight;
+
+		    xwcm = adjustConfigureRequestForGravity (w, &xwc,
+							     CWX | CWY,
+							     gravity);
+
+		    if ((*w->screen->placeWindow) (w, xwc.x, xwc.y,
 						   &newX, &newY))
 		    {
-			moveWindow (w,
-				    newX - w->attrib.x,
-				    newY - w->attrib.y,
-				    FALSE, TRUE);
-			syncWindowPosition (w);
+			xwc.x = newX;
+			xwc.y = newY;
+			xwcm |= CWX | CWY;
 		    }
+
+		    if (xwcm)
+			configureXWindow (w, xwcm, &xwc);
 
 		    w->placed   = TRUE;
 		}
@@ -2215,18 +2226,10 @@ handleEvent (CompDisplay *d,
 		{
 		    if (w->nDamage == w->sizeDamage)
 		    {
-			if (w->damageRects)
-			{
-			    w->damageRects = realloc (w->damageRects,
-						      (w->sizeDamage + 1) *
-						      sizeof (XRectangle));
-			    w->sizeDamage += 1;
-			}
-			else
-			{
-			    w->damageRects = malloc (sizeof (XRectangle));
-			    w->sizeDamage  = 1;
-			}
+			w->damageRects = realloc (w->damageRects,
+						  (w->sizeDamage + 1) *
+						  sizeof (XRectangle));
+			w->sizeDamage += 1;
 		    }
 
 		    w->damageRects[w->nDamage].x      = de->area.x;

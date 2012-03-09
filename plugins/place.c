@@ -26,9 +26,13 @@
 
 #include <compiz-core.h>
 
-#include <glib.h>
-
 static CompMetadata placeMetadata;
+
+static int displayPrivateIndex;
+
+typedef struct _PlaceDisplay {
+    int		    screenPrivateIndex;
+} PlaceDisplay;
 
 #define PLACE_MODE_CASCADE  0
 #define PLACE_MODE_CENTERED 1
@@ -37,26 +41,23 @@ static CompMetadata placeMetadata;
 #define PLACE_MODE_RANDOM   4
 #define PLACE_MODE_LAST     PLACE_MODE_RANDOM
 
-/* overlap types */
-#define NONE    0
-#define H_WRONG -1
-#define W_WRONG -2
-
-static int displayPrivateIndex;
-
-typedef struct _PlaceDisplay {
-    int		    screenPrivateIndex;
-} PlaceDisplay;
+#define PLACE_MOMODE_CURRENT    0
+#define PLACE_MOMODE_POINTER    1
+#define PLACE_MOMODE_ACTIVEWIN  2
+#define PLACE_MOMODE_FULLSCREEN 3
+#define PLACE_MOMODE_LAST       PLACE_MOMODE_FULLSCREEN
 
 #define PLACE_SCREEN_OPTION_WORKAROUND        0
 #define PLACE_SCREEN_OPTION_MODE              1
-#define PLACE_SCREEN_OPTION_POSITION_MATCHES  2
-#define PLACE_SCREEN_OPTION_POSITION_X_VALUES 3
-#define PLACE_SCREEN_OPTION_POSITION_Y_VALUES 4
-#define PLACE_SCREEN_OPTION_VIEWPORT_MATCHES  5
-#define PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES 6
-#define PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES 7
-#define PLACE_SCREEN_OPTION_NUM               8
+#define PLACE_SCREEN_OPTION_MULTIOUTPUT_MODE  2
+#define PLACE_SCREEN_OPTION_FORCE_PLACEMENT   3
+#define PLACE_SCREEN_OPTION_POSITION_MATCHES  4
+#define PLACE_SCREEN_OPTION_POSITION_X_VALUES 5
+#define PLACE_SCREEN_OPTION_POSITION_Y_VALUES 6
+#define PLACE_SCREEN_OPTION_VIEWPORT_MATCHES  7
+#define PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES 8
+#define PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES 9
+#define PLACE_SCREEN_OPTION_NUM               10
 
 typedef struct _PlaceScreen {
     CompOption opt[PLACE_SCREEN_OPTION_NUM];
@@ -78,6 +79,31 @@ typedef struct _PlaceScreen {
     PlaceScreen *ps = GET_PLACE_SCREEN (s, GET_PLACE_DISPLAY (s->display))
 
 #define NUM_OPTIONS(s) (sizeof ((s)->opt) / sizeof (CompOption))
+
+typedef enum {
+    NoPlacement = 0,
+    PlaceOnly,
+    ConstrainOnly,
+    PlaceAndConstrain,
+    PlaceOverParent,
+    PlaceCenteredOnScreen
+} PlacementStrategy;
+
+/* helper macro that filters out windows irrelevant for placement */
+#define IS_PLACE_RELEVANT(wi, w)                                        \
+    ((w != wi) &&                                                       \
+     (wi->attrib.map_state == IsViewable || wi->shaded) &&              \
+     (!wi->attrib.override_redirect) &&                                 \
+     (!(wi->wmType & (CompWindowTypeDockMask | CompWindowTypeDesktopMask))))
+
+/* helper macros to get the full dimensions of a window,
+   including decorations */
+#define WIN_FULL_X(w) ((w)->serverX - (w)->input.left)
+#define WIN_FULL_Y(w) ((w)->serverY - (w)->input.top)
+#define WIN_FULL_W(w) ((w)->serverWidth + 2 * (w)->serverBorderWidth + \
+		       (w)->input.left + (w)->input.right)
+#define WIN_FULL_H(w) ((w)->serverHeight + 2 * (w)->serverBorderWidth + \
+		       (w)->input.top + (w)->input.bottom)
 
 static Bool
 placeMatchXYValue (CompWindow *w,
@@ -131,12 +157,21 @@ placeMatchViewport (CompWindow *w,
 {
     PLACE_SCREEN (w->screen);
 
-    return placeMatchXYValue (w,
-			      &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_MATCHES],
-			      &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES],
-			      &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES],
-			      x,
-			      y);
+    if (placeMatchXYValue (w,
+			   &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_MATCHES],
+			   &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_X_VALUES],
+			   &ps->opt[PLACE_SCREEN_OPTION_VIEWPORT_Y_VALUES],
+			   x,
+			   y))
+    {
+	/* Viewport matches are given 1-based, so we need to adjust that */
+	*x -= 1;
+	*y -= 1;
+
+	return TRUE;
+    }
+
+    return FALSE;
 }
 
 static CompOption *
@@ -166,10 +201,6 @@ placeSetScreenOption (CompPlugin      *plugin,
 	return FALSE;
 
     switch (index) {
-    case PLACE_SCREEN_OPTION_MODE:
-	if (compSetIntOption (o, value))
-	    return TRUE;
-	break;
     case PLACE_SCREEN_OPTION_POSITION_MATCHES:
     case PLACE_SCREEN_OPTION_VIEWPORT_MATCHES:
 	if (compSetOptionList (o, value))
@@ -189,829 +220,6 @@ placeSetScreenOption (CompPlugin      *plugin,
     }
 
     return FALSE;
-}
-
-typedef enum {
-    PlaceLeft,
-    PlaceRight,
-    PlaceTop,
-    PlaceBottom
-} PlaceWindowDirection;
-
-static Bool
-rectangleIntersect (XRectangle *src1,
-		    XRectangle *src2,
-		    XRectangle *dest)
-{
-    int dest_x, dest_y;
-    int dest_w, dest_h;
-    int return_val;
-
-    g_return_val_if_fail (src1 != NULL, FALSE);
-    g_return_val_if_fail (src2 != NULL, FALSE);
-    g_return_val_if_fail (dest != NULL, FALSE);
-
-    return_val = FALSE;
-
-    dest_x = MAX (src1->x, src2->x);
-    dest_y = MAX (src1->y, src2->y);
-    dest_w = MIN (src1->x + src1->width, src2->x + src2->width) - dest_x;
-    dest_h = MIN (src1->y + src1->height, src2->y + src2->height) - dest_y;
-
-    if (dest_w > 0 && dest_h > 0)
-    {
-	dest->x = dest_x;
-	dest->y = dest_y;
-	dest->width = dest_w;
-	dest->height = dest_h;
-	return_val = TRUE;
-    }
-    else
-    {
-	dest->width = 0;
-	dest->height = 0;
-    }
-
-    return return_val;
-}
-
-static gint
-northwestcmp (gconstpointer a,
-	      gconstpointer b)
-{
-    CompWindow *aw = (gpointer) a;
-    CompWindow *bw = (gpointer) b;
-    int	       from_origin_a;
-    int	       from_origin_b;
-    int	       ax, ay, bx, by;
-
-    ax = aw->serverX - aw->input.left;
-    ay = aw->serverY - aw->input.top;
-
-    bx = bw->serverX - bw->input.left;
-    by = bw->serverY - bw->input.top;
-
-    /* probably there's a fast good-enough-guess we could use here. */
-    from_origin_a = sqrt (ax * ax + ay * ay);
-    from_origin_b = sqrt (bx * bx + by * by);
-
-    if (from_origin_a < from_origin_b)
-	return -1;
-    else if (from_origin_a > from_origin_b)
-	return 1;
-    else
-	return 0;
-}
-
-
-static void
-get_workarea_of_current_output_device (CompScreen *s,
-				       XRectangle *area)
-{
-    getWorkareaForOutput (s, s->currentOutputDev, area);
-}
-
-static int
-get_window_width (CompWindow *window)
-{
-    return window->serverWidth + window->serverBorderWidth * 2;
-}
-
-static int
-get_window_height (CompWindow *window)
-{
-    return window->serverHeight + window->serverBorderWidth * 2;
-}
-
-static void
-get_outer_rect_of_window (CompWindow *w,
-			  XRectangle *r)
-{
-    r->x      = w->serverX - w->input.left;
-    r->y      = w->serverY - w->input.top;
-    r->width  = get_window_width (w)  + w->input.left + w->input.right;
-    r->height = get_window_height (w) + w->input.top  + w->input.bottom;
-}
-
-static void
-find_next_cascade (CompWindow *window,
-		   GList      *windows,
-		   int        x,
-		   int        y,
-		   int        *new_x,
-		   int        *new_y)
-{
-    GList      *tmp;
-    GList      *sorted;
-    int	       cascade_x, cascade_y;
-    int	       x_threshold, y_threshold;
-    int	       window_width, window_height;
-    int	       cascade_stage;
-    XRectangle work_area;
-
-    sorted = g_list_copy (windows);
-    sorted = g_list_sort (sorted, northwestcmp);
-
-    /* This is a "fuzzy" cascade algorithm.
-     * For each window in the list, we find where we'd cascade a
-     * new window after it. If a window is already nearly at that
-     * position, we move on.
-     */
-
-    /* arbitrary-ish threshold, honors user attempts to
-     * manually cascade.
-     */
-#define CASCADE_FUZZ 15
-
-    x_threshold = MAX (window->input.left, CASCADE_FUZZ);
-    y_threshold = MAX (window->input.top, CASCADE_FUZZ);
-
-    /* Find furthest-SE origin of all workspaces.
-     * cascade_x, cascade_y are the target position
-     * of NW corner of window frame.
-     */
-
-    get_workarea_of_current_output_device (window->screen, &work_area);
-
-    cascade_x = MAX (0, work_area.x);
-    cascade_y = MAX (0, work_area.y);
-
-    /* Find first cascade position that's not used. */
-
-    window_width = get_window_width (window) + window->input.left +
-	window->input.right;
-    window_height = get_window_height (window) + window->input.top +
-	window->input.bottom;
-
-    cascade_stage = 0;
-    tmp = sorted;
-    while (tmp != NULL)
-    {
-	CompWindow *w;
-	int	   wx, wy;
-
-	w = tmp->data;
-
-	/* we want frame position, not window position */
-	wx = w->serverX - w->input.left;
-	wy = w->serverY - w->input.top;
-
-	if (ABS (wx - cascade_x) < x_threshold &&
-	    ABS (wy - cascade_y) < y_threshold)
-	{
-	    /* This window is "in the way", move to next cascade
-	     * point. The new window frame should go at the origin
-	     * of the client window we're stacking above.
-	     */
-	    wx = w->serverX;
-	    wy = w->serverY;
-
-	    cascade_x = wx;
-	    cascade_y = wy;
-
-	    /* If we go off the screen, start over with a new cascade */
-	    if (((cascade_x + window_width) >
-		 (work_area.x + work_area.width)) ||
-		((cascade_y + window_height) >
-		 (work_area.y + work_area.height)))
-	    {
-		cascade_x = MAX (0, work_area.x);
-		cascade_y = MAX (0, work_area.y);
-
-#define CASCADE_INTERVAL 50 /* space between top-left corners of cascades */
-
-		cascade_stage += 1;
-		cascade_x += CASCADE_INTERVAL * cascade_stage;
-
-		/* start over with a new cascade translated to the right,
-		 * unless we are out of space
-		 */
-		if ((cascade_x + window_width) <
-		    (work_area.x + work_area.width))
-		{
-		    tmp = sorted;
-		    continue;
-		}
-		else
-		{
-		    /* All out of space, this cascade_x won't work */
-		    cascade_x = MAX (0, work_area.x);
-		    break;
-		}
-	    }
-	}
-	else
-	{
-	    /* Keep searching for a further-down-the-diagonal window. */
-	}
-
-	tmp = tmp->next;
-    }
-
-    /* cascade_x and cascade_y will match the last window in the list
-     * that was "in the way" (in the approximate cascade diagonal)
-     */
-
-    g_list_free (sorted);
-
-    /* Convert coords to position of window, not position of frame. */
-    *new_x = cascade_x + window->input.left;
-    *new_y = cascade_y + window->input.top;
-}
-
-static void
-find_most_freespace (CompWindow *window,
-		     CompWindow *focus_window,
-		     int        x,
-		     int        y,
-		     int        *new_x,
-		     int        *new_y)
-{
-    PlaceWindowDirection side;
-    int			 max_area;
-    int			 max_width, max_height, left, right, top, bottom;
-    int			 left_space, right_space, top_space, bottom_space;
-    int			 frame_size_left, frame_size_top;
-    XRectangle		 work_area;
-    XRectangle		 avoid;
-    XRectangle		 outer;
-
-    frame_size_left = window->input.left;
-    frame_size_top  = window->input.top;
-
-    get_workarea_of_current_output_device (window->screen, &work_area);
-
-    get_outer_rect_of_window (focus_window, &avoid);
-    get_outer_rect_of_window (window, &outer);
-
-    /* Find the areas of choosing the various sides of the focus window */
-    max_width  = MIN (avoid.width, outer.width);
-    max_height = MIN (avoid.height, outer.height);
-    left_space   = avoid.x - work_area.x;
-    right_space  = work_area.width - (avoid.x + avoid.width - work_area.x);
-    top_space    = avoid.y - work_area.y;
-    bottom_space = work_area.height - (avoid.y + avoid.height - work_area.y);
-    left   = MIN (left_space,   outer.width);
-    right  = MIN (right_space,  outer.width);
-    top    = MIN (top_space,    outer.height);
-    bottom = MIN (bottom_space, outer.height);
-
-    /* Find out which side of the focus_window can show the most of the
-     * window
-     */
-    side = PlaceLeft;
-    max_area = left * max_height;
-    if (right * max_height > max_area)
-    {
-	side = PlaceRight;
-	max_area = right * max_height;
-    }
-    if (top * max_width > max_area)
-    {
-	side = PlaceTop;
-	max_area = top * max_width;
-    }
-    if (bottom * max_width > max_area)
-    {
-	side = PlaceBottom;
-	max_area = bottom * max_width;
-    }
-
-    /* Give up if there's no where to put it
-     * (i.e. focus window is maximized)
-     */
-    if (max_area == 0)
-	return;
-
-    /* Place the window on the relevant side; if the whole window fits,
-     * make it adjacent to the focus window; if not, make sure the
-     * window doesn't go off the edge of the screen.
-     */
-    switch (side) {
-    case PlaceLeft:
-	*new_y = avoid.y + frame_size_top;
-	if (left_space > outer.width)
-	    *new_x = avoid.x - outer.width + frame_size_left;
-	else
-	    *new_x = work_area.x + frame_size_left;
-	break;
-    case PlaceRight:
-	*new_y = avoid.y + frame_size_top;
-	if (right_space > outer.width)
-	    *new_x = avoid.x + avoid.width + frame_size_left;
-	else
-	    *new_x = work_area.x + work_area.width - outer.width +
-		frame_size_left;
-	break;
-    case PlaceTop:
-	*new_x = avoid.x + frame_size_left;
-	if (top_space > outer.height)
-	    *new_y = avoid.y - outer.height + frame_size_top;
-	else
-	    *new_y = work_area.y + frame_size_top;
-	break;
-    case PlaceBottom:
-	*new_x = avoid.x + frame_size_left;
-	if (bottom_space > outer.height)
-	    *new_y = avoid.y + avoid.height + frame_size_top;
-	else
-	    *new_y = work_area.y + work_area.height - outer.height +
-		frame_size_top;
-	break;
-    }
-}
-
-static void
-avoid_being_obscured_as_second_modal_dialog (CompWindow *window,
-					     int        *x,
-					     int        *y)
-{
-    /* We can't center this dialog if it was denied focus and it
-     * overlaps with the focus window and this dialog is modal and this
-     * dialog is in the same app as the focus window (*phew*...please
-     * don't make me say that ten times fast). See bug 307875 comment 11
-     * and 12 for details, but basically it means this is probably a
-     * second modal dialog for some app while the focus window is the
-     * first modal dialog.  We should probably make them simultaneously
-     * visible in general, but it becomes mandatory to do so due to
-     * buggy apps (e.g. those using gtk+ *sigh*) because in those cases
-     * this second modal dialog also happens to be modal to the first
-     * dialog in addition to the main window, while it has only let us
-     * know about the modal-to-the-main-window part.
-     */
-
-    CompWindow *focus_window;
-
-    focus_window =
-	findWindowAtDisplay (window->screen->display,
-			     window->screen->display->activeWindow);
-
-    if (focus_window				   &&
-	(window->state & CompWindowStateModalMask) &&
-	0 /* window->denied_focus_and_not_transient	       &&
-	window_same_application (window, focus_window) &&
-	window_intersect (window, focus_window) */
-	)
-    {
-	find_most_freespace (window, focus_window, *x, *y, x, y);
-    }
-}
-
-static gboolean
-rectangle_overlaps_some_window (XRectangle *rect,
-				GList      *windows)
-{
-    GList *tmp;
-    XRectangle dest;
-
-    tmp = windows;
-    while (tmp != NULL)
-    {
-	CompWindow *other = tmp->data;
-	XRectangle other_rect;
-
-	switch (other->type) {
-	case CompWindowTypeDockMask:
-	case CompWindowTypeSplashMask:
-	case CompWindowTypeDesktopMask:
-	case CompWindowTypeDialogMask:
-	case CompWindowTypeModalDialogMask:
-	case CompWindowTypeFullscreenMask:
-	case CompWindowTypeUnknownMask:
-	    break;
-	case CompWindowTypeNormalMask:
-	case CompWindowTypeUtilMask:
-	case CompWindowTypeToolbarMask:
-	case CompWindowTypeMenuMask:
-	    get_outer_rect_of_window (other, &other_rect);
-
-	    if (rectangleIntersect (rect, &other_rect, &dest))
-		return TRUE;
-	    break;
-	}
-
-	tmp = tmp->next;
-    }
-
-    return FALSE;
-}
-
-static gint
-leftmost_cmp (gconstpointer a,
-	      gconstpointer b)
-{
-    CompWindow *aw = (gpointer) a;
-    CompWindow *bw = (gpointer) b;
-    int	       ax, bx;
-
-    ax = aw->serverX - aw->input.left;
-    bx = bw->serverX - bw->input.left;
-
-    if (ax < bx)
-	return -1;
-    else if (ax > bx)
-	return 1;
-    else
-	return 0;
-}
-
-static gint
-topmost_cmp (gconstpointer a,
-	     gconstpointer b)
-{
-    CompWindow *aw = (gpointer) a;
-    CompWindow *bw = (gpointer) b;
-    int	       ay, by;
-
-    ay = aw->serverY - aw->input.top;
-    by = bw->serverY - bw->input.top;
-
-    if (ay < by)
-	return -1;
-    else if (ay > by)
-	return 1;
-    else
-	return 0;
-}
-
-static void
-center_tile_rect_in_area (XRectangle *rect,
-			  XRectangle *work_area)
-{
-    int fluff;
-
-    /* The point here is to tile a window such that "extra"
-     * space is equal on either side (i.e. so a full screen
-     * of windows tiled this way would center the windows
-     * as a group)
-     */
-
-    fluff = (work_area->width % (rect->width + 1)) / 2;
-    rect->x = work_area->x + fluff;
-    fluff = (work_area->height % (rect->height + 1)) / 3;
-    rect->y = work_area->y + fluff;
-}
-
-static gboolean
-rect_fits_in_work_area (XRectangle *work_area,
-			XRectangle *rect)
-{
-    return ((rect->x >= work_area->x) &&
-	    (rect->y >= work_area->y) &&
-	    (rect->x + rect->width <= work_area->x + work_area->width) &&
-	    (rect->y + rect->height <= work_area->y + work_area->height));
-}
-
-/* Find the leftmost, then topmost, empty area on the workspace
- * that can contain the new window.
- *
- * Cool feature to have: if we can't fit the current window size,
- * try shrinking the window (within geometry constraints). But
- * beware windows such as Emacs with no sane minimum size, we
- * don't want to create a 1x1 Emacs.
- */
-static gboolean
-find_first_fit (CompWindow *window,
-		GList      *windows,
-		int        x,
-		int        y,
-		int        *new_x,
-		int        *new_y)
-{
-    /* This algorithm is limited - it just brute-force tries
-     * to fit the window in a small number of locations that are aligned
-     * with existing windows. It tries to place the window on
-     * the bottom of each existing window, and then to the right
-     * of each existing window, aligned with the left/top of the
-     * existing window in each of those cases.
-     */
-    int	       retval;
-    GList      *below_sorted;
-    GList      *right_sorted;
-    GList      *tmp;
-    XRectangle rect;
-    XRectangle work_area;
-
-    retval = FALSE;
-
-    /* Below each window */
-    below_sorted = g_list_copy (windows);
-    below_sorted = g_list_sort (below_sorted, leftmost_cmp);
-    below_sorted = g_list_sort (below_sorted, topmost_cmp);
-
-    /* To the right of each window */
-    right_sorted = g_list_copy (windows);
-    right_sorted = g_list_sort (right_sorted, topmost_cmp);
-    right_sorted = g_list_sort (right_sorted, leftmost_cmp);
-
-    get_outer_rect_of_window (window, &rect);
-
-    get_workarea_of_current_output_device (window->screen, &work_area);
-
-    work_area.x += (window->initialViewportX - window->screen->x) *
-	window->screen->width;
-    work_area.y += (window->initialViewportY - window->screen->y) *
-	window->screen->height;
-
-    center_tile_rect_in_area (&rect, &work_area);
-
-    if (rect_fits_in_work_area (&work_area, &rect) &&
-	!rectangle_overlaps_some_window (&rect, windows))
-    {
-	*new_x = rect.x + window->input.left;
-	*new_y = rect.y + window->input.top;
-
-	retval = TRUE;
-
-	goto out;
-    }
-
-    /* try below each window */
-    tmp = below_sorted;
-    while (tmp != NULL)
-    {
-	CompWindow *w = tmp->data;
-	XRectangle outer_rect;
-
-	get_outer_rect_of_window (w, &outer_rect);
-
-	rect.x = outer_rect.x;
-	rect.y = outer_rect.y + outer_rect.height;
-
-	if (rect_fits_in_work_area (&work_area, &rect) &&
-	    !rectangle_overlaps_some_window (&rect, below_sorted))
-	{
-	    *new_x = rect.x + window->input.left;
-	    *new_y = rect.y + window->input.top;
-
-	    retval = TRUE;
-
-	    goto out;
-	}
-
-	tmp = tmp->next;
-    }
-
-    /* try to the right of each window */
-    tmp = right_sorted;
-    while (tmp != NULL)
-    {
-	CompWindow *w = tmp->data;
-	XRectangle outer_rect;
-
-	get_outer_rect_of_window (w, &outer_rect);
-
-	rect.x = outer_rect.x + outer_rect.width;
-	rect.y = outer_rect.y;
-
-	if (rect_fits_in_work_area (&work_area, &rect) &&
-	    !rectangle_overlaps_some_window (&rect, right_sorted))
-	{
-	    *new_x = rect.x + window->input.left;
-	    *new_y = rect.y + window->input.top;
-
-	    retval = TRUE;
-
-	    goto out;
-	}
-
-	tmp = tmp->next;
-    }
-
-out:
-    g_list_free (below_sorted);
-    g_list_free (right_sorted);
-
-    return retval;
-}
-
-static void
-placeCentered (CompWindow *window,
-	       XRectangle *workarea,
-	       int	  *x,
-	       int	  *y)
-{
-    *x = workarea->x + (workarea->width - get_window_width (window)) / 2;
-    *y = workarea->y + (workarea->height - get_window_height (window)) / 2;
-}
-
-static void
-placeRandom (CompWindow *window,
-	     XRectangle *workarea,
-	     int	*x,
-	     int	*y)
-{
-    int remainX, remainY;
-
-    *x = workarea->x;
-    *y = workarea->y;
-
-    remainX = workarea->width - get_window_width (window);
-    if (remainX > 0)
-	*x += rand () % remainX;
-
-    remainY = workarea->height - get_window_height (window);
-    if (remainY > 0)
-	*y += rand () % remainY;
-}
-
-static void
-placeSmart (CompWindow *window,
-	    XRectangle *workarea,
-	    int        *x,
-	    int        *y)
-{
-    /*
-     * SmartPlacement by Cristian Tibirna (tibirna@kde.org)
-     * adapted for kwm (16-19jan98) and for kwin (16Nov1999) using (with
-     * permission) ideas from fvwm, authored by
-     * Anthony Martin (amartin@engr.csulb.edu).
-     * Xinerama supported added by Balaji Ramani (balaji@yablibli.com)
-     * with ideas from xfce.
-     * adapted for Compiz by Bellegarde Cedric (gnumdk(at)gmail.com)
-     */
-    CompWindow *wi;
-    long int overlap, minOverlap = 0;
-    int xOptimal, yOptimal;
-    int possible;
-
-    /* temp coords */
-    int cxl, cxr, cyt, cyb;
-    /* temp coords */
-    int  xl,  xr,  yt,  yb;
-    /* temp holder */
-    int basket;
-    /* CT lame flag. Don't like it. What else would do? */
-    Bool firstPass = TRUE;
-
-    /* get the maximum allowed windows space */
-    int xTmp = workarea->x;
-    int yTmp = workarea->y;
-
-    xOptimal = xTmp; yOptimal = yTmp;
-
-    /* client gabarit */
-    int ch = get_window_height (window) + window->input.top +
-	     window->input.bottom - 1;
-    int cw = get_window_width (window) + window->input.left +
-	     window->input.right - 1;
-
-    /* loop over possible positions */
-    do
-    {
-	/* test if enough room in x and y directions */
-	if (yTmp + ch > (workarea->y + workarea->height) &&
-	    ch < workarea->height)
-	    overlap = H_WRONG; /* this throws the algorithm to an exit */
-	else if (xTmp + cw > (workarea->x + workarea->width))
-	    overlap = W_WRONG;
-	else
-	{
-	    overlap = NONE; /* initialize */
-
-	    cxl = xTmp;
-	    cxr = xTmp + cw;
-	    cyt = yTmp;
-	    cyb = yTmp + ch;
-
-	    for (wi = window->screen->windows; wi; wi = wi->next)
-	    {
-		if (!wi->invisible &&
-		    wi != window &&
-		    !(wi->wmType & (CompWindowTypeDockMask |
-				    CompWindowTypeDesktopMask)))
-		{
-
-		    xl = wi->attrib.x - wi->input.left;
-		    yt = wi->attrib.y - wi->input.top;
-		    xr = xl + get_window_width (wi) + window->input.left
-			+ wi->input.right;
-		    yb = yt + get_window_height (wi) + window->input.top
-			+ wi->input.bottom;
-
-		    /* if windows overlap, calc the overall overlapping */
-		    if ((cxl < xr) && (cxr > xl) &&
-			(cyt < yb) && (cyb > yt))
-		    {
-			xl = MAX (cxl, xl); xr = MIN (cxr, xr);
-			yt = MAX (cyt, yt); yb = MIN (cyb, yb);
-			if (wi->state & CompWindowStateAboveMask)
-			    overlap += 16 * (xr - xl) * (yb - yt);
-			else if (wi->state & CompWindowStateBelowMask)
-			    overlap += 0;
-			else
-			    overlap += (xr - xl) * (yb - yt);
-		    }
-		}
-	    }
-	}
-
-	/* CT first time we get no overlap we stop */
-	if (overlap == NONE)
-	{
-	    xOptimal = xTmp;
-	    yOptimal = yTmp;
-	    break;
-	}
-
-	if (firstPass)
-	{
-	    firstPass = FALSE;
-	    minOverlap = overlap;
-	}
-	/* CT save the best position and the minimum overlap up to now */
-	else if (overlap >= NONE && overlap < minOverlap)
-	{
-	    minOverlap = overlap;
-	    xOptimal = xTmp;
-	    yOptimal = yTmp;
-	}
-
-	/* really need to loop? test if there's any overlap */
-	if (overlap > NONE)
-	{
-	    possible = workarea->x + workarea->width;
-
-	    if (possible - cw > xTmp) possible -= cw;
-
-	    /* compare to the position of each client on the same desk */
-	    for (wi = window->screen->windows; wi; wi = wi->next)
-	    {
-
-		if (!wi->invisible &&
-		    wi != window &&
-		    !(wi->wmType & (CompWindowTypeDockMask |
-				    CompWindowTypeDesktopMask)))
-		{
-
-		    xl = wi->attrib.x - wi->input.left;
-		    yt = wi->attrib.y - wi->input.top;
-		    xr = xl + get_window_width (wi) + wi->input.left
-			+ wi->input.right;
-		    yb = yt + get_window_height (wi) + wi->input.top
-			+ wi->input.bottom;
-
-		    /* if not enough room above or under the current
-		     * client determine the first non-overlapped x position
-		     */
-		    if ((yTmp < yb) && (yt < ch + yTmp))
-		    {
-			if ((xr > xTmp) && (possible > xr)) possible = xr;
-
-			basket = xl - cw;
-			if ((basket > xTmp) && (possible > basket))
-			    possible = basket;
-		    }
-		}
-	    }
-	    xTmp = possible;
-	}
-
-	/* else ==> not enough x dimension (overlap was wrong on horizontal) */
-	else if (overlap == W_WRONG)
-	{
-	    xTmp = workarea->x;
-	    possible = workarea->y + workarea->height;
-
-	    if (possible - ch > yTmp) possible -= ch;
-
-	    /* test the position of each window on the desk */
-	    for (wi = window->screen->windows; wi ; wi = wi->next)
-	    {
-		if (!wi->invisible &&
-		    wi != window &&
-		    !(wi->wmType & (CompWindowTypeDockMask |
-				    CompWindowTypeDesktopMask)))
-		{
-		    xl = wi->attrib.x - wi->input.left;
-		    yt = wi->attrib.y - wi->input.top;
-		    xr = xl + get_window_width (wi) + wi->input.left
-			+ wi->input.right;
-		    yb = yt + get_window_height (wi) + wi->input.top
-			+ wi->input.bottom;
-
-		    /* if not enough room to the left or right of the current
-		     * client determine the first non-overlapped y position
-		     */
-		    if ((yb > yTmp) && (possible > yb))
-			possible = yb;
-
-		    basket = yt - ch;
-		    if ((basket > yTmp) && (possible > basket))
-			possible = basket;
-		}
-	    }
-	    yTmp = possible;
-	}
-    }
-    while ((overlap != NONE) && (overlap != H_WRONG) && yTmp <
-	   (workarea->y + workarea->height));
-
-    if (ch >= workarea->height)
-	yOptimal = workarea->y;
-
-    *x = xOptimal + window->input.left;
-    *y = yOptimal + window->input.top;
 }
 
 static void
@@ -1037,374 +245,989 @@ placeSendWindowMaximizationRequest (CompWindow *w)
 		SubstructureRedirectMask | SubstructureNotifyMask, &xev);
 }
 
+static Bool
+rectangleIntersect (XRectangle *src1,
+		    XRectangle *src2,
+		    XRectangle *dest)
+{
+    int destX, destY;
+    int destW, destH;
+
+    destX = MAX (src1->x, src2->x);
+    destY = MAX (src1->y, src2->y);
+    destW = MIN (src1->x + src1->width, src2->x + src2->width) - destX;
+    destH = MIN (src1->y + src1->height, src2->y + src2->height) - destY;
+
+    if (destW <= 0 || destH <= 0)
+    {
+	dest->width  = 0;
+	dest->height = 0;
+	return FALSE;
+    }
+
+    dest->x = destX;
+    dest->y = destY;
+    dest->width = destW;
+    dest->height = destH;
+
+    return TRUE;
+}
 
 static void
-placeWin (CompWindow *window,
-     	  int        x,
-	  int        y,
-	  int        *new_x,
-	  int        *new_y)
+getWindowExtentsRect (CompWindow *w,
+		      XRectangle *rect)
 {
-    CompWindow *wi;
-    GList      *windows;
-    XRectangle work_area;
-    int	       x0 = (window->initialViewportX - window->screen->x) *
-	window->screen->width;
-    int	       y0 = (window->initialViewportY - window->screen->y) *
-	window->screen->height;
-    int	       window_width, window_height;
+    rect->x      = WIN_FULL_X (w);
+    rect->y      = WIN_FULL_Y (w);
+    rect->width  = WIN_FULL_W (w);
+    rect->height = WIN_FULL_H (w);
+}
 
-    PLACE_SCREEN (window->screen);
+static Bool
+rectOverlapsWindow (XRectangle   *rect,
+		    CompWindow   **windows,
+		    unsigned int winCount)
+{
+    unsigned int i;
+    XRectangle   dest;
 
-    window_width = get_window_width (window);
-    window_height = get_window_height (window);
-
-    get_workarea_of_current_output_device (window->screen, &work_area);
-
-    work_area.x += x0;
-    work_area.y += y0;
-
-    windows = NULL;
-
-    switch (window->type) {
-    case CompWindowTypeSplashMask:
-    case CompWindowTypeDialogMask:
-    case CompWindowTypeModalDialogMask:
-    case CompWindowTypeNormalMask:
-	/* Run placement algorithm on these. */
-	break;
-    case CompWindowTypeDockMask:
-    case CompWindowTypeDesktopMask:
-    case CompWindowTypeUtilMask:
-    case CompWindowTypeToolbarMask:
-    case CompWindowTypeMenuMask:
-    case CompWindowTypeFullscreenMask:
-    case CompWindowTypeUnknownMask:
-	/* Assume the app knows best how to place these, no placement
-	 * algorithm ever (other than "leave them as-is")
-	 */
-	goto done_no_constraints;
-	break;
-    }
-
-    /* don't run placement algorithm on windows that can't be moved */
-    if (!(window->actions & CompWindowActionMoveMask))
+    for (i = 0; i < winCount; i++)
     {
-	goto done_no_constraints;
-    }
+	CompWindow *other = windows[i];
+	XRectangle otherRect;
 
-    if (window->type & CompWindowTypeFullscreenMask)
-    {
-	x = x0;
-	y = y0;
-	goto done_no_constraints;
-    }
-
-    if (window->state & (CompWindowStateMaximizedVertMask |
-			 CompWindowStateMaximizedHorzMask))
-    {
-	if (window->state & CompWindowStateMaximizedVertMask)
-	    y = work_area.y + window->input.top;
-
-	if (window->state & CompWindowStateMaximizedHorzMask)
-	    x = work_area.x + window->input.left;
-
-	goto done;
-    }
-
-    if (ps->opt[PLACE_SCREEN_OPTION_WORKAROUND].value.b)
-    {
-	/* workarounds enabled */
-
-	if ((window->sizeHints.flags & PPosition) ||
-	    (window->sizeHints.flags & USPosition))
-	{
-	    avoid_being_obscured_as_second_modal_dialog (window, &x, &y);
-	    goto done;
-	}
-    }
-    else
-    {
-	switch (window->type) {
-	case CompWindowTypeNormalMask:
-	    /* Only accept USPosition on normal windows because the app is full
-	     * of shit claiming the user set -geometry for a dialog or dock
-	     */
-	    if (window->sizeHints.flags & USPosition)
-	    {
-		/* don't constrain with placement algorithm */
-		goto done;
-	    }
-	    break;
+	switch (other->type) {
+	case CompWindowTypeDockMask:
 	case CompWindowTypeSplashMask:
+	case CompWindowTypeDesktopMask:
 	case CompWindowTypeDialogMask:
 	case CompWindowTypeModalDialogMask:
-	    /* Ignore even USPosition on dialogs, splashscreen */
+	case CompWindowTypeFullscreenMask:
+	case CompWindowTypeUnknownMask:
 	    break;
-	case CompWindowTypeDockMask:
-	case CompWindowTypeDesktopMask:
+	case CompWindowTypeNormalMask:
 	case CompWindowTypeUtilMask:
 	case CompWindowTypeToolbarMask:
 	case CompWindowTypeMenuMask:
-	case CompWindowTypeFullscreenMask:
-	case CompWindowTypeUnknownMask:
-	    /* Assume the app knows best how to place these. */
-	    if (window->sizeHints.flags & PPosition)
-	    {
-		goto done_no_constraints;
-	    }
+	    getWindowExtentsRect (other, &otherRect);
+
+	    if (rectangleIntersect (rect, &otherRect, &dest))
+		return TRUE;
 	    break;
 	}
     }
 
-    if (window->transientFor &&
-	(window->type & (CompWindowTypeDialogMask |
-			 CompWindowTypeModalDialogMask)))
+    return FALSE;
+}
+
+static int
+compareLeftmost (const void *a,
+		 const void *b)
+{
+    CompWindow *aw = *((CompWindow **) a);
+    CompWindow *bw = *((CompWindow **) b);
+    int	       ax, bx;
+
+    ax = WIN_FULL_X (aw);
+    bx = WIN_FULL_X (bw);
+
+    if (ax < bx)
+	return -1;
+    else if (ax > bx)
+	return 1;
+    else
+	return 0;
+}
+
+static int
+compareTopmost (const void *a,
+		const void *b)
+{
+    CompWindow *aw = *((CompWindow **) a);
+    CompWindow *bw = *((CompWindow **) b);
+    int	       ay, by;
+
+    ay = WIN_FULL_X (aw);
+    by = WIN_FULL_X (bw);
+
+    if (ay < by)
+	return -1;
+    else if (ay > by)
+	return 1;
+    else
+	return 0;
+}
+
+static int
+compareNorthWestCorner (const void *a,
+			const void *b)
+{
+    CompWindow *aw = *((CompWindow **) a);
+    CompWindow *bw = *((CompWindow **) b);
+    int	       fromOriginA;
+    int	       fromOriginB;
+    int	       ax, ay, bx, by;
+
+    ax = WIN_FULL_X (aw);
+    ay = WIN_FULL_Y (aw);
+
+    bx = WIN_FULL_X (bw);
+    by = WIN_FULL_Y (bw);
+
+    /* probably there's a fast good-enough-guess we could use here. */
+    fromOriginA = sqrt (ax * ax + ay * ay);
+    fromOriginB = sqrt (bx * bx + by * by);
+
+    if (fromOriginA < fromOriginB)
+	return -1;
+    else if (fromOriginA > fromOriginB)
+	return 1;
+    else
+	return 0;
+}
+
+static void
+centerTileRectInArea (XRectangle *rect,
+		      XRectangle *workArea)
+{
+    int fluff;
+
+    /* The point here is to tile a window such that "extra"
+     * space is equal on either side (i.e. so a full screen
+     * of windows tiled this way would center the windows
+     * as a group)
+     */
+
+    fluff   = (workArea->width % (rect->width + 1)) / 2;
+    rect->x = workArea->x + fluff;
+
+    fluff   = (workArea->height % (rect->height + 1)) / 3;
+    rect->y = workArea->y + fluff;
+}
+
+static Bool
+rectFitsInWorkarea (XRectangle *workArea,
+		    XRectangle *rect)
+{
+    if (rect->x < workArea->x)
+	return FALSE;
+
+    if (rect->y < workArea->y)
+	return FALSE;
+
+    if (rect->x + rect->width > workArea->x + workArea->width)
+	return FALSE;
+
+    if (rect->y + rect->height > workArea->y + workArea->height)
+	return FALSE;
+
+    return TRUE;
+}
+
+/* Find the leftmost, then topmost, empty area on the workspace
+ * that can contain the new window.
+ *
+ * Cool feature to have: if we can't fit the current window size,
+ * try shrinking the window (within geometry constraints). But
+ * beware windows such as Emacs with no sane minimum size, we
+ * don't want to create a 1x1 Emacs.
+ */
+static Bool
+placeCascadeFindFirstFit (CompWindow   *w,
+			  CompWindow   **windows,
+			  unsigned int winCount,
+			  XRectangle   *workArea,
+			  int          x,
+			  int          y,
+			  int          *newX,
+			  int          *newY)
+{
+    /* This algorithm is limited - it just brute-force tries
+     * to fit the window in a small number of locations that are aligned
+     * with existing windows. It tries to place the window on
+     * the bottom of each existing window, and then to the right
+     * of each existing window, aligned with the left/top of the
+     * existing window in each of those cases.
+     */
+    Bool         retval = FALSE;
+    unsigned int i, allocSize = winCount * sizeof (CompWindow *);
+    CompWindow   **belowSorted, **rightSorted;
+    XRectangle   rect;
+
+    belowSorted = malloc (allocSize);
+    if (!belowSorted)
+	return FALSE;
+
+    rightSorted = malloc (allocSize);
+    if (!rightSorted)
     {
-	/* Center horizontally, at top of parent vertically */
+	free (belowSorted);
+	return FALSE;
+    }
 
-	CompWindow *parent;
+    /* Below each window */
+    memcpy (belowSorted, windows, allocSize);
+    qsort (belowSorted, winCount, sizeof (CompWindow *), compareLeftmost);
+    qsort (belowSorted, winCount, sizeof (CompWindow *), compareTopmost);
 
-	parent = findWindowAtDisplay (window->screen->display,
-				      window->transientFor);
-	if (parent)
+    /* To the right of each window */
+    memcpy (rightSorted, windows, allocSize);
+    qsort (rightSorted, winCount, sizeof (CompWindow *), compareTopmost);
+    qsort (rightSorted, winCount, sizeof (CompWindow *), compareLeftmost);
+
+    getWindowExtentsRect (w, &rect);
+
+    centerTileRectInArea (&rect, workArea);
+
+    if (rectFitsInWorkarea (workArea, &rect) &&
+	!rectOverlapsWindow (&rect, windows, winCount))
+    {
+	*newX = rect.x + w->input.left;
+	*newY = rect.y + w->input.top;
+
+	retval = TRUE;
+    }
+
+    if (!retval)
+    {
+	/* try below each window */
+	for (i = 0; i < winCount && !retval; i++)
 	{
-	    int	w;
+	    XRectangle outerRect;
 
-	    x = parent->serverX;
-	    y = parent->serverY;
+	    getWindowExtentsRect (belowSorted[i], &outerRect);
 
-	    w = get_window_width (parent);
+	    rect.x = outerRect.x;
+	    rect.y = outerRect.y + outerRect.height;
 
-	    /* center of parent */
-	    x = x + w / 2;
-
-	    /* center of child over center of parent */
-	    x -= window_width / 2;
-
-	    /* "visually" center window over parent, leaving twice as
-	     * much space below as on top.
-	     */
-	    y += (get_window_height (parent) - window_height) / 3;
-
-	    /* put top of child's frame, not top of child's client */
-	    y += window->input.top;
-
-	    /* clip to screen if parent is visible in current viewport */
-	    if (parent->serverX < parent->screen->width   &&
-		parent->serverX + parent->serverWidth > 0 &&
-		parent->serverY < parent->screen->height  &&
-		parent->serverY + parent->serverHeight > 0)
+	    if (rectFitsInWorkarea (workArea, &rect) &&
+		!rectOverlapsWindow (&rect, belowSorted, winCount))
 	    {
-		XRectangle        area;
-		int               output;
-		CompWindowExtents extents;
-
-		output = outputDeviceForWindow (parent);
-		getWorkareaForOutput (window->screen, output, &area);
-
-		extents.left   = x - window->input.left;
-		extents.top    = y - window->input.top;
-		extents.right  = x + window_width + window->input.right;
-		extents.bottom = y + window_height + window->input.bottom;
-
-		if (extents.left < area.x)
-		    x += area.x - extents.left;
-		else if (extents.right > area.x + area.width)
-		    x += area.x + area.width - extents.right;
-
-		if (extents.top < area.y)
-		    y += area.y - extents.top;
-		else if (extents.bottom > area.y + area.height)
-		    y += area.y + area.height - extents.bottom;
+		*newX = rect.x + w->input.left;
+		*newY = rect.y + w->input.top;
+		retval = TRUE;
 	    }
-
-	    avoid_being_obscured_as_second_modal_dialog (window, &x, &y);
-
-	    goto done_no_constraints;
 	}
     }
 
-    /* FIXME UTILITY with transient set should be stacked up
-     * on the sides of the parent window or something.
-     */
-    if (window->type == CompWindowTypeDialogMask      ||
-	window->type == CompWindowTypeModalDialogMask ||
-	window->type == CompWindowTypeSplashMask)
+    if (!retval)
     {
-	/* Center on screen */
-	int w, h;
+	/* try to the right of each window */
+	for (i = 0; i < winCount && !retval; i++)
+	{
+	    XRectangle outerRect;
 
-	w = window->screen->width;
-	h = window->screen->height;
+	    getWindowExtentsRect (rightSorted[i], &outerRect);
 
-	x = (w - window_width) / 2;
-	y = (h - window_height) / 2;
+	    rect.x = outerRect.x + outerRect.width;
+	    rect.y = outerRect.y;
 
-	goto done_check_denied_focus;
+	    if (rectFitsInWorkarea (workArea, &rect) &&
+		!rectOverlapsWindow (&rect, rightSorted, winCount))
+	    {
+		*newX = rect.x + w->input.left;
+		*newY = rect.y + w->input.top;
+		retval = TRUE;
+	    }
+	}
     }
+
+    free (belowSorted);
+    free (rightSorted);
+
+    return retval;
+}
+
+static void
+placeCascadeFindNext (CompWindow   *w,
+		      CompWindow   **windows,
+		      unsigned int winCount,
+		      XRectangle   *workArea,
+		      int          x,
+		      int          y,
+		      int          *newX,
+		      int          *newY)
+{
+    CompWindow   **sorted;
+    unsigned int allocSize = winCount * sizeof (CompWindow *);
+    int          cascadeX, cascadeY;
+    int          xThreshold, yThreshold;
+    int          winWidth, winHeight;
+    int          i, cascadeStage;
+
+    sorted = malloc (allocSize);
+    if (!sorted)
+	return;
+
+    memcpy (sorted, windows, allocSize);
+    qsort (sorted, winCount, sizeof (CompWindow *), compareNorthWestCorner);
+
+    /* This is a "fuzzy" cascade algorithm.
+     * For each window in the list, we find where we'd cascade a
+     * new window after it. If a window is already nearly at that
+     * position, we move on.
+     */
+
+    /* arbitrary-ish threshold, honors user attempts to
+     * manually cascade.
+     */
+#define CASCADE_FUZZ 15
+
+    xThreshold = MAX (w->input.left, CASCADE_FUZZ);
+    yThreshold = MAX (w->input.top, CASCADE_FUZZ);
+
+    /* Find furthest-SE origin of all workspaces.
+     * cascade_x, cascade_y are the target position
+     * of NW corner of window frame.
+     */
+
+    cascadeX = MAX (0, workArea->x);
+    cascadeY = MAX (0, workArea->y);
+
+    /* Find first cascade position that's not used. */
+
+    winWidth = WIN_FULL_W (w);
+    winHeight = WIN_FULL_H (w);
+
+    cascadeStage = 0;
+    for (i = 0; i < winCount; i++)
+    {
+	CompWindow *wi = sorted[i];
+	int	   wx, wy;
+
+	/* we want frame position, not window position */
+	wx = WIN_FULL_X (wi);
+	wy = WIN_FULL_Y (wi);
+
+	if (abs (wx - cascadeX) < xThreshold &&
+	    abs (wy - cascadeY) < yThreshold)
+	{
+	    /* This window is "in the way", move to next cascade
+	     * point. The new window frame should go at the origin
+	     * of the client window we're stacking above.
+	     */
+	    wx = cascadeX = wi->serverX;
+	    wy = cascadeY = wi->serverY;
+
+	    /* If we go off the screen, start over with a new cascade */
+	    if ((cascadeX + winWidth > workArea->x + workArea->width) ||
+		(cascadeY + winHeight > workArea->y + workArea->height))
+	    {
+		cascadeX = MAX (0, workArea->x);
+		cascadeY = MAX (0, workArea->y);
+
+#define CASCADE_INTERVAL 50 /* space between top-left corners of cascades */
+
+		cascadeStage += 1;
+		cascadeX += CASCADE_INTERVAL * cascadeStage;
+
+		/* start over with a new cascade translated to the right,
+		 * unless we are out of space
+		 */
+		if (cascadeX + winWidth < workArea->x + workArea->width)
+		{
+		    i = 0;
+		    continue;
+		}
+		else
+		{
+		    /* All out of space, this cascade_x won't work */
+		    cascadeX = MAX (0, workArea->x);
+		    break;
+		}
+	    }
+	}
+	else
+	{
+	    /* Keep searching for a further-down-the-diagonal window. */
+	}
+    }
+
+    /* cascade_x and cascade_y will match the last window in the list
+     * that was "in the way" (in the approximate cascade diagonal)
+     */
+
+    free (sorted);
+
+    /* Convert coords to position of window, not position of frame. */
+    *newX = cascadeX + w->input.left;
+    *newY = cascadeY + w->input.top;
+}
+
+static void
+placeCascade (CompWindow *w,
+	      XRectangle *workArea,
+	      int        *x,
+	      int        *y)
+{
+    CompWindow   **windows;
+    CompWindow   *wi;
+    unsigned int count = 0;
+
+    /* get the total window count */
+    for (wi = w->screen->windows; wi; wi = wi->next)
+	count++;
+
+    windows = malloc (sizeof (CompWindow *) * count);
+    if (!windows)
+	return;
 
     /* Find windows that matter (not minimized, on same workspace
      * as placed window, may be shaded - if shaded we pretend it isn't
      * for placement purposes)
      */
-    for (wi = window->screen->windows; wi; wi = wi->next)
+    for (wi = w->screen->windows, count = 0; wi; wi = wi->next)
     {
-	if (!wi->shaded && wi->attrib.map_state != IsViewable)
+	if (!IS_PLACE_RELEVANT (wi, w))
 	    continue;
 
-	if (wi->serverX >= work_area.x + work_area.width       ||
-	    wi->serverY + get_window_width (wi) <= work_area.x ||
-	    wi->serverY >= work_area.y + work_area.height      ||
-	    wi->serverY + get_window_height (wi) <= work_area.y)
+	if (wi->type & (CompWindowTypeFullscreenMask |
+			CompWindowTypeUnknownMask))
 	    continue;
 
-	if (wi->attrib.override_redirect)
+	if (wi->serverX >= workArea->x + workArea->width  ||
+	    wi->serverX + wi->serverWidth <= workArea->x  ||
+	    wi->serverY >= workArea->y + workArea->height ||
+	    wi->serverY + wi->serverHeight <= workArea->y)
 	    continue;
 
-	if (wi->state & (CompWindowTypeDesktopMask    |
-			 CompWindowTypeDockMask       |
-			 CompWindowTypeFullscreenMask |
-			 CompWindowTypeUnknownMask))
-	    continue;
-
-	if (wi != window)
-	    windows = g_list_prepend (windows, wi);
+	windows[count++] = wi;
     }
 
-    /* "Origin" placement algorithm */
-    x = x0;
-    y = y0;
-
-    if (placeMatchPosition (window, &x, &y))
+    if (!placeCascadeFindFirstFit (w, windows, count, workArea, *x, *y, x, y))
     {
-	int output;
-
-	output = outputDeviceForGeometry (window->screen, x, y,
-					  window_width, window_height,
-					  window->serverBorderWidth);
-
-	getWorkareaForOutput (window->screen, output, &work_area);
-
-	work_area.x += x0;
-	work_area.y += y0;
-    }
-    else
-    {
-	switch (ps->opt[PLACE_SCREEN_OPTION_MODE].value.i) {
-	case PLACE_MODE_CASCADE:
-	    if (find_first_fit (window, windows, x, y, &x, &y))
-		goto done_check_denied_focus;
-
-	    /* if the window wasn't placed at the origin of screen,
-	     * cascade it onto the current screen
-	     */
-	    find_next_cascade (window, windows, x, y, &x, &y);
-	    break;
-	case PLACE_MODE_CENTERED:
-	    placeCentered (window, &work_area, &x, &y);
-	    break;
-	case PLACE_MODE_RANDOM:
-	    placeRandom (window, &work_area, &x, &y);
-	    break;
-	case PLACE_MODE_SMART:
-	    placeSmart (window, &work_area, &x, &y);
-	    break;
-	case PLACE_MODE_MAXIMIZE:
-	    maximizeWindow (window, MAXIMIZE_STATE);
-	    break;
-	default:
-	    break;
-	}
+	/* if the window wasn't placed at the origin of screen,
+	 * cascade it onto the current screen
+	 */
+	placeCascadeFindNext (w, windows, count, workArea, *x, *y, x, y);
     }
 
-done_check_denied_focus:
-    /* If the window is being denied focus and isn't a transient of the
-     * focus window, we do NOT want it to overlap with the focus window
-     * if at all possible.  This is guaranteed to only be called if the
-     * focus_window is non-NULL, and we try to avoid that window.
+    free (windows);
+}
+
+static void
+placeCentered (CompWindow *w,
+	       XRectangle *workArea,
+	       int	  *x,
+	       int	  *y)
+{
+    *x = workArea->x + (workArea->width - w->serverWidth) / 2;
+    *y = workArea->y + (workArea->height - w->serverHeight) / 2;
+}
+
+static void
+placeRandom (CompWindow *w,
+	     XRectangle *workArea,
+	     int	*x,
+	     int	*y)
+{
+    int remainX, remainY;
+
+    *x = workArea->x;
+    *y = workArea->y;
+
+    remainX = workArea->width - w->serverWidth;
+    if (remainX > 0)
+	*x += rand () % remainX;
+
+    remainY = workArea->height - w->serverHeight;
+    if (remainY > 0)
+	*y += rand () % remainY;
+}
+
+/* overlap types */
+#define NONE    0
+#define H_WRONG -1
+#define W_WRONG -2
+
+static void
+placeSmart (CompWindow *w,
+	    XRectangle *workArea,
+	    int        *x,
+	    int        *y)
+{
+    /*
+     * SmartPlacement by Cristian Tibirna (tibirna@kde.org)
+     * adapted for kwm (16-19jan98) and for kwin (16Nov1999) using (with
+     * permission) ideas from fvwm, authored by
+     * Anthony Martin (amartin@engr.csulb.edu).
+     * Xinerama supported added by Balaji Ramani (balaji@yablibli.com)
+     * with ideas from xfce.
+     * adapted for Compiz by Bellegarde Cedric (gnumdk(at)gmail.com)
      */
-    if (0 /* window->denied_focus_and_not_transient */)
+    CompWindow *wi;
+    int        overlap, minOverlap = 0;
+    int        xOptimal, yOptimal;
+    int        possible;
+
+    /* temp coords */
+    int cxl, cxr, cyt, cyb;
+    /* temp coords */
+    int xl,  xr,  yt,  yb;
+    /* temp holder */
+    int basket;
+    /* CT lame flag. Don't like it. What else would do? */
+    Bool firstPass = TRUE;
+
+    /* get the maximum allowed windows space */
+    int xTmp = workArea->x;
+    int yTmp = workArea->y;
+
+    /* client gabarit */
+    int cw = WIN_FULL_W (w) - 1;
+    int ch = WIN_FULL_H (w) - 1;
+
+    xOptimal = xTmp;
+    yOptimal = yTmp;
+
+    /* loop over possible positions */
+    do
     {
-	gboolean    found_fit = FALSE;
-	CompWindow  *focus_window;
-
-	focus_window =
-	    findWindowAtDisplay (window->screen->display,
-				 window->screen->display->activeWindow);
-	if (focus_window)
+	/* test if enough room in x and y directions */
+	if (yTmp + ch > workArea->y + workArea->height && ch < workArea->height)
+	    overlap = H_WRONG; /* this throws the algorithm to an exit */
+	else if (xTmp + cw > workArea->x + workArea->width)
+	    overlap = W_WRONG;
+	else
 	{
-	    XRectangle wr, fwr, overlap;
+	    overlap = NONE; /* initialize */
 
-	    get_outer_rect_of_window (window, &wr);
-	    get_outer_rect_of_window (focus_window, &fwr);
+	    cxl = xTmp;
+	    cxr = xTmp + cw;
+	    cyt = yTmp;
+	    cyb = yTmp + ch;
 
-	    /* No need to do anything if the window doesn't overlap at all */
-	    found_fit = !rectangleIntersect (&wr, &fwr, &overlap);
-
-	    /* Try to do a first fit again, this time only taking into
-	     * account the focus window.
-	     */
-	    if (!found_fit)
+	    for (wi = w->screen->windows; wi; wi = wi->next)
 	    {
-		GList *focus_window_list;
+		if (!IS_PLACE_RELEVANT (wi, w))
+		    continue;
 
-		focus_window_list = g_list_prepend (NULL, focus_window);
+		xl = WIN_FULL_X (wi);
+		yt = WIN_FULL_Y (wi);
+		xr = WIN_FULL_X (wi) + WIN_FULL_W (wi);
+		yb = WIN_FULL_Y (wi) + WIN_FULL_H (wi);
 
-		/* Reset x and y ("origin" placement algorithm) */
-		x = 0;
-		y = 0;
+		/* if windows overlap, calc the overall overlapping */
+		if (cxl < xr && cxr > xl && cyt < yb && cyb > yt)
+		{
+		    xl = MAX (cxl, xl);
+		    xr = MIN (cxr, xr);
+		    yt = MAX (cyt, yt);
+		    yb = MIN (cyb, yb);
 
-		found_fit = find_first_fit (window, focus_window_list,
-					    x, y, &x, &y);
-
-		g_list_free (focus_window_list);
+		    if (wi->state & CompWindowStateAboveMask)
+			overlap += 16 * (xr - xl) * (yb - yt);
+		    else if (wi->state & CompWindowStateBelowMask)
+			overlap += 0;
+		    else
+			overlap += (xr - xl) * (yb - yt);
+		}
 	    }
 	}
 
-	/* If that still didn't work, just place it where we can see as much
-	 * as possible.
-	 */
-	if (!found_fit)
-	    find_most_freespace (window, focus_window, x, y, &x, &y);
+	/* CT first time we get no overlap we stop */
+	if (overlap == NONE)
+	{
+	    xOptimal = xTmp;
+	    yOptimal = yTmp;
+	    break;
+	}
+
+	if (firstPass)
+	{
+	    firstPass  = FALSE;
+	    minOverlap = overlap;
+	}
+	/* CT save the best position and the minimum overlap up to now */
+	else if (overlap >= NONE && overlap < minOverlap)
+	{
+	    minOverlap = overlap;
+	    xOptimal = xTmp;
+	    yOptimal = yTmp;
+	}
+
+	/* really need to loop? test if there's any overlap */
+	if (overlap > NONE)
+	{
+	    possible = workArea->x + workArea->width;
+
+	    if (possible - cw > xTmp)
+		possible -= cw;
+
+	    /* compare to the position of each client on the same desk */
+	    for (wi = w->screen->windows; wi; wi = wi->next)
+	    {
+		if (!IS_PLACE_RELEVANT (wi, w))
+		    continue;
+
+		xl = WIN_FULL_X (wi);
+		yt = WIN_FULL_Y (wi);
+		xr = WIN_FULL_X (wi) + WIN_FULL_W (wi);
+		yb = WIN_FULL_X (wi) + WIN_FULL_H (wi);
+
+		/* if not enough room above or under the current
+		 * client determine the first non-overlapped x position
+		 */
+		if (yTmp < yb && yt < ch + yTmp)
+		{
+		    if (xr > xTmp && possible > xr)
+			possible = xr;
+
+		    basket = xl - cw;
+		    if (basket > xTmp && possible > basket)
+			possible = basket;
+		}
+	    }
+	    xTmp = possible;
+	}
+	/* else ==> not enough x dimension (overlap was wrong on horizontal) */
+	else if (overlap == W_WRONG)
+	{
+	    xTmp     = workArea->x;
+	    possible = workArea->y + workArea->height;
+
+	    if (possible - ch > yTmp)
+		possible -= ch;
+
+	    /* test the position of each window on the desk */
+	    for (wi = w->screen->windows; wi; wi = wi->next)
+	    {
+		if (!IS_PLACE_RELEVANT (wi, w))
+		    continue;
+
+		xl = WIN_FULL_X (wi);
+		yt = WIN_FULL_Y (wi);
+		xr = WIN_FULL_X (wi) + WIN_FULL_W (wi);
+		yb = WIN_FULL_X (wi) + WIN_FULL_H (wi);
+
+		/* if not enough room to the left or right of the current
+		 * client determine the first non-overlapped y position
+		 */
+		if (yb > yTmp && possible > yb)
+		    possible = yb;
+
+		basket = yt - ch;
+		if (basket > yTmp && possible > basket)
+		    possible = basket;
+	    }
+	    yTmp = possible;
+	}
     }
+    while (overlap != NONE && overlap != H_WRONG &&
+	   yTmp < workArea->y + workArea->height);
 
-    g_list_free (windows);
+    if (ch >= workArea->height)
+	yOptimal = workArea->y;
 
-done:
-    /* Maximize windows if they are too big for their work area (bit of
-     * a hack here). Assume undecorated windows probably don't intend to
-     * be maximized.
-     */
-    if ((window->actions & MAXIMIZE_STATE) == MAXIMIZE_STATE &&
-	(window->mwmDecor & (MwmDecorAll | MwmDecorTitle))   &&
-	!(window->state & CompWindowStateFullscreenMask))
+    *x = xOptimal + w->input.left;
+    *y = yOptimal + w->input.top;
+}
+
+static PlacementStrategy
+placeGetStrategyForWindow (CompWindow *w)
+{
+    CompMatch *match;
+
+    PLACE_SCREEN (w->screen);
+
+    if (w->type & (CompWindowTypeDockMask | CompWindowTypeDesktopMask    |
+		   CompWindowTypeUtilMask | CompWindowTypeToolbarMask    |
+		   CompWindowTypeMenuMask | CompWindowTypeFullscreenMask |
+		   CompWindowTypeUnknownMask))
     {
-	XRectangle outer;
-
-	get_outer_rect_of_window (window, &outer);
-
-	if (outer.width >= work_area.width && outer.height >= work_area.height)
-	    maximizeWindow (window, MAXIMIZE_STATE);
+	/* assume the app knows best how to place these */
+	return NoPlacement;
     }
 
-    if (x + window_width + window->input.right > work_area.x + work_area.width)
-	x = work_area.x + work_area.width - window_width - window->input.right;
+    if (w->wmType & (CompWindowTypeDockMask | CompWindowTypeDesktopMask))
+    {
+	/* see above */
+	return NoPlacement;
+    }
 
-    if (x - window->input.left < work_area.x)
-	x = work_area.x + window->input.left;
+    /* no placement for unmovable windows */
+    if (!(w->actions & CompWindowActionMoveMask))
+	return NoPlacement;
 
-    if (y + window_height + window->input.bottom >
-	work_area.y + work_area.height)
-	y = work_area.y + work_area.height
-	    - window_height - window->input.bottom;
+    match = &ps->opt[PLACE_SCREEN_OPTION_FORCE_PLACEMENT].value.match;
+    if (!matchEval (match, w))
+    {
+	if ((w->type & CompWindowTypeNormalMask) ||
+	    ps->opt[PLACE_SCREEN_OPTION_WORKAROUND].value.b)
+	{
+	    /* Only accept USPosition on non-normal windows if workarounds are
+	     * enabled because apps claiming the user set -geometry for a
+	     * dialog or dock are most likely wrong
+	     */
+	    if (w->sizeHints.flags & USPosition)
+		return ConstrainOnly;
+	}
 
-    if (y - window->input.top < work_area.y)
-	y = work_area.y + window->input.top;
+	if (w->sizeHints.flags & PPosition)
+	    return ConstrainOnly;
+    }
 
-done_no_constraints:
-    *new_x = x;
-    *new_y = y;
+   if (w->transientFor &&
+	(w->type & (CompWindowTypeDialogMask |
+		    CompWindowTypeModalDialogMask)))
+    {
+	return PlaceOverParent;
+    }
+
+    if (w->type & (CompWindowTypeDialogMask |
+		   CompWindowTypeModalDialogMask |
+		   CompWindowTypeSplashMask))
+    {
+	return PlaceCenteredOnScreen;
+    }
+
+    return PlaceAndConstrain;
+}
+
+static CompOutput *
+placeGetPlacementOutput (CompWindow        *w,
+			 PlacementStrategy strategy,
+			 int               x,
+			 int               y)
+{
+    CompScreen *s = w->screen;
+    int        output = -1;
+
+    PLACE_SCREEN (s);
+
+    switch (strategy) {
+    case PlaceOverParent:
+	{
+	    CompWindow *parent;
+
+	    parent = findWindowAtScreen (s, w->transientFor);
+	    if (parent)
+		output = outputDeviceForWindow (parent);
+	}
+	break;
+    case ConstrainOnly:
+	output = outputDeviceForGeometry (s, x, y,
+					  w->serverWidth,
+					  w->serverHeight,
+					  w->serverBorderWidth);
+	break;
+    default:
+	break;
+    }
+
+    if (output >= 0)
+	return &s->outputDev[output];
+
+    switch (ps->opt[PLACE_SCREEN_OPTION_MULTIOUTPUT_MODE].value.i) {
+    case PLACE_MOMODE_CURRENT:
+	output = s->currentOutputDev;
+	break;
+    case PLACE_MOMODE_POINTER:
+	{
+	    Window       wDummy;
+	    int          iDummy, xPointer, yPointer;
+	    unsigned int uiDummy;
+
+	    /* this means a server roundtrip, which kind of sucks; thus
+	       this code should be replaced as soon as we have software
+	       cursor rendering and thus have a cached pointer coordinate */
+	    if (XQueryPointer (s->display->display, s->root,
+			       &wDummy, &wDummy, &xPointer, &yPointer,
+			       &iDummy, &iDummy, &uiDummy))
+	    {
+		output = outputDeviceForPoint (s, xPointer, yPointer);
+	    }
+	}
+	break;
+    case PLACE_MOMODE_ACTIVEWIN:
+	{
+	    CompWindow *active;
+
+	    active = findWindowAtScreen (s, s->display->activeWindow);
+	    if (active)
+		output = outputDeviceForWindow (active);
+	}
+	break;
+    case PLACE_MOMODE_FULLSCREEN:
+	/* only place on fullscreen output if not placing centered, as the
+	   constraining will move the window away from the center otherwise */
+	if (strategy != PlaceCenteredOnScreen)
+	    return &s->fullscreenOutput;
+	break;
+    }
+
+    if (output < 0)
+	output = s->currentOutputDev;
+
+    return &s->outputDev[output];
+}
+
+static void
+placeConstrainToWorkarea (CompWindow *w,
+			  XRectangle *workArea,
+			  int        *x,
+			  int        *y)
+{
+    CompWindowExtents extents;
+
+    extents.left   = *x - w->input.left;
+    extents.top    = *y - w->input.top;
+    extents.right  = *x + w->serverWidth + w->input.right;
+    extents.bottom = *y + w->serverHeight + w->input.bottom;
+
+    if (extents.left < workArea->x)
+	*x += workArea->x - extents.left;
+    else if (extents.right > workArea->x + workArea->width)
+	*x += workArea->x + workArea->width - extents.right;
+
+    if (extents.top < workArea->y)
+	*y += workArea->y - extents.top;
+    else if (extents.bottom > workArea->y + workArea->height)
+	*y += workArea->y + workArea->height - extents.bottom;
+}
+
+static Bool
+placeDoWindowPlacement (CompWindow *w,
+			int        x,
+			int        y,
+			int        *newX,
+			int        *newY)
+{
+    CompScreen        *s = w->screen;
+    XRectangle        workArea;
+    int               targetVpX, targetVpY;
+    CompOutput        *output;
+    PlacementStrategy strategy;
+
+    PLACE_SCREEN (s);
+
+    strategy = placeGetStrategyForWindow (w);
+
+    if (strategy == NoPlacement)
+	return FALSE;
+
+    if (placeMatchPosition (w, &x, &y))
+    {
+	/* FIXME: perhaps ConstrainOnly? */
+	strategy = NoPlacement;
+    }
+
+    output   = placeGetPlacementOutput (w, strategy, x, y);
+    workArea = output->workArea;
+
+    targetVpX = w->initialViewportX;
+    targetVpY = w->initialViewportY;
+
+    if (strategy == PlaceOverParent)
+    {
+	CompWindow *parent;
+
+	parent = findWindowAtScreen (s, w->transientFor);
+	if (parent)
+	{
+	    /* center over parent horizontally */
+	    x = parent->serverX + (parent->serverWidth / 2) -
+		(w->serverWidth / 2);
+
+	    /* "visually" center vertically, leaving twice as much space below
+	       as on top */
+	    y = parent->serverY + (parent->serverHeight - w->serverHeight) / 3;
+
+	    /* put top of child's frame, not top of child's client */
+	    y += w->input.top;
+
+	    /* if parent is visible on current viewport, clip to work area;
+	       don't constrain further otherwise */
+	    if (parent->serverX < parent->screen->width   &&
+		parent->serverX + parent->serverWidth > 0 &&
+		parent->serverY < parent->screen->height  &&
+		parent->serverY + parent->serverHeight > 0)
+	    {
+		defaultViewportForWindow (parent, &targetVpX, &targetVpY);
+		strategy = ConstrainOnly;
+	    }
+	    else
+	    {
+		strategy = NoPlacement;
+	    }
+	}
+    }
+
+    if (strategy == PlaceCenteredOnScreen)
+    {
+	/* center window on current output device */
+
+	x = output->region.extents.x1;
+	y = output->region.extents.y1;
+
+	x += (output->width - w->serverWidth) / 2;
+	y += (output->height - w->serverHeight) / 2;
+
+	strategy = ConstrainOnly;
+    }
+
+    workArea.x += (targetVpX - s->x) * s->width;
+    workArea.y += (targetVpY - s->y) * s->height;
+
+    if (strategy == PlaceOnly || strategy == PlaceAndConstrain)
+    {
+	switch (ps->opt[PLACE_SCREEN_OPTION_MODE].value.i) {
+	case PLACE_MODE_CASCADE:
+	    placeCascade (w, &workArea, &x, &y);
+	    break;
+	case PLACE_MODE_CENTERED:
+	    placeCentered (w, &workArea, &x, &y);
+	    break;
+	case PLACE_MODE_RANDOM:
+	    placeRandom (w, &workArea, &x, &y);
+	    break;
+	case PLACE_MODE_MAXIMIZE:
+	    placeSendWindowMaximizationRequest (w);
+	    break;
+	case PLACE_MODE_SMART:
+	    placeSmart (w, &workArea, &x, &y);
+	    break;
+	}
+
+	/* When placing to the fullscreen output, constrain to one
+	   output nevertheless */
+	if (output->id == ~0)
+	{
+	    int id;
+
+	    id = outputDeviceForGeometry (s, x, y,
+					  w->serverWidth,
+					  w->serverHeight,
+					  w->serverBorderWidth);
+	    getWorkareaForOutput (s, id, &workArea);
+
+	    workArea.x += (targetVpX - s->x) * s->width;
+	    workArea.y += (targetVpY - s->y) * s->height;
+	}
+
+	/* Maximize windows if they are too big for their work area (bit of
+	 * a hack here). Assume undecorated windows probably don't intend to
+	 * be maximized.
+	 */
+	if ((w->actions & MAXIMIZE_STATE) == MAXIMIZE_STATE &&
+	    (w->mwmDecor & (MwmDecorAll | MwmDecorTitle))   &&
+	    !(w->state & CompWindowStateFullscreenMask))
+	{
+	    if (WIN_FULL_W (w) >= workArea.width &&
+		WIN_FULL_H (w) >= workArea.height)
+	    {
+		placeSendWindowMaximizationRequest (w);
+	    }
+	}
+    }
+
+    if (strategy == ConstrainOnly || strategy == PlaceAndConstrain)
+	placeConstrainToWorkarea (w, &workArea, &x, &y);
+
+    *newX = x;
+    *newY = y;
+
+    return TRUE;
 }
 
 static void
@@ -1412,8 +1235,10 @@ placeValidateWindowResizeRequest (CompWindow     *w,
 				  unsigned int   *mask,
 				  XWindowChanges *xwc)
 {
-    Bool       checkPlacement = FALSE;
     CompScreen *s = w->screen;
+    XRectangle workArea;
+    int        x, y, left, right, top, bottom;
+    int        output;
 
     PLACE_SCREEN (s);
 
@@ -1422,122 +1247,127 @@ placeValidateWindowResizeRequest (CompWindow     *w,
     WRAP (ps, s, validateWindowResizeRequest,
 	  placeValidateWindowResizeRequest);
 
-    if (w->type & (CompWindowTypeSplashMask      |
-		   CompWindowTypeDialogMask      |
-		   CompWindowTypeModalDialogMask |
-		   CompWindowTypeNormalMask))
+    if (w->state & CompWindowStateFullscreenMask)
+	return;
+
+    if (w->wmType & (CompWindowTypeDockMask |
+		     CompWindowTypeDesktopMask))
+	return;
+
+    if (!(w->type & (CompWindowTypeNormalMask |
+		     CompWindowTypeSplashMask |
+		     CompWindowTypeDialogMask |
+		     CompWindowTypeModalDialogMask)))
+	return;
+
+    if (w->sizeHints.flags & USPosition)
     {
-	if (!(w->state & CompWindowStateFullscreenMask))
+	/* only respect USPosition on normal windows if
+	   workarounds are disabled, reason see above */
+	if (ps->opt[PLACE_SCREEN_OPTION_WORKAROUND].value.b ||
+	    (w->type & CompWindowTypeNormalMask))
 	{
-	    if (!(w->sizeHints.flags & USPosition))
-		checkPlacement = TRUE;
+	    return;
 	}
     }
 
-    if (checkPlacement)
+    /* left, right, top, bottom target coordinates, clamped to viewport
+       sizes as we don't need to validate movements to other viewports;
+       we are only interested in inner-viewport movements */
+    x = xwc->x % s->width;
+    if (x < 0)
+	x += s->width;
+
+    y = xwc->y % s->height;
+    if (y < 0)
+	y += s->height;
+
+    left   = x - w->input.left;
+    right  = x + xwc->width + w->input.right;
+    top    = y - w->input.top;
+    bottom = y + xwc->height + w->input.bottom;
+
+    output = outputDeviceForGeometry (s,
+				      xwc->x, xwc->y,
+				      xwc->width, xwc->height,
+				      w->serverBorderWidth);
+
+    getWorkareaForOutput (s, output, &workArea);
+
+    if (xwc->width >= workArea.width &&
+	xwc->height >= workArea.height)
     {
-	XRectangle workArea;
-	int        x, y, left, right, top, bottom;
-	int        output;
+	placeSendWindowMaximizationRequest (w);
+    }
 
-	/* left, right, top, bottom target coordinates, clamped to viewport
-	   sizes as we don't need to validate movements to other viewports;
-	   we are only interested in inner-viewport movements */
-	x = xwc->x % s->width;
-	if (x < 0)
-	    x += s->width;
-
-	y = xwc->y % s->height;
-	if (y < 0)
-	    y += s->height;
-
-	left   = x - w->input.left;
-	right  = x + xwc->width + w->input.right;
-	top    = y - w->input.top;
-	bottom = y + xwc->height + w->input.bottom;
-
-	output = outputDeviceForGeometry (s,
-					  xwc->x, xwc->y,
-					  xwc->width, xwc->height,
-					  w->serverBorderWidth);
-
-	getWorkareaForOutput (s, output, &workArea);
-
-	if (xwc->width >= workArea.width &&
-	    xwc->height >= workArea.height)
+    if ((right - left) > workArea.width)
+    {
+	left  = workArea.x;
+	right = left + workArea.width;
+    }
+    else
+    {
+	if (left < workArea.x)
 	{
-	    placeSendWindowMaximizationRequest (w);
-	}
-
-	if ((right - left) > workArea.width)
-	{
+	    right += workArea.x - left;
 	    left  = workArea.x;
-	    right = left + workArea.width;
-	}
-	else
-	{
-	    if (left < workArea.x)
-	    {
-		right += workArea.x - left;
-		left  = workArea.x;
-	    }
-
-	    if (right > (workArea.x + workArea.width))
-	    {
-		left -= right - (workArea.x + workArea.width);
-		right = workArea.x + workArea.width;
-	    }
 	}
 
-	if ((bottom - top) > workArea.height)
+	if (right > (workArea.x + workArea.width))
 	{
+	    left -= right - (workArea.x + workArea.width);
+	    right = workArea.x + workArea.width;
+	}
+    }
+
+    if ((bottom - top) > workArea.height)
+    {
+	top    = workArea.y;
+	bottom = top + workArea.height;
+    }
+    else
+    {
+	if (top < workArea.y)
+	{
+	    bottom += workArea.y - top;
 	    top    = workArea.y;
-	    bottom = top + workArea.height;
 	}
-	else
+
+	if (bottom > (workArea.y + workArea.height))
 	{
-	    if (top < workArea.y)
-	    {
-		bottom += workArea.y - top;
-		top    = workArea.y;
-	    }
-
-	    if (bottom > (workArea.y + workArea.height))
-	    {
-		top   -= bottom - (workArea.y + workArea.height);
-		bottom = workArea.y + workArea.height;
-	    }
+	    top   -= bottom - (workArea.y + workArea.height);
+	    bottom = workArea.y + workArea.height;
 	}
+    }
 
-	/* bring left/right/top/bottom to actual window coordinates */
-	left   += w->input.left;
-	right  -= w->input.right;
-	top    += w->input.top;
-	bottom -= w->input.bottom;
+    /* bring left/right/top/bottom to actual window coordinates */
+    left   += w->input.left;
+    right  -= w->input.right;
+    top    += w->input.top;
+    bottom -= w->input.bottom;
 
-	if (left != x)
-	{
-	    xwc->x += left - x;
-	    *mask  |= CWX;
-	}
+    if (left != x)
+    {
+	xwc->x += left - x;
+	*mask  |= CWX;
+    }
 
-	if (top != y)
-	{
-	    xwc->y += top - y;
-	    *mask  |= CWY;
-	}
+    if (top != y)
+    {
+	xwc->y += top - y;
+	*mask  |= CWY;
+    }
 
-	if ((right - left) != xwc->width)
-	{
-	    xwc->width = right - left;
-	    *mask      |= CWWidth;
-	}
+    if ((right - left) != xwc->width)
+    {
+	xwc->width = right - left;
+	*mask      |= CWWidth;
+    }
 
-	if ((bottom - top) != xwc->height)
-	{
-	    xwc->height = bottom - top;
-	    *mask       |= CWHeight;
-	}
+    if ((bottom - top) != xwc->height)
+    {
+	xwc->height = bottom - top;
+	*mask       |= CWHeight;
     }
 }
 
@@ -1548,27 +1378,39 @@ placePlaceWindow (CompWindow *w,
 		  int        *newX,
 		  int        *newY)
 {
-    Bool status;
+    CompScreen *s = w->screen;
+    Bool       status;
 
-    PLACE_SCREEN (w->screen);
+    PLACE_SCREEN (s);
 
-    UNWRAP (ps, w->screen, placeWindow);
-    status = (*w->screen->placeWindow) (w, x, y, newX, newY);
-    WRAP (ps, w->screen, placeWindow, placePlaceWindow);
+    UNWRAP (ps, s, placeWindow);
+    status = (*s->placeWindow) (w, x, y, newX, newY);
+    WRAP (ps, s, placeWindow, placePlaceWindow);
 
     if (!status)
     {
 	int viewportX, viewportY;
 
-	placeWin (w, x, y, newX, newY);
+	if (!placeDoWindowPlacement (w, x, y, newX, newY))
+	{
+	    *newX = x;
+	    *newY = y;
+	}
 
 	if (placeMatchViewport (w, &viewportX, &viewportY))
 	{
-	    viewportX = MAX (MIN (viewportX, w->screen->hsize), 0);
-	    viewportY = MAX (MIN (viewportY, w->screen->vsize), 0);
+	    viewportX = MAX (MIN (viewportX, s->hsize), 0);
+	    viewportY = MAX (MIN (viewportY, s->vsize), 0);
 
-	    *newX += (viewportX - w->screen->x) * w->screen->width;
-	    *newY += (viewportY - w->screen->y) * w->screen->height;
+	    x = *newX % s->width;
+	    if (x < 0)
+		x += s->width;
+	    y = *newY % s->height;
+	    if (y < 0)
+		y += s->height;
+
+	    *newX = x + (viewportX - s->x) * s->width;
+	    *newY = y + (viewportY - s->y) * s->height;
 	}
     }
 
@@ -1614,12 +1456,16 @@ placeFiniDisplay (CompPlugin  *p,
 static const CompMetadataOptionInfo placeScreenOptionInfo[] = {
     { "workarounds", "bool", 0, 0, 0 },
     { "mode", "int", RESTOSTRING (0, PLACE_MODE_LAST), 0, 0 },
+    { "multioutput_mode", "int", RESTOSTRING (0, PLACE_MOMODE_LAST), 0, 0 },
+    { "force_placement_match", "match", 0, 0, 0 },
     { "position_matches", "list", "<type>match</type>", 0, 0 },
     { "position_x_values", "list", "<type>int</type>", 0, 0 },
     { "position_y_values", "list", "<type>int</type>", 0, 0 },
     { "viewport_matches", "list", "<type>match</type>", 0, 0 },
-    { "viewport_x_values", "list", "<type>int</type>", 0, 0 },
-    { "viewport_y_values", "list", "<type>int</type>", 0, 0 }
+    { "viewport_x_values", "list",
+	"<type>int</type><min>1</min><max>32</max>", 0, 0 },
+    { "viewport_y_values", "list",
+	"<type>int</type><min>1</min><max>32</max>", 0, 0 },
 };
 
 static Bool

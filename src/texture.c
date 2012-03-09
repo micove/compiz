@@ -125,6 +125,7 @@ imageToTexture (CompScreen   *screen,
 	texture->matrix.xx = 1.0f / width;
 	texture->matrix.yy = -1.0f / height;
 	texture->matrix.y0 = 1.0f;
+	texture->mipmap = TRUE;
     }
     else
     {
@@ -132,6 +133,7 @@ imageToTexture (CompScreen   *screen,
 	texture->matrix.xx = 1.0f;
 	texture->matrix.yy = -1.0f;
 	texture->matrix.y0 = height;
+	texture->mipmap = FALSE;
     }
 
     if (!texture->name)
@@ -156,7 +158,6 @@ imageToTexture (CompScreen   *screen,
     glTexParameteri (texture->target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     texture->wrap = GL_CLAMP_TO_EDGE;
-    texture->mipmap = TRUE;
 
     glBindTexture (texture->target, 0);
 
@@ -257,14 +258,25 @@ bindPixmapToTexture (CompScreen  *screen,
     attribs[i++] = GLX_MIPMAP_TEXTURE_EXT;
     attribs[i++] = config->mipmap;
 
-    /* If only one two-dimensional texture target is supported,
-       then use that target and avoid a possible round trip in
-       glXQueryDrawable. Allow the server to choose texture target
-       when it supports more than one for this fbconfig. */
-    if (!(config->textureTargets & GLX_TEXTURE_2D_BIT_EXT))
-	target = GLX_TEXTURE_RECTANGLE_EXT;
-    else if (!(config->textureTargets & GLX_TEXTURE_RECTANGLE_BIT_EXT))
+    /* If no texture target is specified in the fbconfig, or only the
+       TEXTURE_2D target is specified and GL_texture_non_power_of_two
+       is not supported, then allow the server to choose the texture target. */
+    if (config->textureTargets & GLX_TEXTURE_2D_BIT_EXT &&
+       (screen->textureNonPowerOfTwo ||
+       (POWER_OF_TWO (width) && POWER_OF_TWO (height))))
 	target = GLX_TEXTURE_2D_EXT;
+    else if (config->textureTargets & GLX_TEXTURE_RECTANGLE_BIT_EXT)
+	target = GLX_TEXTURE_RECTANGLE_EXT;
+
+    /* Workaround for broken texture from pixmap implementations, 
+       that don't advertise any texture target in the fbconfig. */
+    if (!target)
+    {
+	if (!(config->textureTargets & GLX_TEXTURE_2D_BIT_EXT))
+	    target = GLX_TEXTURE_RECTANGLE_EXT;
+	else if (!(config->textureTargets & GLX_TEXTURE_RECTANGLE_BIT_EXT))
+	    target = GLX_TEXTURE_2D_EXT;
+    }
 
     if (target)
     {
@@ -285,8 +297,6 @@ bindPixmapToTexture (CompScreen  *screen,
 
 	return FALSE;
     }
-
-    texture->mipmap = config->mipmap;
 
     if (!target)
 	(*screen->queryDrawable) (screen->display->display,
@@ -309,6 +319,7 @@ bindPixmapToTexture (CompScreen  *screen,
 	    texture->matrix.yy = -1.0f / height;
 	    texture->matrix.y0 = 1.0f;
 	}
+	texture->mipmap = config->mipmap;
 	break;
     case GLX_TEXTURE_RECTANGLE_EXT:
 	texture->target = GL_TEXTURE_RECTANGLE_ARB;
@@ -324,6 +335,7 @@ bindPixmapToTexture (CompScreen  *screen,
 	    texture->matrix.yy = -1.0f;
 	    texture->matrix.y0 = height;
 	}
+	texture->mipmap = FALSE;
 	break;
     default:
 	compLogMessage (NULL, "core", CompLogLevelWarn,

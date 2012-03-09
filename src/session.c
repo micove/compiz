@@ -95,6 +95,8 @@ setCloneRestartCommands (SmcConn connection)
     {
 	if (strcmp (programArgv[i], "--sm-client-id") == 0)
 	    i++; /* skip old client id, we'll add the new one later */
+	else if (strcmp (programArgv[i], "--replace") == 0)
+	    continue; /* there's nothing to replace when starting session */
 	else
 	    args[count++] = programArgv[i];
     }
@@ -115,7 +117,8 @@ setCloneRestartCommands (SmcConn connection)
 }
 
 static void
-setRestartStyle (SmcConn connection, char hint)
+setRestartStyle (SmcConn connection,
+		 char    hint)
 {
     SmProp	prop, *pProp;
     SmPropValue propVal;
@@ -126,6 +129,25 @@ setRestartStyle (SmcConn connection, char hint)
     prop.vals = &propVal;
     propVal.value = &hint;
     propVal.length = 1;
+
+    pProp = &prop;
+
+    SmcSetProperties (connection, 1, &pProp);
+}
+
+static void
+setProgram (SmcConn    connection,
+	    const char *program)
+{
+    SmProp	prop, *pProp;
+    SmPropValue propVal;
+
+    prop.name = SmProgram;
+    prop.type = SmARRAY8;
+    prop.num_vals = 1;
+    prop.vals = &propVal;
+    propVal.value = (SmPointer) program;
+    propVal.length = strlen (program);
 
     pProp = &prop;
 
@@ -162,6 +184,7 @@ saveYourselfCallback (SmcConn	connection,
 
     setCloneRestartCommands (connection);
     setRestartStyle (connection, SmRestartImmediately);
+    setProgram (connection, programName);
     SmcSaveYourselfDone (connection, 1);
 }
 

@@ -441,6 +441,7 @@ typedef void (*event_callback) (WnckWindow *win, XEvent *event);
 static char *program_name;
 
 static GtkWidget     *style_window;
+static GtkWidget     *switcher_label;
 
 static GHashTable    *frame_table;
 static GtkWidget     *action_menu = NULL;
@@ -471,6 +472,7 @@ static GdkPixmap *switcher_pixmap = NULL;
 static GdkPixmap *switcher_buffer_pixmap = NULL;
 static gint      switcher_width;
 static gint      switcher_height;
+static Window    switcher_selected_window = None;
 
 static XRenderPictFormat *xformat;
 
@@ -1806,8 +1808,10 @@ meta_get_decoration_geometry (decor_t		*d,
 
     if (d->actions & WNCK_WINDOW_ACTION_RESIZE)
     {
-	*flags |= META_FRAME_ALLOWS_VERTICAL_RESIZE;
-	*flags |= META_FRAME_ALLOWS_HORIZONTAL_RESIZE;
+	if (!(d->state & WNCK_WINDOW_STATE_MAXIMIZED_VERTICALLY))
+	    *flags |= META_FRAME_ALLOWS_VERTICAL_RESIZE;
+	if (!(d->state & WNCK_WINDOW_STATE_MAXIMIZED_HORIZONTALLY))
+	    *flags |= META_FRAME_ALLOWS_HORIZONTAL_RESIZE;
     }
 
     if (d->actions & WNCK_WINDOW_ACTION_MOVE)
@@ -1833,6 +1837,9 @@ meta_get_decoration_geometry (decor_t		*d,
 
     if (d->state & WNCK_WINDOW_STATE_FULLSCREEN)
 	*flags |= META_FRAME_FULLSCREEN;
+
+    if (d->state & WNCK_WINDOW_STATE_SHADED)
+	*flags |= META_FRAME_SHADED;
 
 #ifdef HAVE_METACITY_2_17_0
     if (d->state & WNCK_WINDOW_STATE_ABOVE)
@@ -1991,15 +1998,17 @@ meta_draw_window_decoration (decor_t *d)
 
 	    top_region = meta_get_top_border_region (&fgeom, clip.width);
 
-	    decor_blend_top_border_picture (xdisplay,
-					    d->context,
-					    src,
-					    0, 0,
-					    d->picture,
-					    &d->border_layout,
-					    top_region,
-					    alpha * 0xffff,
-					    shade_alpha);
+	    decor_blend_border_picture (xdisplay,
+					d->context,
+					src,
+					0, 0,
+					d->picture,
+					&d->border_layout,
+					BORDER_TOP,
+					top_region,
+					alpha * 0xffff,
+					shade_alpha,
+				        0);
 	}
 
 	if (fgeom.bottom_height)
@@ -2029,15 +2038,17 @@ meta_draw_window_decoration (decor_t *d)
 
 	    bottom_region = meta_get_bottom_border_region (&fgeom, clip.width);
 
-	    decor_blend_bottom_border_picture (xdisplay,
-					       d->context,
-					       src,
-					       0, 0,
-					       d->picture,
-					       &d->border_layout,
-					       bottom_region,
-					       alpha * 0xffff,
-					       shade_alpha);
+	    decor_blend_border_picture (xdisplay,
+					d->context,
+					src,
+					0, 0,
+					d->picture,
+					&d->border_layout,
+					BORDER_BOTTOM,
+					bottom_region,
+					alpha * 0xffff,
+					shade_alpha,
+					0);
 	}
 
 	cairo_destroy (cr);
@@ -2090,15 +2101,17 @@ meta_draw_window_decoration (decor_t *d)
 
 	    left_region = meta_get_left_border_region (&fgeom, clip.height);
 
-	    decor_blend_left_border_picture (xdisplay,
-					     d->context,
-					     src,
-					     0, 0,
-					     d->picture,
-					     &d->border_layout,
-					     left_region,
-					     alpha * 0xffff,
-					     shade_alpha);
+	    decor_blend_border_picture (xdisplay,
+					d->context,
+					src,
+					0, 0,
+					d->picture,
+					&d->border_layout,
+					BORDER_LEFT,
+					left_region,
+					alpha * 0xffff,
+					shade_alpha,
+				        0);
 	}
 
 	if (fgeom.right_width)
@@ -2128,15 +2141,17 @@ meta_draw_window_decoration (decor_t *d)
 
 	    right_region = meta_get_right_border_region (&fgeom, clip.height);
 
-	    decor_blend_right_border_picture (xdisplay,
-					      d->context,
-					      src,
-					      0, 0,
-					      d->picture,
-					      &d->border_layout,
-					      right_region,
-					      alpha * 0xffff,
-					      shade_alpha);
+	    decor_blend_border_picture (xdisplay,
+					d->context,
+					src,
+					0, 0,
+					d->picture,
+					&d->border_layout,
+					BORDER_RIGHT,
+					right_region,
+					alpha * 0xffff,
+					shade_alpha,
+				        0);
 	}
 
 	cairo_destroy (cr);
@@ -2746,9 +2761,27 @@ get_event_window_position (decor_t *d,
     *x = pos[i][j].x + pos[i][j].xw * width;
     *y = pos[i][j].y + pos[i][j].yh * height + pos[i][j].yth *
 	(titlebar_height - 17);
-    *w = pos[i][j].w + pos[i][j].ww * width;
-    *h = pos[i][j].h + pos[i][j].hh * height + pos[i][j].hth *
+
+    if ((d->state & WNCK_WINDOW_STATE_MAXIMIZED_HORIZONTALLY) &&
+	(j == 0 || j == 2))
+    {
+	*w = 0;
+    }
+    else
+    {
+	*w = pos[i][j].w + pos[i][j].ww * width;
+    }
+
+    if ((d->state & WNCK_WINDOW_STATE_MAXIMIZED_VERTICALLY) &&
+	(i == 0 || i == 2))
+    {
+	*h = 0;
+    }
+    else
+    {
+	*h = pos[i][j].h + pos[i][j].hh * height + pos[i][j].hth *
 	(titlebar_height - 17);
+    }
 }
 
 static gboolean
@@ -2781,6 +2814,8 @@ get_button_position (decor_t *d,
 #ifdef USE_METACITY
 
 #define TOP_RESIZE_HEIGHT 2
+#define RESIZE_EXTENDS 15
+
 static void
 meta_get_event_window_position (decor_t *d,
 				gint    i,
@@ -2810,23 +2845,24 @@ meta_get_event_window_position (decor_t *d,
     case 2: /* bottom */
 	switch (j) {
 	case 2: /* bottom right */
-	    *x = width - fgeom.right_width;
-	    *y = height - fgeom.bottom_height;
-	    *w = fgeom.right_width;
-	    *h = fgeom.bottom_height;
+	    *x = width - fgeom.right_width - RESIZE_EXTENDS;
+	    *y = height - fgeom.bottom_height - RESIZE_EXTENDS;
+	    *w = fgeom.right_width + RESIZE_EXTENDS;
+	    *h = fgeom.bottom_height + RESIZE_EXTENDS;
 	    break;
 	case 1: /* bottom */
-	    *x = fgeom.left_width;
+	    *x = fgeom.left_width + RESIZE_EXTENDS;
 	    *y = height - fgeom.bottom_height;
-	    *w = width - fgeom.left_width - fgeom.right_width;
+	    *w = width - fgeom.left_width - fgeom.right_width -
+		 (2 * RESIZE_EXTENDS);
 	    *h = fgeom.bottom_height;
 	    break;
 	case 0: /* bottom left */
 	default:
 	    *x = 0;
-	    *y = height - fgeom.bottom_height;
-	    *w = fgeom.left_width;
-	    *h = fgeom.bottom_height;
+	    *y = height - fgeom.bottom_height - RESIZE_EXTENDS;
+	    *w = fgeom.left_width + RESIZE_EXTENDS;
+	    *h = fgeom.bottom_height + RESIZE_EXTENDS;
 	    break;
 	}
 	break;
@@ -2834,9 +2870,10 @@ meta_get_event_window_position (decor_t *d,
 	switch (j) {
 	case 2: /* right */
 	    *x = width - fgeom.right_width;
-	    *y = fgeom.top_height;
+	    *y = fgeom.top_height + RESIZE_EXTENDS;
 	    *w = fgeom.right_width;
-	    *h = height - fgeom.top_height - fgeom.bottom_height;
+	    *h = height - fgeom.top_height - fgeom.bottom_height -
+		 (2 * RESIZE_EXTENDS);
 	    break;
 	case 1: /* middle */
 	    *x = fgeom.left_width;
@@ -2847,9 +2884,10 @@ meta_get_event_window_position (decor_t *d,
 	case 0: /* left */
 	default:
 	    *x = 0;
-	    *y = fgeom.top_height;
+	    *y = fgeom.top_height + RESIZE_EXTENDS;
 	    *w = fgeom.left_width;
-	    *h = height - fgeom.top_height - fgeom.bottom_height;
+	    *h = height - fgeom.top_height - fgeom.bottom_height -
+		 (2 * RESIZE_EXTENDS);
 	    break;
 	}
 	break;
@@ -2857,25 +2895,40 @@ meta_get_event_window_position (decor_t *d,
     default:
 	switch (j) {
 	case 2: /* top right */
-	    *x = width - fgeom.right_width;
+	    *x = width - fgeom.right_width - RESIZE_EXTENDS;
 	    *y = 0;
-	    *w = fgeom.right_width;
-	    *h = fgeom.top_height;
+	    *w = fgeom.right_width + RESIZE_EXTENDS;
+	    *h = fgeom.top_height + RESIZE_EXTENDS;
 	    break;
 	case 1: /* top */
-	    *x = fgeom.left_width;
+	    *x = fgeom.left_width + RESIZE_EXTENDS;
 	    *y = 0;
-	    *w = width - fgeom.left_width - fgeom.right_width;
+	    *w = width - fgeom.left_width - fgeom.right_width -
+		 (2 * RESIZE_EXTENDS);
 	    *h = fgeom.title_rect.y + TOP_RESIZE_HEIGHT;
 	    break;
 	case 0: /* top left */
 	default:
 	    *x = 0;
 	    *y = 0;
-	    *w = fgeom.left_width;
-	    *h = fgeom.top_height;
+	    *w = fgeom.left_width + RESIZE_EXTENDS;
+	    *h = fgeom.top_height + RESIZE_EXTENDS;
 	    break;
 	}
+    }
+
+    if (!(flags & META_FRAME_ALLOWS_VERTICAL_RESIZE))
+    {
+	/* turn off top and bottom event windows */
+	if (i == 0 || i == 2)
+	    *w = *h = 0;
+    }
+
+    if (!(flags & META_FRAME_ALLOWS_HORIZONTAL_RESIZE))
+    {
+	/* turn off left and right event windows */
+	if (j == 0 || j == 2)
+	    *w = *h = 0;
     }
 }
 
@@ -3001,11 +3054,17 @@ meta_get_button_position (decor_t *d,
     }
 
 #ifdef HAVE_METACITY_2_15_21
+    if (!space->clickable.width && !space->clickable.height)
+	return FALSE;
+
     *x = space->clickable.x;
     *y = space->clickable.y;
     *w = space->clickable.width;
     *h = space->clickable.height;
 #else
+    if (!space->width && !space->height)
+	return FALSE;
+
     *x = space->x;
     *y = space->y;
     *w = space->width;
@@ -3063,11 +3122,15 @@ update_event_windows (WnckWindow *win)
 
 	for (j = 0; j < 3; j++)
 	{
+	    w = 0;
+	    h = 0;
+
 	    if (actions & event_window_actions[i][j] && i >= k && i <= l)
-	    {
 		(*theme_get_event_window_position) (d, i, j, width, height,
 						    &x, &y, &w, &h);
 
+	    if (w != 0 && h != 0)
+	    {
 		XMapWindow (xdisplay, d->event_windows[i][j]);
 		XMoveResizeWindow (xdisplay, d->event_windows[i][j],
 				   x, y, w, h);
@@ -3665,6 +3728,13 @@ update_switcher_window (WnckWindow *win,
 	    g_object_unref (G_OBJECT (d->layout));
 	    d->layout = NULL;
 	}
+    }
+
+    if (selected != switcher_selected_window)
+    {
+	gtk_label_set_text (GTK_LABEL (switcher_label),
+			    (selected_win && d->name) ? d->name : "");
+	switcher_selected_window = selected;
     }
 
     if (width == d->width && height == d->height)
@@ -5834,6 +5904,33 @@ meta_button_function_from_string (const char *str)
 	return META_BUTTON_FUNCTION_LAST;
 }
 
+static MetaButtonFunction
+meta_button_opposite_function (MetaButtonFunction ofwhat)
+{
+    switch (ofwhat)
+    {
+#ifdef HAVE_METACITY_2_17_0
+    case META_BUTTON_FUNCTION_SHADE:
+	return META_BUTTON_FUNCTION_UNSHADE;
+    case META_BUTTON_FUNCTION_UNSHADE:
+	return META_BUTTON_FUNCTION_SHADE;
+
+    case META_BUTTON_FUNCTION_ABOVE:
+	return META_BUTTON_FUNCTION_UNABOVE;
+    case META_BUTTON_FUNCTION_UNABOVE:
+	return META_BUTTON_FUNCTION_ABOVE;
+
+    case META_BUTTON_FUNCTION_STICK:
+	return META_BUTTON_FUNCTION_UNSTICK;
+    case META_BUTTON_FUNCTION_UNSTICK:
+	return META_BUTTON_FUNCTION_STICK;
+#endif
+
+    default:
+	return META_BUTTON_FUNCTION_LAST;
+    }
+}
+
 static void
 meta_update_button_layout (const char *value)
 {
@@ -5868,6 +5965,10 @@ meta_update_button_layout (const char *value)
 	    {
 		new_layout.left_buttons[i++] = f;
 		used[f] = TRUE;
+
+		f = meta_button_opposite_function (f);
+		if (f != META_BUTTON_FUNCTION_LAST)
+		    new_layout.left_buttons[i++] = f;
 	    }
 	    else
 	    {
@@ -5894,6 +5995,10 @@ meta_update_button_layout (const char *value)
 		{
 		    new_layout.right_buttons[i++] = f;
 		    used[f] = TRUE;
+
+		    f = meta_button_opposite_function (f);
+		    if (f != META_BUTTON_FUNCTION_LAST)
+			new_layout.right_buttons[i++] = f;
 		}
 		else
 		{
@@ -6541,6 +6646,7 @@ init_settings (WnckScreen *screen)
     GtkSettings	   *settings;
     GdkScreen	   *gdkscreen;
     GdkColormap	   *colormap;
+    AtkObject	   *switcher_label_obj;
 
 #ifdef USE_GCONF
     GConfClient	   *gconf;
@@ -6665,6 +6771,15 @@ init_settings (WnckScreen *screen)
 	gtk_widget_set_colormap (style_window, colormap);
 
     gtk_widget_realize (style_window);
+
+    switcher_label = gtk_label_new ("");
+    switcher_label_obj = gtk_widget_get_accessible (switcher_label);
+    atk_object_set_role (switcher_label_obj, ATK_ROLE_STATUSBAR);
+    gtk_container_add (GTK_CONTAINER (style_window), switcher_label);
+
+    gtk_widget_set_size_request (style_window, 0, 0);
+    gtk_window_move (GTK_WINDOW (style_window), -100, -100);
+    gtk_widget_show_all (style_window);
 
     g_signal_connect_object (style_window, "style-set",
 			     G_CALLBACK (style_changed),

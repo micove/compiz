@@ -144,6 +144,99 @@ paintCursor (CompCursor		 *c,
     glEnableClientState (GL_TEXTURE_COORD_ARRAY);
 }
 
+static void
+paintBackground (CompScreen   *s,
+		 Region	      region,
+		 Bool	      transformed)
+{
+    CompTexture *bg = &s->backgroundTexture;
+    BoxPtr      pBox = region->rects;
+    int	        n, nBox = region->numRects;
+    GLfloat     *d, *data;
+
+    if (!nBox)
+	return;
+
+    if (s->desktopWindowCount)
+    {
+	if (bg->name)
+	{
+	    finiTexture (s, bg);
+	    initTexture (s, bg);
+	}
+
+	s->backgroundLoaded = FALSE;
+
+	return;
+    }
+    else
+    {
+	if (!s->backgroundLoaded)
+	    updateScreenBackground (s, bg);
+
+	s->backgroundLoaded = TRUE;
+    }
+
+    data = malloc (sizeof (GLfloat) * nBox * 16);
+    if (!data)
+	return;
+
+    d = data;
+    n = nBox;
+    while (n--)
+    {
+	*d++ = COMP_TEX_COORD_X (&bg->matrix, pBox->x1);
+	*d++ = COMP_TEX_COORD_Y (&bg->matrix, pBox->y2);
+
+	*d++ = pBox->x1;
+	*d++ = pBox->y2;
+
+	*d++ = COMP_TEX_COORD_X (&bg->matrix, pBox->x2);
+	*d++ = COMP_TEX_COORD_Y (&bg->matrix, pBox->y2);
+
+	*d++ = pBox->x2;
+	*d++ = pBox->y2;
+
+	*d++ = COMP_TEX_COORD_X (&bg->matrix, pBox->x2);
+	*d++ = COMP_TEX_COORD_Y (&bg->matrix, pBox->y1);
+
+	*d++ = pBox->x2;
+	*d++ = pBox->y1;
+
+	*d++ = COMP_TEX_COORD_X (&bg->matrix, pBox->x1);
+	*d++ = COMP_TEX_COORD_Y (&bg->matrix, pBox->y1);
+
+	*d++ = pBox->x1;
+	*d++ = pBox->y1;
+
+	pBox++;
+    }
+
+    glTexCoordPointer (2, GL_FLOAT, sizeof (GLfloat) * 4, data);
+    glVertexPointer (2, GL_FLOAT, sizeof (GLfloat) * 4, data + 2);
+
+    if (bg->name)
+    {
+	if (transformed)
+	    enableTexture (s, bg, COMP_TEXTURE_FILTER_GOOD);
+	else
+	    enableTexture (s, bg, COMP_TEXTURE_FILTER_FAST);
+
+	glDrawArrays (GL_QUADS, 0, nBox * 4);
+
+	disableTexture (s, bg);
+    }
+    else
+    {
+	glColor4us (0, 0, 0, 0);
+	glDrawArrays (GL_QUADS, 0, nBox * 4);
+	glColor4usv (defaultColor);
+    }
+
+    free (data);
+}
+
+
 /* This function currently always performs occlusion detection to
    minimize paint regions. OpenGL precision requirements are no good
    enough to guarantee that the results from using occlusion detection
@@ -161,13 +254,14 @@ paintOutputRegion (CompScreen	       *screen,
     static Region tmpRegion = NULL;
     CompWindow    *w;
     CompCursor	  *c;
-    int		  count, windowMask, backgroundMask, odMask, i;
+    int		  count, windowMask, odMask, i;
     CompWindow	  *fullscreenWindow = NULL;
     CompWalker    walk;
     Bool          status;
     Bool          withOffset = FALSE;
     CompTransform vTransform;
     int           offX, offY;
+    Region        clip = region;
 
     if (!tmpRegion)
     {
@@ -178,13 +272,11 @@ paintOutputRegion (CompScreen	       *screen,
 
     if (mask & PAINT_SCREEN_TRANSFORMED_MASK)
     {
-	backgroundMask = PAINT_BACKGROUND_ON_TRANSFORMED_SCREEN_MASK;
 	windowMask     = PAINT_WINDOW_ON_TRANSFORMED_SCREEN_MASK;
 	count	       = 1;
     }
     else
     {
-	backgroundMask = 0;
 	windowMask     = 0;
 	count	       = 0;
     }
@@ -193,84 +285,90 @@ paintOutputRegion (CompScreen	       *screen,
 
     (*screen->initWindowWalker) (screen, &walk);
 
-    /* detect occlusions */
-    for (w = (*walk.last) (screen); w; w = (*walk.prev) (w))
+    if (!(mask & PAINT_SCREEN_NO_OCCLUSION_DETECTION_MASK))
     {
-	if (w->destroyed)
-	    continue;
-
-	if (!w->shaded)
+	/* detect occlusions */
+	for (w = (*walk.last) (screen); w; w = (*walk.prev) (w))
 	{
-	    if (w->attrib.map_state != IsViewable || !w->damaged)
+	    if (w->destroyed)
 		continue;
-	}
 
-	/* copy region */
-	XSubtractRegion (tmpRegion, &emptyRegion, w->clip);
-
-	odMask = PAINT_WINDOW_OCCLUSION_DETECTION_MASK;
-	
-	if ((screen->windowOffsetX != 0 || screen->windowOffsetY != 0) &&
-	    !windowOnAllViewports (w))
-	{
-	    withOffset = TRUE;
-
-	    getWindowMovementForOffset (w, screen->windowOffsetX,
-					screen->windowOffsetY, &offX, &offY);
-
-	    vTransform = *transform;
-	    matrixTranslate (&vTransform, offX, offY, 0);
- 
-	    XOffsetRegion (w->clip, -offX, -offY);
-
-	    odMask |= PAINT_WINDOW_WITH_OFFSET_MASK;
-	    status = (*screen->paintWindow) (w, &w->paint, &vTransform,
-					     tmpRegion, odMask);
-	}
-	else
-	{
-	    withOffset = FALSE;
-	    status = (*screen->paintWindow) (w, &w->paint, transform, tmpRegion,
-					     odMask);
-	}
-
-	if (status)
-	{
-	    if (withOffset)
+	    if (!w->shaded)
 	    {
-		XOffsetRegion (w->region, offX, offY);
-		XSubtractRegion (tmpRegion, w->region, tmpRegion);
-		XOffsetRegion (w->region, -offX, -offY);
+		if (w->attrib.map_state != IsViewable || !w->damaged)
+		    continue;
+	    }
+
+	    /* copy region */
+	    XSubtractRegion (tmpRegion, &emptyRegion, w->clip);
+
+	    odMask = PAINT_WINDOW_OCCLUSION_DETECTION_MASK;
+		
+	    if ((screen->windowOffsetX != 0 || screen->windowOffsetY != 0) &&
+		!windowOnAllViewports (w))
+	    {
+		withOffset = TRUE;
+
+		getWindowMovementForOffset (w, screen->windowOffsetX,
+					    screen->windowOffsetY,
+					    &offX, &offY);
+
+		vTransform = *transform;
+		matrixTranslate (&vTransform, offX, offY, 0);
+	 
+		XOffsetRegion (w->clip, -offX, -offY);
+
+		odMask |= PAINT_WINDOW_WITH_OFFSET_MASK;
+		status = (*screen->paintWindow) (w, &w->paint, &vTransform,
+						 tmpRegion, odMask);
 	    }
 	    else
-		XSubtractRegion (tmpRegion, w->region, tmpRegion);
-
-	    /* unredirect top most fullscreen windows. */
-	    if (count == 0 &&
-		screen->opt[COMP_SCREEN_OPTION_UNREDIRECT_FS].value.b)
 	    {
-		if (XEqualRegion (w->region, &screen->region) &&
-		    !REGION_NOT_EMPTY (tmpRegion))
+		withOffset = FALSE;
+		status = (*screen->paintWindow) (w, &w->paint, transform, tmpRegion,
+						 odMask);
+	    }
+
+	    if (status)
+	    {
+		if (withOffset)
 		{
-		    fullscreenWindow = w;
+		    XOffsetRegion (w->region, offX, offY);
+		    XSubtractRegion (tmpRegion, w->region, tmpRegion);
+		    XOffsetRegion (w->region, -offX, -offY);
 		}
 		else
+		    XSubtractRegion (tmpRegion, w->region, tmpRegion);
+
+		/* unredirect top most fullscreen windows. */
+		if (count == 0 &&
+		    screen->opt[COMP_SCREEN_OPTION_UNREDIRECT_FS].value.b)
 		{
-		    for (i = 0; i < screen->nOutputDev; i++)
-			if (XEqualRegion (w->region,
-					  &screen->outputDev[i].region))
-			    fullscreenWindow = w;
+		    if (XEqualRegion (w->region, &screen->region) &&
+			!REGION_NOT_EMPTY (tmpRegion))
+		    {
+			fullscreenWindow = w;
+		    }
+		    else
+		    {
+			for (i = 0; i < screen->nOutputDev; i++)
+			    if (XEqualRegion (w->region,
+					      &screen->outputDev[i].region))
+				fullscreenWindow = w;
+		    }
 		}
 	    }
-	}
 
-	count++;
+	    count++;
+	}
     }
 
     if (fullscreenWindow)
 	unredirectWindow (fullscreenWindow);
 
-    (*screen->paintBackground) (screen, tmpRegion, backgroundMask);
+    if (!(mask & PAINT_SCREEN_NO_BACKGROUND_MASK))
+	paintBackground (screen, tmpRegion,
+			 (mask & PAINT_SCREEN_TRANSFORMED_MASK));
 
     /* paint all windows from bottom to top */
     for (w = (*walk.first) (screen); w; w = (*walk.next) (w))
@@ -287,6 +385,9 @@ paintOutputRegion (CompScreen	       *screen,
 		continue;
 	}
 
+	if (!(mask & PAINT_SCREEN_NO_OCCLUSION_DETECTION_MASK))
+	    clip = w->clip;
+
 	if ((screen->windowOffsetX != 0 || screen->windowOffsetY != 0) &&
 	    !windowOnAllViewports (w))
 	{
@@ -295,12 +396,12 @@ paintOutputRegion (CompScreen	       *screen,
 
 	    vTransform = *transform;
 	    matrixTranslate (&vTransform, offX, offY, 0);
-	    (*screen->paintWindow) (w, &w->paint, &vTransform, w->clip,
+	    (*screen->paintWindow) (w, &w->paint, &vTransform, clip,
 				    windowMask | PAINT_WINDOW_WITH_OFFSET_MASK);
 	}
 	else
 	{
-	    (*screen->paintWindow) (w, &w->paint, transform, w->clip,
+	    (*screen->paintWindow) (w, &w->paint, transform, clip,
 				    windowMask);
 	}
     }
@@ -469,37 +570,45 @@ paintOutput (CompScreen		     *screen,
     for (it = 0; it < n; it++)			   \
     {						   \
 	*(data)++ = COMP_TEX_COORD_X (&m[it], x1); \
-	*(data)++ = COMP_TEX_COORD_Y (&m[it], y2); \
-    }						   \
-    *(data)++ = (x1);				   \
-    *(data)++ = (y2);				   \
-    *(data)++ = 0.0;				   \
-    for (it = 0; it < n; it++)			   \
-    {						   \
-	*(data)++ = COMP_TEX_COORD_X (&m[it], x2); \
-	*(data)++ = COMP_TEX_COORD_Y (&m[it], y2); \
-    }						   \
-    *(data)++ = (x2);				   \
-    *(data)++ = (y2);				   \
-    *(data)++ = 0.0;				   \
-    for (it = 0; it < n; it++)			   \
-    {						   \
-	*(data)++ = COMP_TEX_COORD_X (&m[it], x2); \
 	*(data)++ = COMP_TEX_COORD_Y (&m[it], y1); \
     }						   \
-    *(data)++ = (x2);				   \
+    *(data)++ = (x1);				   \
     *(data)++ = (y1);				   \
     *(data)++ = 0.0;				   \
     for (it = 0; it < n; it++)			   \
     {						   \
 	*(data)++ = COMP_TEX_COORD_X (&m[it], x1); \
-	*(data)++ = COMP_TEX_COORD_Y (&m[it], y1); \
+	*(data)++ = COMP_TEX_COORD_Y (&m[it], y2); \
     }						   \
     *(data)++ = (x1);				   \
+    *(data)++ = (y2);				   \
+    *(data)++ = 0.0;				   \
+    for (it = 0; it < n; it++)			   \
+    {						   \
+	*(data)++ = COMP_TEX_COORD_X (&m[it], x2); \
+	*(data)++ = COMP_TEX_COORD_Y (&m[it], y2); \
+    }						   \
+    *(data)++ = (x2);				   \
+    *(data)++ = (y2);				   \
+    *(data)++ = 0.0;				   \
+    for (it = 0; it < n; it++)			   \
+    {						   \
+	*(data)++ = COMP_TEX_COORD_X (&m[it], x2); \
+	*(data)++ = COMP_TEX_COORD_Y (&m[it], y1); \
+    }						   \
+    *(data)++ = (x2);				   \
     *(data)++ = (y1);				   \
     *(data)++ = 0.0
 
 #define ADD_QUAD(data, m, n, x1, y1, x2, y2)		\
+    for (it = 0; it < n; it++)				\
+    {							\
+	*(data)++ = COMP_TEX_COORD_XY (&m[it], x1, y1);	\
+	*(data)++ = COMP_TEX_COORD_YX (&m[it], x1, y1);	\
+    }							\
+    *(data)++ = (x1);					\
+    *(data)++ = (y1);					\
+    *(data)++ = 0.0;					\
     for (it = 0; it < n; it++)				\
     {							\
 	*(data)++ = COMP_TEX_COORD_XY (&m[it], x1, y2);	\
@@ -522,14 +631,6 @@ paintOutput (CompScreen		     *screen,
 	*(data)++ = COMP_TEX_COORD_YX (&m[it], x2, y1);	\
     }							\
     *(data)++ = (x2);					\
-    *(data)++ = (y1);					\
-    *(data)++ = 0.0;					\
-    for (it = 0; it < n; it++)				\
-    {							\
-	*(data)++ = COMP_TEX_COORD_XY (&m[it], x1, y1);	\
-	*(data)++ = COMP_TEX_COORD_YX (&m[it], x1, y1);	\
-    }							\
-    *(data)++ = (x1);					\
     *(data)++ = (y1);					\
     *(data)++ = 0.0;
 
@@ -1063,11 +1164,13 @@ drawWindowTexture (CompWindow		*w,
     else
 	filter = w->screen->filter[NOTHING_TRANS_FILTER];
 
-    if (!attrib->nFunction || !enableFragmentProgramAndDrawGeometry (w,
-								     texture,
-								     attrib,
-								     filter,
-								     mask))
+    if ((!attrib->nFunction && (!w->screen->lighting ||
+	 attrib->saturation == COLOR || attrib->saturation == 0)) ||
+	!enableFragmentProgramAndDrawGeometry (w,
+					       texture,
+					       attrib,
+					       filter,
+					       mask))
     {
 	enableFragmentOperationsAndDrawGeometry (w,
 						 texture,
@@ -1160,103 +1263,4 @@ paintWindow (CompWindow		     *w,
 	glPopMatrix ();
 
     return status;
-}
-
-void
-paintBackground (CompScreen   *s,
-		 Region	      region,
-		 unsigned int mask)
-{
-    CompTexture *bg = &s->backgroundTexture;
-    BoxPtr      pBox = region->rects;
-    int	        n, nBox = region->numRects;
-    GLfloat     *d, *data;
-
-    if (!nBox)
-	return;
-
-    if (s->desktopWindowCount)
-    {
-	if (bg->name)
-	{
-	    finiTexture (s, bg);
-	    initTexture (s, bg);
-	}
-
-	s->backgroundLoaded = FALSE;
-
-	return;
-    }
-    else
-    {
-	if (!s->backgroundLoaded)
-	    updateScreenBackground (s, bg);
-
-	s->backgroundLoaded = TRUE;
-    }
-
-    data = malloc (sizeof (GLfloat) * nBox * 16);
-    if (!data)
-	return;
-
-    d = data;
-    n = nBox;
-    while (n--)
-    {
-	*d++ = COMP_TEX_COORD_X (&bg->matrix, pBox->x1);
-	*d++ = COMP_TEX_COORD_Y (&bg->matrix, pBox->y2);
-
-	*d++ = pBox->x1;
-	*d++ = pBox->y2;
-
-	*d++ = COMP_TEX_COORD_X (&bg->matrix, pBox->x2);
-	*d++ = COMP_TEX_COORD_Y (&bg->matrix, pBox->y2);
-
-	*d++ = pBox->x2;
-	*d++ = pBox->y2;
-
-	*d++ = COMP_TEX_COORD_X (&bg->matrix, pBox->x2);
-	*d++ = COMP_TEX_COORD_Y (&bg->matrix, pBox->y1);
-
-	*d++ = pBox->x2;
-	*d++ = pBox->y1;
-
-	*d++ = COMP_TEX_COORD_X (&bg->matrix, pBox->x1);
-	*d++ = COMP_TEX_COORD_Y (&bg->matrix, pBox->y1);
-
-	*d++ = pBox->x1;
-	*d++ = pBox->y1;
-
-	pBox++;
-    }
-
-    glTexCoordPointer (2, GL_FLOAT, sizeof (GLfloat) * 4, data);
-    glVertexPointer (2, GL_FLOAT, sizeof (GLfloat) * 4, data + 2);
-
-    if (s->desktopWindowCount)
-    {
-	glDrawArrays (GL_QUADS, 0, nBox * 4);
-    }
-    else
-    {
-	if (bg->name)
-	{
-	    if (mask & PAINT_BACKGROUND_ON_TRANSFORMED_SCREEN_MASK)
-		enableTexture (s, bg, COMP_TEXTURE_FILTER_GOOD);
-	    else
-		enableTexture (s, bg, COMP_TEXTURE_FILTER_FAST);
-
-	    glDrawArrays (GL_QUADS, 0, nBox * 4);
-
-	    disableTexture (s, bg);
-	}
-	else
-	{
-	    glColor4us (0, 0, 0, 0);
-	    glDrawArrays (GL_QUADS, 0, nBox * 4);
-	    glColor4usv (defaultColor);
-	}
-    }
-
-    free (data);
 }

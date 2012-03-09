@@ -1894,6 +1894,7 @@ addWindow (CompScreen *screen,
 {
     CompWindow  *w;
     CompPrivate	*privates;
+    CompDisplay *d = screen->display;
 
     w = (CompWindow *) malloc (sizeof (CompWindow));
     if (!w)
@@ -1979,9 +1980,6 @@ addWindow (CompScreen *screen,
     w->output.top    = 0;
     w->output.bottom = 0;
 
-    w->paint.opacity	= w->opacity    = OPAQUE;
-    w->paint.brightness = w->brightness = 0xffff;
-    w->paint.saturation = w->saturation = COLOR;
     w->paint.xScale	= 1.0f;
     w->paint.yScale	= 1.0f;
     w->paint.xTranslate	= 0.0f;
@@ -2040,7 +2038,7 @@ addWindow (CompScreen *screen,
        window to the window list as we might get configure requests which
        require us to stack other windows relative to it. Setting some default
        values if this is the case. */
-    if (!XGetWindowAttributes (screen->display->display, id, &w->attrib))
+    if (!XGetWindowAttributes (d->display, id, &w->attrib))
 	setDefaultWindowAttributes (&w->attrib);
 
     w->serverWidth	 = w->attrib.width;
@@ -2069,16 +2067,15 @@ addWindow (CompScreen *screen,
 
     w->saveMask = 0;
 
-    XSelectInput (screen->display->display, id,
+    XSelectInput (d->display, id,
 		  PropertyChangeMask |
 		  EnterWindowMask    |
 		  FocusChangeMask);
 
     w->id = id;
 
-    XGrabButton (screen->display->display, AnyButton,
-		 AnyModifier, w->id, TRUE, ButtonPressMask |
-		 ButtonReleaseMask | ButtonMotionMask,
+    XGrabButton (d->display, AnyButton, AnyModifier, w->id, TRUE,
+		 ButtonPressMask | ButtonReleaseMask | ButtonMotionMask,
 		 GrabModeSync, GrabModeSync, None, None);
 
     w->inputHint = TRUE;
@@ -2088,10 +2085,10 @@ addWindow (CompScreen *screen,
     w->actions   = 0;
     w->protocols = 0;
     w->type      = CompWindowTypeUnknownMask;
-    w->lastPong  = screen->display->lastPing;
+    w->lastPong  = d->lastPing;
 
-    if (screen->display->shapeExtension)
-	XShapeSelectInput (screen->display->display, id, ShapeNotifyMask);
+    if (d->shapeExtension)
+	XShapeSelectInput (d->display, id, ShapeNotifyMask);
 
     insertWindowIntoScreen (screen, w, aboveId);
 
@@ -2111,11 +2108,11 @@ addWindow (CompScreen *screen,
 
 	XUnionRegion (&rect, w->region, w->region);
 
-	w->damage = XDamageCreate (screen->display->display, id,
+	w->damage = XDamageCreate (d->display, id,
 				   XDamageReportRawRectangles);
 
 	/* need to check for DisplayModal state on all windows */
-	w->state = getWindowState (screen->display, w->id);
+	w->state = getWindowState (d, w->id);
 
 	updateWindowClassHints (w);
     }
@@ -2127,8 +2124,8 @@ addWindow (CompScreen *screen,
 
     w->invisible = TRUE;
 
-    w->wmType    = getWindowType (screen->display, w->id);
-    w->protocols = getProtocols (screen->display, w->id);
+    w->wmType    = getWindowType (d, w->id);
+    w->protocols = getProtocols (d, w->id);
 
     if (!w->attrib.override_redirect)
     {
@@ -2143,51 +2140,39 @@ addWindow (CompScreen *screen,
 
 	recalcWindowType (w);
 
-	getMwmHints (screen->display, w->id, &w->mwmFunc, &w->mwmDecor);
+	getMwmHints (d, w->id, &w->mwmFunc, &w->mwmDecor);
 
 	if (!(w->type & (CompWindowTypeDesktopMask | CompWindowTypeDockMask)))
 	{
-	    w->desktop = getWindowProp (screen->display, w->id,
-					screen->display->winDesktopAtom,
+	    w->desktop = getWindowProp (d, w->id, d->winDesktopAtom,
 					w->desktop);
 	    if (w->desktop != 0xffffffff)
 	    {
 		if (w->desktop >= screen->nDesktop)
 		    w->desktop = screen->currentDesktop;
 	    }
-
-	    if (!(w->type & CompWindowTypeDesktopMask))
-		w->opacityPropSet =
-		    readWindowProp32 (screen->display, w->id,
-				      screen->display->winOpacityAtom,
-				      &w->opacity);
-	}
-
-	w->brightness =
-	    getWindowProp32 (screen->display, w->id,
-			     screen->display->winBrightnessAtom,
-			     BRIGHT);
-
-	if (w->alive)
-	{
-	    w->paint.opacity    = w->opacity;
-	    w->paint.brightness = w->brightness;
-	}
-
-	if (screen->canDoSaturated)
-	{
-	    w->saturation =
-		getWindowProp32 (screen->display, w->id,
-				 screen->display->winSaturationAtom,
-				 COLOR);
-	    if (w->alive)
-		w->paint.saturation = w->saturation;
 	}
     }
     else
     {
 	recalcWindowType (w);
     }
+
+    w->opacity = OPAQUE;
+    if (!(w->type & CompWindowTypeDesktopMask))
+	w->opacityPropSet = readWindowProp32 (d, w->id, d->winOpacityAtom,
+					      &w->opacity);
+
+    w->brightness = getWindowProp32 (d, w->id, d->winBrightnessAtom, BRIGHT);
+
+    if (screen->canDoSaturated)
+	w->saturation = getWindowProp32 (d, w->id, d->winSaturationAtom, COLOR);
+    else
+	w->saturation = COLOR;
+	
+    w->paint.opacity    = w->opacity;
+    w->paint.brightness = w->brightness;
+    w->paint.saturation = w->saturation;
 
     if (w->attrib.map_state == IsViewable)
     {
@@ -2197,7 +2182,7 @@ addWindow (CompScreen *screen,
 	{
 	    w->managed = TRUE;
 
-	    if (getWmState (screen->display, w->id) == IconicState)
+	    if (getWmState (d, w->id) == IconicState)
 	    {
 		if (w->state & CompWindowStateShadedMask)
 		    w->shaded = TRUE;
@@ -2216,9 +2201,7 @@ addWindow (CompScreen *screen,
 		    if (w->desktop != 0xffffffff)
 			w->desktop = screen->currentDesktop;
 
-		    setWindowProp (screen->display, w->id,
-				   screen->display->winDesktopAtom,
-				   w->desktop);
+		    setWindowProp (d, w->id, d->winDesktopAtom, w->desktop);
 		}
 	    }
 	}
@@ -2236,14 +2219,14 @@ addWindow (CompScreen *screen,
 
 	    w->pendingUnmaps++;
 
-	    XUnmapWindow (screen->display->display, w->id);
+	    XUnmapWindow (d->display, w->id);
 
-	    setWindowState (screen->display, w->state, w->id);
+	    setWindowState (d, w->state, w->id);
 	}
     }
     else if (!w->attrib.override_redirect)
     {
-	if (getWmState (screen->display, w->id) == IconicState)
+	if (getWmState (d, w->id) == IconicState)
 	{
 	    w->managed = TRUE;
 	    w->placed  = TRUE;
@@ -3710,17 +3693,108 @@ addWindowSizeChanges (CompWindow     *w,
 	}
     }
 
-    if (xwc->x == oldX)
+    if ((mask & CWX) && (xwc->x == oldX))
 	mask &= ~CWX;
 
-    if (xwc->y == oldY)
+    if ((mask & CWY) && (xwc->y == oldY))
 	mask &= ~CWY;
 
-    if (xwc->width == oldWidth)
+    if ((mask & CWWidth) && (xwc->width == oldWidth))
 	mask &= ~CWWidth;
 
-    if (xwc->height == oldHeight)
+    if ((mask & CWHeight) && (xwc->height == oldHeight))
 	mask &= ~CWHeight;
+
+    return mask;
+}
+
+unsigned int
+adjustConfigureRequestForGravity (CompWindow     *w,
+				  XWindowChanges *xwc,
+				  unsigned int   xwcm,
+				  int            gravity)
+{
+    int          newX, newY;
+    unsigned int mask = 0;
+
+    newX = xwc->x;
+    newY = xwc->y;
+
+    if (xwcm & (CWX | CWWidth))
+    {
+	switch (gravity) {
+	case NorthWestGravity:
+	case WestGravity:
+	case SouthWestGravity:
+	    if (xwcm & CWX)
+		newX += w->input.left;
+	    break;
+
+	case NorthGravity:
+	case CenterGravity:
+	case SouthGravity:
+	    if (!(xwcm & CWX))
+		newX += (w->serverWidth - xwc->width) / 2;
+	    break;
+
+	case NorthEastGravity:
+	case EastGravity:
+	case SouthEastGravity:
+	    if (xwcm & CWX)
+		newX -= w->input.right;
+	    else
+		newX += w->serverWidth - xwc->width;
+	    break;
+
+	case StaticGravity:
+	default:
+	    break;
+	}
+    }
+
+    if (xwcm & (CWY | CWHeight))
+    {
+	switch (gravity) {
+	case NorthWestGravity:
+	case NorthGravity:
+	case NorthEastGravity:
+	    if (xwcm & CWY)
+		newY += w->input.top;
+	    break;
+
+	case WestGravity:
+	case CenterGravity:
+	case EastGravity:
+	    if (!(xwcm & CWY))
+		newY += (w->serverHeight - xwc->height) / 2;
+	    break;
+
+	case SouthWestGravity:
+	case SouthGravity:
+	case SouthEastGravity:
+	    if (xwcm & CWY)
+		newY -= w->input.bottom;
+	    else
+		newY += w->serverHeight - xwc->height;
+	    break;
+
+	case StaticGravity:
+	default:
+	    break;
+	}
+    }
+
+    if (newX != xwc->x)
+    {
+	xwc->x = newX;
+	mask |= CWX;
+    }
+
+    if (newY != xwc->y)
+    {
+	xwc->y = newY;
+	mask |= CWY;
+    }
 
     return mask;
 }
@@ -3766,73 +3840,7 @@ moveResizeWindow (CompWindow     *w,
 	}
     }
 
-    if (xwcm & (CWX | CWWidth))
-    {
-	switch (gravity) {
-	case NorthWestGravity:
-	case WestGravity:
-	case SouthWestGravity:
-	    if (xwcm & CWX)
-		xwc->x += w->input.left;
-	    break;
-
-	case NorthGravity:
-	case CenterGravity:
-	case SouthGravity:
-	    if (!(xwcm & CWX))
-		xwc->x += (w->serverWidth - xwc->width) / 2;
-	    break;
-
-	case NorthEastGravity:
-	case EastGravity:
-	case SouthEastGravity:
-	    if (xwcm & CWX)
-		xwc->x -= w->input.right;
-	    else
-		xwc->x += w->serverWidth - xwc->width;
-	    break;
-
-	case StaticGravity:
-	default:
-	    break;
-	}
-
-	xwcm |= CWX;
-    }
-
-    if (xwcm & (CWY | CWHeight))
-    {
-	switch (gravity) {
-	case NorthWestGravity:
-	case NorthGravity:
-	case NorthEastGravity:
-	    if (xwcm & CWY)
-		xwc->y += w->input.top;
-	    break;
-
-	case WestGravity:
-	case CenterGravity:
-	case EastGravity:
-	    if (!(xwcm & CWY))
-		xwc->y += (w->serverHeight - xwc->height) / 2;
-	    break;
-
-	case SouthWestGravity:
-	case SouthGravity:
-	case SouthEastGravity:
-	    if (xwcm & CWY)
-		xwc->y -= w->input.bottom;
-	    else
-		xwc->y += w->serverHeight - xwc->height;
-	    break;
-
-	case StaticGravity:
-	default:
-	    break;
-	}
-
-	xwcm |= CWY;
-    }
+    xwcm |= adjustConfigureRequestForGravity (w, xwc, xwcm, gravity);
 
     if (!(w->type & (CompWindowTypeDockMask       |
 		     CompWindowTypeFullscreenMask |
@@ -4586,7 +4594,7 @@ minimizeTransients (CompWindow *w,
 void
 minimizeWindow (CompWindow *w)
 {
-    if (!(w->actions & CompWindowActionMinimizeMask))
+    if (!w->managed)
 	return;
 
     if (!w->minimized)
@@ -4744,11 +4752,6 @@ isWindowFocusAllowed (CompWindow *w,
     if (level == FOCUS_PREVENTION_LEVEL_NONE)
 	return TRUE;
 
-    /* not in current viewport */
-    defaultViewportForWindow (w, &vx, &vy);
-    if (vx != s->x || vy != s->y)
-	return FALSE;
-
     if (timestamp)
     {
 	/* the caller passed a timestamp, so use that
@@ -4784,6 +4787,11 @@ isWindowFocusAllowed (CompWindow *w,
 	return TRUE;
 
     if (level == FOCUS_PREVENTION_LEVEL_VERYHIGH)
+	return FALSE;
+
+    /* not in current viewport */
+    defaultViewportForWindow (w, &vx, &vy);
+    if (vx != s->x || vy != s->y)
 	return FALSE;
 
     if (!gotTimestamp)

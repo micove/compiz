@@ -173,7 +173,7 @@ closeWin (CompDisplay     *d,
     time = getIntOptionNamed (option, nOption, "time", CurrentTime);
 
     w = findTopLevelWindowAtDisplay (d, xid);
-    if (w)
+    if (w && (w->actions & CompWindowActionCloseMask))
 	closeWindow (w, time);
 
     return TRUE;
@@ -255,7 +255,7 @@ minimize (CompDisplay     *d,
     xid = getIntOptionNamed (option, nOption, "window", 0);
 
     w = findTopLevelWindowAtDisplay (d, xid);
-    if (w)
+    if (w && (w->actions & CompWindowActionMinimizeMask))
 	minimizeWindow (w);
 
     return TRUE;
@@ -577,7 +577,7 @@ windowMenu (CompDisplay     *d,
     xid = getIntOptionNamed (option, nOption, "window", 0);
 
     w = findTopLevelWindowAtDisplay (d, xid);
-    if (w)
+    if (w && !w->screen->maxGrab)
     {
 	int  x, y, button;
 	Time time;
@@ -1735,9 +1735,14 @@ eventLoop (void)
 				glClear (GL_COLOR_BUFFER_BIT);
 			}
 
-			(*s->paintScreen) (s, s->outputDev,
-					   s->nOutputDev,
-					   mask);
+			if (s->opt[COMP_SCREEN_OPTION_FORCE_INDEPENDENT].value.b
+			    || !s->hasOverlappingOutputs)
+			    (*s->paintScreen) (s, s->outputDev,
+					       s->nOutputDev,
+					       mask);
+			else
+			    (*s->paintScreen) (s, &s->fullscreenOutput, 1,
+					       mask);
 
 			targetScreen = NULL;
 			targetOutput = &s->outputDev[0];
