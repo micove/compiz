@@ -1,0 +1,1233 @@
+# translation of compiz.po to Finnish
+# translation of compiz.po to
+# Copyright (C) 2005 SUSE Linux Products GmbH.
+# Finnish message file for YaST2 (@memory@).
+# Copyright (C) 2003 SuSE Linux AG.
+#
+# Michael Hintsala <mhintsa@fi.ibm.com>, 2003. 2001.
+# Jyri Palokangas <jmp@netti.fi>, 2006.
+# Jouni Hätinen <jounihat@iki.fi>, 2006.
+# Jani-Matti Hätinen <jani-matti.hatinen@iki.fi>, 2006.
+msgid ""
+msgstr ""
+"Project-Id-Version: compiz\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2006-07-20 17:49-0400\n"
+"PO-Revision-Date: 2006-07-20 10:19-0400\n"
+"Last-Translator: Jani-Matti Hätinen <jani-matti.hatinen@iki.fi>\n"
+"Language-Team: Finnish <fi@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: KBabel 1.11.2\n"
+
+#: plugins/cube.c:848
+msgid "Cube Color"
+msgstr "Kuution väri"
+
+#: plugins/cube.c:849
+msgid "Color of top and bottom sides of the cube"
+msgstr "Kuution pohjan ja kannen väri"
+
+#: plugins/cube.c:858
+msgid "Inside Cube"
+msgstr "Kuution sisäpinta"
+
+#: plugins/cube.c:859
+msgid "Inside cube"
+msgstr "Kuution sisäpinta"
+
+#: plugins/cube.c:865
+msgid "Scale image"
+msgstr "Skaalaa kuvaa"
+
+#: plugins/cube.c:866
+msgid "Scale images to cover top face of cube"
+msgstr "Skaalaa kuva kuution katon kokoiseksi"
+
+#: plugins/cube.c:872
+msgid "Image files"
+msgstr "Kuvatiedostot"
+
+#: plugins/cube.c:873
+msgid "List of PNG and SVG files that should be rendered on top face of cube"
+msgstr "Lista kuution päälle asetettavista PNG- ja SVG-tiedostoista"
+
+#: plugins/cube.c:886
+msgid "Next Slide"
+msgstr "Seuraava dia"
+
+#: plugins/cube.c:887
+msgid "Advance to next slide"
+msgstr "Etene seuraavaan diaan"
+
+#: plugins/cube.c:896
+msgid "Previous Slide"
+msgstr "Edellinen dia"
+
+#: plugins/cube.c:897
+msgid "Go back to previous slide"
+msgstr "Takaisin edelliseen diaan"
+
+#: plugins/cube.c:906
+msgid "Skydome"
+msgstr "Taivas"
+
+#: plugins/cube.c:907
+msgid "Render skydome"
+msgstr "Näytä taivas"
+
+#: plugins/cube.c:913
+msgid "Skydome Image"
+msgstr "Taivaan kuva"
+
+#: plugins/cube.c:914
+msgid "Image to use as texture for the skydome"
+msgstr "Taivaana käytettävä kuva"
+
+#: plugins/cube.c:922
+msgid "Animate Skydome"
+msgstr "Animoi taivas"
+
+#: plugins/cube.c:923
+msgid "Animate skydome when rotating cube"
+msgstr "Animoi taivas työpöytäkuutiota käännettäessä"
+
+#: plugins/cube.c:929
+msgid "Unfold"
+msgstr "Levitä"
+
+#: plugins/cube.c:930
+msgid "Unfold cube"
+msgstr "Levitä kuutio"
+
+# workflow: "3D Beschleunigung aktivieren"
+# -ke-
+#: plugins/cube.c:940 plugins/rotate.c:373
+msgid "Acceleration"
+msgstr "Kiihdytys"
+
+# workflow: "3D Beschleunigung aktivieren"
+# -ke-
+#: plugins/cube.c:941
+msgid "Fold Acceleration"
+msgstr "Taittamisen kiihdytys"
+
+#: plugins/cube.c:950 plugins/minimize.c:203 plugins/rotate.c:483
+#: plugins/scale.c:326 plugins/switcher.c:419 plugins/zoom.c:261
+msgid "Speed"
+msgstr "Nopeus"
+
+#: plugins/cube.c:951
+msgid "Fold Speed"
+msgstr "Taittamisen nopeus"
+
+#: plugins/cube.c:960 plugins/minimize.c:213 plugins/rotate.c:493
+#: plugins/scale.c:336 plugins/switcher.c:429 plugins/zoom.c:271
+msgid "Timestep"
+msgstr "Aikaviive"
+
+#: plugins/cube.c:961
+msgid "Fold Timestep"
+msgstr "Taittamisen aikaviive"
+
+#: plugins/cube.c:970 plugins/switcher.c:454
+msgid "Mipmap"
+msgstr "Mipmap"
+
+#: plugins/cube.c:971 plugins/switcher.c:455
+msgid "Generate mipmaps when possible for higher quality scaling"
+msgstr "Luo mipmap skaalauksen laadun parantamiseksi mikäli se on mahdollista"
+
+#: plugins/cube.c:1642
+msgid "Desktop Cube"
+msgstr "Työpöytäkuutio"
+
+#: plugins/cube.c:1643
+msgid "Place windows on cube"
+msgstr "Asettele ikkunat työpöytäkuution pinnalle"
+
+#: plugins/decoration.c:234
+msgid "Shadow Radius"
+msgstr "Varjon säde"
+
+#: plugins/decoration.c:235
+msgid "Drop shadow radius"
+msgstr "Varjon säde"
+
+#: plugins/decoration.c:244
+msgid "Shadow Opacity"
+msgstr "Varjon vahvuus"
+
+#: plugins/decoration.c:245
+msgid "Drop shadow opacity"
+msgstr "Varjon vahvuus"
+
+#: plugins/decoration.c:254
+msgid "Shadow Offset X"
+msgstr "Varjon poikkeama (X)"
+
+#: plugins/decoration.c:255
+msgid "Drop shadow X offset"
+msgstr "Varjon X-poikkeama (-16 - 16)"
+
+#: plugins/decoration.c:263
+msgid "Shadow Offset Y"
+msgstr "Varjon poikkeama (Y)"
+
+#: plugins/decoration.c:264
+msgid "Drop shadow Y offset"
+msgstr "Varjon Y-poikkeama (-16 - 16)"
+
+#: plugins/decoration.c:1353
+msgid "Window Decoration"
+msgstr "Ikkunan kehykset"
+
+#: plugins/decoration.c:1354
+msgid "Window decorations"
+msgstr "Ikkunan kehykset"
+
+#: plugins/fade.c:37 src/main.c:55
+msgid "Dock"
+msgstr "paneeli"
+
+#: plugins/fade.c:38 plugins/minimize.c:49 plugins/scale.c:72
+#: plugins/switcher.c:81 plugins/wobbly.c:158 src/main.c:56
+msgid "Toolbar"
+msgstr "työkalupalkki"
+
+#: plugins/fade.c:39 plugins/wobbly.c:159 src/main.c:57
+msgid "Menu"
+msgstr "valikko"
+
+#: plugins/fade.c:40 plugins/minimize.c:50 plugins/scale.c:73
+#: plugins/switcher.c:82 plugins/wobbly.c:160 src/main.c:58
+msgid "Utility"
+msgstr "työkalu"
+
+#: plugins/fade.c:41 plugins/wobbly.c:151 src/main.c:59
+msgid "Splash"
+msgstr "käynnistysikkuna"
+
+#: plugins/fade.c:42 plugins/minimize.c:52 plugins/scale.c:77
+#: plugins/switcher.c:86 plugins/wobbly.c:163 src/main.c:62
+msgid "Normal"
+msgstr "ikkuna"
+
+#: plugins/fade.c:43 plugins/minimize.c:51 plugins/scale.c:74
+#: plugins/switcher.c:83 plugins/wobbly.c:161 src/main.c:60
+msgid "Dialog"
+msgstr "valintaikkuna"
+
+#: plugins/fade.c:44 plugins/scale.c:75 plugins/switcher.c:84
+#: plugins/wobbly.c:162 src/main.c:61
+msgid "ModalDialog"
+msgstr "pakotettu valintaikkuna"
+
+#: plugins/fade.c:45 plugins/wobbly.c:152 src/main.c:64
+msgid "Unknown"
+msgstr "tuntematon"
+
+#: plugins/fade.c:177
+msgid "Fade Speed"
+msgstr "Häivytyksen nopeus"
+
+#: plugins/fade.c:178
+msgid "Window fade speed"
+msgstr "Ikkunan häivytysnopeus"
+
+#: plugins/fade.c:187 plugins/minimize.c:223 plugins/scale.c:346
+#: plugins/switcher.c:439
+msgid "Window Types"
+msgstr "Ikkunatyypit"
+
+#: plugins/fade.c:188
+msgid "Window types that should be fading"
+msgstr "Häivytettävät ikkunatyypit"
+
+#: plugins/fade.c:202 plugins/wobbly.c:515
+msgid "Visual Bell"
+msgstr "Näkyvä kello"
+
+#: plugins/fade.c:203
+msgid "Fade effect on system beep"
+msgstr "Häivitystehoste järjestelmän huomatuksessa"
+
+#: plugins/fade.c:209
+msgid "Fullscreen Visual Bell"
+msgstr "Kokoruudun näkyvä kello"
+
+#: plugins/fade.c:210
+msgid "Fullscreen fade effect on system beep"
+msgstr "Kokoruudun häivytystehoste järjestelmän huomautuksesta"
+
+#: plugins/fade.c:811
+msgid "Fading Windows"
+msgstr "Ikkunoiden häivytys"
+
+#: plugins/fade.c:812
+msgid "Fade in windows when mapped and fade out windows when unmapped"
+msgstr "Ikkunat häivytetään näkyvistä/näkyviin"
+
+#. Decimal point character
+#: plugins/gconf-dump.c:80
+msgid "."
+msgstr "."
+
+#: plugins/gconf-dump.c:605
+msgid "Plugins that this must load before"
+msgstr "Etukäteen tätä varten ladattavat liitännäiset"
+
+#: plugins/gconf-dump.c:606 plugins/gconf-dump.c:616
+msgid "Do not modify"
+msgstr "Älä muuta"
+
+#: plugins/gconf-dump.c:615
+msgid "Plugins that this requires"
+msgstr "Tähän vaadittavat liitännäiset"
+
+#: plugins/minimize.c:204
+msgid "Minimize speed"
+msgstr "Pienennysnopeus"
+
+#: plugins/minimize.c:214
+msgid "Minimize timestep"
+msgstr "Pienennyksen aikaviive"
+
+#: plugins/minimize.c:224
+msgid "Window types that should be transformed when minimized"
+msgstr "Pienennettäessä animoitavat ikkunatyypit"
+
+#: plugins/minimize.c:239
+msgid "Shade Resistance"
+msgstr ""
+
+#: plugins/minimize.c:240
+msgid "Shade resistance"
+msgstr ""
+
+#: plugins/minimize.c:1044
+msgid "Minimize Effect"
+msgstr "Pienennystehoste"
+
+#: plugins/minimize.c:1045
+msgid "Transform windows when they are minimized and unminimized"
+msgstr "Animoi ikkunoiden pienennys ja suurennus"
+
+#: plugins/move.c:521
+msgid "Initiate Window Move"
+msgstr "Siirrä ikkunaa"
+
+#: plugins/move.c:522
+msgid "Start moving window"
+msgstr "Aloita ikkunan siirtäminen"
+
+#: plugins/move.c:540 plugins/scale.c:368 plugins/switcher.c:479
+msgid "Opacity"
+msgstr "Peittävyys"
+
+#: plugins/move.c:541
+msgid "Opacity level of moving windows"
+msgstr "Liikutettavien ikkunoiden peittävyys"
+
+#: plugins/move.c:549
+msgid "Constrain Y"
+msgstr "Rajoita Y-koordinaatti"
+
+#: plugins/move.c:550
+msgid "Constrain Y coordinate to workspace area"
+msgstr "Rajoita Y-koordinaatti työskentelyalueelle"
+
+#: plugins/move.c:556
+msgid "Snapoff maximized windows"
+msgstr "Vapauta suurennetut ikkunat"
+
+#: plugins/move.c:557
+msgid "Snapoff and auto unmaximized maximized windows when dragging"
+msgstr "Vapauta ja palauta suurennetut ikkunat automaattisesti siirrettäessä"
+
+#: plugins/move.c:716
+msgid "Move Window"
+msgstr "Siirrä ikkunaa"
+
+#: plugins/move.c:717
+msgid "Move window"
+msgstr "Siirrä ikkunaa"
+
+#: plugins/place.c:104
+msgid "Workarounds"
+msgstr "Poikkeukset"
+
+#: plugins/place.c:105
+msgid "Window placement workarounds"
+msgstr "Poikkeukset ikkunoiden asettelussa"
+
+#: plugins/place.c:1102
+msgid "Place Windows"
+msgstr "Asettele ikkunat"
+
+#: plugins/place.c:1103
+msgid "Place windows at appropriate positions when mapped"
+msgstr "Asettele ikkunat sopiville paikoille niiden ilmestyessä"
+
+#: plugins/resize.c:647
+msgid "Initiate Window Resize"
+msgstr "Muuta ikkunan kokoa"
+
+#: plugins/resize.c:648
+msgid "Start resizing window"
+msgstr ""
+
+#: plugins/resize.c:778
+msgid "Resize Window"
+msgstr "Muuta ikkunan kokoa"
+
+#: plugins/resize.c:779
+msgid "Resize window"
+msgstr "Muuta ikkunan kokoa"
+
+#: plugins/rotate.c:356 plugins/zoom.c:217
+msgid "Pointer Invert Y"
+msgstr "Peilaa osoittimen Y-akseli"
+
+#: plugins/rotate.c:357 plugins/zoom.c:218
+msgid "Invert Y axis for pointer movement"
+msgstr "Peilaa osoittimen Y-suuntainen liike"
+
+#: plugins/rotate.c:363 plugins/zoom.c:224
+msgid "Pointer Sensitivity"
+msgstr "Osoittimen herkkyys"
+
+#: plugins/rotate.c:364 plugins/zoom.c:225
+msgid "Sensitivity of pointer movement"
+msgstr "Osoittimen herkkyys"
+
+#: plugins/rotate.c:374
+msgid "Rotation Acceleration"
+msgstr "Kääntämisen kiihdytys"
+
+#: plugins/rotate.c:383 plugins/water.c:1575 plugins/zoom.c:234
+msgid "Initiate"
+msgstr "Aktivoi"
+
+#: plugins/rotate.c:384
+msgid "Start Rotation"
+msgstr "Aloita kääntäminen"
+
+#: plugins/rotate.c:392
+msgid "Rotate Left"
+msgstr "Käännä vasemmalle"
+
+#: plugins/rotate.c:393
+msgid "Rotate left"
+msgstr "Käännä vasemmalle"
+
+#: plugins/rotate.c:403
+msgid "Rotate Right"
+msgstr "Käännä oikealle"
+
+#: plugins/rotate.c:404
+msgid "Rotate right"
+msgstr "Käännä oikealle"
+
+#: plugins/rotate.c:414
+msgid "Rotate Left with Window"
+msgstr "Käännä vasemmalle ikkunan kanssa"
+
+#: plugins/rotate.c:415
+msgid "Rotate left and bring active window along"
+msgstr "Käännä vasemmalle ja pidä aktiivinen ikkuna mukana"
+
+#: plugins/rotate.c:426
+msgid "Rotate Right with Window"
+msgstr "Käännä oikealle ikkunan kanssa"
+
+#: plugins/rotate.c:427
+msgid "Rotate right and bring active window along"
+msgstr "Käännä oikealle ja pidä aktiivinen ikkuna mukana"
+
+#: plugins/rotate.c:436
+#, c-format
+msgid "Rotate To Face %d"
+msgstr "Käännä työpöydälle %d"
+
+#: plugins/rotate.c:437
+#, c-format
+msgid "Rotate to face %d"
+msgstr "Käännä työpöydälle %d"
+
+#: plugins/rotate.c:438
+#, c-format
+msgid "Rotate To Face %d with Window"
+msgstr "Käännä työpöydälle %d ikkunan kanssa"
+
+#: plugins/rotate.c:439
+#, c-format
+msgid "Rotate to face %d and bring active window along"
+msgstr "Käännä työpöydälle %d ja pidä aktiivinen ikkuna mukana"
+
+#: plugins/rotate.c:476
+msgid "Snap To Top Face"
+msgstr "Kiinnitä kattoon"
+
+#: plugins/rotate.c:477
+msgid "Snap Cube Rotation to Top Face"
+msgstr "Kiinnitä kääntäminen kuution kattoon"
+
+#: plugins/rotate.c:484
+msgid "Rotation Speed"
+msgstr "Kääntämisen nopeus"
+
+#: plugins/rotate.c:494
+msgid "Rotation Timestep"
+msgstr "Kääntämisen aikaviive"
+
+#: plugins/rotate.c:503
+msgid "Edge Flip Pointer"
+msgstr "Osoittimella aktivoituvat työpöydän reunat"
+
+#: plugins/rotate.c:504
+msgid "Flip to next viewport when moving pointer to screen edge"
+msgstr ""
+"Vaihda seuraavaan työpöytään vedettäessä osoitinta ruudun reunaa vasten."
+
+#: plugins/rotate.c:510
+msgid "Edge Flip Move"
+msgstr "Ikkunaa siirrettäessä aktivoituvat työpöydän reunat"
+
+#: plugins/rotate.c:511
+msgid "Flip to next viewport when moving window to screen edge"
+msgstr "Vaihda seuraavaan työpöytään vedettäessä ikkunaa ruudun reunaa vasten."
+
+#: plugins/rotate.c:517
+msgid "Edge Flip DnD"
+msgstr "Raahattaessa aktivoituvat työpöydän reunat"
+
+#: plugins/rotate.c:518
+msgid "Flip to next viewport when dragging object to screen edge"
+msgstr ""
+"Vaihda seuraavaan työpöytään vedettäessä objektia ruudun reunaa vasten."
+
+#: plugins/rotate.c:524
+msgid "Flip Time"
+msgstr "Työpöydän reunan aktivoitumisviive"
+
+#: plugins/rotate.c:525
+msgid "Timeout before flipping viewport"
+msgstr "Työpöydän vaihtoviive"
+
+#: plugins/rotate.c:1581
+msgid "Rotate Cube"
+msgstr "Käännä kuutiota"
+
+#: plugins/rotate.c:1582
+msgid "Rotate desktop cube"
+msgstr "Käännä työpöytäkuutiota"
+
+#: plugins/scale.c:76 plugins/switcher.c:85 src/main.c:63
+msgid "Fullscreen"
+msgstr "kokoruutuikkuna"
+
+#: plugins/scale.c:88 plugins/wobbly.c:136
+msgid "None"
+msgstr "ei mitään"
+
+#: plugins/scale.c:89
+msgid "Emblem"
+msgstr ""
+
+#: plugins/scale.c:90
+msgid "Big"
+msgstr ""
+
+#: plugins/scale.c:310
+msgid "Spacing"
+msgstr "Tila"
+
+#: plugins/scale.c:311
+msgid "Space between windows"
+msgstr "Ikkunoiden välinen tila"
+
+#: plugins/scale.c:319
+msgid "Sloppy Focus"
+msgstr "Seuraava tarkennus"
+
+#: plugins/scale.c:320
+msgid "Focus window when mouse moves over them"
+msgstr "Kohdista ikkunaan osoittimen liikkuessa sen päälle"
+
+#: plugins/scale.c:327
+msgid "Scale speed"
+msgstr "Skaalauksen nopeus"
+
+#: plugins/scale.c:337
+msgid "Scale timestep"
+msgstr "Skaalauksen aikaviive"
+
+#: plugins/scale.c:347
+msgid "Window types that should scaled in scale mode"
+msgstr "Skaalautuvat ikkunatyypit"
+
+#: plugins/scale.c:361
+msgid "Darken Background"
+msgstr "Tummenna tausta"
+
+#: plugins/scale.c:362
+msgid "Darken background when scaling windows"
+msgstr "Tummenna tausta ikkunan kokoa muutettaessa"
+
+#: plugins/scale.c:369 plugins/switcher.c:480
+msgid "Amount of opacity in percent"
+msgstr "Läpikuultavuus prosentteina"
+
+#: plugins/scale.c:377
+msgid "Overlay Icon"
+msgstr ""
+
+#: plugins/scale.c:378
+msgid "Overlay an icon on windows once they are scaled"
+msgstr ""
+
+#: plugins/scale.c:1367
+msgid "Initiate Window Picker"
+msgstr "Aktivoi ikkunavalitsin"
+
+#: plugins/scale.c:1368
+msgid "Layout and start transforming windows"
+msgstr "Asettele ja mukauta ikkunat valitsemista varten"
+
+#: plugins/scale.c:1559
+msgid "Scale"
+msgstr "Skaalaus"
+
+#: plugins/scale.c:1560
+msgid "Scale windows"
+msgstr "Ikkunoiden skaalaus"
+
+#: plugins/switcher.c:378
+msgid "Initiate Window Switcher"
+msgstr "Aktivoi ikkunanvaihtaja"
+
+#: plugins/switcher.c:379
+msgid "Show switcher"
+msgstr "Näytä ikkunavaihtaja"
+
+#: plugins/switcher.c:391
+msgid "Initiate All Windows"
+msgstr "Aktivoi kaikkien ikkunoiden ikkunanvaihtaja"
+
+#: plugins/switcher.c:392
+msgid "Modifier to show switcher for all windows"
+msgstr "Kaikkien ikkunoiden näyttämiseen käytettävä vaihtonäppäin"
+
+#: plugins/switcher.c:405
+msgid "Prev Window"
+msgstr "Edellinen ikkuna"
+
+#: plugins/switcher.c:406
+msgid "Modifier key to select previous window"
+msgstr "Edellisen ikkunan valitsemiseen käytettävä vaihtonäppäin"
+
+#: plugins/switcher.c:420
+msgid "Switcher speed"
+msgstr "Ikkunavaihtajan nopeus"
+
+#: plugins/switcher.c:430
+msgid "Switcher timestep"
+msgstr "Ikkunavaihtajan aikaviive"
+
+#: plugins/switcher.c:440
+msgid "Window types that should shown in switcher"
+msgstr ""
+"Ikkunavaihtajassa näkyvät ikkunatyypit(työpöytä = Desktop, paneeli = Dock, "
+"työkalupalkki = Toolbar, valikko = Menu, työkalu = Utility, käynnistysikkuna "
+"= Splash, valintaikkuna = Dialog, pakotettu valintaikkuna = ModalDialog, "
+"tavallinen ikkuna = Normal, kokoruutuikkuna = Fullscreen, tuntematon = "
+"Unknown)"
+
+#: plugins/switcher.c:461
+msgid "Saturation"
+msgstr "Kylläisyys"
+
+#: plugins/switcher.c:462
+msgid "Amount of saturation in percent"
+msgstr "Kylläisyysaste prosentteina"
+
+#: plugins/switcher.c:470
+msgid "Brightness"
+msgstr "Kirkkaus"
+
+#: plugins/switcher.c:471
+msgid "Amount of brightness in percent"
+msgstr "Kirkkaus prosentteina"
+
+#: plugins/switcher.c:488
+msgid "Bring To Front"
+msgstr "Tuo etualalle"
+
+#: plugins/switcher.c:489
+msgid "Bring selected window to front"
+msgstr "Tuo valittu ikkuna etualalle"
+
+#: plugins/switcher.c:495
+msgid "Zoom"
+msgstr "Zoom"
+
+#: plugins/switcher.c:496
+msgid "Distance desktop should be zoom out while switching windows"
+msgstr "Etäisyys, johon työpöytä tulisi loitontaa ikkunoita vaihdettaessa"
+
+#: plugins/switcher.c:506
+msgid "Icon"
+msgstr "Kuvake"
+
+#: plugins/switcher.c:507
+msgid "Show icon next to thumbnail"
+msgstr "Näytä kuvake esikatselukuvan vieressä"
+
+#: plugins/switcher.c:513
+msgid "Minimized"
+msgstr "Pienennetty"
+
+#: plugins/switcher.c:514
+msgid "Show minimized windows"
+msgstr "Näytä pienennetyt ikkunat"
+
+#: plugins/switcher.c:1908 plugins/switcher.c:1909
+msgid "Application Switcher"
+msgstr "Sovellusten vaihtaja"
+
+#: plugins/water.c:1576
+msgid "Enable pointer water effects"
+msgstr "Ota käyttöön osoittimen vesitehosteet"
+
+#: plugins/water.c:1589
+msgid "Toggle rain"
+msgstr "Ota käyttöön sade"
+
+#: plugins/water.c:1590
+msgid "Toggle rain effect"
+msgstr "Ota käyttöön sadetehoste"
+
+#: plugins/water.c:1605
+msgid "Toggle wiper"
+msgstr ""
+
+#: plugins/water.c:1606
+msgid "Toggle wiper effect"
+msgstr ""
+
+#: plugins/water.c:1621
+msgid "Offset Scale"
+msgstr "Siirtymän skaala"
+
+#: plugins/water.c:1622
+msgid "Water offset scale"
+msgstr "Veden siirtymän skaala"
+
+#: plugins/water.c:1631
+msgid "Rain Delay"
+msgstr "Sateen viive"
+
+#: plugins/water.c:1632
+msgid "Delay (in ms) between each rain-drop"
+msgstr "Sadepisaroiden putoamisen välinen viive (0-3600000 ms)"
+
+#: plugins/water.c:1640
+msgid "Title wave"
+msgstr ""
+
+#: plugins/water.c:1641
+msgid "Wave effect from window title"
+msgstr ""
+
+#: plugins/water.c:1782
+msgid "Water Effect"
+msgstr "Vesitehoste"
+
+#: plugins/water.c:1783
+msgid "Adds water effects to different desktop actions"
+msgstr "Lisää vesitehosteen erilaisille työpöydän toiminnoille"
+
+#: plugins/wobbly.c:137
+msgid "Shiver"
+msgstr "vavistus"
+
+#: plugins/wobbly.c:387
+msgid "Friction"
+msgstr "Kitka"
+
+#: plugins/wobbly.c:388
+msgid "Spring Friction"
+msgstr "Huojumistehosteen käyttämä jousikitka"
+
+#: plugins/wobbly.c:397
+msgid "Spring K"
+msgstr "Jousivakio"
+
+#: plugins/wobbly.c:398
+msgid "Spring Konstant"
+msgstr "Huojumistehosteen käyttämä jousivakio"
+
+#: plugins/wobbly.c:407
+msgid "Grid Resolution"
+msgstr "Hilan tarkkuus"
+
+#: plugins/wobbly.c:408
+msgid "Vertex Grid Resolution"
+msgstr "Verteksihilan resoluutio"
+
+#: plugins/wobbly.c:416
+msgid "Minimum Grid Size"
+msgstr "Pienin mahdollinen hilakoko"
+
+#: plugins/wobbly.c:417
+msgid "Minimum Vertex Grid Size"
+msgstr "Verteksihilan pienin mahdollinen koko"
+
+#: plugins/wobbly.c:425
+msgid "Map Effect"
+msgstr "Ilmestymistehoste"
+
+#: plugins/wobbly.c:426
+msgid "Map Window Effect"
+msgstr "Ikkunoiden ilmestymistehoste"
+
+#: plugins/wobbly.c:434
+msgid "Focus Effect"
+msgstr "Kohdistustehoste"
+
+#: plugins/wobbly.c:435
+msgid "Focus Window Effect"
+msgstr "Ikkunan kohdistustehoste"
+
+#: plugins/wobbly.c:443
+msgid "Map Window Types"
+msgstr "Ilmestyessään huojuvat ikkunatyypit"
+
+#: plugins/wobbly.c:444
+msgid "Window types that should wobble when mapped"
+msgstr "Ikkunatyypit, jotka huojuvat ilmestyessään"
+
+#: plugins/wobbly.c:458
+msgid "Focus Window Types"
+msgstr "Kohdistettaessa huojuvat ikkunat"
+
+#: plugins/wobbly.c:459
+msgid "Window types that should wobble when focused"
+msgstr ""
+"Ikkunatyypit, jotka huojuvat kohdistettaessa(työpöytä = Desktop, paneeli = "
+"Dock, työkalupalkki = Toolbar, valikko = Menu, työkalu = Utility, "
+"käynnistysikkuna = Splash, valintaikkuna = Dialog, pakotettu valintaikkuna = "
+"ModalDialog, tavallinen ikkuna = Normal, kokoruutuikkuna = Fullscreen, "
+"tuntematon = Unknown)"
+
+#: plugins/wobbly.c:471
+msgid "Move Window Types"
+msgstr "Siirrettäessä huojuvat ikkunatyypit"
+
+#: plugins/wobbly.c:472
+msgid "Window types that should wobble when moved"
+msgstr "Ikkunatyypit, jotka huojuvat liikuteltaessa"
+
+#: plugins/wobbly.c:486
+msgid "Grab Window Types"
+msgstr "Tartuttaessa huojuvat ikkunatyypit"
+
+#: plugins/wobbly.c:487
+msgid "Window types that should wobble when grabbed"
+msgstr "Ikkunatyypit, jotka huojuvat tartuttaessa"
+
+#: plugins/wobbly.c:499
+msgid "Snap windows"
+msgstr "Kiinnitä ikkunat"
+
+#: plugins/wobbly.c:500
+msgid "Toggle window snapping"
+msgstr "Ota käyttöön tarttuvat ikkunat"
+
+#: plugins/wobbly.c:508
+msgid "Maximize Effect"
+msgstr "Suurennustehoste"
+
+#: plugins/wobbly.c:509
+msgid "Wobble effect when maximizing and unmaximizing windows"
+msgstr "Huojumistehoste ikkunan kokoa muutettaessa"
+
+#: plugins/wobbly.c:516
+msgid "Wobble effect on system beep"
+msgstr "Huojumistehoste järjestelmän huomautuksesta"
+
+#: plugins/wobbly.c:2977
+msgid "Wobbly Windows"
+msgstr "Huojuvat ikkunat"
+
+#: plugins/wobbly.c:2978
+msgid "Use spring model for wobbly window effect"
+msgstr "Käytä ikkunoiden joustavaa huojumistehostetta"
+
+#: plugins/zoom.c:235 plugins/zoom.c:243 plugins/zoom.c:244
+msgid "Zoom In"
+msgstr "Lähennys"
+
+#: plugins/zoom.c:252 plugins/zoom.c:253
+msgid "Zoom Out"
+msgstr "Loitonnus"
+
+#: plugins/zoom.c:262
+msgid "Zoom Speed"
+msgstr "Zoomauksen nopeus"
+
+#: plugins/zoom.c:272
+msgid "Zoom Timestep"
+msgstr "Zoomauksen aikaviive"
+
+#: plugins/zoom.c:281
+msgid "Filter Linear"
+msgstr "Suodata lineaarisesti"
+
+#: plugins/zoom.c:282
+msgid "USe linear filter when zoomed in"
+msgstr "Käytä lineaarista suodinta lähennettäessä"
+
+#: plugins/zoom.c:802
+msgid "Zoom Desktop"
+msgstr "Työpöydän zoomaus"
+
+#: plugins/zoom.c:803
+msgid "Zoom and pan desktop cube"
+msgstr "Zoomaa ja panoroi työpöytää"
+
+#: src/display.c:152
+msgid "Fast"
+msgstr "nopea"
+
+#: src/display.c:152
+msgid "Good"
+msgstr "hyvälaatuinen"
+
+#: src/display.c:152
+msgid "Best"
+msgstr "paras"
+
+#: src/display.c:208
+msgid "Active Plugins"
+msgstr "Käytössä olevat liitännäiset"
+
+#: src/display.c:209
+msgid "List of currently active plugins"
+msgstr "Lista aktiivisista liitännäisistä"
+
+#: src/display.c:223
+msgid "Texture Filter"
+msgstr "Tekstuurisuodin"
+
+#: src/display.c:224
+msgid "Texture filtering"
+msgstr "Tekstuurisuodin"
+
+#: src/display.c:232
+msgid "Click To Focus"
+msgstr "Kohdista hiiren painikkeella"
+
+#: src/display.c:233
+msgid "Click on window moves input focus to it"
+msgstr "Ikkunan napsautus kohdistaa ikkunaan"
+
+#: src/display.c:239
+msgid "Auto-Raise"
+msgstr "Automaattinosto"
+
+#: src/display.c:240
+msgid "Raise selected windows after interval"
+msgstr "Nosta valittu ikkuna tietyn ajan jälkeen"
+
+#: src/display.c:246
+msgid "Auto-Raise Delay"
+msgstr "Automaattinoston viive"
+
+#: src/display.c:247
+msgid "Interval before raising selected windows"
+msgstr "Viive ennen valitun ikkunan nostamista etualalle"
+
+#: src/display.c:255
+msgid "Close Window"
+msgstr "Sulje ikkuna"
+
+#: src/display.c:256
+msgid "Close active window"
+msgstr "Sulje aktiivinen ikkuna"
+
+#: src/display.c:266
+msgid "Show Main Menu"
+msgstr "Näytä päävalikko"
+
+#: src/display.c:267
+msgid "Show the main menu"
+msgstr "Näytä päävalikko"
+
+#: src/display.c:277
+msgid "Run Dialog"
+msgstr "Suorita komento -valintaikkuna"
+
+#: src/display.c:278
+msgid "Show Run Application dialog"
+msgstr "Näytä Suorita komento -valintaikkuna"
+
+#: src/display.c:288
+msgid "Unmaximize Window"
+msgstr "Palauta ikkuna"
+
+#: src/display.c:289
+msgid "Unmaximize active window"
+msgstr "Palauta aktiivinen ikkuna"
+
+#: src/display.c:299
+msgid "Minimize Window"
+msgstr "Pienennä ikkuna"
+
+#: src/display.c:300
+msgid "Minimize active window"
+msgstr "Pienennä aktiivinen ikkuna"
+
+#: src/display.c:310
+msgid "Maximize Window"
+msgstr "Suurenna ikkuna"
+
+#: src/display.c:311
+msgid "Maximize active window"
+msgstr "Suurenna aktiivinen ikkuna"
+
+#: src/display.c:321
+msgid "Maximize Window Horizontally"
+msgstr "Suurenna ikkuna vaakasuunnassa"
+
+#: src/display.c:322
+msgid "Maximize active window horizontally"
+msgstr ""
+
+#: src/display.c:330
+msgid "Maximize Window Vertically"
+msgstr "Suurenna ikkuna pystysuunnassa"
+
+#: src/display.c:331
+msgid "Maximize active window vertically"
+msgstr ""
+
+#: src/display.c:339 src/display.c:340
+msgid "Hide all windows and focus desktop"
+msgstr "Piilota kaikki ikkunat ja kohdista työpöytään"
+
+#: src/display.c:348
+#, c-format
+msgid "Command line %d"
+msgstr "Komentorivi %d"
+
+#: src/display.c:349
+#, c-format
+msgid "Command line to be executed in shell when run_command%d is invoked"
+msgstr "Suoritettava komentorivi, kun run_command%d suoritetaan."
+
+#: src/display.c:351
+#, c-format
+msgid "Run command %d"
+msgstr "Suorita komento %d"
+
+#: src/display.c:352
+#, c-format
+msgid ""
+"A keybinding that when invoked, will run the shell command identified by "
+"command%d"
+msgstr "Tunnisteen command%d mukaisen komennon suorittava näppäinyhdistelmä"
+
+#: src/display.c:390
+msgid "Slow Animations"
+msgstr "Hitaat animaatiot"
+
+#: src/display.c:391
+msgid "Toggle use of slow animations"
+msgstr "Ota käyttöön hitaat animaatiot"
+
+#: src/display.c:401
+msgid "Lower Window"
+msgstr "Laske ikkuna"
+
+#: src/display.c:402
+msgid "Lower window beneath other windows"
+msgstr "Laske ikkuna taka-alalle"
+
+#: src/display.c:410
+msgid "Increase Opacity"
+msgstr "Vähennä läpikuultavuutta"
+
+#: src/display.c:411
+msgid "Increase window opacity"
+msgstr "Vähennä ikkunan läpikuultavuutta"
+
+#: src/display.c:419
+msgid "Decrease Opacity"
+msgstr "Lisää läpikuultavuutta"
+
+#: src/display.c:420
+msgid "Decrease window opacity"
+msgstr "Lisää ikkunan läpikuultavuutta"
+
+#: src/display.c:428 src/display.c:429
+msgid "Take a screenshot"
+msgstr "Ota kuvankaappaus"
+
+#: src/display.c:439 src/display.c:440
+msgid "Screenshot command line"
+msgstr "Kuvakaappauksen komento"
+
+#: src/display.c:448 src/display.c:449
+msgid "Take a screenshot of a window"
+msgstr "Ota kuvankaappaus ikkunasta"
+
+#: src/display.c:460 src/display.c:461
+msgid "Window screenshot command line"
+msgstr "Ikkunan kuvakaappauksen komento"
+
+#: src/display.c:469
+msgid "Window Menu"
+msgstr "Ikkunavalikko"
+
+#: src/display.c:470
+msgid "Open window menu"
+msgstr "Avaa ikkunavalikko"
+
+#: src/display.c:478
+msgid "Raise On Click"
+msgstr "Nosta napsautuksesta"
+
+#: src/display.c:479
+msgid "Raise windows when clicked"
+msgstr "Nosta ikkuna napsautuksesta"
+
+#: src/display.c:485
+msgid "Audible Bell"
+msgstr "Kuuluva äänimerkki"
+
+#: src/display.c:486
+msgid "Audible system beep"
+msgstr "Kuuluva järjestelmän huomautus"
+
+#: src/display.c:492
+msgid "Toggle Window Maximized"
+msgstr "Vaihda suurennustilaa"
+
+#: src/display.c:493
+msgid "Toggle active window maximized"
+msgstr ""
+
+#: src/display.c:501
+msgid "Toggle Window Maximized Horizontally"
+msgstr ""
+
+#: src/display.c:503
+msgid "Toggle active window maximized horizontally"
+msgstr ""
+
+#: src/display.c:511
+msgid "Toggle Window Maximized Vertically"
+msgstr ""
+
+#: src/display.c:513
+msgid "Toggle active window maximized vertically"
+msgstr ""
+
+#: src/display.c:521
+msgid "Hide Skip Taskbar Windows"
+msgstr ""
+
+#: src/display.c:522
+msgid "Hide windows not in taskbar when entering show desktop mode"
+msgstr ""
+
+#: src/display.c:529
+msgid "Toggle Window Shaded"
+msgstr "Vaihda rullaustilaa"
+
+#: src/display.c:530
+msgid "Toggle active window shaded"
+msgstr ""
+
+#: src/main.c:54
+msgid "Desktop"
+msgstr "työpöytä"
+
+#: src/screen.c:245
+msgid "Detect Refresh Rate"
+msgstr "Tunnista päivitystaajuus"
+
+#: src/screen.c:246
+msgid "Automatic detection of refresh rate"
+msgstr "Virkistystaajuuden automaattinen tunnistus"
+
+#: src/screen.c:252
+msgid "Lighting"
+msgstr "Valaistus"
+
+#: src/screen.c:253
+msgid "Use diffuse light when screen is transformed"
+msgstr "Käytä hajavaloa ruudun muuttuessa"
+
+#: src/screen.c:259
+msgid "Refresh Rate"
+msgstr "Virkistystaajuus"
+
+#: src/screen.c:260
+msgid "The rate at which the screen is redrawn (times/second)"
+msgstr "Kuinka usein ruutu päivitetään (1-200 krt/s)"
+
+#: src/screen.c:268
+msgid "Virtual Size"
+msgstr "Virtuaalinen koko"
+
+#: src/screen.c:269
+msgid "Screen size multiplier for virtual size"
+msgstr "Näytön virtuaalikoon suhde todelliseen kokoon"
+
+#: src/screen.c:277
+msgid "Opacity Step"
+msgstr "Peittävyyden askel"
+
+#: src/screen.c:278
+msgid "Opacity change step"
+msgstr "Peittävyyden muutoksen askelten suuruus"
+
+#: src/screen.c:286
+msgid "Unredirect Fullscreen Windows"
+msgstr "Kokoruutuikkunoita ei uudelleenohjata"
+
+#: src/screen.c:287
+msgid ""
+"Allow drawing of fullscreen windows to not be redirected to offscreen pixmaps"
+msgstr "Kokoruutuikkunoita ei uudelleenohjata piilotetuille pikselikartoille"
+
+#: src/screen.c:294
+msgid "Default Icon"
+msgstr "Oletuskuvake"
+
+#: src/screen.c:295
+msgid "Default window icon image"
+msgstr "Oletuskuva ikkunakuvakkeelle"
+
+#~ msgid "TopLeft"
+#~ msgstr "vasen ylänurkka"
+
+#~ msgid "TopRight"
+#~ msgstr "oikea ylänurkka"
+
+#~ msgid "BottomLeft"
+#~ msgstr "vasen alanurkka"
+
+#~ msgid "BottomRight"
+#~ msgstr "oikea alanurkka"
+
+#~ msgid "Corners"
+#~ msgstr "Kulmat"
+
+#~ msgid "Hot corners that should initiate scale mode"
+#~ msgstr "Nurkat, jotka aktivoivat skaalaustilan"
