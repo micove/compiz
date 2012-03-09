@@ -765,6 +765,9 @@ addDisplay (char *name,
 	    char **plugin,
 	    int  nPlugin);
 
+Time
+getCurrentTimeFromDisplay (CompDisplay *d);
+
 void
 focusDefaultWindow (CompDisplay *d);
 

@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: compiz\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2006-09-29 14:36-0400\n"
+"POT-Creation-Date: 2006-10-20 14:00-0400\n"
 "PO-Revision-Date: 2006-07-20 10:19-0400\n"
 "Last-Translator: Jani-Matti Hätinen <jani-matti.hatinen@iki.fi>\n"
 "Language-Team: Finnish <fi@li.org>\n"
@@ -302,15 +302,15 @@ msgstr "Ikkunat häivytetään näkyvistä/näkyviin"
 msgid "."
 msgstr "."
 
-#: plugins/gconf-dump.c:592
+#: plugins/gconf-dump.c:595
 msgid "Plugins that this must load before"
 msgstr "Etukäteen tätä varten ladattavat liitännäiset"
 
-#: plugins/gconf-dump.c:593 plugins/gconf-dump.c:603
+#: plugins/gconf-dump.c:596 plugins/gconf-dump.c:606
 msgid "Do not modify"
 msgstr "Älä muuta"
 
-#: plugins/gconf-dump.c:602
+#: plugins/gconf-dump.c:605
 msgid "Plugins that this requires"
 msgstr "Tähän vaadittavat liitännäiset"
 

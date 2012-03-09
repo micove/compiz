@@ -189,6 +189,7 @@ DBUS_CFLAGS = @DBUS_CFLAGS@
 DBUS_LIBS = @DBUS_LIBS@
 DBUS_PLUGIN_FALSE = @DBUS_PLUGIN_FALSE@
 DBUS_PLUGIN_TRUE = @DBUS_PLUGIN_TRUE@
+DEFAULT_PLUGINS = @DEFAULT_PLUGINS@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 ECHO = @ECHO@
@@ -392,7 +393,7 @@ libplane_la_SOURCES = plane.c
 @GCONF_PLUGIN_TRUE@schemadir = $(GCONF_SCHEMA_FILE_DIR)
 @GCONF_PLUGIN_TRUE@schema_in_files = compiz.schemas.in
 @GCONF_PLUGIN_TRUE@schema_DATA = $(schema_in_files:.schemas.in=.schemas)
-@GCONF_PLUGIN_TRUE@schema_modules = $(patsubst gconf%,,$(subst lib,,$(subst .la,,$(module_LTLIBRARIES))))
+@GCONF_PLUGIN_TRUE@schema_modules = $(patsubst gconf%,,$(subst rotate,,$(subst zoom,,$(subst lib,,$(subst .la,,$(module_LTLIBRARIES))))))
 @PLACE_PLUGIN_TRUE@libplace_la_LDFLAGS = -module -avoid-version -no-undefined
 @PLACE_PLUGIN_TRUE@libplace_la_LIBADD = @COMPIZ_LIBS@ @PLACE_LIBS@
 @PLACE_PLUGIN_TRUE@libplace_la_SOURCES = place.c
@@ -412,9 +413,6 @@ INCLUDES = \
 	-I$(top_srcdir)/include
 
 moduledir = $(plugindir)
-
-# NOTE: the order here determines the default active_plugins order in
-# compiz.schemas
 module_LTLIBRARIES = \
 	$(libgconf_module)	\
 	libdecoration.la	\
@@ -786,10 +784,17 @@ uninstall-am: uninstall-info-am uninstall-moduleLTLIBRARIES \
 
 
 @GCONF_PLUGIN_TRUE@compiz.schemas.in:
-@GCONF_PLUGIN_TRUE@	COMPIZ_SCHEMA_PLUGINS="$(schema_modules)" COMPIZ_SCHEMA_GENERAL=1 \
-@GCONF_PLUGIN_TRUE@	compiz --replace $(schema_modules) gconf-dump &&		  \
-@GCONF_PLUGIN_TRUE@	sed -e 's/\[TopRight\]/[\@SCALE_CORNER\@]/'			  \
-@GCONF_PLUGIN_TRUE@	  < compiz.schemas.dump > compiz.schemas.in;			  \
+@GCONF_PLUGIN_TRUE@	rm -f compiz.schemas.dump;
+@GCONF_PLUGIN_TRUE@	echo -e "<gconfschemafile>\n    <schemalist>" >> compiz.schemas.dump;
+@GCONF_PLUGIN_TRUE@	COMPIZ_SCHEMA_GENERAL=1 compiz --replace gconf-dump;
+@GCONF_PLUGIN_TRUE@	for module in $(schema_modules) ; do \
+@GCONF_PLUGIN_TRUE@		COMPIZ_SCHEMA_PLUGINS="$$module" \
+@GCONF_PLUGIN_TRUE@		compiz --replace "$$module" gconf-dump; \
+@GCONF_PLUGIN_TRUE@	done;
+@GCONF_PLUGIN_TRUE@	COMPIZ_SCHEMA_PLUGINS="rotate" compiz --replace cube rotate gconf-dump;
+@GCONF_PLUGIN_TRUE@	COMPIZ_SCHEMA_PLUGINS="zoom" compiz --replace cube zoom gconf-dump;
+@GCONF_PLUGIN_TRUE@	echo -e "    </schemalist>\n</gconfschemafile>" >> compiz.schemas.dump;
+@GCONF_PLUGIN_TRUE@	sed -e 's/\[TopRight\]/[\@SCALE_CORNER\@\]/' -e 's/\[gconf\]/\[gconf \@DEFAULT_PLUGINS\@\]/' < compiz.schemas.dump > compiz.schemas.in;
 @GCONF_PLUGIN_TRUE@	rm -f compiz.schemas.dump
 
 @GCONF_PLUGIN_TRUE@@GCONF_SCHEMAS_INSTALL_TRUE@install-data-local:

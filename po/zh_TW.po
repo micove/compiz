@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Compiz\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2006-09-29 14:36-0400\n"
+"POT-Creation-Date: 2006-10-20 14:00-0400\n"
 "PO-Revision-Date: 2006-07-20 10:20-0400\n"
 "Last-Translator: Novell Language <language@novell.com>\n"
 "Language-Team: Novell Language <language@novell.com>\n"
@@ -292,15 +292,15 @@ msgstr "在映射時淡入視窗，以及在解除映射時淡出視窗"
 msgid "."
 msgstr "."
 
-#: plugins/gconf-dump.c:592
+#: plugins/gconf-dump.c:595
 msgid "Plugins that this must load before"
 msgstr "在此之前必須先載入的外掛程式"
 
-#: plugins/gconf-dump.c:593 plugins/gconf-dump.c:603
+#: plugins/gconf-dump.c:596 plugins/gconf-dump.c:606
 msgid "Do not modify"
 msgstr "不要修改"
 
-#: plugins/gconf-dump.c:602
+#: plugins/gconf-dump.c:605
 msgid "Plugins that this requires"
 msgstr "這時需要的外掛程式"
 
