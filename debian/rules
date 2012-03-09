@@ -8,13 +8,8 @@ CORE_ABIVERSION := $(shell sed -rn 's/^\#define[[:space:]]+CORE_ABIVERSION[[:spa
 
 DEFAULT_PLUGINS = "core bailer detection composite opengl decor mousepoll vpswitch regex animation snap expo move compiztoolbox place grid gnomecompat wall ezoom workarounds staticswitcher resize fade scale session"
 
-%:
-	dh $@
-
-clean:
-	dh clean
-	# upstream build leaves this around
-	rm -f po/compiz.pot
+override_dh_clean:
+	dh_clean .AUTHORS.sed po/compiz.pot
 
 override_dh_auto_configure:
 	# currently, segfault if CMAKE_BUILD_TYPE=Release
@@ -33,3 +28,5 @@ override_dh_install:
 override_dh_gencontrol:
 	dh_gencontrol -- -Vcoreabiversion=$(CORE_ABIVERSION)
 
+%:
+	dh $@
