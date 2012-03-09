@@ -16,7 +16,7 @@
 
 --- a/plugins/opengl/src/paint.cpp
 +++ b/plugins/opengl/src/paint.cpp
-@@ -208,6 +208,7 @@
+@@ -216,6 +216,7 @@
      bool          withOffset = false;
      GLMatrix      vTransform;
      CompPoint     offXY;
@@ -24,7 +24,7 @@
  
      CompWindowList                   pl;
      CompWindowList::reverse_iterator rit;
-@@ -285,7 +286,13 @@
+@@ -300,7 +301,13 @@
  		    tmpRegion -= w->region ();
  
  		/* unredirect top most fullscreen windows. */
