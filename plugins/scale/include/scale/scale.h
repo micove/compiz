@@ -26,7 +26,6 @@
 #ifndef _COMPIZ_SCALE_H
 #define _COMPIZ_SCALE_H
 
-#include <core/core.h>
 #include <core/pluginclasshandler.h>
 
 #include <composite/composite.h>
@@ -43,7 +42,7 @@ class ScaleSlot :
     public CompRect
 {
     public:
-	ScaleSlot () {};
+	ScaleSlot () {}
 	ScaleSlot (const CompRect &r) :
 	    CompRect (r) {}
     public:

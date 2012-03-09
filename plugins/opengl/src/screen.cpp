@@ -37,6 +37,7 @@ namespace GL {
     GLXCopySubBufferProc     copySubBuffer = NULL;
     GLXGetVideoSyncProc      getVideoSync = NULL;
     GLXWaitVideoSyncProc     waitVideoSync = NULL;
+    GLXSwapIntervalProc      swapInterval = NULL;
     GLXGetFBConfigsProc      getFBConfigs = NULL;
     GLXGetFBConfigAttribProc getFBConfigAttrib = NULL;
     GLXCreatePixmapProc      createPixmap = NULL;
@@ -75,156 +76,51 @@ namespace GL {
 
     bool canDoSaturated = false;
     bool canDoSlightlySaturated = false;
+
+    unsigned int vsyncCount = 0;
+    unsigned int unthrottledFrames = 0;
 }
 
 CompOutput *targetOutput = NULL;
 
-GLScreen::GLScreen (CompScreen *s) :
-    PluginClassHandler<GLScreen, CompScreen, COMPIZ_OPENGL_ABI> (s),
-    priv (new PrivateGLScreen (this))
+bool
+GLScreen::glInitContext (XVisualInfo *visinfo)
 {
-    Display		 *dpy = s->dpy ();
-    XVisualInfo		 templ;
-    XVisualInfo		 *visinfo;
-    GLXFBConfig		 *fbConfigs;
-    int			 defaultDepth, nvisinfo, nElements, value, i;
-    const char		 *glxExtensions, *glExtensions;
+    Display		 *dpy = screen->dpy ();
+    const char		 *glExtensions;
     GLfloat		 globalAmbient[]  = { 0.1f, 0.1f,  0.1f, 0.1f };
     GLfloat		 ambientLight[]   = { 0.0f, 0.0f,  0.0f, 0.0f };
     GLfloat		 diffuseLight[]   = { 0.9f, 0.9f,  0.9f, 0.9f };
     GLfloat		 light0Position[] = { -0.5f, 0.5f, -9.0f, 1.0f };
-    XWindowAttributes    attr;
     const char           *glRenderer;
     CompOption::Vector o (0);
 
-    if (indirectRendering)
+    priv->ctx = glXCreateContext (dpy, visinfo, NULL, True);
+    if (!priv->ctx)
     {
+	compLogMessage ("opengl", CompLogLevelWarn,
+			"glXCreateContext with direct rendering failed - trying indirect");
+
 	/* force Mesa libGL into indirect rendering mode, because
 	   glXQueryExtensionsString is context-independant */
 	setenv ("LIBGL_ALWAYS_INDIRECT", "1", True);
-    }
+	priv->ctx = glXCreateContext(dpy, visinfo, NULL, true);
 
-    if (!XGetWindowAttributes (dpy, s->root (), &attr))
-    {
-	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
-	setFailed ();
-	return;
-    }
+	if (!priv->ctx)
+	{
+	    compLogMessage ("opengl", CompLogLevelWarn,
+			    "glXCreateContext failed");
 
-    templ.visualid = XVisualIDFromVisual (attr.visual);
+	    XFree (visinfo);
 
-    visinfo = XGetVisualInfo (dpy, VisualIDMask, &templ, &nvisinfo);
-    if (!nvisinfo)
-    {
-	compLogMessage ("opengl", CompLogLevelFatal,
-			"Couldn't get visual info for default visual");
-	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
-	setFailed ();
-	return;
-    }
-
-    defaultDepth = visinfo->depth;
-
-    glXGetConfig (dpy, visinfo, GLX_USE_GL, &value);
-    if (!value)
-    {
-	compLogMessage ("opengl", CompLogLevelFatal,
-			"Root visual is not a GL visual");
-	XFree (visinfo);
-	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
-	setFailed ();
-	return;
-    }
-
-    glXGetConfig (dpy, visinfo, GLX_DOUBLEBUFFER, &value);
-    if (!value)
-    {
-	compLogMessage ("opengl", CompLogLevelFatal,
-			"Root visual is not a double buffered GL visual");
-	XFree (visinfo);
-	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
-	setFailed ();
-	return;
-    }
-
-    priv->ctx = glXCreateContext (dpy, visinfo, NULL, !indirectRendering);
-    if (!priv->ctx)
-    {
-	compLogMessage ("opengl", CompLogLevelFatal,
-			"glXCreateContext failed");
-	XFree (visinfo);
-
-	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
-	setFailed ();
-	return;
+	    screen->handleCompizEvent ("opengl", "fatal_fallback", o);
+	    return false;
+	}
     }
 
     XFree (visinfo);
-    glxExtensions = glXQueryExtensionsString (dpy, s->screenNum ());
 
-    if (!strstr (glxExtensions, "GLX_SGIX_fbconfig"))
-    {
-	compLogMessage ("opengl", CompLogLevelFatal,
-			"GLX_SGIX_fbconfig is missing");
-	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
-	setFailed ();
-	return;
-    }
-
-    priv->getProcAddress = (GL::GLXGetProcAddressProc)
-	getProcAddress ("glXGetProcAddressARB");
-    GL::bindTexImage = (GL::GLXBindTexImageProc)
-	getProcAddress ("glXBindTexImageEXT");
-    GL::releaseTexImage = (GL::GLXReleaseTexImageProc)
-	getProcAddress ("glXReleaseTexImageEXT");
-    GL::queryDrawable = (GL::GLXQueryDrawableProc)
-	getProcAddress ("glXQueryDrawable");
-    GL::getFBConfigs = (GL::GLXGetFBConfigsProc)
-	getProcAddress ("glXGetFBConfigs");
-    GL::getFBConfigAttrib = (GL::GLXGetFBConfigAttribProc)
-	getProcAddress ("glXGetFBConfigAttrib");
-    GL::createPixmap = (GL::GLXCreatePixmapProc)
-	getProcAddress ("glXCreatePixmap");
-    GL::destroyPixmap = (GL::GLXDestroyPixmapProc)
-    	getProcAddress ("glXDestroyPixmap");
-
-    if (!strstr (glxExtensions, "GLX_EXT_texture_from_pixmap") ||
-        !GL::bindTexImage || !GL::releaseTexImage)
-    {
-	compLogMessage ("opengl", CompLogLevelFatal,
-			"GLX_EXT_texture_from_pixmap is missing");
-	GL::textureFromPixmap = false;
-    }
-    else
-	GL::textureFromPixmap = true;
-
-    if (!GL::queryDrawable     ||
-	!GL::getFBConfigs      ||
-	!GL::getFBConfigAttrib ||
-	!GL::createPixmap      ||
-	!GL::destroyPixmap)
-    {
-	compLogMessage ("opengl", CompLogLevelFatal,
-			"fbconfig functions missing");
-	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
-	setFailed ();
-	return;
-    }
-
-    if (strstr (glxExtensions, "GLX_MESA_copy_sub_buffer"))
-	GL::copySubBuffer = (GL::GLXCopySubBufferProc)
-	    getProcAddress ("glXCopySubBufferMESA");
-
-    if (strstr (glxExtensions, "GLX_SGI_video_sync"))
-    {
-	GL::getVideoSync = (GL::GLXGetVideoSyncProc)
-	    getProcAddress ("glXGetVideoSyncSGI");
-
-	GL::waitVideoSync = (GL::GLXWaitVideoSyncProc)
-	    getProcAddress ("glXWaitVideoSyncSGI");
-    }
-
-    glXMakeCurrent (dpy, CompositeScreen::get (s)->output (), priv->ctx);
+    glXMakeCurrent (dpy, CompositeScreen::get (screen)->output (), priv->ctx);
 
     glExtensions = (const char *) glGetString (GL_EXTENSIONS);
     if (!glExtensions)
@@ -232,8 +128,7 @@ GLScreen::GLScreen (CompScreen *s) :
 	compLogMessage ("opengl", CompLogLevelFatal,
 			"No valid GL extensions string found.");
 	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
-	setFailed ();
-	return;
+	return false;
     }
 
     glRenderer = (const char *) glGetString (GL_RENDERER);
@@ -245,11 +140,10 @@ GLScreen::GLScreen (CompScreen *s) :
 			CompLogLevelFatal,
 			"Software rendering detected");
 	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
-	setFailed ();
-	return;
+	return false;
     }
 
-    if (strstr (glExtensions, "GL_ARB_texture_non_power_of_two"))    
+    if (strstr (glExtensions, "GL_ARB_texture_non_power_of_two"))
 	GL::textureNonPowerOfTwo = true;
 
     glGetIntegerv (GL_MAX_TEXTURE_SIZE, &GL::maxTextureSize);
@@ -275,8 +169,7 @@ GLScreen::GLScreen (CompScreen *s) :
 	compLogMessage ("opengl", CompLogLevelFatal,
 			"Support for non power of two textures missing");
 	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
-	setFailed ();
-	return;
+	return false;
     }
 
     if (strstr (glExtensions, "GL_ARB_texture_env_combine"))
@@ -361,6 +254,175 @@ GLScreen::GLScreen (CompScreen *s) :
 
     if (strstr (glExtensions, "GL_ARB_texture_compression"))
 	GL::textureCompression = true;
+
+    glClearColor (0.0, 0.0, 0.0, 1.0);
+    glBlendFunc (GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable (GL_CULL_FACE);
+    glDisable (GL_BLEND);
+    glTexEnvi (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    glColor4usv (defaultColor);
+    glEnableClientState (GL_VERTEX_ARRAY);
+    glEnableClientState (GL_TEXTURE_COORD_ARRAY);
+
+    if (GL::textureEnvCombine && GL::maxTextureUnits >= 2)
+    {
+	GL::canDoSaturated = true;
+	if (GL::textureEnvCrossbar && GL::maxTextureUnits >= 4)
+	    GL::canDoSlightlySaturated = true;
+    }
+
+    priv->updateView ();
+
+    glLightModelfv (GL_LIGHT_MODEL_AMBIENT, globalAmbient);
+
+    glEnable (GL_LIGHT0);
+    glLightfv (GL_LIGHT0, GL_AMBIENT, ambientLight);
+    glLightfv (GL_LIGHT0, GL_DIFFUSE, diffuseLight);
+    glLightfv (GL_LIGHT0, GL_POSITION, light0Position);
+
+    glColorMaterial (GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+
+    glNormal3f (0.0f, 0.0f, -1.0f);
+
+    priv->lighting = false;
+
+
+    priv->filter[NOTHING_TRANS_FILTER] = GLTexture::Fast;
+    priv->filter[SCREEN_TRANS_FILTER]  = GLTexture::Good;
+    priv->filter[WINDOW_TRANS_FILTER]  = GLTexture::Good;
+
+    if (GL::textureFromPixmap)
+	registerBindPixmap (TfpTexture::bindPixmapToTexture);
+
+    return true;
+}
+
+
+GLScreen::GLScreen (CompScreen *s) :
+    PluginClassHandler<GLScreen, CompScreen, COMPIZ_OPENGL_ABI> (s),
+    priv (new PrivateGLScreen (this))
+{
+    Display		 *dpy = s->dpy ();
+    XVisualInfo		 templ;
+    XVisualInfo		 *visinfo;
+    GLXFBConfig		 *fbConfigs;
+    int			 defaultDepth, nvisinfo, nElements, value, i;
+    const char		 *glxExtensions;
+    XWindowAttributes    attr;
+    CompOption::Vector o (0);
+
+    if (!XGetWindowAttributes (dpy, s->root (), &attr))
+    {
+	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
+	setFailed ();
+	return;
+    }
+
+    templ.visualid = XVisualIDFromVisual (attr.visual);
+
+    visinfo = XGetVisualInfo (dpy, VisualIDMask, &templ, &nvisinfo);
+    if (!nvisinfo)
+    {
+	compLogMessage ("opengl", CompLogLevelFatal,
+			"Couldn't get visual info for default visual");
+	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
+	setFailed ();
+	return;
+    }
+
+    defaultDepth = visinfo->depth;
+
+    glXGetConfig (dpy, visinfo, GLX_USE_GL, &value);
+    if (!value)
+    {
+	compLogMessage ("opengl", CompLogLevelFatal,
+			"Root visual is not a GL visual");
+	XFree (visinfo);
+	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
+	setFailed ();
+	return;
+    }
+
+    glXGetConfig (dpy, visinfo, GLX_DOUBLEBUFFER, &value);
+    if (!value)
+    {
+	compLogMessage ("opengl", CompLogLevelFatal,
+			"Root visual is not a double buffered GL visual");
+	XFree (visinfo);
+	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
+	setFailed ();
+	return;
+    }
+
+    glxExtensions = glXQueryExtensionsString (dpy, s->screenNum ());
+
+    if (!strstr (glxExtensions, "GLX_SGIX_fbconfig"))
+    {
+	compLogMessage ("opengl", CompLogLevelFatal,
+			"GLX_SGIX_fbconfig is missing");
+	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
+	setFailed ();
+	return;
+    }
+
+    priv->getProcAddress = (GL::GLXGetProcAddressProc)
+	getProcAddress ("glXGetProcAddressARB");
+    GL::bindTexImage = (GL::GLXBindTexImageProc)
+	getProcAddress ("glXBindTexImageEXT");
+    GL::releaseTexImage = (GL::GLXReleaseTexImageProc)
+	getProcAddress ("glXReleaseTexImageEXT");
+    GL::queryDrawable = (GL::GLXQueryDrawableProc)
+	getProcAddress ("glXQueryDrawable");
+    GL::getFBConfigs = (GL::GLXGetFBConfigsProc)
+	getProcAddress ("glXGetFBConfigs");
+    GL::getFBConfigAttrib = (GL::GLXGetFBConfigAttribProc)
+	getProcAddress ("glXGetFBConfigAttrib");
+    GL::createPixmap = (GL::GLXCreatePixmapProc)
+	getProcAddress ("glXCreatePixmap");
+    GL::destroyPixmap = (GL::GLXDestroyPixmapProc)
+    	getProcAddress ("glXDestroyPixmap");
+
+    if (!strstr (glxExtensions, "GLX_EXT_texture_from_pixmap") ||
+        !GL::bindTexImage || !GL::releaseTexImage)
+    {
+	compLogMessage ("opengl", CompLogLevelFatal,
+			"GLX_EXT_texture_from_pixmap is missing");
+	GL::textureFromPixmap = false;
+    }
+    else
+	GL::textureFromPixmap = true;
+
+    if (!GL::queryDrawable     ||
+	!GL::getFBConfigs      ||
+	!GL::getFBConfigAttrib ||
+	!GL::createPixmap      ||
+	!GL::destroyPixmap)
+    {
+	compLogMessage ("opengl", CompLogLevelFatal,
+			"fbconfig functions missing");
+	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
+	setFailed ();
+	return;
+    }
+
+    if (strstr (glxExtensions, "GLX_MESA_copy_sub_buffer"))
+	GL::copySubBuffer = (GL::GLXCopySubBufferProc)
+	    getProcAddress ("glXCopySubBufferMESA");
+
+    if (strstr (glxExtensions, "GLX_SGI_video_sync"))
+    {
+	GL::getVideoSync = (GL::GLXGetVideoSyncProc)
+	    getProcAddress ("glXGetVideoSyncSGI");
+
+	GL::waitVideoSync = (GL::GLXWaitVideoSyncProc)
+	    getProcAddress ("glXWaitVideoSyncSGI");
+    }
+
+    if (strstr (glxExtensions, "GLX_SGI_swap_control"))
+    {
+	GL::swapInterval = (GL::GLXSwapIntervalProc)
+	    getProcAddress ("glXSwapIntervalSGI");
+    }
 
     fbConfigs = (*GL::getFBConfigs) (dpy, s->screenNum (), &nElements);
 
@@ -489,48 +551,10 @@ GLScreen::GLScreen (CompScreen *s) :
 			"this isn't going to work.");
 	screen->handleCompizEvent ("opengl", "fatal_fallback", o);
 	setFailed ();
-	return;
     }
 
-    glClearColor (0.0, 0.0, 0.0, 1.0);
-    glBlendFunc (GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable (GL_CULL_FACE);
-    glDisable (GL_BLEND);
-    glTexEnvi (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-    glColor4usv (defaultColor);
-    glEnableClientState (GL_VERTEX_ARRAY);
-    glEnableClientState (GL_TEXTURE_COORD_ARRAY);
-
-    if (GL::textureEnvCombine && GL::maxTextureUnits >= 2)
-    {
-	GL::canDoSaturated = true;
-	if (GL::textureEnvCrossbar && GL::maxTextureUnits >= 4)
-	    GL::canDoSlightlySaturated = true;
-    }
-
-    priv->updateView ();
-
-    glLightModelfv (GL_LIGHT_MODEL_AMBIENT, globalAmbient);
-
-    glEnable (GL_LIGHT0);
-    glLightfv (GL_LIGHT0, GL_AMBIENT, ambientLight);
-    glLightfv (GL_LIGHT0, GL_DIFFUSE, diffuseLight);
-    glLightfv (GL_LIGHT0, GL_POSITION, light0Position);
-
-    glColorMaterial (GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
-
-    glNormal3f (0.0f, 0.0f, -1.0f);
-
-    priv->lighting = false;
-
-
-    priv->filter[NOTHING_TRANS_FILTER] = GLTexture::Fast;
-    priv->filter[SCREEN_TRANS_FILTER]  = GLTexture::Good;
-    priv->filter[WINDOW_TRANS_FILTER]  = GLTexture::Good;
-
-    if (GL::textureFromPixmap)
-	registerBindPixmap (TfpTexture::bindPixmapToTexture);
-
+    if (!glInitContext (visinfo))
+	setFailed ();
 }
 
 GLScreen::~GLScreen ()
@@ -555,13 +579,18 @@ PrivateGLScreen::PrivateGLScreen (GLScreen   *gs) :
     outputRegion (),
     pendingCommands (false),
     bindPixmap (),
-    hasCompositing (false)
+    hasCompositing (false),
+    rootPixmapCopy (None),
+    rootPixmapSize ()
 {
     ScreenInterface::setHandler (screen);
 }
 
 PrivateGLScreen::~PrivateGLScreen ()
 {
+    if (rootPixmapCopy)
+	XFreePixmap (screen->dpy (), rootPixmapCopy);
+
 }
 
 GLushort defaultColor[4] = { 0xffff, 0xffff, 0xffff, 0xffff };
@@ -588,6 +617,10 @@ PrivateGLScreen::handleEvent (XEvent *event)
     screen->handleEvent (event);
 
     switch (event->type) {
+	case ConfigureNotify:
+	    if (event->xconfigure.window == screen->root ())
+		updateScreenBackground ();
+	    break;
 	case PropertyNotify:
 	    if (event->xproperty.atom == Atoms::xBackground[0] ||
 		event->xproperty.atom == Atoms::xBackground[1])
@@ -622,6 +655,14 @@ PrivateGLScreen::handleEvent (XEvent *event)
 		{
 		    it->second->damaged = true;
 		}
+
+		/* XXX: It would be nice if we could also update
+		 * the background of the root window when the root
+		 * window pixmap changes, but unfortunately XDamage
+		 * reports damage events any time a child of the root
+		 * window gets a damage event, which means that we'd
+		 * be recopying the root window pixmap all the time
+		 * which is no good, so don't do that */
 	    }
 	    break;
     }
@@ -811,13 +852,54 @@ PrivateGLScreen::updateScreenBackground ()
 	backgroundTextures.clear ();
     }
 
-    if (backgroundTextures.empty () && backgroundImage)
+    if (backgroundTextures.empty ())
     {
 	CompSize   size;
-	CompString fileName (backgroundImage);
-	CompString pname ("");
+	/* Try to get the root window background */
+	XGCValues gcv;
+	GC        gc;
 
-	backgroundTextures = GLTexture::readImageToTexture (fileName, pname, size);
+	gcv.graphics_exposures = false;
+	gcv.subwindow_mode = IncludeInferiors;
+	gc = XCreateGC (screen->dpy (), screen->root (),
+			GCGraphicsExposures | GCSubwindowMode, &gcv);
+
+	if (rootPixmapSize.width () != screen->width () ||
+	    rootPixmapSize.height () != screen->height ())
+	{
+	    if (rootPixmapCopy)
+		XFreePixmap (screen->dpy (), rootPixmapCopy);
+
+	    rootPixmapSize = CompSize (screen->width (), screen->height ());
+
+	    rootPixmapCopy = XCreatePixmap (screen->dpy (), screen->root (),
+					    rootPixmapSize.width (), rootPixmapSize.height (),
+					    DefaultDepth (screen->dpy (), DefaultScreen (screen->dpy ())));
+
+	    backgroundTextures =
+	    GLTexture::bindPixmapToTexture (rootPixmapCopy, rootPixmapSize.width (), rootPixmapSize.height (),
+					    DefaultDepth (screen->dpy (), DefaultScreen (screen->dpy ())));
+
+	    if (backgroundTextures.empty ())
+	    {
+		compLogMessage ("core", CompLogLevelWarn,
+				"Couldn't bind background pixmap 0x%x to "
+				"texture", (int) screen->width ());
+	    }
+	}
+
+	if (rootPixmapCopy)
+	{
+	    XCopyArea (screen->dpy (), screen->root (), rootPixmapCopy, gc,
+		       0, 0, screen->width (), screen->height (), 0, 0);
+	    XSync (screen->dpy (), false);
+	}
+	else
+	{
+	    backgroundTextures.clear ();
+	}
+
+	XFreeGC(dpy, gc);
     }
 
     if (!backgroundTextures.empty ())
@@ -985,21 +1067,58 @@ GLScreen::setDefaultViewport ()
 		priv->lastViewport.height);
 }
 
+namespace GL
+{
+
+void
+waitForVideoSync ()
+{
+    GL::unthrottledFrames++;
+    if (GL::waitVideoSync)
+    {
+	// Don't wait twice. Just in case.
+	if (GL::swapInterval)
+	    (*GL::swapInterval) (0);
+
+	/*
+	 * While glXSwapBuffers/glXCopySubBufferMESA are meant to do a
+	 * flush before they blit, it is best to not let that happen.
+	 * Because that flush would occur after GL::waitVideoSync, causing
+	 * a delay and the final blit to be slightly out of sync resulting
+	 * in tearing. So we need to do a glFinish before we wait for
+	 * vsync, to absolutely minimize tearing.
+	 */
+	glFinish ();
+
+	// Docs: http://www.opengl.org/registry/specs/SGI/video_sync.txt
+	unsigned int oldCount = GL::vsyncCount;
+	(*GL::waitVideoSync) (1, 0, &GL::vsyncCount);
+
+	if (GL::vsyncCount != oldCount)
+	    GL::unthrottledFrames = 0;
+    }
+}
+
+void
+controlSwapVideoSync (bool sync)
+{
+    // Docs: http://www.opengl.org/registry/specs/SGI/swap_control.txt
+    if (GL::swapInterval)
+    {
+	(*GL::swapInterval) (sync ? 1 : 0);
+	GL::unthrottledFrames++;
+    }
+    else if (sync)
+	waitForVideoSync ();
+}
+
+} // namespace GL
+
 void
 PrivateGLScreen::waitForVideoSync ()
 {
-    unsigned int sync;
-
-    if (!optionGetSyncToVblank ())
-	return;
-
-    if (GL::getVideoSync)
-    {
-	glFlush ();
-
-	(*GL::getVideoSync) (&sync);
-	(*GL::waitVideoSync) (2, (sync + 1) % 2, &sync);
-    }
+    if (optionGetSyncToVblank ())
+        GL::waitForVideoSync ();
 }
 
 void
@@ -1071,19 +1190,23 @@ PrivateGLScreen::paintOutputs (CompOutput::ptrList &outputs,
 
     targetOutput = &screen->outputDevs ()[0];
 
-    waitForVideoSync ();
-
     if (mask & COMPOSITE_SCREEN_DAMAGE_ALL_MASK)
     {
+	/*
+	 * controlSwapVideoSync is much faster than waitForVideoSync because
+	 * it won't block the CPU. The waiting is offloaded to the GPU.
+	 * Unfortunately it only works with glXSwapBuffers in most drivers.
+	 */
+	GL::controlSwapVideoSync (optionGetSyncToVblank ());
 	glXSwapBuffers (screen->dpy (), cScreen->output ());
     }
     else
     {
-	BoxPtr pBox;
-	int    nBox, y;
+	BoxPtr pBox = const_cast <Region> (tmpRegion.handle ())->rects;
+	int    nBox = const_cast <Region> (tmpRegion.handle ())->numRects;
+	int    y;
 
-	pBox = const_cast <Region> (tmpRegion.handle ())->rects;
-	nBox = const_cast <Region> (tmpRegion.handle ())->numRects;
+	waitForVideoSync ();
 
 	if (GL::copySubBuffer)
 	{
@@ -1137,7 +1260,14 @@ PrivateGLScreen::paintOutputs (CompOutput::ptrList &outputs,
 bool
 PrivateGLScreen::hasVSync ()
 {
-   return (GL::getVideoSync && optionGetSyncToVblank ());
+    return GL::waitVideoSync && optionGetSyncToVblank () && 
+           GL::unthrottledFrames < 5;
+}
+
+bool
+PrivateGLScreen::compositingActive ()
+{
+    return true;
 }
 
 void
@@ -1145,7 +1275,8 @@ PrivateGLScreen::prepareDrawing ()
 {
     if (pendingCommands)
     {
-	glFinish ();
+	/* glFlush! glFinish would block the CPU, which is bad. */
+	glFlush ();
 	pendingCommands = false;
     }
 }

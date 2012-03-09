@@ -47,7 +47,7 @@ WobblyWindow::findNextWestEdge (Object *object)
     v1 = -65535.0f;
     v2 =  65535.0f;
 
-    x = object->position.x + window->output ().left - window->input ().left;
+    x = object->position.x + window->output ().left - window->border ().left;
 
     output = ::screen->outputDeviceForPoint (x, object->position.y);
     const CompRect &workArea =
@@ -71,9 +71,9 @@ WobblyWindow::findNextWestEdge (Object *object)
 	    }
 	    else if (!p->invisible () && (p->type () & SNAP_WINDOW_TYPE))
 	    {
-		s = p->geometry ().y () - p->input ().top -
+		s = p->geometry ().y () - p->border ().top -
 		    window->output ().top;
-		e = p->geometry ().y () + p->height () + p->input ().bottom +
+		e = p->geometry ().y () + p->height () + p->border ().bottom +
 		    window->output ().bottom;
 	    }
 	    else
@@ -103,7 +103,7 @@ WobblyWindow::findNextWestEdge (Object *object)
 		    v = p->struts ()->left.x + p->struts ()->left.width;
 		else
 		    v = p->geometry ().x () + p->width () +
-			p->input ().right;
+			p->border ().right;
 
 		if (v <= x)
 		{
@@ -123,8 +123,8 @@ WobblyWindow::findNextWestEdge (Object *object)
 	v2 = workAreaEdge;
     }
 
-    v1 = v1 - window->output ().left + window->input ().left;
-    v2 = v2 - window->output ().left + window->input ().left;
+    v1 = v1 - window->output ().left + window->border ().left;
+    v2 = v2 - window->output ().left + window->border ().left;
 
     if (v1 != (int) object->vertEdge.next)
 	object->vertEdge.snapped = false;
@@ -155,7 +155,7 @@ WobblyWindow::findNextEastEdge (Object *object)
     v1 =  65535.0f;
     v2 = -65535.0f;
 
-    x = object->position.x - window->output ().right + window->input ().right;
+    x = object->position.x - window->output ().right + window->border ().right;
 
     output = ::screen->outputDeviceForPoint (x, object->position.y);
     const CompRect &workArea =
@@ -179,9 +179,9 @@ WobblyWindow::findNextEastEdge (Object *object)
 	    }
 	    else if (!p->invisible () && (p->type () & SNAP_WINDOW_TYPE))
 	    {
-		s = p->geometry ().y () - p->input ().top -
+		s = p->geometry ().y () - p->border ().top -
 		    window->output ().top;
-		e = p->geometry ().y () + p->height () + p->input ().bottom +
+		e = p->geometry ().y () + p->height () + p->border ().bottom +
 		    window->output ().bottom;
 	    }
 	    else
@@ -210,7 +210,7 @@ WobblyWindow::findNextEastEdge (Object *object)
 		if (p->mapNum () && p->struts ())
 		    v = p->struts ()->right.x;
 		else
-		    v = p->geometry ().x () - p->input ().left;
+		    v = p->geometry ().x () - p->border ().left;
 
 		if (v >= x)
 		{
@@ -230,8 +230,8 @@ WobblyWindow::findNextEastEdge (Object *object)
 	v2 = workAreaEdge;
     }
 
-    v1 = v1 + window->output ().right - window->input ().right;
-    v2 = v2 + window->output ().right - window->input ().right;
+    v1 = v1 + window->output ().right - window->border ().right;
+    v2 = v2 + window->output ().right - window->border ().right;
 
     if (v1 != (int) object->vertEdge.next)
 	object->vertEdge.snapped = false;
@@ -262,7 +262,7 @@ WobblyWindow::findNextNorthEdge (Object *object)
     v1 = -65535.0f;
     v2 =  65535.0f;
 
-    y = object->position.y + window->output ().top - window->input ().top;
+    y = object->position.y + window->output ().top - window->border ().top;
 
     output = ::screen->outputDeviceForPoint (object->position.x, y);
     const CompRect &workArea =
@@ -286,9 +286,9 @@ WobblyWindow::findNextNorthEdge (Object *object)
 	    }
 	    else if (!p->invisible () && (p->type () & SNAP_WINDOW_TYPE))
 	    {
-		s = p->geometry ().x () - p->input ().left -
+		s = p->geometry ().x () - p->border ().left -
 		    window->output ().left;
-		e = p->geometry ().x () + p->width () + p->input ().right +
+		e = p->geometry ().x () + p->width () + p->border ().right +
 		    window->output ().right;
 	    }
 	    else
@@ -317,7 +317,7 @@ WobblyWindow::findNextNorthEdge (Object *object)
 		if (p->mapNum () && p->struts ())
 		    v = p->struts ()->top.y + p->struts ()->top.height;
 		else
-		    v = p->geometry ().y () + p->height () + p->input ().bottom;
+		    v = p->geometry ().y () + p->height () + p->border ().bottom;
 
 		if (v <= y)
 		{
@@ -337,8 +337,8 @@ WobblyWindow::findNextNorthEdge (Object *object)
 	v2 = workAreaEdge;
     }
 
-    v1 = v1 - window->output ().top + window->input ().top;
-    v2 = v2 - window->output ().top + window->input ().top;
+    v1 = v1 - window->output ().top + window->border ().top;
+    v2 = v2 - window->output ().top + window->border ().top;
 
     if (v1 != (int) object->horzEdge.next)
 	object->horzEdge.snapped = false;
@@ -369,7 +369,7 @@ WobblyWindow::findNextSouthEdge (Object *object)
     v1 =  65535.0f;
     v2 = -65535.0f;
 
-    y = object->position.y - window->output ().bottom + window->input ().bottom;
+    y = object->position.y - window->output ().bottom + window->border ().bottom;
 
     output = ::screen->outputDeviceForPoint (object->position.x, y);
     const CompRect &workArea =
@@ -393,9 +393,9 @@ WobblyWindow::findNextSouthEdge (Object *object)
 	    }
 	    else if (!p->invisible () && (p->type () & SNAP_WINDOW_TYPE))
 	    {
-		s = p->geometry ().x () - p->input ().left -
+		s = p->geometry ().x () - p->border ().left -
 		    window->output ().left;
-		e = p->geometry ().x () + p->width () + p->input ().right +
+		e = p->geometry ().x () + p->width () + p->border ().right +
 		    window->output ().right;
 	    }
 	    else
@@ -424,7 +424,7 @@ WobblyWindow::findNextSouthEdge (Object *object)
 		if (p->mapNum () && p->struts ())
 		    v = p->struts ()->bottom.y;
 		else
-		    v = p->geometry ().y () - p->input ().top;
+		    v = p->geometry ().y () - p->border ().top;
 
 		if (v >= y)
 		{
@@ -444,8 +444,8 @@ WobblyWindow::findNextSouthEdge (Object *object)
 	v2 = workAreaEdge;
     }
 
-    v1 = v1 + window->output ().bottom - window->input ().bottom;
-    v2 = v2 + window->output ().bottom - window->input ().bottom;
+    v1 = v1 + window->output ().bottom - window->border ().bottom;
+    v2 = v2 + window->output ().bottom - window->border ().bottom;
 
     if (v1 != (int) object->horzEdge.next)
 	object->horzEdge.snapped = false;
@@ -1388,7 +1388,7 @@ WobblyScreen::preparePaint (int msSinceLastPaint)
 			    }
 
 			    decorTop = bottommostYPos +
-				       w->output ().top - w->input ().top;
+				       w->output ().top - w->border ().top;
 			    decorTitleBottom = topmostYPos + w->output ().top;
 
 			    if (constraintBox->y () > decorTop)

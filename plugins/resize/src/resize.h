@@ -26,7 +26,8 @@
 #ifndef _RESIZE_H
 #define _RESIZE_H
 
-#include <core/core.h>
+#include <boost/shared_ptr.hpp>
+#include <core/screen.h>
 #include <core/pluginclasshandler.h>
 #include <core/propertywriter.h>
 
@@ -148,7 +149,7 @@ class ResizeScreen :
 	CompSize   lastGoodSize;
 
 	bool		 offWorkAreaConstrained;
-	CompRect   *grabWindowWorkArea;
+	boost::shared_ptr <CompRect> grabWindowWorkArea;
 };
 
 class ResizeWindow :

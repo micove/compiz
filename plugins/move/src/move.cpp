@@ -127,7 +127,11 @@ moveInitiate (CompAction      *action,
 
 	    w->grabNotify (x, y, mods, grabMask);
 
-	    if (screen->getOption ("raise_on_click")->value ().b ())
+	    /* Click raise happens implicitly on buttons 1, 2 and 3 so don't
+	     * restack this window again if the action buttonbinding was from
+	     * one of those buttons */
+	    if (screen->getOption ("raise_on_click")->value ().b () &&
+		button != Button1 && button != Button2 && button != Button3)
 		w->updateAttributes (CompStackingUpdateModeAboveFullscreen);
 
 	    if (state & CompAction::StateInitKey)
@@ -310,12 +314,12 @@ moveHandleMotionEvent (CompScreen *s,
 
 	w = ms->w;
 
-	wX      = w->serverGeometry ().x ();
-	wY      = w->serverGeometry ().y ();
-	wWidth  = w->serverGeometry ().width () +
-		  w->serverGeometry ().border () * 2;
-	wHeight = w->serverGeometry ().height () +
-		  w->serverGeometry ().border () * 2;
+	wX      = w->geometry ().x ();
+	wY      = w->geometry ().y ();
+	wWidth  = w->geometry ().width () +
+		  w->geometry ().border () * 2;
+	wHeight = w->geometry ().height () +
+		  w->geometry ().border () * 2;
 
 	ms->x += xRoot - lastPointerX;
 	ms->y += yRoot - lastPointerY;
@@ -339,7 +343,7 @@ moveHandleMotionEvent (CompScreen *s,
 		if (!ms->region)
 		    ms->region = moveGetYConstrainRegion (s);
 
-		/* make sure that the top frame extents or the top row of
+		/* make sure that the top border extents or the top row of
 		   pixels are within what is currently our valid screen
 		   region */
 		if (ms->region)
@@ -347,10 +351,10 @@ moveHandleMotionEvent (CompScreen *s,
 		    int x, y, width, height;
 		    int status;
 
-		    x	   = wX + dx - w->input ().left;
-		    y	   = wY + dy - w->input ().top;
-		    width  = wWidth + w->input ().left + w->input ().right;
-		    height = w->input ().top ? w->input ().top : 1;
+		    x	   = wX + dx - w->border ().left;
+		    y	   = wY + dy - w->border ().top;
+		    width  = wWidth + w->border ().left + w->border ().right;
+		    height = w->border ().top ? w->border ().top : 1;
 
 		    status = XRectInRegion (ms->region, x, y,
 					    (unsigned int) width,
@@ -371,7 +375,7 @@ moveHandleMotionEvent (CompScreen *s,
 			    if (xStatus != RectangleIn)
 				dx += (dx < 0) ? 1 : -1;
 
-			    x = wX + dx - w->input ().left;
+			    x = wX + dx - w->border ().left;
 			}
 
 			while (dy && status != RectangleIn)
@@ -384,7 +388,7 @@ moveHandleMotionEvent (CompScreen *s,
 			    if (status != RectangleIn)
 				dy += (dy < 0) ? 1 : -1;
 
-			    y = wY + dy - w->input ().top;
+			    y = wY + dy - w->border ().top;
 			}
 		    }
 		    else
@@ -410,7 +414,7 @@ moveHandleMotionEvent (CompScreen *s,
 				width = w->saveWc ().width;
 
 			    w->saveWc ().x = xRoot - (width >> 1);
-			    w->saveWc ().y = yRoot + (w->input ().top >> 1);
+			    w->saveWc ().y = yRoot + (w->border ().top >> 1);
 
 			    ms->x = ms->y = 0;
 
@@ -437,7 +441,7 @@ moveHandleMotionEvent (CompScreen *s,
 
 			    w->maximize (ms->origState);
 
-			    wy  = workArea.y () + (w->input ().top >> 1);
+			    wy  = workArea.y () + (w->border ().top >> 1);
 			    wy += w->sizeHints ().height_inc >> 1;
 
 			    s->warpPointer (0, wy - pointerY);
@@ -450,8 +454,8 @@ moveHandleMotionEvent (CompScreen *s,
 
 	    if (w->state () & CompWindowStateMaximizedVertMask)
 	    {
-		min = workArea.y () + w->input ().top;
-		max = workArea.bottom () - w->input ().bottom - wHeight;
+		min = workArea.y () + w->border ().top;
+		max = workArea.bottom () - w->border ().bottom - wHeight;
 
 		if (wY + dy < min)
 		    dy = min - wY;
@@ -468,8 +472,8 @@ moveHandleMotionEvent (CompScreen *s,
 		if (wX + wWidth < 0)
 		    return;
 
-		min = workArea.x () + w->input ().left;
-		max = workArea.right () - w->input ().right - wWidth;
+		min = workArea.x () + w->border ().left;
+		max = workArea.right () - w->border ().right - wWidth;
 
 		if (wX + dx < min)
 		    dx = min - wX;
@@ -483,19 +487,8 @@ moveHandleMotionEvent (CompScreen *s,
 	    w->move (wX + dx - w->geometry ().x (),
 		     wY + dy - w->geometry ().y (), false);
 
-	    if (ms->optionGetLazyPositioning () &&
-	        MoveScreen::get (screen)->hasCompositing)
-	    {
-		/* FIXME: This form of lazy positioning is broken and should
-		   be replaced asap. Current code exists just to avoid a
-		   major performance regression in the 0.5.2 release. */
-		w->serverGeometry ().setX (w->geometry ().x ());
-		w->serverGeometry ().setY (w->geometry ().y ());
-	    }
-	    else
-	    {
+	    if (!ms->optionGetLazyPositioning ())
 		w->syncPosition ();
-	    }
 
 	    ms->x -= dx;
 	    ms->y -= dy;
@@ -518,7 +511,7 @@ MoveScreen::handleEvent (XEvent *event)
 		    {
 			moveTerminate (&optionGetInitiateButton (),
 				       CompAction::StateTermButton,
-				       noOptions);
+				       noOptions ());
 		    }
 		}
 	    }
@@ -613,9 +606,9 @@ MoveScreen::handleEvent (XEvent *event)
 		    if (ms->w->id () == event->xclient.window)
 		    {
 			moveTerminate (&optionGetInitiateButton (),
-				       CompAction::StateCancel, noOptions);
+				       CompAction::StateCancel, noOptions ());
 			moveTerminate (&optionGetInitiateKey (),
-				       CompAction::StateCancel, noOptions);
+				       CompAction::StateCancel, noOptions ());
 
 		    }
 		}
@@ -624,15 +617,15 @@ MoveScreen::handleEvent (XEvent *event)
 	case DestroyNotify:
 	    if (w && w->id () == event->xdestroywindow.window)
 	    {
-		moveTerminate (&optionGetInitiateButton (), 0, noOptions);
-		moveTerminate (&optionGetInitiateKey (), 0, noOptions);
+		moveTerminate (&optionGetInitiateButton (), 0, noOptions ());
+		moveTerminate (&optionGetInitiateKey (), 0, noOptions ());
 	    }
 	    break;
 	case UnmapNotify:
 	    if (w && w->id () == event->xunmap.window)
 	    {
-		moveTerminate (&optionGetInitiateButton (), 0, noOptions);
-		moveTerminate (&optionGetInitiateKey (), 0, noOptions);
+		moveTerminate (&optionGetInitiateButton (), 0, noOptions ());
+		moveTerminate (&optionGetInitiateKey (), 0, noOptions ());
 	    }
 	default:
 	    break;
@@ -672,8 +665,24 @@ MoveScreen::updateOpacity ()
     moveOpacity = (optionGetOpacity () * OPAQUE) / 100;
 }
 
+bool
+MoveScreen::registerPaintHandler(compiz::composite::PaintHandler *pHnd)
+{
+    hasCompositing = true;
+    cScreen->registerPaintHandler (pHnd);
+    return true;
+}
+
+void
+MoveScreen::unregisterPaintHandler()
+{
+    hasCompositing = false;
+    cScreen->unregisterPaintHandler ();
+}
+
 MoveScreen::MoveScreen (CompScreen *screen) :
     PluginClassHandler<MoveScreen,CompScreen> (screen),
+    cScreen (CompositeScreen::get (screen)),
     w (0),
     region (NULL),
     status (RectangleOut),
@@ -682,7 +691,6 @@ MoveScreen::MoveScreen (CompScreen *screen) :
     hasCompositing (false),
     yConstrained (false)
 {
-
     updateOpacity ();
 
     for (unsigned int i = 0; i < NUM_KEYS; i++)
@@ -690,9 +698,12 @@ MoveScreen::MoveScreen (CompScreen *screen) :
 				   XStringToKeysym (mKeys[i].name));
 
     moveCursor = XCreateFontCursor (screen->dpy (), XC_fleur);
-    if (CompositeScreen::get (screen))
+    if (cScreen)
+    {
+	CompositeScreenInterface::setHandler (cScreen);
 	hasCompositing =
-	    CompositeScreen::get (screen)->compositingActive ();
+	    cScreen->compositingActive ();
+    }
 
     optionSetOpacityNotify (boost::bind (&MoveScreen::updateOpacity, this));
 

@@ -766,7 +766,10 @@ calc_decoration_size (decor_t *d,
 	if (w < top_width)
 	    top_width = MAX (ICON_SPACE + d->button_width, w);
 
-	decor_get_default_layout (&d->frame->window_context, top_width, 1, &layout);
+	if (d->active)
+	    decor_get_default_layout (&d->frame->window_context_active, top_width, 1, &layout);
+	else
+	    decor_get_default_layout (&d->frame->window_context_inactive, top_width, 1, &layout);
 
 	if (!d->context || memcmp (&layout, &d->border_layout, sizeof (layout)))
 	{
@@ -774,8 +777,16 @@ calc_decoration_size (decor_t *d,
 	    *height = layout.height;
 
 	    d->border_layout = layout;
-	    d->context       = &d->frame->window_context;
-	    d->shadow        = d->frame->border_shadow;
+	    if (d->active)
+	    {
+		d->context       = &d->frame->window_context_active;
+		d->shadow        = d->frame->border_shadow_active;
+	    }
+	    else
+	    {
+		d->context       = &d->frame->window_context_inactive;
+		d->shadow        = d->frame->border_shadow_inactive;
+	    }
 
 	    return TRUE;
 	}
@@ -797,8 +808,16 @@ calc_decoration_size (decor_t *d,
 	*height = layout.height;
 
 	d->border_layout = layout;
-	d->context = &d->frame->window_context_no_shadow;
-	d->shadow = d->frame->border_no_shadow;
+	if (d->active)
+	{
+	    d->context       = &d->frame->window_context_active;
+	    d->shadow        = d->frame->border_shadow_active;
+	}
+	else
+	{
+	    d->context       = &d->frame->window_context_inactive;
+	    d->shadow        = d->frame->border_shadow_inactive;
+	}
 
 	return TRUE;
     }
@@ -901,15 +920,12 @@ get_title_scale (decor_frame_t *frame)
 void
 update_border_extents (decor_frame_t *frame)
 {
-    decor_frame_t *default_frame = gwd_get_decor_frame ("default");
-
     frame = gwd_decor_frame_ref (frame);
 
-    frame->win_extents = default_frame->win_extents;
-    frame->max_win_extents = default_frame->win_extents;
+    frame->win_extents = frame->win_extents;
+    frame->max_win_extents = frame->win_extents;
     frame->titlebar_height = frame->max_titlebar_height =
 	    (frame->text_height < 17) ? 17 : frame->text_height;
 
     gwd_decor_frame_unref (frame);
-    gwd_decor_frame_unref (default_frame);
 }

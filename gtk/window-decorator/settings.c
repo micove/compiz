@@ -21,10 +21,6 @@
 
 #include "gtk-window-decorator.h"
 
-/* TODO: Trash all of this and use a window property
- * instead - much much cleaner!
- */
-
 gboolean
 shadow_property_changed (WnckScreen *s)
 {
@@ -46,29 +42,43 @@ shadow_property_changed (WnckScreen *s)
     if (result != Success)
 	return FALSE;
 
-    if (n == 4)
+    if (n == 8)
     {
 	long *data      = (long *) prop_data;
-	gdouble radius  = data[0];
-	gdouble opacity = data[1];
-	gint x_off      = data[2];
-	gint y_off      = data[3];
+	gdouble aradius  = data[0];
+	gdouble aopacity = data[1];
+	gint ax_off      = data[2];
+	gint ay_off      = data[3];
 
+	gdouble iradius  = data[4];
+	gdouble iopacity = data[5];
+	gint ix_off      = data[6];
+	gint iy_off      = data[7];
 	/* Radius and Opacity are multiplied by 1000 to keep precision,
 	 * divide by that much to get our real radius and opacity
 	 */
-	radius /= 1000;
-	opacity /= 1000;
+	aradius /= 1000;
+	aopacity /= 1000;
+	iradius /= 1000;
+	iopacity /= 1000;
 
-	changed = radius != settings->shadow_radius   ||
-		  opacity != settings->shadow_opacity ||
-		  x_off != settings->shadow_offset_x  ||
-		  y_off != settings->shadow_offset_y;
+	changed = aradius != settings->active_shadow_radius   ||
+		  aopacity != settings->active_shadow_opacity ||
+		  ax_off != settings->active_shadow_offset_x  ||
+		  ay_off != settings->active_shadow_offset_y ||
+		  iradius != settings->inactive_shadow_radius   ||
+		  iopacity != settings->inactive_shadow_opacity ||
+		  ix_off != settings->inactive_shadow_offset_x  ||
+		  iy_off != settings->inactive_shadow_offset_y;
 
-	settings->shadow_radius = (gdouble) MAX (0.0, MIN (radius, 48.0));
-	settings->shadow_opacity = (gdouble) MAX (0.0, MIN (opacity, 6.0));
-	settings->shadow_offset_x = (gint) MAX (-16, MIN (x_off, 16));
-	settings->shadow_offset_y = (gint) MAX (-16, MIN (y_off, 16));
+	settings->active_shadow_radius = (gdouble) MAX (0.0, MIN (aradius, 48.0));
+	settings->active_shadow_opacity = (gdouble) MAX (0.0, MIN (aopacity, 6.0));
+	settings->active_shadow_offset_x = (gint) MAX (-16, MIN (ax_off, 16));
+	settings->active_shadow_offset_y = (gint) MAX (-16, MIN (ay_off, 16));
+	settings->inactive_shadow_radius = (gdouble) MAX (0.0, MIN (iradius, 48.0));
+	settings->inactive_shadow_opacity = (gdouble) MAX (0.0, MIN (iopacity, 6.0));
+	settings->inactive_shadow_offset_x = (gint) MAX (-16, MIN (ix_off, 16));
+	settings->inactive_shadow_offset_y = (gint) MAX (-16, MIN (iy_off, 16));
     }
 
     XFree (prop_data);
@@ -83,16 +93,25 @@ shadow_property_changed (WnckScreen *s)
 	
 	XTextPropertyToStringList (&shadow_color_xtp, &t_data, &ret_count);
 	
-	if (ret_count == 1)
+	if (ret_count == 2)
 	{
 	    int c[4];
 
 	    if (sscanf (t_data[0], "#%2x%2x%2x%2x",
 			&c[0], &c[1], &c[2], &c[3]) == 4)
 	    {
-		settings->shadow_color[0] = c[0] << 8 | c[0];
-		settings->shadow_color[1] = c[1] << 8 | c[1];
-		settings->shadow_color[2] = c[2] << 8 | c[2];
+		settings->active_shadow_color[0] = c[0] << 8 | c[0];
+		settings->active_shadow_color[1] = c[1] << 8 | c[1];
+		settings->active_shadow_color[2] = c[2] << 8 | c[2];
+		changed = TRUE;
+	    }
+
+	    if (sscanf (t_data[1], "#%2x%2x%2x%2x",
+			&c[0], &c[1], &c[2], &c[3]) == 4)
+	    {
+		settings->inactive_shadow_color[0] = c[0] << 8 | c[0];
+		settings->inactive_shadow_color[1] = c[1] << 8 | c[1];
+		settings->inactive_shadow_color[2] = c[2] << 8 | c[2];
 		changed = TRUE;
 	    }
 	}
@@ -106,6 +125,70 @@ shadow_property_changed (WnckScreen *s)
 }
 
 #ifdef USE_GCONF
+static gboolean
+use_tooltips_changed (GConfClient *client)
+{
+    gboolean      new_use_tooltips;
+    gboolean      use_tooltips = settings->use_tooltips;
+
+    new_use_tooltips = gconf_client_get_bool (client,
+					      USE_TOOLTIPS_KEY,
+					      NULL);
+
+    if (new_use_tooltips != use_tooltips)
+    {
+	settings->use_tooltips = new_use_tooltips;
+	return TRUE;
+    }
+
+    return FALSE;
+}
+
+static gboolean
+mutter_draggable_border_width_changed (GConfClient *client)
+{
+    static const unsigned int default_draggable_border_width = 7;
+    int      new_width;
+    int      width = settings->mutter_draggable_border_width;
+    GError   *error = NULL;
+
+    new_width = gconf_client_get_int (client,
+			              MUTTER_DRAGGABLE_BORDER_WIDTH_KEY,
+			              &error);
+    if (error)
+    {
+	new_width = default_draggable_border_width;
+	g_error_free (error);
+    }
+
+    if (new_width != width)
+    {
+	settings->mutter_draggable_border_width = new_width;
+	return TRUE;
+    }
+
+    return FALSE;
+}
+
+static gboolean
+mutter_attach_modal_dialogs_changed (GConfClient *client)
+{
+    gboolean      new_attach;
+    gboolean      attach = settings->mutter_attach_modal_dialogs;
+
+    new_attach = gconf_client_get_bool (client,
+					    MUTTER_ATTACH_MODAL_DIALOGS_KEY,
+					    	NULL);
+
+    if (new_attach != attach)
+    {
+	settings->mutter_attach_modal_dialogs = new_attach;
+	return TRUE;
+    }
+
+    return FALSE;
+}
+
 static gboolean
 blur_settings_changed (GConfClient *client)
 {
@@ -184,6 +267,7 @@ theme_changed (GConfClient *client)
 	theme_get_event_window_position = meta_get_event_window_position;
 	theme_get_button_position	= meta_get_button_position;
 	theme_get_title_scale	    	= meta_get_title_scale;
+	theme_get_shadow		= meta_get_shadow;
     }
     else
     {
@@ -193,6 +277,7 @@ theme_changed (GConfClient *client)
 	theme_get_event_window_position = get_event_window_position;
 	theme_get_button_position	= get_button_position;
 	theme_get_title_scale	    	= get_title_scale;
+	theme_get_shadow		= cairo_get_shadow;
     }
 
     return TRUE;
@@ -203,6 +288,7 @@ theme_changed (GConfClient *client)
     theme_get_event_window_position = get_event_window_position;
     theme_get_button_position	    = get_button_position;
     theme_get_title_scale	    = get_title_scale;
+    theme_get_shadow		    = cairo_get_shadow;
 
     return FALSE;
 #endif
@@ -486,6 +572,21 @@ value_changed (GConfClient *client,
 	if (theme_opacity_changed (client))
 	    changed = TRUE;
     }
+    else if (strcmp (key, MUTTER_DRAGGABLE_BORDER_WIDTH_KEY) == 0)
+    {
+        if (mutter_draggable_border_width_changed (client))
+	    changed = TRUE;
+    }
+    else if (strcmp (key, MUTTER_ATTACH_MODAL_DIALOGS_KEY) == 0)
+    {
+	if (mutter_attach_modal_dialogs_changed (client))
+	    changed = TRUE;
+    }
+    else if (strcmp (key, USE_TOOLTIPS_KEY) == 0)
+    {
+	if (use_tooltips_changed (client))
+	    changed = TRUE;
+    }
 
     if (changed)
 	decorations_changed (data);
@@ -507,6 +608,11 @@ init_settings (WnckScreen *screen)
 
     gconf_client_add_dir (gconf,
 			  METACITY_GCONF_DIR,
+			  GCONF_CLIENT_PRELOAD_ONELEVEL,
+			  NULL);
+
+    gconf_client_add_dir (gconf,
+			  MUTTER_GCONF_DIR,
 			  GCONF_CLIENT_PRELOAD_ONELEVEL,
 			  NULL);
 
@@ -537,9 +643,13 @@ init_settings (WnckScreen *screen)
     wheel_action_changed (gconf);
     blur_settings_changed (gconf);
 
+    mutter_draggable_border_width_changed (gconf);
+    mutter_attach_modal_dialogs_changed (gconf);
+    use_tooltips_changed (gconf);
+
     g_object_unref (gconf);
 #endif
-    
+
     shadow_property_changed (screen);
 
     return TRUE;

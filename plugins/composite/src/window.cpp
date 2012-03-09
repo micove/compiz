@@ -133,14 +133,17 @@ CompositeWindow::bind ()
 	if (attr.map_state != IsViewable)
 	{
 	    XUngrabServer (screen->dpy ());
+	    XSync (screen->dpy (), false);
 	    priv->bindFailed = true;
 	    return false;
 	}
 
 	priv->pixmap = XCompositeNameWindowPixmap
 	    (screen->dpy (), ROOTPARENT (priv->window));
-
+	priv->size = CompSize (attr.border_width * 2 + attr.width,
+			       attr.border_width * 2 + attr.height);
 	XUngrabServer (screen->dpy ());
+	XSync (screen->dpy (), false);
     }
     return true;
 }
@@ -152,6 +155,7 @@ CompositeWindow::release ()
     {
 	XFreePixmap (screen->dpy (), priv->pixmap);
 	priv->pixmap = None;
+	priv->size = CompSize ();
     }
 }
 
@@ -159,6 +163,12 @@ Pixmap
 CompositeWindow::pixmap ()
 {
     return priv->pixmap;
+}
+
+const CompSize &
+CompositeWindow::size ()
+{
+    return priv->size;
 }
 
 void
@@ -193,16 +203,18 @@ CompositeWindow::unredirect ()
 
     release ();
 
-    XCompositeUnredirectWindow (screen->dpy (),
-				ROOTPARENT (priv->window),
-				CompositeRedirectManual);
-
     priv->redirected   = false;
     priv->overlayWindow = true;
     priv->cScreen->overlayWindowCount ()++;
 
     if (priv->cScreen->overlayWindowCount () > 0)
 	priv->cScreen->updateOutputWindow ();
+
+    XCompositeUnredirectWindow (screen->dpy (),
+                               ROOTPARENT (priv->window),
+                               CompositeRedirectManual);
+
+
 }
 
 bool
@@ -256,7 +268,7 @@ CompositeWindow::damageOutputExtents ()
 	return;
 
     if (priv->window->shaded () ||
-	(priv->window->isViewable () && priv->damaged))
+	(priv->window->isViewable ()))
     {
 	int x1, x2, y1, y2;
 
@@ -327,7 +339,7 @@ CompositeWindow::addDamage (bool force)
 	return;
 
     if (priv->window->shaded () || force ||
-	(priv->window->isViewable () && priv->damaged))
+	(priv->window->isViewable ()))
     {
 	int    border = priv->window->geometry ().border ();
 
@@ -480,7 +492,7 @@ bool
 CompositeWindow::damageRect (bool           initial,
 			     const CompRect &rect)
 {
-    WRAPABLE_HND_FUNC_RETURN (0, bool, damageRect, initial, rect)
+    WRAPABLE_HND_FUNCTN_RETURN (bool, damageRect, initial, rect)
     return false;
 }
 
@@ -546,9 +558,10 @@ PrivateCompositeWindow::resizeNotify (int dx, int dy, int dwidth, int dheight)
     window->resizeNotify (dx, dy, dwidth, dheight);
 
     Pixmap pixmap = None;
+    CompSize size = CompSize ();
 
 
-    if (window->shaded () || (window->isViewable () && damaged))
+    if (window->shaded () || (window->isViewable ()))
     {
 	int x, y, x1, x2, y1, y2;
 
@@ -572,10 +585,10 @@ PrivateCompositeWindow::resizeNotify (int dx, int dy, int dwidth, int dheight)
 	Status	     result;
 	int	     i;
 
-	pixmap = XCompositeNameWindowPixmap (screen->dpy (), window->id ());
+	pixmap = XCompositeNameWindowPixmap (screen->dpy (), ROOTPARENT (window));
 	result = XGetGeometry (screen->dpy (), pixmap, &root, &i, &i,
 			       &actualWidth, &actualHeight, &ui, &ui);
-
+	size = CompSize (actualWidth, actualHeight);
 	if (!result || actualWidth != (unsigned int) window->size ().width () ||
 	    actualHeight != (unsigned int) window->size ().height ())
 	{
@@ -584,8 +597,8 @@ PrivateCompositeWindow::resizeNotify (int dx, int dy, int dwidth, int dheight)
 	}
     }
 
-    if (!window->mapNum () && window->hasUnmapReference () &&
-        window->isViewable ())
+    if (((!window->mapNum () && window->isViewable ()) ||
+	   window->state () & CompWindowStateHiddenMask) && window->hasUnmapReference ())
     {
        /* keep old pixmap for windows that are unmapped on the client side,
 	* but not yet on our side as it's pretty likely that plugins are
@@ -596,6 +609,7 @@ PrivateCompositeWindow::resizeNotify (int dx, int dy, int dwidth, int dheight)
     {
 	cWindow->release ();
 	this->pixmap = pixmap;
+	this->size = size;
     }
 
     cWindow->addDamage ();
@@ -604,7 +618,7 @@ PrivateCompositeWindow::resizeNotify (int dx, int dy, int dwidth, int dheight)
 void
 PrivateCompositeWindow::moveNotify (int dx, int dy, bool now)
 {
-    if (window->shaded () || (window->isViewable () && damaged))
+    if (window->shaded () || (window->isViewable ()))
     {
 	int x, y, x1, x2, y1, y2;
 

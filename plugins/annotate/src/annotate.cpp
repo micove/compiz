@@ -25,7 +25,9 @@
 
 #include "annotate.h"
 
-COMPIZ_PLUGIN_20090315 (annotate, AnnoPluginVTable);
+COMPIZ_PLUGIN_20090315 (annotate, AnnoPluginVTable)
+
+#define DEG2RAD (M_PI / 180.0f)
 
 void
 AnnoScreen::cairoClear (cairo_t    *cr)

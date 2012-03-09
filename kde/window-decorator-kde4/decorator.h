@@ -103,9 +103,28 @@ class Decorator:public KApplication {
 	{
 	    return mActiveId;
 	}
-	static decor_shadow_options_t *shadowOptions (void)
+	static decor_shadow_options_t *activeShadowOptions (void)
 	{
-	    return &mShadowOptions;
+	    return &mActiveShadowOptions;
+	}
+	static decor_shadow_options_t *inactiveShadowOptions (void)
+	{
+	    return &mInactiveShadowOptions;
+	}
+
+	static KWD::Window *defaultNormal ()
+	{
+	    return mDecorNormal;
+	}
+
+	static KWD::Window *defaultActive ()
+	{
+	    return mDecorActive;
+	}
+
+	static KWD::Decorator *self ()
+	{
+	    return mSelf;
 	}
 
 	static void sendClientMessage (WId  eventWid,
@@ -118,7 +137,7 @@ class Decorator:public KApplication {
 	
 	bool enableDecorations (Time timestamp);
 	bool x11EventFilter (XEvent *xevent);
-	void changeShadowOptions (decor_shadow_options_t *opt);
+	void changeShadowOptions (decor_shadow_options_t *aopt, decor_shadow_options_t *iopt);
 
     public slots:
 	void reconfigure (void);
@@ -136,11 +155,11 @@ class Decorator:public KApplication {
 	void handleWindowChanged (WId		      id,
 				  const unsigned long *properties);
 
-	void shadowRadiusChanged (double value);
-	void shadowOpacityChanged (double value);
-	void shadowXOffsetChanged (int value);
-	void shadowYOffsetChanged (int value);
-	void shadowColorChanged (QString value);
+	void shadowRadiusChanged (double value_active, double value_inactive);
+	void shadowOpacityChanged (double value_active, double value_inactive);
+	void shadowXOffsetChanged (int value_active, int value_inactive);
+	void shadowYOffsetChanged (int value_active, double value_inactive);
+	void shadowColorChanged (QString value_active, QString value_inactive);
 
 	void plasmaThemeChanged ();
 
@@ -148,12 +167,13 @@ class Decorator:public KApplication {
 	static PluginManager *mPlugins;
 	static KWD::Options *mOptions;
 	static decor_shadow_t *mNoBorderShadow;
-	static decor_shadow_options_t mShadowOptions;
+	static decor_shadow_options_t mActiveShadowOptions;
+	static decor_shadow_options_t mInactiveShadowOptions;
 	static NETRootInfo *mRootInfo;
 	static WId mActiveId;
 
-	KWD::Window *mDecorNormal;
-	KWD::Window *mDecorActive;
+	static KWD::Window *mDecorNormal;
+	static KWD::Window *mDecorActive;
 	QMap <WId, KWD::Window *>mClients;
 	QMap <WId, KWD::Window *>mFrames;
 	KConfig *mConfig;
@@ -162,6 +182,8 @@ class Decorator:public KApplication {
 	WId mCompositeWindow;
 
 	Switcher *mSwitcher;
+
+        static KWD::Decorator *mSelf; /* XXX: Remove */
     };
 }
 

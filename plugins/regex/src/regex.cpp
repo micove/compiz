@@ -24,9 +24,13 @@
  */
 
 #include "regexplugin.h"
+
+#include "core/atoms.h"
+
+#include <regex.h>
 #include <limits.h>
 
-COMPIZ_PLUGIN_20090315 (regex, RegexPluginVTable);
+COMPIZ_PLUGIN_20090315 (regex, RegexPluginVTable)
 
 class RegexExp : public CompMatch::Expression
 {

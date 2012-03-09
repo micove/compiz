@@ -23,6 +23,12 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
+#include "core/plugin.h"
+#include "privatescreen.h"
+
+#include <boost/scoped_array.hpp>
+#include <boost/foreach.hpp>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,13 +37,12 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <list>
 
-#include <boost/foreach.hpp>
+#include <algorithm>
+#include <set>
+
 #define foreach BOOST_FOREACH
 
-#include <core/core.h>
-#include "privatescreen.h"
 
 CompPlugin::Map pluginsMap;
 CompPlugin::List plugins;
@@ -154,7 +159,14 @@ dlloaderLoadPlugin (CompPlugin *p,
 	return false;
     }
 
-    dlhand = dlopen (file.c_str (), RTLD_LAZY);
+    int open_flags = RTLD_NOW;
+#ifdef DEBUG
+    // Do not unload the library during dlclose.
+    open_flags |= RTLD_NODELETE;
+    // Make the symbols available globally
+    open_flags |= RTLD_GLOBAL;
+#endif
+    dlhand = dlopen (file.c_str (), open_flags);
     if (dlhand)
     {
 	PluginGetInfoProc getInfo;
@@ -275,7 +287,7 @@ CompManager::initPlugin (CompPlugin *p)
 	return false;
     }
 
-    if (screen && screen->priv->initialized)
+    if (screen && screen->displayInitialised())
     {
 	if (!p->vTable->initScreen (screen))
 	{
@@ -310,8 +322,13 @@ CompManager::finiPlugin (CompPlugin *p)
 bool
 CompScreen::initPluginForScreen (CompPlugin *p)
 {
-    WRAPABLE_HND_FUNC_RETURN (2, bool, initPluginForScreen, p)
+    WRAPABLE_HND_FUNCTN_RETURN (bool, initPluginForScreen, p)
+    return _initPluginForScreen (p);
+}
 
+bool
+CompScreenImpl::_initPluginForScreen (CompPlugin *p)
+{
     bool status               = true;
     CompWindowList::iterator it, fail;
     CompWindow               *w;
@@ -342,8 +359,13 @@ CompScreen::initPluginForScreen (CompPlugin *p)
 void
 CompScreen::finiPluginForScreen (CompPlugin *p)
 {
-    WRAPABLE_HND_FUNC (3, finiPluginForScreen, p)
+    WRAPABLE_HND_FUNCTN (finiPluginForScreen, p)
+    _finiPluginForScreen (p);
+}
 
+void
+CompScreenImpl::_finiPluginForScreen (CompPlugin *p)
+{
     foreach (CompWindow *w, priv->windows)
 	p->vTable->finiWindow (w);
 }
@@ -385,17 +407,10 @@ CompPlugin::windowInitPlugins (CompWindow *w)
 {
     bool status = true;
 
-    CompPlugin::List::reverse_iterator rit = plugins.rbegin ();
-
-    CompPlugin *p = NULL;
-
-    while (rit != plugins.rend ())
+    for (List::reverse_iterator rit = plugins.rbegin ();
+         rit != plugins.rend (); ++rit)
     {
-	p = (*rit);
-
-	status &= p->vTable->initWindow (w);
-
-	rit++;
+	status &= (*rit)->vTable->initWindow (w);
     }
 
     return status;
@@ -425,47 +440,34 @@ CompPlugin::find (const char *name)
 void
 CompPlugin::unload (CompPlugin *p)
 {
-    (*loaderUnloadPlugin) (p);
+    loaderUnloadPlugin (p);
     delete p;
 }
 
 CompPlugin *
 CompPlugin::load (const char *name)
 {
-    CompPlugin *p;
-    char       *home, *plugindir;
-    bool       status;
-
-    p = new CompPlugin ();
-    if (!p)
-	return 0;
+    std::auto_ptr<CompPlugin>p(new CompPlugin ());
 
     p->devPrivate.uval = 0;
     p->devType	       = "";
     p->vTable	       = 0;
 
-    home = getenv ("HOME");
-    if (home)
-    {
-	plugindir = (char *) malloc (strlen (home) + strlen (HOME_PLUGINDIR) + 3);
-	if (plugindir)
-	{
-	    sprintf (plugindir, "%s/%s", home, HOME_PLUGINDIR);
-	    status = (*loaderLoadPlugin) (p, plugindir, name);
-	    free (plugindir);
 
-	    if (status)
-		return p;
-	}
+    if (char* home = getenv ("HOME"))
+    {
+        boost::scoped_array<char> plugindir(new char [strlen (home) + strlen (HOME_PLUGINDIR) + 3]);
+        sprintf (plugindir.get(), "%s/%s", home, HOME_PLUGINDIR);
+
+        if (loaderLoadPlugin (p.get(), plugindir.get(), name))
+            return p.release();
     }
 
-    status = (*loaderLoadPlugin) (p, PLUGINDIR, name);
-    if (status)
-	return p;
+    if (loaderLoadPlugin (p.get(), PLUGINDIR, name))
+        return p.release();
 
-    status = (*loaderLoadPlugin) (p, NULL, name);
-    if (status)
-	return p;
+    if (loaderLoadPlugin (p.get(), NULL, name))
+        return p.release();
 
     compLogMessage ("core", CompLogLevelError,
 		    "Couldn't load plugin '%s'", name);
@@ -532,60 +534,29 @@ CompPlugin::getPlugins (void)
     return plugins;
 }
 
-static bool
-stringExist (CompStringList &list,
-	     CompString     s)
-{
-    foreach (CompString &l, list)
-	if (s.compare (l) == 0)
-	    return true;
-
-    return false;
-}
-
 CompStringList
 CompPlugin::availablePlugins ()
 {
-    char *home, *plugindir;
-    CompStringList list, currentList, pluginList, homeList;
+    CompStringList homeList;
 
-    home = getenv ("HOME");
-    if (home)
+    if (char* home = getenv ("HOME"))
     {
-	plugindir = (char *) malloc (strlen (home) + strlen (HOME_PLUGINDIR) + 3);
-	if (plugindir)
-	{
-	    sprintf (plugindir, "%s/%s", home, HOME_PLUGINDIR);
-	    homeList = (*loaderListPlugins) (plugindir);
-	    free (plugindir);
-	}
+        boost::scoped_array<char> plugindir(new char [strlen (home) + strlen (HOME_PLUGINDIR) + 3]);
+        sprintf (plugindir.get(), "%s/%s", home, HOME_PLUGINDIR);
+
+	homeList = loaderListPlugins (plugindir.get());
     }
 
-    pluginList  = (*loaderListPlugins) (PLUGINDIR);
-    currentList = (*loaderListPlugins) (NULL);
+    std::set<CompString> set;
 
-    if (!homeList.empty ())
-    {
-	foreach (CompString &s, homeList)
-	    if (!stringExist (list, s))
-		list.push_back (s);
-    }
+    CompStringList pluginList  = loaderListPlugins (PLUGINDIR);
+    CompStringList currentList = loaderListPlugins (0);
 
-    if (!pluginList.empty ())
-    {
-	foreach (CompString &s, pluginList)
-	    if (!stringExist (list, s))
-		list.push_back (s);
-    }
+    std::copy(homeList.begin(), homeList.end(), std::inserter(set, set.end()));
+    std::copy(pluginList.begin(), pluginList.end(), std::inserter(set, set.end()));
+    std::copy(currentList.begin(), currentList.end(), std::inserter(set, set.end()));
 
-    if (!currentList.empty ())
-    {
-	foreach (CompString &s, currentList)
-	    if (!stringExist (list, s))
-		list.push_back (s);
-    }
-
-    return list;
+    return CompStringList(set.begin(), set.end());
 }
 
 int
@@ -690,7 +661,7 @@ CompPlugin::VTable::finiWindow (CompWindow *)
 CompOption::Vector &
 CompPlugin::VTable::getOptions ()
 {
-    return noOptions;
+    return noOptions ();
 }
 
 bool

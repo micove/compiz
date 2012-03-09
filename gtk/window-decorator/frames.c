@@ -34,9 +34,10 @@ GHashTable    *frames_table;
 void
 decor_frame_refresh (decor_frame_t *frame)
 {
-    decor_shadow_options_t opt_shadow;
-    decor_shadow_options_t opt_no_shadow;
+    decor_shadow_options_t active_o, inactive_o;
     decor_shadow_info_t *info;
+
+    gwd_decor_frame_ref (frame);
 
     update_style (frame->style_window_rgba);
     update_style (frame->style_window_rgb);
@@ -53,19 +54,8 @@ decor_frame_refresh (decor_frame_t *frame)
 	strcmp (frame->type, "bare") != 0)
 	(*theme_update_border_extents) (frame);
 
-    opt_shadow.shadow_radius  = settings->shadow_radius;
-    opt_shadow.shadow_opacity = settings->shadow_opacity;
-
-    memcpy (opt_shadow.shadow_color, settings->shadow_color, sizeof (settings->shadow_color));
-
-    opt_shadow.shadow_offset_x = settings->shadow_offset_x;
-    opt_shadow.shadow_offset_y = settings->shadow_offset_y;
-
-    opt_no_shadow.shadow_radius  = 0;
-    opt_no_shadow.shadow_opacity = 0;
-
-    opt_no_shadow.shadow_offset_x = 0;
-    opt_no_shadow.shadow_offset_y = 0;
+    (*theme_get_shadow) (frame, &active_o, TRUE);
+    (*theme_get_shadow) (frame, &inactive_o, FALSE);
 
     info = malloc (sizeof (decor_shadow_info_t));
 
@@ -75,7 +65,9 @@ decor_frame_refresh (decor_frame_t *frame)
     info->frame = frame;
     info->state = 0;
 
-    frame_update_shadow (frame, info, &opt_shadow, &opt_no_shadow);
+    frame_update_shadow (frame, info, &active_o, &inactive_o);
+
+    gwd_decor_frame_unref (frame);
 
     free (info);
     info = NULL;
@@ -221,10 +213,12 @@ decor_frame_new (const gchar *type)
     frame->refcount = 0;
     frame->titlebar_height = 17;
     frame->max_titlebar_height = 17;
-    frame->border_shadow = NULL;
+    frame->border_shadow_active = NULL;
+    frame->border_shadow_inactive = NULL;
     frame->border_no_shadow = NULL;
     frame->max_border_no_shadow = NULL;
-    frame->max_border_shadow = NULL;
+    frame->max_border_shadow_active = NULL;
+    frame->max_border_shadow_inactive = NULL;
     frame->titlebar_font = NULL;
 
     frame->style_window_rgba = gtk_window_new (GTK_WINDOW_POPUP);
@@ -269,14 +263,20 @@ decor_frame_destroy (decor_frame_t *frame)
 {
     Display *xdisplay = gdk_x11_get_default_xdisplay ();
 
-    if (frame->border_shadow)
-	decor_shadow_destroy (xdisplay, frame->border_shadow);
+    if (frame->border_shadow_active)
+	decor_shadow_destroy (xdisplay, frame->border_shadow_active);
+
+    if (frame->border_shadow_inactive)
+	decor_shadow_destroy (xdisplay, frame->border_shadow_inactive);
 
     if (frame->border_no_shadow)
 	decor_shadow_destroy (xdisplay, frame->border_no_shadow);
 
-    if (frame->max_border_shadow)
-	decor_shadow_destroy (xdisplay, frame->max_border_shadow);
+    if (frame->max_border_shadow_active)
+	decor_shadow_destroy (xdisplay, frame->max_border_shadow_active);
+
+    if (frame->max_border_shadow_inactive)
+	decor_shadow_destroy (xdisplay, frame->max_border_shadow_inactive);
 
     if (frame->max_border_no_shadow)
 	decor_shadow_destroy (xdisplay, frame->max_border_no_shadow);
@@ -304,9 +304,9 @@ initialize_decorations ()
 {
     frame_info_table = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, destroy_frame_type);
 
-    gwd_decor_frame_add_type ("default", create_normal_frame, destroy_normal_frame);
     gwd_decor_frame_add_type ("normal", create_normal_frame, destroy_normal_frame);
     gwd_decor_frame_add_type ("dialog", create_normal_frame, destroy_normal_frame);
+    gwd_decor_frame_add_type ("modal_dialog", create_normal_frame, destroy_normal_frame);
     gwd_decor_frame_add_type ("menu", create_normal_frame, destroy_normal_frame);
     gwd_decor_frame_add_type ("utility", create_normal_frame, destroy_normal_frame);
     gwd_decor_frame_add_type ("switcher", create_switcher_frame, destroy_switcher_frame);

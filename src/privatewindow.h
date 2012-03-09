@@ -34,19 +34,13 @@
 #include <core/timer.h>
 #include "privatescreen.h"
 
-#define WINDOW_INVISIBLE(w)				          \
-    ((w)->attrib.map_state != IsViewable		       || \
-     (w)->attrib.x + (w)->width  + (w)->output.right  <= 0     || \
-     (w)->attrib.y + (w)->height + (w)->output.bottom <= 0     || \
-     (w)->attrib.x - (w)->output.left >= (int) screen->width () || \
-     (w)->attrib.y - (w)->output.top >= (int) screen->height () )
 
 typedef CompWindowExtents CompFullscreenMonitorSet;
 
 class PrivateWindow {
 
     public:
-	PrivateWindow (CoreWindow *window);
+	PrivateWindow ();
 	~PrivateWindow ();
 
 	void recalcNormalHints ();
@@ -60,6 +54,8 @@ class PrivateWindow {
 	bool initializeSyncCounter ();
 
 	bool isGroupTransient (Window clientLeader);
+
+	bool isInvisible() const;
 
 	static bool stackLayerCheck (CompWindow *w,
 				     Window     clientLeader,
@@ -81,6 +77,11 @@ class PrivateWindow {
 
 	void reconfigureXWindow (unsigned int   valueMask,
 				 XWindowChanges *xwc);
+
+	static bool stackDocks (CompWindow     *w,
+				CompWindowList &updateList,
+				XWindowChanges *xwc,
+				unsigned int   *mask);
 
 	static bool stackTransients (CompWindow     *w,
 				     CompWindow     *avoid,
@@ -136,6 +137,8 @@ class PrivateWindow {
 	void hide ();
 
 	void show ();
+
+	void withdraw ();
 
 	bool handlePingTimeout (unsigned int lastPing);
 
@@ -204,6 +207,8 @@ class PrivateWindow {
 
 	void readIconHint ();
 
+	bool checkClear ();
+
     public:
 
 	PrivateWindow *priv;
@@ -211,18 +216,32 @@ class PrivateWindow {
 	CompWindow *window;
 
 	int                  refcnt;
+	Window               serverId;
 	Window	             id;
+	Window               serverFrame;
 	Window	             frame;
 	Window               wrapper;
 	unsigned int         mapNum;
 	unsigned int         activeNum;
+
+	/* Don't use this for determining
+	 * the window geometry because we
+	 * read into this out of sync with
+	 * ConfigureNotify events to determine
+	 * the class and override redirect state
+	 */
 	XWindowAttributes    attrib;
 	CompWindow::Geometry geometry;
 	CompWindow::Geometry serverGeometry;
+	CompWindow::Geometry frameGeometry;
+	CompWindow::Geometry serverFrameGeometry;
 	Window               transientFor;
 	Window               clientLeader;
 	XSizeHints	     sizeHints;
 	XWMHints             *hints;
+
+	struct timeval       lastGeometryUpdate;
+	struct timeval       lastConfigureRequest;
 
 	bool       inputHint;
 	bool       alpha;
@@ -267,6 +286,12 @@ class PrivateWindow {
 	int pendingUnmaps;
 	int pendingMaps;
 
+	typedef std::pair <XWindowChanges, unsigned int> XWCValueMask;
+
+	compiz::X11::PendingEventQueue pendingConfigures;
+	CompTimer                     mClearCheckTimeout;
+	bool pendingPositionUpdates;
+
 	char *startupId;
 	char *resName;
 	char *resClass;
@@ -277,6 +302,7 @@ class PrivateWindow {
 	bool         alive;
 
 	CompWindowExtents input;
+	CompWindowExtents serverInput;
 	CompWindowExtents border;
 	CompWindowExtents output;
 
@@ -302,24 +328,21 @@ class PrivateWindow {
 	Time lastCloseRequestTime;
 };
 
-/* Minimal tracking of the window which happens
- * on CreateNotify */
-
 class CoreWindow
 {
-    public:
+public:
 
-	CoreWindow (Window id);
+    CoreWindow (Window id);
 
-	CompWindow * manage (Window above, XWindowAttributes &wa);
+    CompWindow * manage (Window above, XWindowAttributes &wa);
 
-	friend class PrivateWindow;
-	friend class PrivateScreen;
-	friend class CompScreen;
+    friend class PrivateWindow;
+    friend class PrivateScreen;
+    friend class CompScreenImpl;
 
-    private:
+private:
 
-	PrivateWindow *priv;
+    PrivateWindow *priv;
 };
 
 #endif

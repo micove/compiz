@@ -176,6 +176,7 @@ class PrivateScaleWindow :
 
 	GLfloat xVelocity, yVelocity, scaleVelocity;
 	GLfloat scale;
+	GLfloat lastTargetScale, lastTargetX, lastTargetY;
 	GLfloat tx, ty;
 	float   delta;
 	bool    adjust;

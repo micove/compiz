@@ -563,7 +563,7 @@ inline void
         <xsl:param name="value"/>
         <xsl:text>    action = CompAction ();
 </xsl:text>
-        <xsl:text>    action.setState (state | CompAction::StateInitButton);
+        <xsl:text>    action.setState (state | CompAction::StateInitBell);
 </xsl:text>
         <xsl:if test="default/text() and default/text() = 'true'">
             <xsl:text>    action.setBell (true);
@@ -941,10 +941,12 @@ inline void
 
         </xsl:text>
 	<xsl:value-of select="$Plugin"/>
-        <xsl:text>Options ();
+        <xsl:text>Options (bool init = true);
         virtual ~</xsl:text>
 	<xsl:value-of select="$Plugin"/>
         <xsl:text>Options ();
+
+	void initOptions ();
 
         virtual CompOption::Vector &amp; getOptions ();
         virtual bool setOption (const CompString &amp;name, CompOption::Value &amp;value);
@@ -1090,13 +1092,21 @@ bool
         <xsl:value-of select="$Plugin"/>
         <xsl:text>Options::</xsl:text>
 	<xsl:value-of select="$Plugin"/>
-        <xsl:text>Options () :
+        <xsl:text>Options (bool init /* = true */) :
     mOptions (</xsl:text>
         <xsl:value-of select="$Plugin"/>
         <xsl:text>Options::OptionNum),
     mNotify (</xsl:text>
         <xsl:value-of select="$Plugin"/>
         <xsl:text>Options::OptionNum)
+{
+    if (init)
+        initOptions ();
+}
+
+void
+</xsl:text>
+<xsl:value-of select="$Plugin"/><xsl:text>Options::initOptions ()
 {
 </xsl:text>
     <xsl:if test="/compiz/plugin[@name=$pName]/descendant-or-self::option[@type = 'action'] or
@@ -1272,7 +1282,7 @@ bool
 			</xsl:with-param>
                     </xsl:call-template>
                     <xsl:if test="not (./passive_grab/text() = 'false')">
-                        <xsl:text>    screen->addAction (&amp;</xsl:text>
+                        <xsl:text>    if (screen) screen->addAction (&amp;</xsl:text>
                         <xsl:text>mOptions[</xsl:text>
 	                <xsl:call-template name="printOptionsEnumName"/>
 	                <xsl:text>].value ().action ());
@@ -1288,7 +1298,7 @@ bool
 			</xsl:with-param>
                     </xsl:call-template>
                     <xsl:if test="not (./passive_grab/text() = 'false')">
-                        <xsl:text>    screen->addAction (&amp;</xsl:text>
+                        <xsl:text>    if (screen) screen->addAction (&amp;</xsl:text>
                         <xsl:text>mOptions[</xsl:text>
 	                <xsl:call-template name="printOptionsEnumName"/>
                         <xsl:text>].value ().action ());
@@ -1304,7 +1314,7 @@ bool
 			</xsl:with-param>
                     </xsl:call-template>
                     <xsl:if test="not (./passive_grab/text() = 'false')">
-                        <xsl:text>    screen->addAction (&amp;</xsl:text>
+                        <xsl:text>    if (screen) screen->addAction (&amp;</xsl:text>
                         <xsl:text>mOptions[</xsl:text>
 	                <xsl:call-template name="printOptionsEnumName"/>
                         <xsl:text>].value ().action ());
@@ -1320,7 +1330,7 @@ bool
 			</xsl:with-param>
                     </xsl:call-template>
                     <xsl:if test="not (./passive_grab/text() = 'false')">
-                        <xsl:text>    screen->addAction (&amp;</xsl:text>
+                        <xsl:text>    if (screen) screen->addAction (&amp;</xsl:text>
                         <xsl:text>mOptions[</xsl:text>
 	                <xsl:call-template name="printOptionsEnumName"/>
                         <xsl:text>].value ().action ());

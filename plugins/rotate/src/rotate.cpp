@@ -23,12 +23,10 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#include <math.h>
-
-#include <core/core.h>
+#include "rotate.h"
 #include <core/atoms.h>
 
-#include "rotate.h"
+#include <math.h>
 
 #define ROTATE_POINTER_SENSITIVITY_FACTOR 0.05f
 

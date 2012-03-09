@@ -185,6 +185,8 @@ KWD::Window::isActive (void) const
 {
     if (mType == DefaultActive)
 	return true;
+    else if (mType == Default)
+        return false;
 
     return Decorator::activeId () == mClientId;
 }
@@ -956,6 +958,9 @@ KWD::Window::resizeDecoration (bool force)
 {
     int w, h;
 
+    if (KDecorationUnstable *deco2 = dynamic_cast<KDecorationUnstable*>(mDecor))
+        deco2->padding (mPadding.left, mPadding.right, mPadding.top, mPadding.bottom);
+
     mDecor->borders (mBorder.left, mBorder.right, mBorder.top, mBorder.bottom);
 
     mExtents.left   = mBorder.left + mPadding.left;
@@ -1004,7 +1009,30 @@ KWD::Window::resizeDecoration (bool force)
     if (mPaintRedirector)
 	mUpdateProperty = true;
     else
-	updateProperty ();
+    {
+        long         *data = NULL;
+        unsigned int propSize = 0;
+        KWD::Window  *otherUpdate = NULL;
+
+        if (mType == Default || mType == DefaultActive)
+        {
+            propSize = 2;
+            data = decor_alloc_property (propSize, WINDOW_DECORATION_TYPE_PIXMAP);
+
+            if (mType == Default)
+                otherUpdate = KWD::Decorator::self ()->defaultActive ();
+            else if (mType == DefaultActive)
+                otherUpdate = KWD::Decorator::self ()->defaultNormal ();
+        }
+
+        data = updateProperty (data, propSize);
+
+        if (otherUpdate && data)
+        {
+            otherUpdate->updateProperty (data, propSize);
+            free (data);
+        }
+    }
 }
 
 void
@@ -1015,10 +1043,10 @@ KWD::Window::updateBlurProperty (int topOffset,
 {
     Atom    atom = Atoms::compizWindowBlurDecor;
     QRegion topQRegion, bottomQRegion, leftQRegion, rightQRegion;
-    Region  topRegion = NULL;
-    Region  bottomRegion = NULL;
-    Region  leftRegion = NULL;
-    Region  rightRegion = NULL;
+    ::Region  topRegion = NULL;
+    ::Region  bottomRegion = NULL;
+    ::Region  leftRegion = NULL;
+    ::Region  rightRegion = NULL;
     int     size = 0;
     int     w, h;
 
@@ -1111,21 +1139,50 @@ KWD::Window::updateBlurProperty (int topOffset,
     }
 }
 
-void
-KWD::Window::updateProperty (void)
+long *
+KWD::Window::updateProperty (long         *data,
+                             unsigned int propSize)
 {
     Atom	    atom = Atoms::netWindowDecor;
     decor_extents_t maxExtents, normExtents;
-    long	    data[256];
     decor_quad_t    quads[N_QUADS_MAX];
+    unsigned int    nOffset = 1;
+    unsigned int    frameType = 0xffffff;
+    unsigned int    frameState = 0;
+    unsigned int    frameActions = 0;
     int		    nQuad = 0;
     int             left, right, top, bottom, width, height;
     unsigned int    saveState;
+    bool            allocated = false;
 
-    if (mType == Default)
-	atom = Atoms::netWindowDecorNormal;
-    else if (mType == DefaultActive)
-	atom = Atoms::netWindowDecorActive;
+    if (!propSize)
+        propSize = nOffset;
+
+    /* FIXME: This is essentially a hack to put the default
+     * active and inactive decorations in the same property,
+     * since we take an existing allocated property and return
+     * the data in there and then pass it to the next KWD::Window
+     * to update the property again. That's sub-optimal, but
+     * its the best solution until we implement proper decoration
+     * lists inside of kde4-window-decorator */
+
+    if (mType != Normal && mType != Normal2D)
+    {
+        atom = Atoms::netWindowDecorActive;
+
+        if (mType == Default)
+        {
+            frameState &= ~(DECOR_WINDOW_STATE_FOCUS);
+            nOffset = 2;
+        }
+        else if (mType == DefaultActive)
+        {
+            frameState |= DECOR_WINDOW_STATE_FOCUS;
+            nOffset = 1;
+        }
+    }
+    else if (!propSize)
+        propSize = nOffset;
 
     saveState = mState;
     mState = NET::MaxVert | NET::MaxHoriz;
@@ -1147,6 +1204,11 @@ KWD::Window::updateProperty (void)
 
     if (mType != Normal2D)
     {
+      if (!data)
+      {
+          allocated = true;
+          data = decor_alloc_property (propSize, WINDOW_DECORATION_TYPE_PIXMAP);
+      }
       if (mType == Normal)
       {
 	  decor_quad_t *q = quads;
@@ -1237,23 +1299,37 @@ KWD::Window::updateProperty (void)
 	  
 	  q += n; nQuad += n;
       }
-      decor_quads_to_property (data, mPixmap, &mBorder, &mBorder,
+
+      decor_quads_to_property (data, nOffset - 1, mPixmap, &mBorder, &mBorder,
 			       &maxExtents, &maxExtents,
-			       1, 0, quads, nQuad);
+			       1, 0, quads, nQuad, frameType, frameState, frameActions);
     }
     else
     {
-	decor_gen_window_property (data, &normExtents, &maxExtents, 1, 0);
+        if (!data)
+        {
+            allocated = true;
+            data = decor_alloc_property (propSize, WINDOW_DECORATION_TYPE_PIXMAP);
+        }
+        decor_gen_window_property (data, nOffset - 1, &normExtents, &maxExtents, 1, 0, frameType, frameState, frameActions);
     }
 
     KWD::trapXError ();
     XChangeProperty (QX11Info::display(), mClientId, atom,
 		     XA_INTEGER,
 		     32, PropModeReplace, (unsigned char *) data,
-		     BASE_PROP_SIZE + QUAD_PROP_SIZE * nQuad);
+		     PROP_HEADER_SIZE + propSize * (BASE_PROP_SIZE + QUAD_PROP_SIZE * N_QUADS_MAX));
     KWD::popXError ();
 
+    if (allocated)
+    {
+        free (data);
+        data = NULL;
+    }
+
     mUpdateProperty = false;
+
+    return data;
 }
 
 void
@@ -1868,7 +1944,30 @@ KWD::Window::decorRepaintPending ()
     }
 
     if (mUpdateProperty)
-	updateProperty ();
+    {
+        long         *data = NULL;
+        unsigned int propSize = 0;
+        KWD::Window  *otherUpdate = NULL;
+
+        if (mType == Default || mType == DefaultActive)
+        {
+            propSize = 2;
+            data = decor_alloc_property (propSize, WINDOW_DECORATION_TYPE_PIXMAP);
+
+            if (mType == Default)
+                otherUpdate = KWD::Decorator::self ()->defaultActive ();
+            else if (mType == DefaultActive)
+                otherUpdate = KWD::Decorator::self ()->defaultNormal ();
+        }
+
+        data = updateProperty (data, propSize);
+
+        if (otherUpdate && data)
+        {
+            otherUpdate->updateProperty (data, propSize);
+            free (data);
+        }
+    }
 }
 
 QWidget *

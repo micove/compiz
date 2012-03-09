@@ -8,6 +8,7 @@
 #ifndef COUNTEDLIST_H_
 #define COUNTEDLIST_H_
 
+#include <list>
 
 template<typename value_type,
          typename allocator_type = std::allocator<value_type> >

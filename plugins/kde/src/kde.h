@@ -21,13 +21,10 @@
 #ifndef KDE_H_
 #define KDE_H_
 
-#include <core/core.h>
+#include "dispatcher.h"
+#include <core/screen.h>
 #include <core/timer.h>
 #include <core/pluginclasshandler.h>
-
-#include "dispatcher.h"
-
-#include <fixx11h.h>
 
 #include <KApplication>
 

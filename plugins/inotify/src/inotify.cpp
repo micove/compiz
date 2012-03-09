@@ -25,6 +25,12 @@
 
 #include "inotify.h"
 
+#include <stdlib.h>
+#include <unistd.h>
+#include <poll.h>
+#include <sys/inotify.h>
+
+
 COMPIZ_PLUGIN_20090315 (inotify, InotifyPluginVTable)
 
 InotifyScreen::InotifyScreen (CompScreen *screen) :

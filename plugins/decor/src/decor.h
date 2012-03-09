@@ -24,12 +24,14 @@
  */
 
 #include <boost/shared_ptr.hpp>
-#include <core/core.h>
+#include <boost/shared_array.hpp>
+#include <core/window.h>
 #include <core/pluginclasshandler.h>
 
 #include <composite/composite.h>
 #include <opengl/opengl.h>
 #include <core/atoms.h>
+#include <core/windowextents.h>
 
 #include "decor_options.h"
 
@@ -43,10 +45,10 @@ struct Vector {
     int	y0;
 };
 
+/* FIXME: Remove */
 #define DECOR_BARE   0
-#define DECOR_NORMAL 1
-#define DECOR_ACTIVE 2
-#define DECOR_NUM    3
+#define DECOR_ACTIVE 1
+#define DECOR_NUM    2
 
 class DecorTexture {
 
@@ -67,8 +69,30 @@ class DecorWindow;
 class Decoration {
 
     public:
-	static Decoration * create (Window id, Atom decorAtom);
-	static void release (Decoration *);
+
+	typedef boost::shared_ptr <Decoration> Ptr;
+
+	static Decoration::Ptr create (Window        id,
+				       long          *prop,
+				       unsigned int  size,
+				       unsigned int  type,
+				       unsigned int  nOffset);
+
+	Decoration (int   type,
+		    const decor_extents_t &border,
+		    const decor_extents_t &input,
+		    const decor_extents_t &maxBorder,
+		    const decor_extents_t &maxInput,
+		    unsigned int frameType,
+		    unsigned int frameState,
+		    unsigned int frameActions,
+		    unsigned int minWidth,
+		    unsigned int minHeight,
+		    Pixmap       pixmap,
+		    const boost::shared_array <decor_quad_t> &quad,
+		    unsigned int nQuad);
+
+	~Decoration ();
 
     public:
 	int                       refCount;
@@ -80,9 +104,27 @@ class Decoration {
 	CompWindowExtents	  maxInput;
 	int                       minWidth;
 	int                       minHeight;
-	decor_quad_t              *quad;
+	unsigned int		  frameType;
+	unsigned int		  frameState;
+	unsigned int		  frameActions;
+	boost::shared_array <decor_quad_t> quad;
 	int                       nQuad;
 	int                       type;
+};
+
+class DecorationList
+{
+    public:
+        bool updateDecoration  (Window id, Atom decorAtom);
+	const Decoration::Ptr & findMatchingDecoration (CompWindow *w, bool sizeCheck);
+        void clear ()
+        {
+	    mList.clear ();
+        };
+
+        DecorationList ();
+
+	std::list <Decoration::Ptr> mList;
 };
 
 struct ScaledQuad {
@@ -94,11 +136,11 @@ struct ScaledQuad {
 
 class WindowDecoration {
     public:
-	static WindowDecoration * create (Decoration *);
+	static WindowDecoration * create (const Decoration::Ptr &);
 	static void destroy (WindowDecoration *);
 
     public:
-	Decoration *decor;
+	Decoration::Ptr decor;
 	ScaledQuad *quad;
 	int	   nQuad;
 };
@@ -107,6 +149,7 @@ class DecorWindow;
 
 class DecorScreen :
     public ScreenInterface,
+    public CompositeScreenInterface,
     public PluginClassHandler<DecorScreen,CompScreen>,
     public DecorOptions
 {
@@ -127,6 +170,9 @@ class DecorScreen :
 	bool decoratorStartTimeout ();
 
 	void updateDefaultShadowProperty ();
+
+	bool registerPaintHandler (compiz::composite::PaintHandler *pHnd);
+	void unregisterPaintHandler ();
 
     public:
 
@@ -150,10 +196,10 @@ class DecorScreen :
 	Window dmWin;
 	int    dmSupports;
 
-	Decoration *decor[DECOR_NUM];
-	Decoration windowDefault;
-
 	bool cmActive;
+
+	DecorationList decor[DECOR_NUM];
+	Decoration::Ptr     windowDefault;
 
 	std::map<Window, DecorWindow *> frames;
 
@@ -182,6 +228,8 @@ class DecorWindow :
 
 	bool glDraw (const GLMatrix &, GLFragment::Attrib &,
 		     const CompRegion &, unsigned int);
+	void glDecorate (const GLMatrix &, GLFragment::Attrib &,
+		         const CompRegion &, unsigned int);
 
 	void windowNotify (CompWindowNotify n);
 
@@ -196,7 +244,7 @@ class DecorWindow :
 	void updateOutputFrame ();
 	void updateWindowRegions ();
 
-	bool checkSize (Decoration *decor);
+	bool checkSize (const Decoration::Ptr &decor);
 
 	int shiftX ();
 	int shiftY ();
@@ -206,6 +254,11 @@ class DecorWindow :
 	bool resizeTimeout ();
 
 	void updateSwitcher ();
+	void updateHandlers ();
+
+	static bool matchType (CompWindow *w, unsigned int decorType);
+	static bool matchState (CompWindow *w, unsigned int decorState);
+	static bool matchActions (CompWindow *w, unsigned int decorActions);
 
     public:
 
@@ -215,10 +268,11 @@ class DecorWindow :
 	DecorScreen     *dScreen;
 
 	WindowDecoration *wd;
-	Decoration	 *decor;
+	DecorationList	 decor;
 
 	CompRegion frameRegion;
 	CompRegion shadowRegion;
+	CompRegion tmpRegion;
 
 	Window inputFrame;
 	Window outputFrame;
@@ -240,6 +294,8 @@ class DecorWindow :
 	bool	  unshading;
 	bool	  shading;
 	bool	  isSwitcher;
+
+	bool      frameExtentsRequested;
 };
 
 class DecorPluginVTable :

@@ -25,6 +25,8 @@
 
 #include "imgsvg.h"
 
+#include <fstream>
+
 COMPIZ_PLUGIN_20090315 (imgsvg, SvgPluginVTable)
 
 static bool

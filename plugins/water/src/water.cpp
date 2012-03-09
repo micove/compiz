@@ -25,6 +25,9 @@
 
 #include "water.h"
 
+#include <math.h>
+
+
 COMPIZ_PLUGIN_20090315 (water, WaterPluginVTable)
 
 static int waterLastPointerX = 0;
@@ -1093,6 +1096,14 @@ waterToggleRain (CompAction         *action,
 		 CompAction::State  state,
 		 CompOption::Vector &options)
 {
+    /* Remember StateCancel and StateCommit will be broadcast to all actions
+       so we need to verify that we are actually being toggled... */
+    if (!(state & CompAction::StateTermKey))
+        return false;
+    /* And only respond to key taps */
+    if (!(state & CompAction::StateTermTapped))
+        return false;
+
     WATER_SCREEN (screen);
 
     if (!ws->rainTimer.active ())
@@ -1148,10 +1159,10 @@ waterTitleWave (CompAction         *action,
 	CompWindow::Geometry &g = w->geometry ();
 	XPoint p[2];
 
-	p[0].x = g.x () - w->input ().left;
-	p[0].y = g.y () - w->input ().top / 2;
+	p[0].x = g.x () - w->border ().left;
+	p[0].y = g.y () - w->border ().top / 2;
 
-	p[1].x = g.x () + g.width () + w->input ().right;
+	p[1].x = g.x () + g.width () + w->border ().right;
 	p[1].y = p[0].y;
 
 	ws->waterVertices (GL_LINES, p, 2, 0.15f);
@@ -1310,7 +1321,7 @@ WaterScreen::WaterScreen (CompScreen *screen) :
 
     optionSetInitiateKeyInitiate (waterInitiate);
     optionSetInitiateKeyTerminate (waterTerminate);
-    optionSetToggleRainKeyInitiate (waterToggleRain);
+    optionSetToggleRainKeyTerminate (waterToggleRain);
     optionSetToggleWiperKeyInitiate (waterToggleWiper);
     optionSetTitleWaveInitiate (waterTitleWave);
     optionSetPointInitiate (waterPoint);

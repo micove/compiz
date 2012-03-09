@@ -28,6 +28,7 @@
 
 #include <stdlib.h>
 #include <vector>
+#include <algorithm>
 
 #define WRAPABLE_DEF(func, ...)			 \
 {						 \
@@ -48,10 +49,17 @@
    void func ## SetCurrentIndex (unsigned int index)	\
    {							\
        mCurrFunction[num] = index;			\
-   }
+   }                                                    \
+   enum { func ## Index = num };
 
+// For compatability ignore num and forward
 #define WRAPABLE_HND_FUNC(num, func, ...)				\
+    WRAPABLE_HND_FUNCTN(func, __VA_ARGS__)
+
+// New macro that doesn't need magic number
+#define WRAPABLE_HND_FUNCTN(func, ...)				        \
 {									\
+    enum { num = func ## Index };                                       \
     unsigned int curr = mCurrFunction[num];				\
     while (mCurrFunction[num] < mInterface.size () &&			\
            !mInterface[mCurrFunction[num]].enabled[num])		\
@@ -65,8 +73,14 @@
     mCurrFunction[num] = curr;						\
 }
 
+// For compatability ignore num and forward
 #define WRAPABLE_HND_FUNC_RETURN(num, rtype, func, ...)			\
+    WRAPABLE_HND_FUNCTN_RETURN(rtype, func, __VA_ARGS__)
+
+// New macro that doesn't need magic number
+#define WRAPABLE_HND_FUNCTN_RETURN(rtype, func, ...)			\
 {									\
+    enum { num = func ## Index };                                       \
     unsigned int curr = mCurrFunction[num];				\
     while (mCurrFunction[num] < mInterface.size () &&			\
            !mInterface[mCurrFunction[num]].enabled[num])		\
@@ -83,12 +97,12 @@
 template <typename T, typename T2>
 class WrapableInterface {
     protected:
-	WrapableInterface () : mHandler (0) {};
+	WrapableInterface () : mHandler (0) {}
 	virtual ~WrapableInterface ()
 	{
 	    if (mHandler)
 		mHandler->unregisterWrap (static_cast<T2*> (this));
-	};
+	}
 
 	void setHandler (T *handler, bool enabled = true)
 	{
@@ -108,77 +122,70 @@ class WrapableHandler : public T
 	void registerWrap (T *, bool);
 	void unregisterWrap (T *);
 
-	unsigned int numWrapClients () { return mInterface.size (); };
+	unsigned int numWrapClients () { return mInterface.size (); }
 
     protected:
 
-	class Interface
+	struct Interface
 	{
-	    public:
-		T    *obj;
-		bool *enabled;
+            Interface(T *obj, bool enable) : obj(obj)
+            {
+                std::fill_n(this->enabled, N, enable);
+            }
+
+            T    *obj;
+            bool enabled[N];
 	};
 
 	WrapableHandler () : mInterface ()
 	{
-	    mCurrFunction = new unsigned int [N];
-	    if (!mCurrFunction)
-		abort ();
-	    for (unsigned int i = 0; i < N; i++)
-		mCurrFunction[i] = 0;
-	};
+            std::fill_n(mCurrFunction, N, 0);
+        }
 
 	~WrapableHandler ()
 	{
-	    typename std::vector<Interface>::iterator it;
-		for (it = mInterface.begin (); it != mInterface.end (); it++)
-		    delete [] (*it).enabled;
 	    mInterface.clear ();
-	    delete [] mCurrFunction;
-	};
+        }
 
 	void functionSetEnabled (T *, unsigned int, bool);
 
-	unsigned int *mCurrFunction;
+        unsigned int mCurrFunction[N];
         std::vector<Interface> mInterface;
 };
 
 template <typename T, unsigned int N>
 void WrapableHandler<T,N>::registerWrap (T *obj, bool enabled)
 {
-    typename WrapableHandler<T,N>::Interface in;
-    in.obj = obj;
-    in.enabled = new bool [N];
-    if (!in.enabled)
-	return;
-    for (unsigned int i = 0; i < N; i++)
-	in.enabled[i] = enabled;
-    mInterface.insert (mInterface.begin (), in);
-};
+    mInterface.insert (mInterface.begin (), Interface(obj, enabled));
+}
 
 template <typename T, unsigned int N>
 void WrapableHandler<T,N>::unregisterWrap (T *obj)
 {
-    typename std::vector<Interface>::iterator it;
-    for (it = mInterface.begin (); it != mInterface.end (); it++)
-	if ((*it).obj == obj)
+    typedef typename std::vector<Interface>::iterator iterator;
+    for (iterator it = mInterface.begin (); it != mInterface.end (); ++it)
+    {
+	if (it->obj == obj)
 	{
-	    delete [] (*it).enabled;
 	    mInterface.erase (it);
 	    break;
 	}
+    }
 }
 
 template <typename T, unsigned int N>
 void WrapableHandler<T,N>::functionSetEnabled (T *obj, unsigned int num,
 					       bool enabled)
 {
-    for (unsigned int i = 0; i < mInterface.size (); i++)
-	if (mInterface[i].obj == obj)
+    typedef typename std::vector<Interface>::iterator iterator;
+    for (iterator it = mInterface.begin (); it != mInterface.end (); ++it)
+    {
+	if (it->obj == obj)
 	{
-	    mInterface[i].enabled[num] = enabled;
+	    it->enabled[num] = enabled;
 	    break;
 	}
+    }
 }
 
 #endif

@@ -26,10 +26,10 @@
 
 #include "privatescreen.h"
 
-Glib::RefPtr <CompEventSource>
+CompEventSource *
 CompEventSource::create ()
 {
-    return Glib::RefPtr <CompEventSource> (new CompEventSource ());
+    return new CompEventSource ();
 }
 
 sigc::connection
@@ -60,13 +60,7 @@ CompEventSource::~CompEventSource ()
 bool
 CompEventSource::callback ()
 {
-    if (restartSignal || shutDown)
-    {
-	screen->priv->mainloop->quit ();
-	return false;
-    }
-    else
-	screen->priv->processEvents ();
+    screen->processEvents ();
     return true;
 }
 

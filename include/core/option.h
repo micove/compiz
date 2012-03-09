@@ -28,22 +28,27 @@
 #ifndef _COMPOPTION_H
 #define _COMPOPTION_H
 
-#include <compiz.h>
+#include <core/string.h>
+
+#include <boost/variant.hpp>
 
 #include <vector>
 
 class PrivateOption;
 class PrivateValue;
 class PrivateRestriction;
+
 class CompAction;
 class CompMatch;
-class CompScreen;
+class CompScreenImpl;
+
 
 /**
  * A configuration option with boolean, int, float, String, Color, Key, Button,
  * Edge, Bell, or List.
  */
-class CompOption {
+class CompOption
+{
 	/**
 	 * Option data types
 	 */
@@ -55,12 +60,12 @@ class CompOption {
 	    TypeString,
 	    TypeColor,
 	    TypeAction,
+	    TypeMatch,
+	    TypeList,
 	    TypeKey,
 	    TypeButton,
 	    TypeEdge,
 	    TypeBell,
-	    TypeMatch,
-	    TypeList,
 	    /* internal use only */
 	    TypeUnset
 	} Type;
@@ -70,61 +75,118 @@ class CompOption {
 	 */
 	class Value {
 	    public:
+
+		typedef std::vector <unsigned short> ColorVector;
+
+		typedef boost::variant<
+		      bool,
+		      int,
+		      float,
+		      CompString,
+		      boost::recursive_wrapper<ColorVector>,
+		      boost::recursive_wrapper<CompAction>,
+		      boost::recursive_wrapper<CompMatch>,
+		      boost::recursive_wrapper<std::vector<Value> >
+		    > variant_type;
+
 		typedef std::vector<Value> Vector;
 
 	    public:
-		Value ();
-		Value (const Value &);
-		Value (const bool b);
-		Value (const int i);
-		Value (const float f);
-		Value (const unsigned short *color);
-		Value (const CompString& s);
-		Value (const char *s);
-		Value (const CompMatch& m);
-		Value (const CompAction& a);
-		Value (Type type, const Vector& l);
-		~Value ();
+		Value () : mListType(TypeUnset)
+		{
+		}
 
-		Type type () const;
+		template<typename T>
+		Value( const T & t );
 
-		void set (const bool b);
-		void set (const int i);
-		void set (const float f);
-		void set (const unsigned short *color);
-		void set (const CompString& s);
-		void set (const char *s);
-		void set (const CompMatch& m);
-		void set (const CompAction& a);
-		void set (Type type, const Vector& l);
+		Value( unsigned short const (&color)[4] ) : mListType(TypeUnset),
+		    mValue (ColorVector (color, color + 4))
+		{
+		}
 
-		bool               b ();
-		int                i ();
-		float              f ();
-		unsigned short*    c ();
-		CompString         s ();
-		CompMatch &        match ();
-		CompAction &       action ();
-		Type               listType ();
-		Vector &           list ();
+		Value( const char *c ) : mListType (TypeUnset),
+		    mValue (CompString (c))
+		{
+		}
 
-		bool operator== (const Value& val);
-		bool operator!= (const Value& val);
-		Value & operator= (const Value &val);
+		~Value();
 
-		operator bool ();
-		operator int ();
-		operator float ();
-		operator unsigned short * ();
-		operator CompString ();
-		operator CompMatch & ();
-		operator CompAction & ();
-		operator CompAction * ();
-		operator Type ();
-		operator Vector & ();
+		Type
+		type () const
+		{
+		    return static_cast<Type>(mValue.which());
+		}
+
+		Type
+		listType () const
+		{
+		    return mListType;
+		}
+
+		template<typename T>
+		void set (const T & t);
+
+		void set( unsigned short const (&color)[4] )
+		{
+		    mValue = ColorVector (color, color + 4);
+		}
+
+		void set (const char *c)
+		{
+		    mValue = CompString (c);
+		}
+
+		template<typename T>
+		const T & get () const;
+
+		void
+		set (Type t, const Vector & v);
+
+		bool
+		b () const;
+
+		int
+		i () const;
+
+		float
+		f () const;
+
+		unsigned short*
+		c () const;
+
+		const CompString &
+		s () const;
+
+		CompString &
+		s ();
+
+		const CompMatch &
+		match () const;
+
+		CompMatch &
+		match ();
+
+		const CompAction &
+		action () const;
+
+		CompAction &
+		action ();
+
+		const Vector &
+		list () const;
+
+		Vector &
+		list ();
+
+		bool
+		operator== (const Value & rhs) const;
+
+		bool
+		operator!= (const Value & rhs) const;
 
 	    private:
-		PrivateValue *priv;
+		Type mListType;
+		variant_type mValue;
 	};
 
 	/**
@@ -160,6 +222,7 @@ class CompOption {
 	 */
 	class Class {
 	    public:
+		virtual ~Class() {}
 		virtual Vector & getOptions () = 0;
 
 		virtual CompOption * getOption (const CompString &name);
@@ -237,6 +300,82 @@ class CompOption {
 	PrivateOption *priv;
 };
 
-extern CompOption::Vector noOptions;
+namespace compiz {
+namespace detail {
+
+template<typename Type>
+inline
+Type const& CompOption_Value_get(CompOption::Value::variant_type const& mValue)
+{
+    try
+    {
+	return boost::get<Type> (mValue);
+    }
+    catch (...)
+    {
+	static Type inst;
+	return inst;
+    }
+}
+
+template<>
+inline
+short unsigned int * const& CompOption_Value_get<short unsigned int *>(CompOption::Value::variant_type const& mValue)
+{
+    try
+    {
+	 static short unsigned int * some = 0;
+         CompOption::Value::ColorVector const& tmp(boost::get<CompOption::Value::ColorVector>(mValue));
+
+	 some = const_cast<unsigned short *> (&(tmp[0]));
+	 return some;
+    }
+    catch (...)
+    {
+         static short unsigned int * none = 0;
+         return none;
+    }
+}
+
+template<typename Type>
+inline
+void CompOption_Value_set (CompOption::Value::variant_type & mValue, Type &t)
+{
+    mValue = t;
+}
+
+template <>
+inline
+void CompOption_Value_set<unsigned short *> (CompOption::Value::variant_type & mValue, unsigned short * &t)
+{
+    mValue = CompOption::Value::ColorVector (t, t + 4);
+}
+
+}
+}
+
+template<typename T>
+inline
+const T & CompOption::Value::get () const
+{
+     return compiz::detail::CompOption_Value_get<T>(mValue);
+}
+
+template<typename T>
+inline
+void CompOption::Value::set (const T & t)
+{
+    return compiz::detail::CompOption_Value_set<T>(mValue, const_cast <T &> (t));
+}
+
+template<typename T>
+inline
+CompOption::Value::Value (const T & t) :
+    mListType (CompOption::TypeUnset)
+{
+    set (t);
+}
+
+CompOption::Vector & noOptions ();
 
 #endif

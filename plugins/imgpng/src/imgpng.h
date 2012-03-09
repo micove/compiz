@@ -23,17 +23,16 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <png.h>
-#include <setjmp.h>
+#ifndef COMPIZ_IMGPGN_H
+#define COMPIZ_IMGPGN_H
 
-#include <iostream>
-#include <fstream>
-
-#include <core/core.h>
+#include <core/screen.h>
+#include <core/string.h>
 #include <core/pluginclasshandler.h>
+
+#include <png.h>
+
+#include <iosfwd>
 
 #define PNG_SIG_SIZE 8
 
@@ -56,7 +55,7 @@ class PngScreen :
 	bool readPngData (png_struct *png, png_info *info,
 			  void *&data, CompSize &size);
 	bool readPng (std::ifstream &file, CompSize &size, void *& data);
-	bool writePng (unsigned char *buffer, std::ofstream &file,
+	bool writePng (unsigned char *buffer, std::ostream &file,
 		       CompSize &size, int stride);
 };
 
@@ -67,3 +66,4 @@ class PngPluginVTable :
 	bool init ();
 };
 
+#endif

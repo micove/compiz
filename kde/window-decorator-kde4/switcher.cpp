@@ -222,8 +222,9 @@ KWD::Switcher::update ()
 void
 KWD::Switcher::updateWindowProperties ()
 {
-    long	    data[256];
+    long	    *data = NULL;
     decor_quad_t    quads[N_QUADS_MAX];
+    unsigned int    nOffset = 1, frameType = 0, frameState = 0, frameActions = 0;
     int		    nQuad;
     int		    lh, rh;
     int		    w;
@@ -234,15 +235,17 @@ KWD::Switcher::updateWindowProperties ()
     w = mDecorLayout.top.x2 - mDecorLayout.top.x1 - mContext.left_space -
 	mContext.right_space;
 
+    data = decor_alloc_property (nOffset, WINDOW_DECORATION_TYPE_PIXMAP);
+
     nQuad = decor_set_lXrXtXbX_window_quads (quads, &mContext, &mDecorLayout,
 					     lh / 2, rh / 2, w, w / 2);
 #ifdef QT_45
-    decor_quads_to_property (data, mX11Pixmap,
+    decor_quads_to_property (data, nOffset - 1, mX11Pixmap,
 			     &mBorder, &mBorder, &mBorder, &mBorder,
 			     0, 0,
-			     quads, nQuad);
+			     quads, nQuad, frameType, frameState, frameActions);
 #else
-    decor_quads_to_property (data, mPixmap.handle (),
+    decor_quads_to_property (data, nOffset - 1, mPixmap.handle (),
 			     &mBorder, &mBorder, &mBorder, &mBorder,
 			     0, 0,
 			     quads, nQuad);
@@ -250,8 +253,10 @@ KWD::Switcher::updateWindowProperties ()
     KWD::trapXError ();
     XChangeProperty (QX11Info::display (), mId, Atoms::netWindowDecor,
 		     XA_INTEGER, 32, PropModeReplace, (unsigned char *) data,
-		     BASE_PROP_SIZE + QUAD_PROP_SIZE * nQuad);
+		     PROP_HEADER_SIZE + BASE_PROP_SIZE + QUAD_PROP_SIZE * N_QUADS_MAX);
     KWD::popXError ();
+
+    free (data);
 
     updateBlurProperty (lh / 2, rh / 2, w / 2, w / 2);
 }

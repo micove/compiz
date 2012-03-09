@@ -24,6 +24,8 @@
 
 COMPIZ_PLUGIN_20090315 (place, PlacePluginVTable)
 
+#define XWINDOWCHANGES_INIT {0, 0, 0, 0, 0, None, 0}
+
 PlaceScreen::PlaceScreen (CompScreen *screen) :
     PluginClassHandler<PlaceScreen, CompScreen> (screen),
     mPrevSize (screen->width (), screen->height ()),
@@ -45,256 +47,110 @@ PlaceScreen::~PlaceScreen ()
     screen->updateSupportedWmHints ();
 }
 
+CompWindowList
+compiz::place::collectStrutWindows (const CompWindowList &all)
+{
+    CompWindowList l;
+
+    foreach (CompWindow *w, all)
+    {
+	if (!w->managed () ||
+	    w->overrideRedirect ())
+	    continue;
+
+	if (w->struts ())
+	    l.push_back (w);
+    }
+
+    return l;
+}
+
 void
-PlaceScreen::doHandleScreenSizeChange (bool firstPass,
-				       int  newWidth,
+PlaceScreen::doHandleScreenSizeChange (int  newWidth,
 				       int  newHeight)
 {
-    int            vpX, vpY, shiftX, shiftY;
-    CompRect       extents;
-    XWindowChanges xwc;
-    CompRect       vpRelRect, winRect, workArea;
-    int		   pivotX, pivotY;
-    unsigned int   mask;
-    int		   curVpOffsetX = screen->vp ().x () * screen->width ();
-    int		   curVpOffsetY = screen->vp ().y () * screen->height ();
-
-    if (firstPass)
-	mStrutWindowCount = 0;
-    else
-	if (mResChangeFallbackHandle.active ())
-	{
-	    mResChangeFallbackHandle.stop ();
-	}
-
     foreach (CompWindow *w, screen->windows ())
     {
 	if (!w->managed ())
 	    continue;
 
-	PLACE_WINDOW (w);
-
-	if (firstPass)
-	{
-	    /* count the windows that have struts */
-	    if (w->struts ())
-		mStrutWindowCount++;
-
-	    /* for maximized/fullscreen windows, keep window coords before
-	     * screen resize, as they are sometimes automaticall changed
-	     * before the 2nd pass */
-
-	    if (w->type () & CompWindowTypeFullscreenMask ||
-		(w->state () & (CompWindowStateMaximizedVertMask |
-			        CompWindowStateMaximizedHorzMask)))
-	    {
-		pw->mPrevServer.set (w->serverX (), w->serverY ());
-	    }
-	}
-
 	if (w->wmType () & (CompWindowTypeDockMask |
 			    CompWindowTypeDesktopMask))
-	{
-	    continue;
-	}
-
-	/* Also in the first pass, we save the rectangle of those windows that
-	 * don't already have a saved one. So, skip those tat do. */
-
-	if (firstPass && pw->mSavedOriginal)
 	    continue;
 
-	winRect = ((CompRect) w->serverGeometry ());
+	PlaceWindow::get (w)->adjustForSize (mPrevSize, CompSize (newWidth, newHeight));
+    }
+}
 
+const compiz::window::Geometry &
+PlaceWindow::getGeometry () const
+{
+    return window->serverGeometry ();
+}
 
-	pivotX = winRect.x ();
-	pivotY = winRect.y ();
+const CompPoint &
+PlaceWindow::getViewport () const
+{
+    return screen->vp ();
+}
 
-	if (w->type () & CompWindowTypeFullscreenMask ||
-	    (w->state () & (CompWindowStateMaximizedVertMask |
-	    		    CompWindowStateMaximizedHorzMask)))
+const CompRect &
+PlaceWindow::getWorkarea (const compiz::window::Geometry &g) const
+{
+    return screen->getWorkareaForOutput (screen->outputDeviceForGeometry (g));
+}
+
+const CompRect &
+PlaceWindow::getWorkarea () const
+{
+    return getWorkarea (window->serverGeometry ());
+}
+
+const compiz::window::extents::Extents &
+PlaceWindow::getExtents () const
+{
+    return window->border ();
+}
+
+unsigned int
+PlaceWindow::getState () const
+{
+    unsigned int state = 0;
+
+    if (window->state () & CompWindowStateAboveMask)
+	state |= compiz::place::WindowAbove;
+    if (window->state () & CompWindowStateBelowMask)
+	state |= compiz::place::WindowBelow;
+
+    return state;
+}
+
+void
+PlaceWindow::applyGeometry (compiz::window::Geometry &ng,
+			    compiz::window::Geometry &og)
+{
+    CompRect workArea = screen->getWorkareaForOutput (
+			    screen->outputDeviceForGeometry (og));
+
+    XWindowChanges xwc = XWINDOWCHANGES_INIT;
+    unsigned int   mask = og.changeMask (ng);
+
+    xwc.x = ng.x ();
+    xwc.y = ng.y ();
+    xwc.width = ng.width ();
+    xwc.height = ng.height ();
+    xwc.border_width = ng.border ();
+
+    window->configureXWindow (mask, &xwc);
+
+    if ((window->actions () & MAXIMIZE_STATE) == MAXIMIZE_STATE &&
+	(window->mwmDecor () & (MwmDecorAll | MwmDecorTitle))   &&
+	!(window->state () & CompWindowStateFullscreenMask))
+    {
+	if (og.width () >= workArea.width () &&
+	    og.height () >= workArea.height ())
 	{
-	    if (w->saveMask () & CWX)
-		winRect.setX (w->saveWc ().x);
-
-	    if (w->saveMask () & CWY)
-		winRect.setY (w->saveWc ().y);
-
-	    if (w->saveMask () & CWWidth)
-		winRect.setWidth (w->saveWc ().width);
-
-	    if (w->saveMask () & CWHeight)
-		winRect.setHeight (w->saveWc ().height);
-
-	    pivotX = pw->mPrevServer.x ();
-	    pivotY = pw->mPrevServer.y ();
-	}
-
-	/* calculate target vp x, y index for window's pivot point */
-	vpX = pivotX / newWidth;
-	if (pivotX < 0)
-	    vpX -= 1;
-	vpY = pivotY / newHeight;
-	if (pivotY < 0)
-	    vpY -= 1;
-
-	/* if window's target vp is to the left of the leftmost viewport on that
-	   row, assign its target vp column as 0 (-s->x rel. to current vp) */
-	if (screen->vp ().x () + vpX < 0)
-	    vpX = -screen->vp ().x ();
-
-	/* if window's target vp is above the topmost viewport on that column,
-	   assign its target vp row as 0 (-s->y rel. to current vp) */
-	if (screen->vp ().y () + vpY < 0)
-	    vpY = -screen->vp ().y ();
-
-	if (pw->mSavedOriginal)
-	{
-	    /* set position/size to saved original rectangle */
-	    vpRelRect = pw->mOrigVpRelRect;
-
-	    xwc.x = pw->mOrigVpRelRect.x () + vpX * screen->width ();
-	    xwc.y = pw->mOrigVpRelRect.y () + vpY * screen->height ();
-	}
-	else
-	{
-	    /* set position/size to window's current rectangle
-	       (with position relative to target viewport) */
-	    vpRelRect.setX (winRect.x () - vpX * mPrevSize.width ());
-	    vpRelRect.setY (winRect.y () - vpY * mPrevSize.height ());
-	    vpRelRect.setWidth (winRect.width ());
-	    vpRelRect.setHeight (winRect.height ());
-
-	    xwc.x = winRect.x ();
-	    xwc.y = winRect.y ();
-
-	    shiftX = vpX * (newWidth - screen->width ());
-	    shiftY = vpY * (newWidth - screen->height ());
-
-	    /* if coords. relative to viewport are outside new viewport area,
-	       shift window left/up so that it falls inside */
-	    if (vpRelRect.x () >= screen->width ())
-		shiftX -= vpRelRect.x () - (screen->width () - 1);
-	    if (vpRelRect.y () >= screen->height ())
-		shiftY -= vpRelRect.y () - (screen->height () - 1);
-
-	    if (shiftX)
-		xwc.x += shiftX;
-
-	    if (shiftY)
-		xwc.y += shiftY;
-	}
-
-	mask       = CWX | CWY | CWWidth | CWHeight;
-	xwc.width  = vpRelRect.width ();
-	xwc.height = vpRelRect.height ();
-
-	/* Handle non-(0,0) current viewport by shifting by curVpOffsetX,Y,
-	   and bring window to (0,0) by shifting by minus its vp offset */
-
-	xwc.x += curVpOffsetX - (screen->vp ().x () + vpX) * screen->width ();
-	xwc.y += curVpOffsetY - (screen->vp ().y () + vpY) * screen->height ();
-
-	workArea =
-	    pw->doValidateResizeRequest (mask, &xwc, FALSE, FALSE);
-
-	xwc.x -= curVpOffsetX - (screen->vp ().x () + vpX) * screen->width ();
-	xwc.y -= curVpOffsetY - (screen->vp ().y () + vpY) * screen->height ();
-
-	/* Check if the new coordinates are different than current position and
-	   size. If not, we can clear the corresponding mask bits. */
-	if (xwc.x == winRect.x ())
-	    mask &= ~CWX;
-
-	if (xwc.y == winRect.y ())
-	    mask &= ~CWY;
-
-	if (xwc.width == winRect.width ())
-	    mask &= ~CWWidth;
-
-	if (xwc.height == winRect.height ())
-	    mask &= ~CWHeight;
-
-	if (!pw->mSavedOriginal)
-	{
-	    if (mask)
-	    {
-		/* save window geometry (relative to viewport) so that it
-		can be restored later */
-		pw->mSavedOriginal = TRUE;
-		pw->mOrigVpRelRect = vpRelRect;
-	    }
-	}
-	else if (pw->mOrigVpRelRect.x () + vpX * newWidth == xwc.x &&
-		 pw->mOrigVpRelRect.y () + vpY * newHeight == xwc.y &&
-		 pw->mOrigVpRelRect.width ()  == xwc.width &&
-		 pw->mOrigVpRelRect.height () == xwc.height)
-	{
-	    /* if size and position is back to original, clear saved rect */
-	    pw->mSavedOriginal = FALSE;
-	}
-
-	if (firstPass) /* if first pass, don't actually move the window */
-	    continue;
-
-	/* for maximized/fullscreen windows, update saved pos/size */
-	if (w->type () & CompWindowTypeFullscreenMask ||
-	    (w->state () & (CompWindowStateMaximizedVertMask |
-			 CompWindowStateMaximizedHorzMask)))
-	{
-	    if (mask & CWX)
-	    {
-		w->saveWc ().x = xwc.x;
-		w->saveMask () |= CWX;
-	    }
-	    if (mask & CWY)
-	    {
-		w->saveWc ().y = xwc.y;
-		w->saveMask () |= CWY;
-	    }
-	    if (mask & CWWidth)
-	    {
-		w->saveWc ().width = xwc.width;
-		w->saveMask () |= CWWidth;
-	    }
-	    if (mask & CWHeight)
-	    {
-		w->saveWc ().height = xwc.height;
-		w->saveMask () |= CWHeight;
-	    }
-
-	    if (w->type () & CompWindowTypeFullscreenMask)
-	    {
-		mask |= CWX | CWY | CWWidth | CWHeight;
-		xwc.x = vpX * screen->width ();
-		xwc.y = vpY * screen->height ();
-		xwc.width  = screen->width ();
-		xwc.height = screen->height ();
-	    }
-	    else
-	    {
-		if (w->state () & CompWindowStateMaximizedHorzMask)
-		{
-		    mask |= CWX | CWWidth;
-		    xwc.x = vpX * screen->width () + workArea.x () + w->input ().left;
-		    xwc.width = workArea.width () -
-			(2 * w->serverGeometry ().border () +
-			 w->input ().left + w->input ().right);
-		}
-		if (w->state () & CompWindowStateMaximizedVertMask)
-		{
-		    mask |= CWY | CWHeight;
-		    xwc.y = vpY * screen->height () + workArea.y () + w->input ().top;
-		    xwc.height = workArea.height () -
-			(2 * w->serverGeometry ().border () +
-			 w->input ().top + w->input ().bottom);
-		}
-	    }
-	}
-	if (mask)
-	{
-	    /* actually move/resize window in directions given by mask */
-	    w->configureXWindow (mask, &xwc);
+	    sendMaximizationRequest ();
 	}
     }
 }
@@ -304,12 +160,12 @@ PlaceScreen::handleScreenSizeChangeFallback (int width,
 					     int height)
 {
     /* If countdown is not finished yet (i.e. at least one struct window didn't
-     * update its struts), reset the count down and do the 2nd pass here */
+     * update its struts), reset the count down and move windows around here */
 
     if (mStrutWindowCount > 0) /* no windows with struts found */
     {
 	mStrutWindowCount = 0;
-	doHandleScreenSizeChange (false, width, height);
+	doHandleScreenSizeChange (width, height);
     }
 
     return false;
@@ -319,45 +175,44 @@ void
 PlaceScreen::handleScreenSizeChange (int width,
 				     int height)
 {
-    CompRect       extents;
-
-    if (screen->width () == width && screen->height () == height)
+    if (mPrevSize == CompSize (width, height))
 	return;
 
-    mPrevSize.setWidth (screen->width ());
-    mPrevSize.setHeight (screen->height ());
+    mResChangeFallbackHandle.stop ();
+    mStrutWindows = compiz::place::collectStrutWindows (screen->windows ());
 
-    if (mResChangeFallbackHandle.active ())
-	mResChangeFallbackHandle.stop ();
-
-    doHandleScreenSizeChange (true, width, height);
-
-    if (mStrutWindowCount == 0) /* no windows with struts found */
-    {
-	mResChangeFallbackHandle.stop ();
-	/* do the 2nd pass right here instead of handleEvent */
-
-	doHandleScreenSizeChange (false, width, height);
-    }
+    /* Don't wait for strut windows to update if there are none */
+    if (mStrutWindows.empty ())
+	doHandleScreenSizeChange (width, height);
     else
     {
-        mResChangeFallbackHandle.setCallback (
-        	      boost::bind (&PlaceScreen::handleScreenSizeChangeFallback,
-        		           this, width, height));
+	/* Wait for windows with set struts to update their struts, but
+	 * if one of them isn't updating them, have a fallback to ignore them */
+	mResChangeFallbackHandle.setCallback (
+		      boost::bind (&PlaceScreen::handleScreenSizeChangeFallback,
+				   this, width, height));
 	mResChangeFallbackHandle.start ();
     }
+
 }
 
 void
 PlaceScreen::handleEvent (XEvent *event)
 {
+    if (event->type == ConfigureNotify &&
+	event->xconfigure.window == screen->root ())
+    {
+	mPrevSize.setWidth (screen->width ());
+	mPrevSize.setHeight (screen->height ());
+    }
+
+    screen->handleEvent (event);
+
     switch (event->type)
     {
 	case ConfigureNotify:
 	    {
-
-		if (event->type == ConfigureNotify &&
-		event->xconfigure.window == screen->root ())
+		if (event->xconfigure.window == screen->root ())
 		{
 		    handleScreenSizeChange (event->xconfigure.width,
 					    event->xconfigure.height);
@@ -373,64 +228,56 @@ PlaceScreen::handleEvent (XEvent *event)
 	        w = screen->findWindow (event->xproperty.window);
 	        if (w)
 	        {
+		    mStrutWindows.remove (w);
 		    /* Only do when handling screen size change.
 		       ps->strutWindowCount is 0 at any other time */
-		    if (mStrutWindowCount > 0 &&
-		        w->updateStruts ())
-		    {
-		        mStrutWindowCount--;
-		        screen->updateWorkarea ();
-
-		        /* if this was the last window with struts */
-		        if (!mStrutWindowCount)
-			    doHandleScreenSizeChange (false, screen->width (),
-			    				     screen->height ()); /* 2nd pass */
-		    }
+		    if (mStrutWindows.empty ())
+			doHandleScreenSizeChange (screen->width (),
+						  screen->height ()); /* 2nd pass */
 	        }
 	    }
     }
-    screen->handleEvent (event);
 }
 
 /* sort functions */
 
 static bool
-compareLeftmost (CompWindow *a,
-		 CompWindow *b)
+compareLeftmost (compiz::place::Placeable *a,
+		 compiz::place::Placeable *b)
 {
     int ax, bx;
 
-    ax = a->serverX () - a->input ().left;
-    bx = b->serverX () - b->input ().left;
+    ax = a->geometry ().x () - a->extents ().left;
+    bx = b->geometry ().x () - a->extents ().left;
 
     return (ax <= bx);
 }
 
 static bool
-compareTopmost (CompWindow *a,
-		CompWindow *b)
+compareTopmost (compiz::place::Placeable *a,
+		compiz::place::Placeable *b)
 {
     int ay, by;
 
-    ay = a->serverY () - a->input ().top;
-    by = b->serverY () - b->input ().top;
+    ay = a->geometry ().y () - a->extents ().top;
+    by = b->geometry ().y () - a->extents ().top;
 
     return (ay <= by);
 }
 
 static bool
-compareNorthWestCorner (CompWindow *a,
-			CompWindow *b)
+compareNorthWestCorner (compiz::place::Placeable *a,
+			compiz::place::Placeable *b)
 {
     int fromOriginA;
     int fromOriginB;
     int ax, ay, bx, by;
 
-    ax = a->serverX () - a->input ().left;
-    ay = a->serverY () - a->input ().top;
+    ax = a->geometry ().x () - a->extents ().left;
+    bx = b->geometry ().x () - a->extents ().left;
 
-    bx = b->serverX () - b->input ().left;
-    by = b->serverY () - b->input ().top;
+    ay = a->geometry ().y () - a->extents ().top;
+    by = b->geometry ().y () - a->extents ().top;
 
     /* probably there's a fast good-enough-guess we could use here. */
     fromOriginA = sqrt (ax * ax + ay * ay);
@@ -441,7 +288,7 @@ compareNorthWestCorner (CompWindow *a,
 
 PlaceWindow::PlaceWindow (CompWindow *w) :
     PluginClassHandler<PlaceWindow, CompWindow> (w),
-    mSavedOriginal (false),
+    compiz::place::ScreenSizeChangeObject (w->serverGeometry ()),
     window (w),
     ps (PlaceScreen::get (screen))
 {
@@ -488,14 +335,13 @@ PlaceWindow::place (CompPoint &pos)
 CompRect
 PlaceWindow::doValidateResizeRequest (unsigned int &mask,
 				      XWindowChanges *xwc,
-				      unsigned int source,
+				      bool	   sizeOnly,
 				      bool	   clampToViewport)
 {
     CompRect workArea;
     int	     x, y, left, right, bottom, top;
     CompWindow::Geometry geom;
     int      output;
-    bool     sizeOnly = true;
 
     if (clampToViewport)
     {
@@ -517,14 +363,14 @@ PlaceWindow::doValidateResizeRequest (unsigned int &mask,
 	y = xwc->y;
     }
 
-    left   = x - window->input ().left;
-    right  = left + xwc->width +  (window->input ().left +
-    				   window->input ().right +
-				   2 * window->serverGeometry ().border ());;
-    top    = y - window->input ().top;
-    bottom = top + xwc->height + (window->input ().top +
-    				  window->input ().bottom +
-				  2 * window->serverGeometry ().border ());;
+    left   = x - window->border ().left;
+    right  = left + xwc->width +  (window->border ().left +
+				   window->border ().right +
+				   2 * window->serverGeometry ().border ());
+    top    = y - window->border ().top;
+    bottom = top + xwc->height + (window->border ().top +
+				  window->border ().bottom +
+				  2 * window->serverGeometry ().border ());
 
     geom.set (xwc->x, xwc->y, xwc->width, xwc->height,
 	      window->serverGeometry ().border ());
@@ -584,10 +430,10 @@ PlaceWindow::doValidateResizeRequest (unsigned int &mask,
     }
 
     /* bring left/right/top/bottom to actual window coordinates */
-    left   += window->input ().left;
-    right  -= window->input ().right + 2 * window->serverGeometry ().border ();
-    top    += window->input ().top;
-    bottom -= window->input ().bottom + 2 * window->serverGeometry ().border ();
+    left   += window->border ().left;
+    right  -= window->border ().right + 2 * window->serverGeometry ().border ();
+    top    += window->border ().top;
+    bottom -= window->border ().bottom + 2 * window->serverGeometry ().border ();
 
     /* always validate position if the applicaiton changed only its size,
      * as it might become partially offscreen because of that */
@@ -711,22 +557,22 @@ PlaceWindow::doPlacement (CompPoint &pos)
 	if (parent)
 	{
 	    /* center over parent horizontally */
-	    pos.setX (parent->serverX () +
-		      (parent->serverGeometry ().width () / 2) -
-		      (window->serverGeometry ().width () / 2));
+	    pos.setX (parent->serverBorderRect ().x () +
+		      (parent->serverBorderRect ().width () / 2) -
+		      (window->serverBorderRect ().width () / 2));
 
 	    /* "visually" center vertically, leaving twice as much space below
 	       as on top */
-	    pos.setY (parent->serverY () +
-		      (parent->serverGeometry ().height () -
-		       window->serverGeometry ().height ()) / 3);
+	    pos.setY (parent->serverBorderRect ().y () +
+		      (parent->serverBorderRect ().height () -
+		       window->serverBorderRect ().height ()) / 3);
 
 	    /* if parent is visible on current viewport, clip to work area;
 	       don't constrain further otherwise */
-	    if (parent->serverX () < screen->width ()           &&
-		parent->serverX () + parent->serverWidth () > 0 &&
-		parent->serverY () < screen->height ()          &&
-		parent->serverY () + parent->serverHeight () > 0)
+	    if (parent->serverBorderRect ().x () < screen->width ()           &&
+		parent->serverBorderRect ().x () + parent->serverBorderRect ().width () > 0 &&
+		parent->serverBorderRect ().y () < screen->height ()          &&
+		parent->serverBorderRect ().y () + parent->serverBorderRect ().height () > 0)
 	    {
 		targetVp = parent->defaultViewport ();
 		strategy = ConstrainOnly;
@@ -757,6 +603,17 @@ PlaceWindow::doPlacement (CompPoint &pos)
 
     if (strategy == PlaceOnly || strategy == PlaceAndConstrain)
     {
+	/* Construct list of placeables */
+	compiz::place::Placeable::Vector placeables;
+
+	foreach (CompWindow *w, screen->windows ())
+	{
+	    PLACE_WINDOW (w);
+
+	    if (windowIsPlaceRelevant (w))
+		placeables.push_back (static_cast <compiz::place::Placeable *> (pw));
+	}
+
 	switch (mode) {
 	    case PlaceOptions::ModeCascade:
 	    placeCascade (workArea, pos);
@@ -774,7 +631,7 @@ PlaceWindow::doPlacement (CompPoint &pos)
 	    sendMaximizationRequest ();
 	    break;
 	case PlaceOptions::ModeSmart:
-	    placeSmart (workArea, pos);
+	    placeSmart (pos, placeables);
 	    break;
 	}
 
@@ -822,7 +679,7 @@ void
 PlaceWindow::placeCascade (const CompRect &workArea,
 			   CompPoint      &pos)
 {
-    CompWindowList windows;
+    Placeable::Vector placeables;
 
     /* Find windows that matter (not minimized, on same workspace
      * as placed window, may be shaded - if shaded we pretend it isn't
@@ -843,15 +700,15 @@ PlaceWindow::placeCascade (const CompRect &workArea,
 	    w->serverY () + w->serverGeometry ().height () <= workArea.y ())
 	    continue;
 
-	windows.push_back (w);
+	placeables.push_back (static_cast <Placeable *> (PlaceWindow::get (w)));
     }
 
-    if (!cascadeFindFirstFit (windows, workArea, pos))
+    if (!cascadeFindFirstFit (placeables, workArea, pos))
     {
 	/* if the window wasn't placed at the origin of screen,
 	 * cascade it onto the current screen
 	 */
-	cascadeFindNext (windows, workArea, pos);
+	cascadeFindNext (placeables, workArea, pos);
     }
 }
 
@@ -899,201 +756,13 @@ PlaceWindow::placePointer (const CompRect &workArea,
 	placeCentered (workArea, pos);
 }
 
-
-/* overlap types */
-#define NONE    0
-#define H_WRONG -1
-#define W_WRONG -2
+using namespace compiz::place;
 
 void
-PlaceWindow::placeSmart (const CompRect &workArea,
-			 CompPoint      &pos)
+PlaceWindow::placeSmart (CompPoint			&pos,
+			 const compiz::place::Placeable::Vector &placeables)
 {
-    /*
-     * SmartPlacement by Cristian Tibirna (tibirna@kde.org)
-     * adapted for kwm (16-19jan98) and for kwin (16Nov1999) using (with
-     * permission) ideas from fvwm, authored by
-     * Anthony Martin (amartin@engr.csulb.edu).
-     * Xinerama supported added by Balaji Ramani (balaji@yablibli.com)
-     * with ideas from xfce.
-     * adapted for Compiz by Bellegarde Cedric (gnumdk(at)gmail.com)
-     */
-    int overlap, minOverlap = 0;
-    int xOptimal, yOptimal;
-    int possible;
-
-    /* temp coords */
-    int cxl, cxr, cyt, cyb;
-    /* temp coords */
-    int xl,  xr,  yt,  yb;
-    /* temp holder */
-    int basket;
-    /* CT lame flag. Don't like it. What else would do? */
-    bool firstPass = true;
-
-    /* get the maximum allowed windows space */
-    int xTmp = workArea.x ();
-    int yTmp = workArea.y ();
-
-    /* client gabarit */
-    int cw = window->serverWidth () - 1;
-    int ch = window->serverHeight () - 1;
-
-    xOptimal = xTmp;
-    yOptimal = yTmp;
-
-    /* loop over possible positions */
-    do
-    {
-	/* test if enough room in x and y directions */
-	if (yTmp + ch > workArea.bottom () && ch < workArea.height ())
-	    overlap = H_WRONG; /* this throws the algorithm to an exit */
-	else if (xTmp + cw > workArea.right ())
-	    overlap = W_WRONG;
-	else
-	{
-	    overlap = NONE; /* initialize */
-
-	    cxl = xTmp;
-	    cxr = xTmp + cw;
-	    cyt = yTmp;
-	    cyb = yTmp + ch;
-
-	    foreach (CompWindow *w, screen->windows ())
-	    {
-		if (!windowIsPlaceRelevant (w))
-		    continue;
-
-		xl = w->serverX () - w->input ().left;
-		yt = w->serverY () - w->input ().top;
-		xr = w->serverX () + w->serverWidth () +
-		     w->input ().right +
-		     w->serverGeometry ().border () * 2;
-		yb = w->serverY () + w->serverHeight () +
-		     w->input ().bottom +
-		     w->serverGeometry ().border () * 2;
-
-		/* if windows overlap, calc the overall overlapping */
-		if (cxl < xr && cxr > xl && cyt < yb && cyb > yt)
-		{
-		    xl = MAX (cxl, xl);
-		    xr = MIN (cxr, xr);
-		    yt = MAX (cyt, yt);
-		    yb = MIN (cyb, yb);
-
-		    if (w->state () & CompWindowStateAboveMask)
-			overlap += 16 * (xr - xl) * (yb - yt);
-		    else if (w->state () & CompWindowStateBelowMask)
-			overlap += 0;
-		    else
-			overlap += (xr - xl) * (yb - yt);
-		}
-	    }
-	}
-
-	/* CT first time we get no overlap we stop */
-	if (overlap == NONE)
-	{
-	    xOptimal = xTmp;
-	    yOptimal = yTmp;
-	    break;
-	}
-
-	if (firstPass)
-	{
-	    firstPass  = false;
-	    minOverlap = overlap;
-	}
-	/* CT save the best position and the minimum overlap up to now */
-	else if (overlap >= NONE && overlap < minOverlap)
-	{
-	    minOverlap = overlap;
-	    xOptimal = xTmp;
-	    yOptimal = yTmp;
-	}
-
-	/* really need to loop? test if there's any overlap */
-	if (overlap > NONE)
-	{
-	    possible = workArea.right ();
-
-	    if (possible - cw > xTmp)
-		possible -= cw;
-
-	    /* compare to the position of each client on the same desk */
-	    foreach (CompWindow *w, screen->windows ())
-	    {
-		if (!windowIsPlaceRelevant (w))
-		    continue;
-
-		xl = w->serverX () - w->input ().left;
-		yt = w->serverY () - w->input ().top;
-		xr = w->serverX () + w->serverWidth () +
-		     w->input ().right +
-		     w->serverGeometry ().border () * 2;
-		yb = w->serverY () + w->serverHeight () +
-		     w->input ().bottom +
-		     w->serverGeometry ().border () * 2;
-
-		/* if not enough room above or under the current
-		 * client determine the first non-overlapped x position
-		 */
-		if (yTmp < yb && yt < ch + yTmp)
-		{
-		    if (xr > xTmp && possible > xr)
-			possible = xr;
-
-		    basket = xl - cw;
-		    if (basket > xTmp && possible > basket)
-			possible = basket;
-		}
-	    }
-	    xTmp = possible;
-	}
-	/* else ==> not enough x dimension (overlap was wrong on horizontal) */
-	else if (overlap == W_WRONG)
-	{
-	    xTmp     = workArea.x ();
-	    possible = workArea.bottom ();
-
-	    if (possible - ch > yTmp)
-		possible -= ch;
-
-	    /* test the position of each window on the desk */
-	    foreach (CompWindow *w, screen->windows ())
-	    {
-		if (!windowIsPlaceRelevant (w))
-		    continue;
-
-		xl = w->serverX () - w->input ().left;
-		yt = w->serverY () - w->input ().top;
-		xr = w->serverX () + w->serverWidth () +
-		     w->input ().right +
-		     w->serverGeometry ().border () * 2;
-		yb = w->serverY () + w->serverHeight () +
-		     w->input ().bottom +
-		     w->serverGeometry ().border () * 2;
-
-		/* if not enough room to the left or right of the current
-		 * client determine the first non-overlapped y position
-		 */
-		if (yb > yTmp && possible > yb)
-		    possible = yb;
-
-		basket = yt - ch;
-		if (basket > yTmp && possible > basket)
-		    possible = basket;
-	    }
-	    yTmp = possible;
-	}
-    }
-    while (overlap != NONE && overlap != H_WRONG && yTmp < workArea.bottom ());
-
-    if (ch >= workArea.height ())
-	yOptimal = workArea.y ();
-
-    pos.setX (xOptimal + window->input ().left);
-    pos.setY (yOptimal + window->input ().top);
+    compiz::place::smart (this, pos, placeables);
 }
 
 static void
@@ -1117,32 +786,22 @@ centerTileRectInArea (CompRect       &rect,
 
 static bool
 rectOverlapsWindow (const CompRect       &rect,
-		    const CompWindowList &windows)
+		    const compiz::place::Placeable::Vector &placeables)
 {
     CompRect dest;
 
-    foreach (CompWindow *other, windows)
+    foreach (compiz::place::Placeable *other, placeables)
     {
 	CompRect intersect;
+	CompRect sbr = other->geometry ();
+	sbr.setLeft (sbr.left () - other->extents ().left);
+	sbr.setRight (sbr.right () + other->extents ().right);
+	sbr.setTop (sbr.top () - other->extents ().top);
+	sbr.setBottom (sbr.bottom () - other->extents ().bottom);
 
-	switch (other->type ()) {
-	case CompWindowTypeDockMask:
-	case CompWindowTypeSplashMask:
-	case CompWindowTypeDesktopMask:
-	case CompWindowTypeDialogMask:
-	case CompWindowTypeModalDialogMask:
-	case CompWindowTypeFullscreenMask:
-	case CompWindowTypeUnknownMask:
-	    break;
-	case CompWindowTypeNormalMask:
-	case CompWindowTypeUtilMask:
-	case CompWindowTypeToolbarMask:
-	case CompWindowTypeMenuMask:
-	    intersect = rect & other->serverInputRect ();
-	    if (!intersect.isEmpty ())
-		return true;
-	    break;
-	}
+	intersect = rect & sbr;
+	if (!intersect.isEmpty ())
+	    return true;
     }
 
     return false;
@@ -1157,7 +816,7 @@ rectOverlapsWindow (const CompRect       &rect,
  * don't want to create a 1x1 Emacs.
  */
 bool
-PlaceWindow::cascadeFindFirstFit (const CompWindowList &windows,
+PlaceWindow::cascadeFindFirstFit (const Placeable::Vector &placeables,
 				  const CompRect       &workArea,
 				  CompPoint            &pos)
 {
@@ -1169,49 +828,59 @@ PlaceWindow::cascadeFindFirstFit (const CompWindowList &windows,
      * existing window in each of those cases.
      */
     bool           retval = false;
-    CompWindowList belowSorted, rightSorted;
-    CompRect       rect;
+    Placeable::Vector belowSorted, rightSorted;
 
     /* Below each window */
-    belowSorted = windows;
-    belowSorted.sort (compareLeftmost);
-    belowSorted.sort (compareTopmost);
+    belowSorted = placeables;
+    std::sort (belowSorted.begin (), belowSorted.end (), compareLeftmost);
+    std::sort (belowSorted.begin (), belowSorted.end (), compareTopmost);
 
     /* To the right of each window */
-    rightSorted = windows;
-    rightSorted.sort (compareTopmost);
-    rightSorted.sort (compareLeftmost);
+    rightSorted = placeables;
+    std::sort (belowSorted.begin (), belowSorted.end (), compareTopmost);
+    std::sort (belowSorted.begin (), belowSorted.end (), compareLeftmost);
 
-    rect = window->serverInputRect ();
+    CompRect rect = this->geometry ();
+
+    rect.setLeft (rect.left () - this->extents ().left);
+    rect.setRight (rect.right () + this->extents ().right);
+    rect.setTop (rect.top () - this->extents ().top);
+    rect.setBottom (rect.bottom () - this->extents ().bottom);
+
     centerTileRectInArea (rect, workArea);
 
-    if (workArea.contains (rect) && !rectOverlapsWindow (rect, windows))
+    if (workArea.contains (rect) && !rectOverlapsWindow (rect, placeables))
     {
-	pos.setX (rect.x () + window->input ().left);
-	pos.setY (rect.y () + window->input ().top);
+	pos.setX (rect.x () + this->extents ().left);
+	pos.setY (rect.y () + this->extents ().top);
 	retval = true;
     }
 
     if (!retval)
     {
 	/* try below each window */
-	foreach (CompWindow *w, belowSorted)
+	foreach (Placeable *p, belowSorted)
 	{
 	    CompRect outerRect;
 
 	    if (retval)
 		break;
 
-	    outerRect = w->serverInputRect ();
+	    outerRect = p->geometry ();
 
-	    rect.setX (outerRect.x ());
-	    rect.setY (outerRect.bottom ());
+	    outerRect.setLeft (rect.left () - this->extents ().left);
+	    outerRect.setRight (rect.right () + this->extents ().right);
+	    outerRect.setTop (rect.top () - this->extents ().top);
+	    outerRect.setBottom (rect.bottom () - this->extents ().bottom);
+
+	    outerRect.setX (outerRect.x ());
+	    outerRect.setY (outerRect.bottom ());
 
 	    if (workArea.contains (rect) &&
 		!rectOverlapsWindow (rect, belowSorted))
 	    {
-		pos.setX (rect.x () + window->input ().left);
-		pos.setY (rect.y () + window->input ().top);
+		pos.setX (rect.x () + this->extents ().left);
+		pos.setY (rect.y () + this->extents ().top);
 		retval = true;
 	    }
 	}
@@ -1220,23 +889,28 @@ PlaceWindow::cascadeFindFirstFit (const CompWindowList &windows,
     if (!retval)
     {
 	/* try to the right of each window */
-	foreach (CompWindow *w, rightSorted)
+	foreach (Placeable *p, rightSorted)
 	{
 	    CompRect outerRect;
 
 	    if (retval)
 		break;
 
-	    outerRect = w->serverInputRect ();
+	    outerRect = p->geometry ();
 
-	    rect.setX (outerRect.right ());
-	    rect.setY (outerRect.y ());
+	    outerRect.setLeft (rect.left () - this->extents ().left);
+	    outerRect.setRight (rect.right () + this->extents ().right);
+	    outerRect.setTop (rect.top () - this->extents ().top);
+	    outerRect.setBottom (rect.bottom () - this->extents ().bottom);
+
+	    outerRect.setX (outerRect.right ());
+	    outerRect.setY (outerRect.y ());
 
 	    if (workArea.contains (rect) &&
 		!rectOverlapsWindow (rect, rightSorted))
 	    {
-		pos.setX (rect.x () + w->input ().left);
-		pos.setY (rect.y () + w->input ().top);
+		pos.setX (rect.x () + this->extents ().left);
+		pos.setY (rect.y () + this->extents ().top);
 		retval = true;
 	    }
 	}
@@ -1246,19 +920,19 @@ PlaceWindow::cascadeFindFirstFit (const CompWindowList &windows,
 }
 
 void
-PlaceWindow::cascadeFindNext (const CompWindowList &windows,
-			      const CompRect       &workArea,
-			      CompPoint            &pos)
+PlaceWindow::cascadeFindNext (const Placeable::Vector &placeables,
+			      const CompRect	      &workArea,
+			      CompPoint		      &pos)
 {
-    CompWindowList           sorted;
-    CompWindowList::iterator iter;
-    int                      cascadeX, cascadeY;
-    int                      xThreshold, yThreshold;
-    int                      winWidth, winHeight;
-    int                      cascadeStage;
+    Placeable::Vector           sorted;
+    Placeable::Vector::iterator iter;
+    int                         cascadeX, cascadeY;
+    int                         xThreshold, yThreshold;
+    int                         winWidth, winHeight;
+    int                         cascadeStage;
 
-    sorted = windows;
-    sorted.sort (compareNorthWestCorner);
+    sorted = placeables;
+    std::sort (sorted.begin (), sorted.end (), compareNorthWestCorner);
 
     /* This is a "fuzzy" cascade algorithm.
      * For each window in the list, we find where we'd cascade a
@@ -1271,8 +945,8 @@ PlaceWindow::cascadeFindNext (const CompWindowList &windows,
      */
 #define CASCADE_FUZZ 15
 
-    xThreshold = MAX (window->input ().left, CASCADE_FUZZ);
-    yThreshold = MAX (window->input ().top, CASCADE_FUZZ);
+    xThreshold = MAX (this->extents ().left, CASCADE_FUZZ);
+    yThreshold = MAX (this->extents ().top, CASCADE_FUZZ);
 
     /* Find furthest-SE origin of all workspaces.
      * cascade_x, cascade_y are the target position
@@ -1290,12 +964,12 @@ PlaceWindow::cascadeFindNext (const CompWindowList &windows,
     cascadeStage = 0;
     for (iter = sorted.begin (); iter != sorted.end (); iter++)
     {
-	CompWindow *w = *iter;
+	Placeable  *p = *iter;
 	int        wx, wy;
 
 	/* we want frame position, not window position */
-	wx = w->serverX () - w->input ().left;
-	wy = w->serverY () - w->input ().top;
+	wx = p->geometry ().x () - p->extents ().left;
+	wy = p->geometry ().y () - p->extents ().top;
 
 	if (abs (wx - cascadeX) < xThreshold &&
 	    abs (wy - cascadeY) < yThreshold)
@@ -1304,8 +978,8 @@ PlaceWindow::cascadeFindNext (const CompWindowList &windows,
 	     * point. The new window frame should go at the origin
 	     * of the client window we're stacking above.
 	     */
-	    wx = cascadeX = w->serverX ();
-	    wy = cascadeY = w->serverY ();
+	    wx = cascadeX = p->geometry ().x ();
+	    wy = cascadeY = p->geometry ().y ();
 
 	    /* If we go off the screen, start over with a new cascade */
 	    if ((cascadeX + winWidth > workArea.right ()) ||
@@ -1346,8 +1020,8 @@ PlaceWindow::cascadeFindNext (const CompWindowList &windows,
      */
 
     /* Convert coords to position of window, not position of frame. */
-    pos.setX (cascadeX + window->input ().left);
-    pos.setY (cascadeY + window->input ().top);
+    pos.setX (cascadeX + this->extents ().left);
+    pos.setY (cascadeY + this->extents ().top);
 }
 
 bool
@@ -1524,15 +1198,15 @@ PlaceWindow::constrainToWorkarea (const CompRect &workArea,
     CompWindowExtents extents;
     int               delta;
 
-    extents.left   = pos.x () - window->input ().left;
-    extents.top    = pos.y () - window->input ().top;
+    extents.left   = pos.x () - window->border ().left;
+    extents.top    = pos.y () - window->border ().top;
     extents.right  = extents.left + window->serverWidth () +
-		     (window->input ().left +
-		      window->input ().right +
+		     (window->border ().left +
+		      window->border ().right +
 		      2 * window->serverGeometry ().border ());
     extents.bottom = extents.top + window->serverHeight () +
-		     (window->input ().top +
-		      window->input ().bottom +
+		     (window->border ().top +
+		      window->border ().bottom +
 		      2 * window->serverGeometry ().border ());
 
     delta = workArea.right () - extents.right;
@@ -1551,8 +1225,8 @@ PlaceWindow::constrainToWorkarea (const CompRect &workArea,
     if (delta > 0)
 	extents.top += delta;
 
-    pos.setX (extents.left + window->input ().left);
-    pos.setY (extents.top  + window->input ().top);
+    pos.setX (extents.left + window->border ().left);
+    pos.setY (extents.top  + window->border ().top);
 
 }
 
@@ -1690,12 +1364,10 @@ PlaceWindow::grabNotify (int x,
 			 unsigned int state,
 			 unsigned int mask)
 {
-    if (mSavedOriginal)
-    {
-	if (screen->grabExist ("move") ||
-	    screen->grabExist ("resize"))
-	    mSavedOriginal = false;
-    }
+    /* Don't restore geometry if the user moved the window */
+    if (screen->grabExist ("move") ||
+	screen->grabExist ("resize"))
+	unset ();
 
     window->grabNotify (x, y, state, mask);
 }

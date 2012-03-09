@@ -84,6 +84,13 @@
 				<min>50</min>
 				<max>10000</max>
 			</option>
+			<option name="dnd_distance" type="int">
+				<_short>Drag and Drop Distance</_short>
+				<_long>The minimum distance (in px) beyond which the timeout is reset.</_long>
+				<default>6</default>
+				<min>0</min>
+				<max>250</max>
+			</option>
 			<option name="multioutput_mode" type="int">
 				<_short>Multi Output Mode</_short>
 				<_long>Selects where windows are scaled if multiple output devices are used.</_long>

@@ -41,9 +41,11 @@ create_switcher_frame (const gchar *type)
     frame->win_extents = _switcher_extents;
     frame->max_win_extents = _switcher_extents;
     frame->win_extents = _switcher_extents;
-    frame->window_context = _switcher_context;
+    frame->window_context_inactive = _switcher_context;
+    frame->window_context_active = _switcher_context;
     frame->window_context_no_shadow = _switcher_context;
-    frame->max_window_context = _switcher_context;
+    frame->max_window_context_active = _switcher_context;
+    frame->max_window_context_inactive = _switcher_context;
     frame->max_window_context_no_shadow = _switcher_context;
     frame->update_shadow = switcher_frame_update_shadow;
 
@@ -95,10 +97,10 @@ draw_switcher_background (decor_t *d)
 
     top = d->frame->win_extents.top;
 
-    x1 = d->frame->window_context.left_space - d->frame->win_extents.left;
-    y1 = d->frame->window_context.top_space - d->frame->win_extents.top;
-    x2 = d->width - d->frame->window_context.right_space + d->frame->win_extents.right;
-    y2 = d->height - d->frame->window_context.bottom_space + d->frame->win_extents.bottom;
+    x1 = d->frame->window_context_active.left_space - d->frame->win_extents.left;
+    y1 = d->frame->window_context_active.top_space - d->frame->win_extents.top;
+    x2 = d->width - d->frame->window_context_active.right_space + d->frame->win_extents.right;
+    y2 = d->height - d->frame->window_context_active.bottom_space + d->frame->win_extents.bottom;
 
     h = y2 - y1 - d->frame->win_extents.top - d->frame->win_extents.top;
 
@@ -106,7 +108,7 @@ draw_switcher_background (decor_t *d)
 
     cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
 
-    draw_shadow_background (d, cr, d->frame->border_shadow, &d->frame->window_context);
+    draw_shadow_background (d, cr, d->frame->border_shadow_active, &d->frame->window_context_active);
 
     fill_rounded_rectangle (cr,
 			    x1 + 0.5,
@@ -280,10 +282,10 @@ draw_switcher_foreground (decor_t *d)
 
     cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
 
-    cairo_rectangle (cr, d->frame->window_context.left_space,
-		     d->height - d->frame->window_context.bottom_space,
-		     d->width - d->frame->window_context.left_space -
-		     d->frame->window_context.right_space,
+    cairo_rectangle (cr, d->frame->window_context_active.left_space,
+		     d->height - d->frame->window_context_active.bottom_space,
+		     d->width - d->frame->window_context_active.left_space -
+		     d->frame->window_context_active.right_space,
 		     SWITCHER_SPACE);
 
     gdk_cairo_set_source_color_alpha (cr,
@@ -304,7 +306,7 @@ draw_switcher_foreground (decor_t *d)
 	pango_layout_get_pixel_size (d->layout, &w, NULL);
 
 	cairo_move_to (cr, d->width / 2 - w / 2,
-		       d->height - d->frame->window_context.bottom_space +
+		       d->height - d->frame->window_context_active.bottom_space +
 		       SWITCHER_SPACE / 2 - d->frame->text_height / 2);
 
 	pango_cairo_show_layout (cr, d->layout);
@@ -394,7 +396,7 @@ update_switcher_window (Window     popup,
     d->draw	 = draw_switcher_decoration;
     d->frame     = gwd_get_decor_frame ("switcher");
 
-    decor_get_default_layout (&d->frame->window_context, width, 1, &d->border_layout);
+    decor_get_default_layout (&d->frame->window_context_active, width, 1, &d->border_layout);
 
     width  = d->border_layout.width;
     height = d->border_layout.height;
@@ -426,8 +428,8 @@ update_switcher_window (Window     popup,
 	    {
 		int tw;
 
-		tw = width - d->frame->window_context.left_space -
-		    d->frame->window_context.right_space - 64;
+		tw = width - d->frame->window_context_active.left_space -
+		    d->frame->window_context_active.right_space - 64;
 		pango_layout_set_auto_dir (d->layout, FALSE);
 		pango_layout_set_width (d->layout, tw * PANGO_SCALE);
 		pango_layout_set_text (d->layout, name, name_length);
@@ -492,9 +494,6 @@ update_switcher_window (Window     popup,
 
     if (d->picture)
 	XRenderFreePicture (xdisplay, d->picture);
-
-    g_object_ref (G_OBJECT (pixmap));
-    g_object_ref (G_OBJECT (buffer_pixmap));
 
     d->pixmap	     = pixmap;
     d->buffer_pixmap = buffer_pixmap;

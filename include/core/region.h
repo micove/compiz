@@ -32,8 +32,6 @@
 #include <core/rect.h>
 #include <core/point.h>
 
-class PrivateRegion;
-
 /**
  * A 2D region with an (x,y) position and arbitrary dimensions similar to
  * an XRegion. It's data membmers are private and  must be manipulated with
@@ -51,7 +49,6 @@ class CompRegion {
 	CompRegion (const CompRegion &);
 	CompRegion (int x, int y, int w, int h);
         CompRegion (const CompRect &);
-	CompRegion (const CompPoint::vector &); // Abstract Shape
 	~CompRegion ();
 
 	/**
@@ -74,7 +71,7 @@ class CompRegion {
 	/**
 	 * Returns the internal XRegion handle
 	 */
-	const Region handle () const;
+	Region handle () const;
 
 	/**
 	 * Returns true if the specified CompPoint falls within the
@@ -181,8 +178,18 @@ class CompRegion {
 	const CompRegion operator| (const CompRegion &) const;
 	CompRegion & operator|= (const CompRegion &);
 
-    private:
-	PrivateRegion *priv;
+    protected:
+	/* Construct a CompRegion based on an externally managed Region */
+	explicit CompRegion (Region);
+	void init ();
+	void *priv;
+};
+
+class CompRegionRef : public CompRegion
+{
+    public:
+	explicit CompRegionRef (Region);
+	~CompRegionRef ();
 };
 
 extern const CompRegion infiniteRegion;

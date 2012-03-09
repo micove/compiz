@@ -50,6 +50,17 @@ class CompSize {
 	typedef std::list<CompSize> list;
 	typedef std::list<CompSize *> ptrList;
 
+	bool operator== (const CompSize &other) const
+	{
+	    return (this->mWidth == other.mWidth &&
+		    this->mHeight == other.mHeight);
+	}
+
+	bool operator!= (const CompSize &other) const
+	{
+	    return !(*this == other);
+	}
+
     private:
 	int mWidth, mHeight;
 };

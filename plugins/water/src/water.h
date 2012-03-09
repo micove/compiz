@@ -23,21 +23,13 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <sys/time.h>
-
-#include <X11/cursorfont.h>
-
-#include <core/core.h>
+#include "water_options.h"
+#include <core/screen.h>
 #include <core/pluginclasshandler.h>
 
 #include <composite/composite.h>
 #include <opengl/opengl.h>
 
-#include "water_options.h"
 
 #define WATER_SCREEN(s) \
     WaterScreen *ws = WaterScreen::get (s)

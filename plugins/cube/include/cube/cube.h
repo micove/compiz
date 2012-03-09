@@ -26,7 +26,8 @@
 #ifndef _COMPIZ_CUBE_H
 #define _COMPIZ_CUBE_H
 
-#include <core/core.h>
+#include <core/screen.h>
+#include <core/output.h>
 #include <core/pluginclasshandler.h>
 
 #include <composite/composite.h>

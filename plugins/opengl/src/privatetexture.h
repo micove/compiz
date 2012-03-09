@@ -28,11 +28,12 @@
 #ifndef _PRIVATETEXTURE_H
 #define _PRIVATETEXTURE_H
 
-#include <map>
-
 #include <GL/gl.h>
 #include <GL/glx.h>
 #include <opengl/texture.h>
+#include <X11/extensions/Xdamage.h>
+
+#include <map>
 
 class GLScreen;
 class GLDisplay;

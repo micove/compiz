@@ -206,7 +206,7 @@ class Window: public QObject, public KDecorationBridgeUnstable {
 				 int bottomOffset,
 				 int leftOffset,
 				 int rightOffset);
-	void updateProperty (void);
+	long * updateProperty (long *, unsigned int);
 	void getWindowProtocols (void);
 
 	Options::MouseCommand buttonToCommand (Qt::MouseButtons button);

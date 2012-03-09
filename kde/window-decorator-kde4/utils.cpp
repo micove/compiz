@@ -221,8 +221,6 @@ KWD::Atoms::init (void)
     compizShadowColor =
 	XInternAtom (xdisplay, "_COMPIZ_NET_CM_SHADOW_COLOR", false);
     netWindowDecor = XInternAtom (xdisplay, DECOR_WINDOW_ATOM_NAME, false);
-    netWindowDecorNormal =
-	XInternAtom (xdisplay, DECOR_NORMAL_ATOM_NAME, false);
     netWindowDecorActive =
 	XInternAtom (xdisplay, DECOR_ACTIVE_ATOM_NAME, false);
     netWindowDecorBare =

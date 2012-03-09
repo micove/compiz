@@ -36,15 +36,10 @@
 #include <X11/extensions/Xrandr.h>
 #include <X11/extensions/Xfixes.h>
 
-#include <core/core.h>
 #include <core/atoms.h>
 #include "privatescreen.h"
 #include "privatewindow.h"
-
-static Window xdndWindow = None;
-static Window edgeWindow = None;
-
-
+#include "privatestackdebugger.h"
 
 bool
 PrivateWindow::handleSyncAlarm ()
@@ -123,20 +118,67 @@ isInitiateBinding (CompOption	           &option,
 }
 
 static bool
-isTerminateBinding (CompOption	            &option,
-		    CompAction::BindingType type,
-		    CompAction::State       state,
-		    CompAction              **action)
+isBound (CompOption             &option,
+         CompAction::BindingType type,
+         CompAction::State       state,
+         CompAction            **action)
 {
     if (!isCallBackBinding (option, type, state))
-	return false;
-
-    if (option.value ().action ().terminate ().empty ())
 	return false;
 
     *action = &option.value ().action ();
 
     return true;
+}
+
+bool
+PrivateScreen::triggerPress (CompAction         *action,
+                             CompAction::State   state,
+                             CompOption::Vector &arguments)
+{
+    if (state == CompAction::StateInitKey &&
+        grabs.empty () &&
+        !action->terminate ().empty ())
+    {
+        possibleTap = action;
+        int err = XGrabKeyboard (dpy, grabWindow, True,
+                                 GrabModeAsync, GrabModeSync, CurrentTime);
+        if (err == GrabSuccess)
+        {
+            XAllowEvents (dpy, SyncKeyboard, CurrentTime);
+            tapGrab = true;
+        }
+    }
+
+    if (action->initiate ().empty () && !action->terminate ().empty ())
+    {
+        /* Default Initiate implementation for plugins that only
+           provide a Terminate callback */
+        if (state & CompAction::StateInitKey)
+            action->setState (action->state () | CompAction::StateTermKey);
+    }
+    else if (action->initiate () (action, state, arguments))
+        return true;
+
+    return false;
+}
+
+bool
+PrivateScreen::triggerRelease (CompAction         *action,
+                               CompAction::State   state,
+                               CompOption::Vector &arguments)
+{
+    if (action == possibleTap)
+    {
+        state |= CompAction::StateTermTapped;
+        possibleTap = NULL;
+    }
+
+    if (!action->terminate ().empty () &&
+        action->terminate () (action, state, arguments))
+        return true;
+
+    return false;
 }
 
 bool
@@ -177,8 +219,7 @@ PrivateScreen::triggerButtonPressBindings (CompOption::Vector &options,
 
     foreach (CompOption &option, options)
     {
-	if (isInitiateBinding (option, CompAction::BindingTypeButton, state,
-			       &action))
+	if (isBound (option, CompAction::BindingTypeButton, state, &action))
 	{
 	    if (action->button ().button () == (int) event->button)
 	    {
@@ -186,8 +227,10 @@ PrivateScreen::triggerButtonPressBindings (CompOption::Vector &options,
 		    action->button ().modifiers ());
 
 		if ((bindMods & modMask) == (event->state & modMask))
-		    if (action->initiate () (action, state, arguments))
+		{
+		    if (triggerPress (action, state, arguments))
 			return true;
+		}
 	    }
 	}
 
@@ -227,11 +270,11 @@ PrivateScreen::triggerButtonReleaseBindings (CompOption::Vector &options,
 
     foreach (CompOption &option, options)
     {
-	if (isTerminateBinding (option, type, state, &action))
+	if (isBound (option, type, state, &action))
 	{
 	    if (action->button ().button () == (int) event->button)
 	    {
-		if (action->terminate () (action, state, arguments))
+	        if (triggerRelease (action, state, arguments))
 		    return true;
 	    }
 	}
@@ -263,7 +306,7 @@ PrivateScreen::triggerKeyPressBindings (CompOption::Vector &options,
 	    {
 		if (!o.value ().action ().terminate ().empty ())
 		    o.value ().action ().terminate () (&o.value ().action (),
-						       state, noOptions);
+						       state, noOptions ());
 	    }
 	}
 
@@ -274,24 +317,19 @@ PrivateScreen::triggerKeyPressBindings (CompOption::Vector &options,
     state = CompAction::StateInitKey;
     foreach (CompOption &option, options)
     {
-	if (isInitiateBinding (option, CompAction::BindingTypeKey,
-			       state, &action))
+	if (isBound (option, CompAction::BindingTypeKey, state, &action))
 	{
 	    bindMods = modHandler->virtualToRealModMask (
 		action->key ().modifiers ());
 
+	    bool match = false;
 	    if (action->key ().keycode () == (int) event->keycode)
-	    {
-		if ((bindMods & modMask) == (event->state & modMask))
-		    if (action->initiate () (action, state, arguments))
-			return true;
-	    }
+		match = ((bindMods & modMask) == (event->state & modMask));
 	    else if (!xkbEvent && action->key ().keycode () == 0)
-	    {
-		if (bindMods == (event->state & modMask))
-		    if (action->initiate () (action, state, arguments))
-			return true;
-	    }
+		match = (bindMods == (event->state & modMask));
+
+	    if (match && triggerPress (action, state, arguments))
+		return true;
 	}
     }
 
@@ -316,25 +354,19 @@ PrivateScreen::triggerKeyReleaseBindings (CompOption::Vector &options,
 
     foreach (CompOption &option, options)
     {
-	if (isTerminateBinding (option, CompAction::BindingTypeKey,
-				state, &action))
+	if (isBound (option, CompAction::BindingTypeKey, state, &action))
 	{
 	    bindMods = modHandler->virtualToRealModMask (action->key ().modifiers ());
 
+	    bool match = false;
 	    if ((bindMods & modMask) == 0)
-	    {
-		if ((unsigned int) action->key ().keycode () ==
-						  (unsigned int) event->keycode)
-		{
-		    if (action->terminate () (action, state, arguments))
-			return true;
-		}
-	    }
+		match = ((unsigned int) action->key ().keycode () ==
+		         (unsigned int) event->keycode);
 	    else if (!xkbEvent && ((mods & modMask & bindMods) != bindMods))
-	    {
-		if (action->terminate () (action, state, arguments))
-		    return true;
-	    }
+	        match = true;
+
+	    if (match && triggerRelease (action, state, arguments))
+		return true;
 	}
     }
 
@@ -358,37 +390,39 @@ PrivateScreen::triggerStateNotifyBindings (CompOption::Vector  &options,
 
 	foreach (CompOption &option, options)
 	{
-	    if (isInitiateBinding (option, CompAction::BindingTypeKey,
-				   state, &action))
+	    if (isBound (option, CompAction::BindingTypeKey, state, &action))
 	    {
 		if (action->key ().keycode () == 0)
 		{
 		    bindMods =
 			modHandler->virtualToRealModMask (action->key ().modifiers ());
 
-		    if ((event->mods & modMask & bindMods) == bindMods)
+		    if ((event->mods & modMask) == bindMods)
 		    {
-			if (action->initiate () (action, state, arguments))
+		        if (triggerPress (action, state, arguments))
 			    return true;
 		    }
 		}
 	    }
 	}
     }
-    else
+    else if (event->event_type == KeyRelease)
     {
 	state = CompAction::StateTermKey;
 
 	foreach (CompOption &option, options)
 	{
-	    if (isTerminateBinding (option, CompAction::BindingTypeKey,
-				    state, &action))
+	    if (isBound (option, CompAction::BindingTypeKey, state, &action))
 	    {
-		bindMods = modHandler->virtualToRealModMask (action->key ().modifiers ());
+		bindMods = modHandler->virtualToRealModMask (
+		    action->key ().modifiers ());
+		unsigned int modKey =
+		    modHandler->keycodeToModifiers (event->keycode);
 
-		if ((event->mods & modMask & bindMods) != bindMods)
+		if ((event->mods && ((event->mods & modMask) != bindMods)) ||
+		    (!event->mods && (modKey == bindMods)))
 		{
-		    if (action->terminate () (action, state, arguments))
+		    if (triggerRelease (action, state, arguments))
 			return true;
 		}
 	    }
@@ -639,7 +673,7 @@ PrivateScreen::handleActionEvent (XEvent *event)
 
 	foreach (CompWindow *w, screen->windows ())
 	{
-	    if (w->frame () == xid)
+	    if (w->priv->frame == xid)
 		xid = w->id ();
 	}
 
@@ -656,6 +690,7 @@ PrivateScreen::handleActionEvent (XEvent *event)
 	o[6].value ().set ((int) event->xbutton.button);
 	o[7].value ().set ((int) event->xbutton.time);
 
+	possibleTap = NULL;
 	foreach (CompPlugin *p, CompPlugin::getPlugins ())
 	{
 	    CompOption::Vector &options = p->vTable->getOptions ();
@@ -698,6 +733,7 @@ PrivateScreen::handleActionEvent (XEvent *event)
 	o[6].value ().set ((int) event->xkey.keycode);
 	o[7].value ().set ((int) event->xkey.time);
 
+	possibleTap = NULL;
 	foreach (CompPlugin *p, CompPlugin::getPlugins ())
 	{
 	    CompOption::Vector &options = p->vTable->getOptions ();
@@ -916,6 +952,9 @@ PrivateScreen::handleActionEvent (XEvent *event)
 		o[4].reset ();
 		o[5].reset ();
 
+		if (stateEvent->event_type == KeyPress)
+		    possibleTap = NULL;
+
 		foreach (CompPlugin *p, CompPlugin::getPlugins ())
 		{
 		    CompOption::Vector &options = p->vTable->getOptions ();
@@ -959,7 +998,7 @@ PrivateScreen::setDefaultWindowAttributes (XWindowAttributes *wa)
     wa->border_width	      = 0;
     wa->depth		      = 0;
     wa->visual		      = NULL;
-    wa->root		      = None;
+    wa->root		      = root;
     wa->c_class		      = InputOnly;
     wa->bit_gravity	      = NorthWestGravity;
     wa->win_gravity	      = NorthWestGravity;
@@ -974,19 +1013,63 @@ PrivateScreen::setDefaultWindowAttributes (XWindowAttributes *wa)
     wa->your_event_mask	      = 0;
     wa->do_not_propagate_mask = 0;
     wa->override_redirect     = true;
-    wa->screen		      = NULL;
+    wa->screen		      = ScreenOfDisplay (dpy, screenNum);
 }
 
 void
 CompScreen::handleCompizEvent (const char         *plugin,
 			       const char         *event,
 			       CompOption::Vector &options)
-    WRAPABLE_HND_FUNC (7, handleCompizEvent, plugin, event, options)
+{
+    WRAPABLE_HND_FUNCTN (handleCompizEvent, plugin, event, options);
+    _handleCompizEvent (plugin, event, options);
+}
+
+void
+CompScreenImpl::_handleCompizEvent (const char         *plugin,
+			       const char         *event,
+			       CompOption::Vector &options)
+{
+}
 
 void
 CompScreen::handleEvent (XEvent *event)
 {
-    WRAPABLE_HND_FUNC (6, handleEvent, event)
+    WRAPABLE_HND_FUNCTN (handleEvent, event)
+    _handleEvent (event);
+}
+
+void
+CompScreenImpl::alwaysHandleEvent (XEvent *event)
+{
+    priv->eventHandled = true;  // if we return inside WRAPABLE_HND_FUNCTN
+
+    handleEvent (event);
+
+    /*
+     * Critical event handling that cannot be overridden by plugins
+     */
+
+    if (priv->tapGrab &&
+        (event->type == KeyPress || event->type == KeyRelease))
+    {
+	int mode = priv->eventHandled ? AsyncKeyboard : ReplayKeyboard;
+	XAllowEvents (priv->dpy, mode, event->xkey.time);
+    }
+
+    if (priv->grabs.empty () && event->type == KeyRelease)
+    {
+	XUngrabKeyboard (priv->dpy, event->xkey.time);
+	priv->tapGrab = false;
+    }
+}
+
+void
+CompScreenImpl::_handleEvent (XEvent *event)
+{
+    /*
+     * Non-critical event handling that might be overridden by plugins
+     */
 
     CompWindow *w = NULL;
     XWindowAttributes wa;
@@ -1013,11 +1096,11 @@ CompScreen::handleEvent (XEvent *event)
 	break;
     }
 
-    if (priv->handleActionEvent (event))
+    priv->eventHandled = priv->handleActionEvent (event);
+    if (priv->eventHandled)
     {
 	if (priv->grabs.empty ())
 	    XAllowEvents (priv->dpy, AsyncPointer, event->xbutton.time);
-
 	return;
     }
 
@@ -1030,7 +1113,8 @@ CompScreen::handleEvent (XEvent *event)
 	break;
     case ConfigureNotify:
 	w = findWindow (event->xconfigure.window);
-	if (w && !w->frame ())
+
+	if (w && !w->priv->frame)
 	{
 	    w->priv->configure (&event->xconfigure);
 	}
@@ -1038,10 +1122,8 @@ CompScreen::handleEvent (XEvent *event)
 	{
 	    w = findTopLevelWindow (event->xconfigure.window);
 
-	    if (w && w->frame () == event->xconfigure.window)
-	    {
+	    if (w && w->priv->frame == event->xconfigure.window)
 		w->priv->configureFrame (&event->xconfigure);
-	    }
 	    else
 	    {
 		if (event->xconfigure.window == priv->root)
@@ -1051,99 +1133,101 @@ CompScreen::handleEvent (XEvent *event)
 	break;
     case CreateNotify:
     {
-	bool failure = false;
+	bool create = true;
 
 	/* Failure means that window has been destroyed. We still have to add 
 	 * the window to the window list as we might get configure requests
 	 * which require us to stack other windows relative to it. Setting
 	 * some default values if this is the case. */
-	if ((failure = !XGetWindowAttributes (priv->dpy, event->xcreatewindow.window, &wa)))
+	if (!XGetWindowAttributes (priv->dpy, event->xcreatewindow.window, &wa))
 	    priv->setDefaultWindowAttributes (&wa);
 
-	w = findTopLevelWindow (event->xcreatewindow.window, true);
+	foreach (CompWindow *w, screen->windows ())
+	{
+	    if (w->priv->serverFrame == event->xcreatewindow.window)
+	    {
+		w->priv->frame = event->xcreatewindow.window;
+		w->priv->updatePassiveButtonGrabs ();
+		create = false;
+	    }
+	}
 
-	if ((event->xcreatewindow.parent == wa.root || failure) &&
-	    (!w || w->frame () != event->xcreatewindow.window))
+	foreach (CompWindow *w, priv->destroyedWindows)
+	{
+	    if (w->priv->serverId == event->xcreatewindow.window)
+	    {
+		/* Previously destroyed window
+		 * plugins were keeping around
+		 * in order to avoid an xid conflict,
+		 * destroy it right away and manage
+		 * the new window */
+
+		StackDebugger *dbg = StackDebugger::Default ();
+
+		while (w->priv->destroyRefCnt)
+		    w->destroy ();
+
+		if (dbg)
+		    dbg->removeDestroyedFrame (event->xcreatewindow.window);
+	    }
+
+	}
+
+	if (wa.root != event->xcreatewindow.parent)
+	    create = false;
+
+	if (create)
 	{
 	    /* Track the window if it was created on this
 	     * screen, otherwise we still need to register
 	     * for FocusChangeMask. Also, we don't want to
 	     * manage it straight away - in reality we want
 	     * that to wait until the map request */
-	    if (failure || (wa.root == priv->root))
+	    if ((wa.root == priv->root))
 	    {
-		/* Our SubstructureRedirectMask doesn't work on OverrideRedirect
-		 * windows so we need to track them directly here */
-		if (!event->xcreatewindow.override_redirect)
-		    new CoreWindow (event->xcreatewindow.window);
-		else
-		{
-		    CoreWindow *cw = 
-			new CoreWindow (event->xcreatewindow.window);
-		    
-		    if (cw)
-		    {
-			w = cw->manage (priv->getTopWindow (), wa);
-			delete cw;
-		    }
-		}
-	    }
+		CoreWindow *cw = new CoreWindow (event->xcreatewindow.window);
+		cw->manage (priv->getTopWindow (), wa);
+
+		removeFromCreatedWindows (cw);
+		delete cw;
+            }
 	    else
 		XSelectInput (priv->dpy, event->xcreatewindow.window,
 			      FocusChangeMask);
 	}
+	else
+	    compLogMessage ("core", CompLogLevelDebug, "refusing to manage window 0x%x", (unsigned int) event->xcreatewindow.window);
+
 	break;
     }
     case DestroyNotify:
 	w = findWindow (event->xdestroywindow.window);
+
+	/* It is possible that some plugin might call
+	 * w->destroy () before the window actually receives
+	 * its first DestroyNotify event which would mean
+	 * that it is already in the list of destroyed
+	 * windows, so check that list too */
+
+	if (!w)
+	{
+	    foreach (CompWindow *dw, priv->destroyedWindows)
+	    {
+		if (dw->priv->serverId == event->xdestroywindow.window)
+		{
+		    w = dw;
+		    break;
+		}
+	    }
+	}
+
 	if (w)
 	{
 	    w->moveInputFocusToOtherWindow ();
 	    w->destroy ();
 	}
-	else
-	{
-	    foreach (CoreWindow *cw, priv->createdWindows)
-	    {
-		if (cw->priv->id == event->xdestroywindow.window)
-		{
-		    priv->createdWindows.remove (cw);
-		    break;
-		}
-	    }
-	}
 	break;
     case MapNotify:
-
-	/* Some broken applications and toolkits (eg QT) will lie to
-	 * us about their override-redirect mask - not setting it on
-	 * the initial CreateNotify and then setting it later on
-	 * just after creation. Unfortunately, this means that QT
-	 * has successfully bypassed both of our window tracking
-	 * mechanisms (eg, not override-redirect at CreateNotify time
-	 * and then bypassing MapRequest because it *is* override-redirect
-	 * at XMapWindow time, so we need to catch this case and make
-	 * sure that windows are tracked here */
-	
-	foreach (CoreWindow *cw, priv->createdWindows)
-	{
-	    if (cw->priv->id == event->xmap.window)
-	    {
-		/* Failure means the window has been destroyed, but
-		 * still add it to the window list anyways since we
-		 * will soon handle the DestroyNotify event for it
-		 * and in between CreateNotify time and DestroyNotify
-		 * time there might be ConfigureRequests asking us
-		 * to stack windows relative to it
-		 */
-		if (!XGetWindowAttributes (screen->dpy (), cw->priv->id, &wa))
-		    priv->setDefaultWindowAttributes (&wa);
-
-		w = cw->manage (priv->getTopWindow (), wa);
-		delete cw;
-		break;
-	    }
-	}
 
 	/* Search in already-created windows for this window */
 	if (!w)
@@ -1158,8 +1242,9 @@ CompScreen::handleEvent (XEvent *event)
 		 * but doesn't get destroyed so when
 		 * it re-maps we need to reparent it */
 
-		if (!w->priv->frame)
+		if (!w->priv->serverFrame)
 		    w->priv->reparent ();
+
 		w->priv->managed = true;
 	    }
 
@@ -1186,70 +1271,103 @@ CompScreen::handleEvent (XEvent *event)
 	    }
 	    else /* X -> Withdrawn */
 	    {
-		/* Iconic -> Withdrawn */
+		/* Iconic -> Withdrawn:
+		 *
+		 * The window is already unmapped so we need to check the
+		 * synthetic UnmapNotify that comes and withdraw the window here */
 		if (w->state () & CompWindowStateHiddenMask)
 		{
 		    w->priv->minimized = false;
-
 		    w->changeState (w->state () & ~CompWindowStateHiddenMask);
 
 		    priv->updateClientList ();
+		    w->priv->withdraw ();
 		}
-		else /* Closing */
-		    w->windowNotify (CompWindowNotifyClose);
-
-		if (!w->overrideRedirect ())
-		    priv->setWmState (WithdrawnState, w->id ());
-
-		w->priv->placed     = false;
-		w->priv->managed    = false;
-		w->priv->unmanaging = true;
-
-		if (w->priv->frame)
+		/* Closing:
+		 *
+		 * ICCCM Section 4.1.4 says that clients need to send
+		 * a synthetic UnmapNotify for every real unmap
+		 * in order to reflect the change in state, but
+		 * since we already withdraw the window on the real
+		 * UnmapNotify, no need to do it again on the synthetic
+		 * one. */
+		else if (!event->xunmap.send_event)
 		{
-		    w->priv->unreparent ();
+		    w->windowNotify (CompWindowNotifyClose);
+		    w->priv->withdraw ();
 		}
 	    }
 
-	    w->unmap ();
+	    if (!event->xunmap.send_event)
+	    {
+		w->unmap ();
 
-	    if (!w->shaded () && !w->priv->pendingMaps)
-		w->moveInputFocusToOtherWindow ();
+		if (!w->shaded () && !w->priv->pendingMaps)
+		    w->moveInputFocusToOtherWindow ();
+	    }
 	}
 	break;
     case ReparentNotify:
+
 	w = findWindow (event->xreparent.window);
-	if (!w && event->xreparent.parent == priv->root)
+
+	/* If this window isn't part of our tracked window
+	 * list and was reparented into the root window then
+	 * we need to track it */
+	if (!w)
 	{
-	    /* Failure means that window has been destroyed. We still have to add 
-	     * the window to the window list as we might get configure requests
-	     * which require us to stack other windows relative to it. Setting
-	     * some default values if this is the case. */
-	    if (!XGetWindowAttributes (priv->dpy, event->xcreatewindow.window, &wa))
-		priv->setDefaultWindowAttributes (&wa);
-
-	    CoreWindow *cw = new CoreWindow (event->xreparent.window);
-
-	    if (cw)
+	    if (event->xreparent.parent == priv->root)
 	    {
+		/* Failure means that window has been destroyed. We still have to add 
+		 * the window to the window list as we might get configure requests
+		 * which require us to stack other windows relative to it. Setting
+		 * some default values if this is the case. */
+		if (!XGetWindowAttributes (priv->dpy, event->xcreatewindow.window, &wa))
+		    priv->setDefaultWindowAttributes (&wa);
+
+		CoreWindow *cw = new CoreWindow (event->xcreatewindow.window);
 		cw->manage (priv->getTopWindow (), wa);
+
+		removeFromCreatedWindows (cw);
 		delete cw;
+		break;
+	    }
+	    else
+	    {
+		/* It is possible that some plugin might call
+		 * w->destroy () before the window actually receives
+		 * its first ReparentNotify event which would mean
+		 * that it is already in the list of destroyed
+		 * windows, so check that list too */
+
+		foreach (CompWindow *dw, priv->destroyedWindows)
+		{
+		    if (dw->priv->serverId == event->xreparent.window)
+		    {
+			w = dw;
+			break;
+		    }
+		}
 	    }
 	}
-	else if (w && !(event->xreparent.parent == w->priv->wrapper ||
-		 event->xreparent.parent == priv->root))
+
+	/* This is the only case where a window is removed but not
+	   destroyed. We must remove our event mask and all passive
+	   grabs. */
+
+        if (w)
 	{
-	    /* This is the only case where a window is removed but not
-	       destroyed. We must remove our event mask and all passive
-	       grabs. */
-	    XSelectInput (priv->dpy, w->id (), NoEventMask);
-	    XShapeSelectInput (priv->dpy, w->id (), NoEventMask);
-	    XUngrabButton (priv->dpy, AnyButton, AnyModifier, w->id ());
+	    if (event->xreparent.parent != w->priv->wrapper)
+	    {
+		w->moveInputFocusToOtherWindow ();
+		w->destroy ();
 
-	    w->moveInputFocusToOtherWindow ();
+		XSelectInput (priv->dpy, w->id (), NoEventMask);
+		XShapeSelectInput (priv->dpy, w->id (), NoEventMask);
+		XUngrabButton (priv->dpy, AnyButton, AnyModifier, w->id ());
+	    }
+        }
 
-	    w->destroy ();
-	}
 	break;
     case CirculateNotify:
 	w = findWindow (event->xcirculate.window);
@@ -1265,7 +1383,9 @@ CompScreen::handleEvent (XEvent *event)
 	    if (w)
 	    {
 		if (priv->optionGetRaiseOnClick ())
+		{
 		    w->updateAttributes (CompStackingUpdateModeAboveFullscreen);
+		}
 
 	        if (w->id () != priv->activeWindow)
 		    if (!(w->type () & CompWindowTypeDockMask))
@@ -1415,7 +1535,7 @@ CompScreen::handleEvent (XEvent *event)
     case ClientMessage:
 	if (event->xclient.message_type == Atoms::winActive)
 	{
-	    w = findWindow (event->xclient.window);
+	    w = findTopLevelWindow (event->xclient.window);
 	    if (w)
 	    {
 		/* use focus stealing prevention if request came
@@ -1661,31 +1781,7 @@ CompScreen::handleEvent (XEvent *event)
 	modHandler->updateModifierMappings ();
 	break;
     case MapRequest:
-	/* Create the CompWindow structure here */
-	w = NULL;
-
-	foreach (CoreWindow *cw, priv->createdWindows)
-	{
-	    if (cw->priv->id == event->xmaprequest.window)
-	    {
-		/* Failure means the window has been destroyed, but
-		 * still add it to the window list anyways since we
-		 * will soon handle the DestroyNotify event for it
-		 * and in between CreateNotify time and DestroyNotify
-		 * time there might be ConfigureRequests asking us
-		 * to stack windows relative to it
-		 */
-		if (!XGetWindowAttributes (screen->dpy (), cw->priv->id, &wa))
-		    priv->setDefaultWindowAttributes (&wa);
-
-		w = cw->manage (priv->getTopWindow (), wa);
-		delete cw;
-		break;
-	    }
-	}
-
-	if (!w)
-	    w = screen->findWindow (event->xmaprequest.window);
+	w = screen->findWindow (event->xmaprequest.window);
 
 	if (w)
 	{
@@ -1785,7 +1881,13 @@ CompScreen::handleEvent (XEvent *event)
 	    xwc.border_width = event->xconfigurerequest.border_width;
 
 	    if (w)
+	    {
+		/* Any window that receives a ConfigureRequest
+		 * is not override redirect, and may have changed
+		 * to being not override redirect */
+		w->priv->setOverrideRedirect (false);
 		w->configureXWindow (xwcm, &xwc);
+	    }
 	    else
 		XConfigureWindow (priv->dpy, event->xconfigurerequest.window,
 				  xwcm, &xwc);
@@ -1795,7 +1897,8 @@ CompScreen::handleEvent (XEvent *event)
 	break;
     case FocusIn:
     {
-        bool success = XGetWindowAttributes (priv->dpy, event->xfocus.window, &wa);
+	if (!XGetWindowAttributes (priv->dpy, event->xfocus.window, &wa))
+	    priv->setDefaultWindowAttributes (&wa);
 
         /* If the call to XGetWindowAttributes failed it means
          * the window was destroyed, so track the focus change
@@ -1803,27 +1906,86 @@ CompScreen::handleEvent (XEvent *event)
          * and the passive button grabs and then we will
          * get the DestroyNotify later and change the focus
          * there
-         */
+	 */
 
-        if (!success || wa.root == priv->root)
+	if (wa.root == priv->root)
 	{
-	    if (event->xfocus.mode != NotifyGrab)
+	    if (event->xfocus.mode == NotifyGrab)
+		priv->grabbed = true;
+	    else if (event->xfocus.mode == NotifyUngrab)
+		priv->grabbed = false;
+	    else
 	    {
+		CompWindowList dockWindows;
+		XWindowChanges xwc;
+		unsigned int   mask;
+
 		w = findTopLevelWindow (event->xfocus.window);
 		if (w && w->managed ())
 		{
 		    unsigned int state = w->state ();
 
+		    if (priv->nextActiveWindow == event->xfocus.window)
+			priv->nextActiveWindow = None;
+
 		    if (w->id () != priv->activeWindow)
 		    {
-			CompWindow *active = screen->findWindow (priv->activeWindow);
-			w->windowNotify (CompWindowNotifyFocusChange);
+			CompWindow     *active = screen->findWindow (priv->activeWindow);
 
 			priv->activeWindow = w->id ();
 			w->priv->activeNum = priv->activeNum++;
 
 			if (active)
+			{
+			    CompWindowList windowsLostFocus;
+			    /* If this window lost focus and was above a fullscreen window
+			     * and is no longer capable of being focused (eg, it is
+			     * not visible on this viewport) then we need to check if
+			     * any other windows below it are also now no longer capable
+			     * of being focused and restack them in the highest position
+			     * below docks that they are allowed to take */
+			    if (!active->focus ())
+			    {
+				windowsLostFocus.push_back (active);
+				for (CompWindow *fsw = active->prev; fsw; fsw = fsw->prev)
+				{
+				    if (!fsw->focus () &&
+					fsw->managed () &&
+					!(fsw->type () & (CompWindowTypeDockMask |
+							  CompWindowTypeFullscreenMask)) &&
+					!fsw->overrideRedirect ())
+					windowsLostFocus.push_back (fsw);
+
+				    if (fsw->type () & CompWindowTypeFullscreenMask)
+				    {
+					/* This will be the window that we must lower relative to */
+					CompWindow *sibling = PrivateWindow::findValidStackSiblingBelow (active, fsw);
+
+					if (sibling)
+					{
+					    for (CompWindowList::reverse_iterator rit = windowsLostFocus.rbegin ();
+						 rit != windowsLostFocus.rend (); rit++)
+					    {
+						(*rit)->restackAbove (sibling);
+					    }
+					}
+
+					break;
+				    }
+				}
+			    }
+
+			    active->changeState (active->focused () ?
+						 active->state () | CompWindowStateFocusedMask :
+						 active->state () & ~CompWindowStateFocusedMask);
+
 			    active->priv->updatePassiveButtonGrabs ();
+			}
+
+			if (w->focused ())
+			    state |= w->state () | CompWindowStateFocusedMask;
+			else
+			    state &= w->state () & ~CompWindowStateFocusedMask;
 
 			w->priv->updatePassiveButtonGrabs ();
 
@@ -1833,17 +1995,62 @@ CompScreen::handleEvent (XEvent *event)
 					 Atoms::winActive,
 					 XA_WINDOW, 32, PropModeReplace,
 					 (unsigned char *) &priv->activeWindow, 1);
+
+			w->windowNotify (CompWindowNotifyFocusChange);
 		    }
 
 		    state &= ~CompWindowStateDemandsAttentionMask;
 		    w->changeState (state);
-
-		    if (priv->nextActiveWindow == event->xfocus.window)
-			priv->nextActiveWindow = None;
 	        }
+		else if (event->xfocus.window == priv->root)
+		{
+		    /* Don't ever let the focus go to the root
+		     * window except in grab cases
+		     *
+		     * FIXME: There might be a case where we have to
+		     * handle root windows of other screens here, but
+		     * the other window managers should handle that
+		     */
+
+		    if (event->xfocus.detail == NotifyDetailNone ||
+			(event->xfocus.mode == NotifyNormal &&
+			 event->xfocus.detail == NotifyInferior))
+		    {
+			priv->activeWindow = None;
+
+			if (event->xfocus.detail == NotifyDetailNone ||
+			    (event->xfocus.mode == NotifyNormal &&
+			     event->xfocus.detail == NotifyInferior))
+			{
+			    screen->focusDefaultWindow ();
+			}
+		    }
+		}
+
+		/* Ensure that docks are stacked in the right place
+		 *
+		 * When a normal window gets the focus and is above a
+		 * fullscreen window, restack the docks to be above
+		 * the highest level mapped and visible normal window,
+		 * otherwise put them above the highest fullscreen window
+		 */
+		if (w)
+		{
+		    if (PrivateWindow::stackDocks (w, dockWindows, &xwc, &mask))
+		    {
+			Window sibling = xwc.sibling;
+			xwc.stack_mode = Above;
+
+			/* Then update the dock windows */
+			foreach (CompWindow *dw, dockWindows)
+			{
+			    xwc.sibling = sibling;
+			    dw->configureXWindow (mask, &xwc);
+			}
+		    }
+		}
+
 	    }
-	    else
-		priv->grabbed = true;
 	}
 	else
 	{

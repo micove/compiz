@@ -25,6 +25,9 @@
 		<_short>Toggle rain</_short>
 		<_long>Toggle rain effect</_long>
 		<default>&lt;Shift&gt;F9</default>
+		<!--  *** To test modifier tapping, try one of these: ***  -->
+		<!--  <default>&lt;Alt&gt;</default>  -->
+		<!--  <default>&lt;Control&gt;</default>  -->
 	    </option>
 	    <option name="toggle_wiper_key" type="key">
 		<_short>Toggle wiper</_short>

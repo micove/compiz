@@ -23,19 +23,20 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
+#include "blur_options.h"
 
-#include <core/core.h>
 #include <composite/composite.h>
 #include <opengl/opengl.h>
 #include <decoration.h>
 
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
+
 #include <X11/Xatom.h>
 #include <GL/glu.h>
 
-#include "blur_options.h"
 
 #define BLUR_GAUSSIAN_RADIUS_MAX 15
 

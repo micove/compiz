@@ -1,5 +1,4 @@
 set (_headers
-    compiz.h
     decoration.h
 )
 

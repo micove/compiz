@@ -98,7 +98,7 @@ class ModifierHandler
 	 */
 	const XModifierKeymap * modMap ();
 
-	friend class CompScreen;
+	friend class CompScreenImpl;
 
     private:
 

@@ -3,28 +3,24 @@ set (_headers
     atoms.h
     core.h
     countedlist.h
+    global.h
     icon.h
     match.h
     modifierhandler.h
     option.h
     output.h
     plugin.h
-    point.h
-    pluginclasshandler.h
-    pluginclasses.h
     propertywriter.h
-    rect.h
+    privateunion.h
     region.h
     screen.h
     serialization.h
     session.h
     size.h
-    timer.h
+    string.h
     window.h
     wrapsystem.h
+    abiversion.h
 )
 
-install (
-    FILES ${_headers}
-    DESTINATION ${COMPIZ_DESTDIR}${includedir}/compiz/core
-)
+install (FILES ${_headers} DESTINATION ${COMPIZ_CORE_INCLUDE_DIR})

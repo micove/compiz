@@ -25,7 +25,6 @@
  *          David Reveman <davidr@novell.com>
  */
 
-#include <core/core.h>
 #include <core/pluginclasshandler.h>
 #include "privates.h"
 

@@ -78,6 +78,7 @@ namespace Atoms {
     Atom winStateBelow;
     Atom winStateDemandsAttention;
     Atom winStateDisplayModal;
+    Atom winStateFocused;
 
     Atom winActionMove;
     Atom winActionResize;
@@ -228,6 +229,8 @@ namespace Atoms {
 	    XInternAtom (dpy, "_NET_WM_STATE_DEMANDS_ATTENTION", 0);
 	winStateDisplayModal     =
 	    XInternAtom (dpy, "_NET_WM_STATE_DISPLAY_MODAL", 0);
+	winStateFocused		 =
+	    XInternAtom (dpy, "_NET_WM_STATE_FOCUSED", 0);
 
 	winActionMove          = XInternAtom (dpy, "_NET_WM_ACTION_MOVE", 0);
 	winActionResize        =

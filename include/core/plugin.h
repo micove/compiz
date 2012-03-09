@@ -26,8 +26,11 @@
 #ifndef _COMPIZ_PLUGIN_H
 #define _COMPIZ_PLUGIN_H
 
-#include <compiz.h>
+#include <core/string.h>
 #include <core/option.h>
+#include <core/privateunion.h>
+
+#include <string.h>
 
 class CompScreen;
 extern CompScreen *screen;
@@ -53,6 +56,7 @@ extern CompScreen *screen;
     }
 
 class CompPlugin;
+class CompWindow;
 
 typedef bool (*LoadPluginProc) (CompPlugin *p,
 				const char *path,
@@ -65,13 +69,6 @@ typedef CompStringList (*ListPluginsProc) (const char *path);
 extern LoadPluginProc   loaderLoadPlugin;
 extern UnloadPluginProc loaderUnloadPlugin;
 extern ListPluginsProc  loaderListPlugins;
-
-union CompPrivate {
-    void	  *ptr;
-    long	  val;
-    unsigned long uval;
-    void	  *(*fptr) (void);
-};
 
 /**
  * Base plug-in interface for Compiz. All plugins must implement this
@@ -235,12 +232,10 @@ class CompPlugin {
 template <typename T, typename T2>
 bool CompPlugin::VTableForScreenAndWindow<T,T2>::initScreen (CompScreen *s)
 {
-    T * ps = new T (s);
-    if (ps->loadFailed ())
-    {
-	delete ps;
+    T * ps = T::get (s);
+    if (!ps)
 	return false;
-    }
+
     return true;
 }
 
@@ -254,12 +249,10 @@ void CompPlugin::VTableForScreenAndWindow<T,T2>::finiScreen (CompScreen *s)
 template <typename T, typename T2>
 bool CompPlugin::VTableForScreenAndWindow<T,T2>::initWindow (CompWindow *w)
 {
-    T2 * pw = new T2 (w);
-    if (pw->loadFailed ())
-    {
-	delete pw;
+    T2 * pw = T2::get (w);
+    if (!pw)
 	return false;
-    }
+
     return true;
 }
 
@@ -275,7 +268,7 @@ CompOption::Vector & CompPlugin::VTableForScreenAndWindow<T,T2>::getOptions ()
 {
     CompOption::Class *oc = dynamic_cast<CompOption::Class *> (T::get (screen));
     if (!oc)
-	return noOptions;
+	return noOptions ();
     return oc->getOptions ();
 }
 
@@ -313,7 +306,7 @@ CompOption::Vector & CompPlugin::VTableForScreen<T>::getOptions ()
 {
     CompOption::Class *oc = dynamic_cast<CompOption::Class *> (T::get (screen));
     if (!oc)
-	return noOptions;
+	return noOptions ();
     return oc->getOptions ();
 }
 

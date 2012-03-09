@@ -16,6 +16,7 @@ if (USE_GCONF)
 	set (USE_GCONF 0)
     else ()
         include (CompizGconf)
+	include (CompizGSettings)
     endif ()
 endif ()
 

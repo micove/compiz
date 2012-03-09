@@ -35,8 +35,7 @@ position_action_menu (GtkMenu  *menu,
 		      gpointer user_data)
 {
     WnckWindow *win = (WnckWindow *) user_data;
-    WnckWindowType win_type = wnck_window_get_window_type (win);
-    decor_frame_t  *frame = gwd_get_decor_frame (get_frame_type (win_type));
+    decor_frame_t  *frame = gwd_get_decor_frame (get_frame_type (win));
     decor_t    *d = g_object_get_data (G_OBJECT (win), "decor");
     gint       bx, by, width, height;
 

@@ -27,10 +27,14 @@
 #define _COMPIZ_CORE_H
 
 
-#define CORE_ABIVERSION 20110224
+#include "abiversion.h"
 
 #include <stdio.h>
 #include <assert.h>
+
+#include <string>
+#include <list>
+#include <cstdarg>
 
 #include <X11/Xlib-xcb.h>
 #include <X11/Xutil.h>
@@ -52,7 +56,6 @@ typedef XBool Bool;
 #include <boost/foreach.hpp>
 #define foreach BOOST_FOREACH
 
-#include <glib.h>
 
 /*
  * WORDS_BIGENDIAN should be defined before including this file for
@@ -69,6 +72,11 @@ typedef XBool Bool;
 #  define BITMAP_BIT_ORDER LSBFirst
 #endif
 
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY (x)
+
+#include <core/global.h>
+
 #include <core/pluginclasses.h>
 #include <core/screen.h>
 #include <core/window.h>
@@ -84,5 +92,8 @@ typedef XBool Bool;
 #include <core/size.h>
 #include <core/region.h>
 #include <core/countedlist.h>
+#include <core/timeouthandler.h>
+#include <core/logmessage.h>
+#include <core/string.h>
 
 #endif
