@@ -36,7 +36,7 @@
 #include <X11/SM/SMlib.h>
 #include <X11/ICE/ICElib.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 #define SM_DEBUG(x)
 
@@ -44,7 +44,7 @@ static SmcConn		 smcConnection;
 static CompWatchFdHandle iceWatchFdHandle;
 static Bool		 connected = 0;
 static Bool		 iceConnected = 0;
-static char		 *smClientId;
+static char		 *smClientId, *smPrevClientId;
 
 static void iceInit (void);
 
@@ -82,10 +82,36 @@ setStringListProperty (SmcConn	  connection,
 static void
 setCloneRestartCommands (SmcConn connection)
 {
-    setStringListProperty (connection, SmCloneCommand,
-			   (const char **) programArgv, programArgc);
-    setStringListProperty (connection, SmRestartCommand,
-			   (const char **) programArgv, programArgc);
+    const char **args;
+    int        i, count = 0;
+
+    /* at maximum, we pass our old arguments + our new client id
+       to the SM, so allocate for that case */
+    args = malloc ((programArgc + 2) * sizeof (char *));
+    if (!args)
+	return;
+
+    for (i = 0; i < programArgc; i++)
+    {
+	if (strcmp (programArgv[i], "--sm-client-id") == 0)
+	    i++; /* skip old client id, we'll add the new one later */
+	else
+	    args[count++] = programArgv[i];
+    }
+
+    setStringListProperty (connection, SmCloneCommand, args, count);
+
+    /* insert new client id at position 1 and 2;
+       position 0 is the executable name */
+    for (i = count - 1; i >= 1; i--)
+	args[i + 2] = args[i];
+    args[1] = "--sm-client-id";
+    args[2] = smClientId;
+    count += 2;
+
+    setStringListProperty (connection, SmRestartCommand, args, count);
+
+    free (args);
 }
 
 static void
@@ -107,44 +133,6 @@ setRestartStyle (SmcConn connection, char hint)
 }
 
 static void
-saveYourselfGotProps (SmcConn   connection,
-		      SmPointer client_data,
-		      int       num_props,
-		      SmProp    **props)
-{
-    int p, i;
-
-    for (p = 0; p < num_props; p++)
-    {
-	if (!strcmp (props[p]->name, SmRestartCommand))
-	{
-	    for (i = 0; i < props[p]->num_vals - 1; i++)
-	    {
-		if (!strncmp (props[p]->vals[i].value,
-			      "--sm-client-id",
-			      props[p]->vals[i].length))
-		{
-		    SmPropValue oldVal = props[p]->vals[i + 1];
-
-		    props[p]->vals[i + 1].value = smClientId;
-		    props[p]->vals[i + 1].length = strlen (smClientId);
-		    SmcSetProperties (connection, 1, &props[p]);
-		    props[p]->vals[i + 1] = oldVal;
-
-		    goto out;
-		}
-	    }
-	}
-    }
-
-out:
-    setRestartStyle (connection, SmRestartImmediately);
-    setCloneRestartCommands (connection);
-
-    SmcSaveYourselfDone (connection, 1);
-}
-
-static void
 saveYourselfCallback (SmcConn	connection,
 		      SmPointer client_data,
 		      int	saveType,
@@ -152,14 +140,37 @@ saveYourselfCallback (SmcConn	connection,
 		      int	interact_Style,
 		      Bool	fast)
 {
-    if (!SmcGetProperties (connection, saveYourselfGotProps, NULL))
-	SmcSaveYourselfDone (connection, 1);
+    CompOption args[4];
+
+    args[0].type    = CompOptionTypeInt;
+    args[0].name    = "save_type";
+    args[0].value.i = saveType;
+
+    args[1].type    = CompOptionTypeBool;
+    args[1].name    = "shutdown";
+    args[1].value.b = shutdown;
+
+    args[2].type    = CompOptionTypeInt;
+    args[2].name    = "interact_style";
+    args[2].value.i = interact_Style;
+
+    args[3].type    = CompOptionTypeBool;
+    args[3].name    = "fast";
+    args[3].value.b = fast;
+
+    (*core.sessionEvent) (&core, CompSessionEventSaveYourself, args, 4);
+
+    setCloneRestartCommands (connection);
+    setRestartStyle (connection, SmRestartImmediately);
+    SmcSaveYourselfDone (connection, 1);
 }
 
 static void
 dieCallback (SmcConn   connection,
 	     SmPointer clientData)
 {
+    (*core.sessionEvent) (&core, CompSessionEventDie, NULL, 0);
+
     closeSession ();
     exit (0);
 }
@@ -168,16 +179,18 @@ static void
 saveCompleteCallback (SmcConn	connection,
 		      SmPointer clientData)
 {
+    (*core.sessionEvent) (&core, CompSessionEventSaveComplete, NULL, 0);
 }
 
 static void
 shutdownCancelledCallback (SmcConn   connection,
 			   SmPointer clientData)
 {
+    (*core.sessionEvent) (&core, CompSessionEventShutdownCancelled, NULL, 0);
 }
 
 void
-initSession (char *smPrevClientId)
+initSession (char *prevClientId)
 {
     static SmcCallbacks callbacks;
 
@@ -208,7 +221,7 @@ initSession (char *smPrevClientId)
 					   SmcSaveCompleteProcMask |
 					   SmcShutdownCancelledProcMask,
 					   &callbacks,
-					   smPrevClientId,
+					   prevClientId,
 					   &smClientId,
 					   sizeof (errorBuffer),
 					   errorBuffer);
@@ -217,7 +230,11 @@ initSession (char *smPrevClientId)
 			    "SmcOpenConnection failed: %s",
 			    errorBuffer);
 	else
+	{
 	    connected = TRUE;
+	    if (prevClientId)
+		smPrevClientId = strdup (prevClientId);
+	}
     }
 }
 
@@ -230,13 +247,47 @@ closeSession (void)
 
 	if (SmcCloseConnection (smcConnection, 0, NULL) != SmcConnectionInUse)
 	    connected = FALSE;
-	if (smClientId) {
+	if (smClientId)
+	{
 	    free (smClientId);
 	    smClientId = NULL;
+	}
+	if (smPrevClientId)
+	{
+	    free (smPrevClientId);
+	    smPrevClientId = NULL;
 	}
     }
 }
 
+void
+sessionEvent (CompCore         *c,
+	      CompSessionEvent event,
+	      CompOption       *arguments,
+	      unsigned int     nArguments)
+{
+}
+
+char *
+getSessionClientId (CompSessionClientIdType type)
+{
+    if (!connected)
+	return NULL;
+
+    switch (type) {
+    case CompSessionClientId:
+	if (smClientId)
+	    return strdup (smClientId);
+	break;
+
+    case CompSessionPrevClientId:
+	if (smPrevClientId)
+	    return strdup (smPrevClientId);
+	break;
+    }
+
+    return NULL;
+}
 /* ice connection handling taken and updated from gnome-ice.c
  * original gnome-ice.c code written by Tom Tromey <tromey@cygnus.com>
  */

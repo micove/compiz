@@ -30,41 +30,11 @@
 #include <X11/Xatom.h>
 #include <X11/Xproto.h>
 
-#include <cube.h>
-
-#define MULTM(x, y, z) \
-z[0] = x[0] * y[0] + x[4] * y[1] + x[8] * y[2] + x[12] * y[3]; \
-z[1] = x[1] * y[0] + x[5] * y[1] + x[9] * y[2] + x[13] * y[3]; \
-z[2] = x[2] * y[0] + x[6] * y[1] + x[10] * y[2] + x[14] * y[3]; \
-z[3] = x[3] * y[0] + x[7] * y[1] + x[11] * y[2] + x[15] * y[3]; \
-z[4] = x[0] * y[4] + x[4] * y[5] + x[8] * y[6] + x[12] * y[7]; \
-z[5] = x[1] * y[4] + x[5] * y[5] + x[9] * y[6] + x[13] * y[7]; \
-z[6] = x[2] * y[4] + x[6] * y[5] + x[10] * y[6] + x[14] * y[7]; \
-z[7] = x[3] * y[4] + x[7] * y[5] + x[11] * y[6] + x[15] * y[7]; \
-z[8] = x[0] * y[8] + x[4] * y[9] + x[8] * y[10] + x[12] * y[11]; \
-z[9] = x[1] * y[8] + x[5] * y[9] + x[9] * y[10] + x[13] * y[11]; \
-z[10] = x[2] * y[8] + x[6] * y[9] + x[10] * y[10] + x[14] * y[11]; \
-z[11] = x[3] * y[8] + x[7] * y[9] + x[11] * y[10] + x[15] * y[11]; \
-z[12] = x[0] * y[12] + x[4] * y[13] + x[8] * y[14] + x[12] * y[15]; \
-z[13] = x[1] * y[12] + x[5] * y[13] + x[9] * y[14] + x[13] * y[15]; \
-z[14] = x[2] * y[12] + x[6] * y[13] + x[10] * y[14] + x[14] * y[15]; \
-z[15] = x[3] * y[12] + x[7] * y[13] + x[11] * y[14] + x[15] * y[15];
-
-#define MULTMV(m, v) { \
-float v0 = m[0]*v[0] + m[4]*v[1] + m[8]*v[2] + m[12]*v[3]; \
-float v1 = m[1]*v[0] + m[5]*v[1] + m[9]*v[2] + m[13]*v[3]; \
-float v2 = m[2]*v[0] + m[6]*v[1] + m[10]*v[2] + m[14]*v[3]; \
-float v3 = m[3]*v[0] + m[7]*v[1] + m[11]*v[2] + m[15]*v[3]; \
-v[0] = v0; v[1] = v1; v[2] = v2; v[3] = v3; }
-
-#define DIVV(v) \
-v[0] /= v[3]; \
-v[1] /= v[3]; \
-v[2] /= v[3]; \
-v[3] /= v[3];
+#include <compiz-cube.h>
 
 static CompMetadata cubeMetadata;
 
+static int cubeCorePrivateIndex;
 static int cubeDisplayPrivateIndex;
 
 #define NUM_OPTIONS(s) (sizeof ((s)->opt) / sizeof (CompOption))
@@ -549,8 +519,8 @@ cubeUpdateSkyDomeList (CompScreen *s,
 	    y = sint1[j];
 
 	    glTexCoord2f (
-		COMP_TEX_COORD_X( &cs->sky.matrix, afTexCoordX[3] * cs->skyW),
-		COMP_TEX_COORD_Y( &cs->sky.matrix, afTexCoordY[3] * cs->skyH));
+		COMP_TEX_COORD_X (&cs->sky.matrix, afTexCoordX[3] * cs->skyW),
+		COMP_TEX_COORD_Y (&cs->sky.matrix, afTexCoordY[3] * cs->skyH));
 	    glVertex3f (x * r * fRadius, y * r * fRadius, z * fRadius);
 
 	    /* top-right */
@@ -560,8 +530,8 @@ cubeUpdateSkyDomeList (CompScreen *s,
 	    y = sint1[j];
 
 	    glTexCoord2f (
-		COMP_TEX_COORD_X( &cs->sky.matrix, afTexCoordX[0] * cs->skyW),
-		COMP_TEX_COORD_Y( &cs->sky.matrix, afTexCoordY[0] * cs->skyH));
+		COMP_TEX_COORD_X (&cs->sky.matrix, afTexCoordX[0] * cs->skyW),
+		COMP_TEX_COORD_Y (&cs->sky.matrix, afTexCoordY[0] * cs->skyH));
 	    glVertex3f (x * r * fRadius, y * r * fRadius, z * fRadius);
 
 	    /* top-left */
@@ -571,8 +541,8 @@ cubeUpdateSkyDomeList (CompScreen *s,
 	    y = sint1[j + 1];
 
 	    glTexCoord2f (
-		COMP_TEX_COORD_X( &cs->sky.matrix, afTexCoordX[1] * cs->skyW),
-		COMP_TEX_COORD_Y( &cs->sky.matrix, afTexCoordY[1] * cs->skyH));
+		COMP_TEX_COORD_X (&cs->sky.matrix, afTexCoordX[1] * cs->skyW),
+		COMP_TEX_COORD_Y (&cs->sky.matrix, afTexCoordY[1] * cs->skyH));
 	    glVertex3f (x * r * fRadius, y * r * fRadius, z * fRadius);
 
 	    /* bottom-left */
@@ -582,8 +552,8 @@ cubeUpdateSkyDomeList (CompScreen *s,
 	    y = sint1[j + 1];
 
 	    glTexCoord2f (
-		COMP_TEX_COORD_X( &cs->sky.matrix, afTexCoordX[2] * cs->skyW),
-		COMP_TEX_COORD_Y( &cs->sky.matrix, afTexCoordY[2] * cs->skyH));
+		COMP_TEX_COORD_X (&cs->sky.matrix, afTexCoordX[2] * cs->skyW),
+		COMP_TEX_COORD_Y (&cs->sky.matrix, afTexCoordY[2] * cs->skyH));
 	    glVertex3f (x * r * fRadius, y * r * fRadius, z * fRadius);
 
 	    afTexCoordX[0] -= fStepX;
@@ -679,7 +649,7 @@ cubeLoadBackground (CompScreen *s,
 static Bool
 cubeSetScreenOption (CompPlugin      *plugin,
 		     CompScreen      *screen,
-		     char	     *name,
+		     const char	     *name,
 		     CompOptionValue *value)
 {
     CompOption *o;
@@ -822,7 +792,8 @@ static void
 cubePreparePaintScreen (CompScreen *s,
 			int	   msSinceLastPaint)
 {
-    int opt;
+    int   opt;
+    float x, progress;
 
     CUBE_SCREEN (s);
 
@@ -868,7 +839,11 @@ cubePreparePaintScreen (CompScreen *s,
 	(cs->rotationState == RotationChange &&
 	 !cs->opt[CUBE_SCREEN_OPTION_TRANSPARENT_MANUAL_ONLY].value.b))
     {
-	opt = CUBE_SCREEN_OPTION_ACTIVE_OPACITY;
+	opt = cs->lastOpacityIndex = CUBE_SCREEN_OPTION_ACTIVE_OPACITY;
+    }
+    else if (cs->rotationState == RotationChange)
+    {
+	opt = cs->lastOpacityIndex = CUBE_SCREEN_OPTION_INACTIVE_OPACITY;
     }
     else
     {
@@ -877,31 +852,44 @@ cubePreparePaintScreen (CompScreen *s,
 
     cs->toOpacity = (cs->opt[opt].value.f / 100.0f) * OPAQUE;
 
-    if (cs->opt[CUBE_SCREEN_OPTION_FADE_TIME].value.f == 0.0f)
-	cs->desktopOpacity = cs->toOpacity;
-    else if (cs->desktopOpacity != cs->toOpacity)
+    if (cs->desktopOpacity != cs->toOpacity)
     {
-	float steps = (msSinceLastPaint * OPAQUE / 1000.0) /
-	    cs->opt[CUBE_SCREEN_OPTION_FADE_TIME].value.f;
+	(*cs->getRotation) (s, &x, &x, &progress);
+	x = cs->desktopOpacity;
+	cs->desktopOpacity = 
+	    (cs->opt[CUBE_SCREEN_OPTION_INACTIVE_OPACITY].value.f - 
+	    ((cs->opt[CUBE_SCREEN_OPTION_INACTIVE_OPACITY].value.f -
+	    cs->opt[cs->lastOpacityIndex].value.f) * progress))
+	    / 100.0f * OPAQUE;
 
-	if (steps < 12)
-	    steps = 12;
-
-	if (cs->toOpacity > cs->desktopOpacity)
-	{
-	    cs->desktopOpacity += steps;
-	    cs->desktopOpacity = MIN (cs->toOpacity, cs->desktopOpacity);
-	}
-	if (cs->toOpacity < cs->desktopOpacity)
-	{
-	    cs->desktopOpacity -= steps;
-	    cs->desktopOpacity = MAX (cs->toOpacity, cs->desktopOpacity);
-	}
     }
 
+    cs->paintAllViewports = (cs->desktopOpacity != OPAQUE);
+ 
     UNWRAP (cs, s, preparePaintScreen);
     (*s->preparePaintScreen) (s, msSinceLastPaint);
     WRAP (cs, s, preparePaintScreen, cubePreparePaintScreen);
+}
+
+static void
+cubePaintScreen (CompScreen   *s,
+		 CompOutput   *outputs,
+		 int          numOutputs,
+		 unsigned int mask)
+{
+    float x, progress;
+
+    CUBE_SCREEN (s);
+
+    (*cs->getRotation) (s, &x, &x, &progress);
+
+    UNWRAP (cs, s, paintScreen);
+    if (cs->moMode == CUBE_MOMODE_ONE && s->nOutputDev &&
+        (progress > 0.0f || cs->desktopOpacity != OPAQUE))
+	(*s->paintScreen) (s, &s->fullscreenOutput, 1, mask);
+    else
+	(*s->paintScreen) (s, outputs, numOutputs, mask);
+    WRAP (cs, s, paintScreen, cubePaintScreen);
 }
 
 static Bool
@@ -951,13 +939,12 @@ cubeCheckOrientation (CompScreen              *s,
 		      const ScreenPaintAttrib *sAttrib,
 		      const CompTransform     *transform,
 		      CompOutput              *outputPtr,
-		      float                   points[3][3])
+		      CompVector              *points)
 {
     CompTransform sTransform = *transform;
-    float         mvp[16];
-    float         pntA[4], pntB[4], pntC[4];
-    float         vecA[3], vecB[3];
-    float         ortho[3];
+    CompTransform mvp, pm;
+    CompVector    pntA, pntB, pntC;
+    CompVector    vecA, vecB, ortho;
     Bool          rv = FALSE;
 
     CUBE_SCREEN (s);
@@ -966,53 +953,38 @@ cubeCheckOrientation (CompScreen              *s,
     matrixTranslate (&sTransform, cs->outputXOffset, -cs->outputYOffset, 0.0f);
     matrixScale (&sTransform, cs->outputXScale, cs->outputYScale, 1.0f);
 
-    MULTM (s->projection, sTransform.m, mvp);
+    memcpy (pm.m, s->projection, sizeof (pm.m));
+    matrixMultiply (&mvp, &pm, &sTransform);
 
-    pntA[0] = points[0][0];
-    pntA[1] = points[0][1];
-    pntA[2] = points[0][2];
-    pntA[3] = 1.0f;
+    matrixMultiplyVector (&pntA, &points[0], &mvp);
 
-    pntB[0] = points[1][0];
-    pntB[1] = points[1][1];
-    pntB[2] = points[1][2];
-    pntB[3] = 1.0f;
-
-    pntC[0] = points[2][0];
-    pntC[1] = points[2][1];
-    pntC[2] = points[2][2];
-    pntC[3] = 1.0f;
-
-    MULTMV (mvp, pntA);
-
-    if (pntA[3] < 0.0f)
+    if (pntA.w < 0.0f)
 	rv = !rv;
 
-    DIVV (pntA);
+    matrixVectorDiv (&pntA);
 
-    MULTMV (mvp, pntB);
+    matrixMultiplyVector (&pntB, &points[1], &mvp);
 
-    if (pntB[3] < 0.0f)
+    if (pntB.w < 0.0f)
 	rv = !rv;
 
-    DIVV (pntB);
+    matrixVectorDiv (&pntB);
+    matrixMultiplyVector (&pntC, &points[2], &mvp);
+    matrixVectorDiv (&pntC);
 
-    MULTMV (mvp, pntC);
-    DIVV (pntC);
+    vecA.x = pntC.x - pntA.x;
+    vecA.y = pntC.y - pntA.y;
+    vecA.z = pntC.z - pntA.z;
 
-    vecA[0] = pntC[0] - pntA[0];
-    vecA[1] = pntC[1] - pntA[1];
-    vecA[2] = pntC[2] - pntA[2];
+    vecB.x = pntC.x - pntB.x;
+    vecB.y = pntC.y - pntB.y;
+    vecB.z = pntC.z - pntB.z;
 
-    vecB[0] = pntC[0] - pntB[0];
-    vecB[1] = pntC[1] - pntB[1];
-    vecB[2] = pntC[2] - pntB[2];
+    ortho.x = vecA.y * vecB.z - vecA.z * vecB.y;
+    ortho.y = vecA.z * vecB.x - vecA.x * vecB.z;
+    ortho.z = vecA.x * vecB.y - vecA.y * vecB.x;
 
-    ortho[0] = vecA[1] * vecB[2] - vecA[2] * vecB[1];
-    ortho[1] = vecA[2] * vecB[0] - vecA[0] * vecB[2];
-    ortho[2] = vecA[0] * vecB[1] - vecA[1] * vecB[0];
-
-    if (ortho[2] > 0.0f)
+    if (ortho.z > 0.0f)
 	rv = !rv;
 
     return rv;
@@ -1027,19 +999,20 @@ cubeMoveViewportAndPaint (CompScreen		  *s,
 			  PaintOrder              paintOrder,
 			  int			  dx)
 {
-    Bool ftb;
-    int  output;
+    Bool  ftb;
+    int   output;
+    float pointZ;
 
     CUBE_SCREEN (s);
 
-    float vPoints[3][3] = { { -0.5, 0.0, cs->invert * cs->distance},
-			    { 0.0, 0.5, cs->invert * cs->distance},
-			    { 0.0, 0.0, cs->invert * cs->distance}};
+    pointZ = cs->invert * cs->distance;
+    CompVector vPoints[3] = { {.v = { -0.5, 0.0, pointZ, 1.0 } },
+			      {.v = {  0.0, 0.5, pointZ, 1.0 } },
+			      {.v = {  0.0, 0.0, pointZ, 1.0 } } };
 
-    ftb = cs->checkOrientation (s, sAttrib, transform, outputPtr, vPoints);
+    ftb = (*cs->checkOrientation) (s, sAttrib, transform, outputPtr, vPoints);
 
-    if ((paintOrder == FTB && !ftb) ||
-	(paintOrder == BTF && ftb))
+    if ((paintOrder == FTB && !ftb) || (paintOrder == BTF && ftb))
 	return;
 
     output = (outputPtr->id != ~0) ? outputPtr->id : 0;
@@ -1070,23 +1043,31 @@ cubeMoveViewportAndPaint (CompScreen		  *s,
 	/* translate back to compiz output */
 	output = cs->srcOutput = cs->output[cubeOutput];
 
-	moveScreenViewport (s, -dView, 0, FALSE);
+	setWindowPaintOffset (s, -dView * s->width, 0);
 	(*s->paintTransformedOutput) (s, sAttrib, transform,
 				      &s->outputDev[output].region,
 				      &s->outputDev[output], mask);
-	moveScreenViewport (s, dView, 0, FALSE);
+	(*cs->postPaintViewport) (s, sAttrib, transform,
+				  &s->outputDev[output],
+				  &s->outputDev[output].region);
+	setWindowPaintOffset (s, 0, 0);
     }
     else
     {
-	moveScreenViewport (s, dx, 0, FALSE);
+	Region region;
+
+	setWindowPaintOffset (s, dx * s->width, 0);
+
 	if (cs->moMode == CUBE_MOMODE_MULTI)
-		(*s->paintTransformedOutput) (s, sAttrib, transform,
-					      &outputPtr->region, outputPtr,
-					      mask);
+	    region = &outputPtr->region;
 	else
-		(*s->paintTransformedOutput) (s, sAttrib, transform, &s->region,
-					      outputPtr, mask);
-	moveScreenViewport (s, -dx, 0, FALSE);
+	    region = &s->region;
+
+	(*s->paintTransformedOutput) (s, sAttrib, transform, region,
+				      outputPtr, mask);
+	(*cs->postPaintViewport) (s, sAttrib, transform, outputPtr, region);
+
+	setWindowPaintOffset (s, 0, 0);
     }
 }
 
@@ -1195,10 +1176,12 @@ cubePaintAllViewports (CompScreen          *s,
 static void
 cubeGetRotation (CompScreen *s,
 		 float	    *x,
-		 float	    *v)
+		 float	    *v,
+		 float      *progress)
 {
-    *x = 0.0f;
-    *v = 0.0f;
+    *x        = 0.0f;
+    *v        = 0.0f;
+    *progress = 0.0f;
 }
 
 static void
@@ -1355,6 +1338,68 @@ cubePaintInside (CompScreen		 *s,
 }
 
 static void
+cubeEnableOutputClipping (CompScreen 	      *s,
+			  const CompTransform *transform,
+			  Region	      region,
+			  CompOutput 	      *output)
+{
+    CUBE_SCREEN (s);
+
+    if (cs->rotationState != RotationNone)
+    {
+	glPushMatrix ();
+	glLoadMatrixf (transform->m);
+	glTranslatef (cs->outputXOffset, -cs->outputYOffset, 0.0f);
+	glScalef (cs->outputXScale, cs->outputYScale, 1.0f);
+
+	if (cs->invert == 1)
+	{
+	    GLdouble clipPlane0[] = {  1.0, 0.0, 0.5 / cs->distance, 0.0 };
+	    GLdouble clipPlane1[] = {  -1.0,  0.0, 0.5 / cs->distance, 0.0 };
+	    GLdouble clipPlane2[] = {  0.0,  -1.0, 0.5 / cs->distance, 0.0 };
+	    GLdouble clipPlane3[] = { 0.0,  1.0, 0.5 / cs->distance, 0.0 };
+	    glClipPlane (GL_CLIP_PLANE0, clipPlane0);
+	    glClipPlane (GL_CLIP_PLANE1, clipPlane1);
+	    glClipPlane (GL_CLIP_PLANE2, clipPlane2);
+	    glClipPlane (GL_CLIP_PLANE3, clipPlane3);
+	}
+	else
+	{
+	    GLdouble clipPlane0[] = {  -1.0, 0.0, -0.5 / cs->distance, 0.0 };
+	    GLdouble clipPlane1[] = {  1.0,  0.0, -0.5 / cs->distance, 0.0 };
+	    GLdouble clipPlane2[] = {  0.0,  1.0, -0.5 / cs->distance, 0.0 };
+	    GLdouble clipPlane3[] = { 0.0,  -1.0, -0.5 / cs->distance, 0.0 };
+	    glClipPlane (GL_CLIP_PLANE0, clipPlane0);
+	    glClipPlane (GL_CLIP_PLANE1, clipPlane1);
+	    glClipPlane (GL_CLIP_PLANE2, clipPlane2);
+	    glClipPlane (GL_CLIP_PLANE3, clipPlane3);
+	}
+
+	glEnable (GL_CLIP_PLANE0);
+	glEnable (GL_CLIP_PLANE1);
+	glEnable (GL_CLIP_PLANE2);
+	glEnable (GL_CLIP_PLANE3);
+
+	glPopMatrix ();
+    }
+    else
+    {
+	UNWRAP (cs, s, enableOutputClipping);
+	(*s->enableOutputClipping) (s, transform, region, output);
+	WRAP (cs, s, enableOutputClipping, cubeEnableOutputClipping);
+    }
+}
+
+static void
+cubePostPaintViewport (CompScreen              *s,
+		       const ScreenPaintAttrib *sAttrib,
+		       const CompTransform     *transform,
+		       CompOutput              *output,
+		       Region                  region)
+{
+}
+
+static void
 cubePaintTransformedOutput (CompScreen		    *s,
 			    const ScreenPaintAttrib *sAttrib,
 			    const CompTransform	    *transform,
@@ -1363,7 +1408,7 @@ cubePaintTransformedOutput (CompScreen		    *s,
 			    unsigned int	    mask)
 {
     ScreenPaintAttrib sa = *sAttrib;
-    float	      xRotate, vRotate, rRotate;
+    float	      xRotate, vRotate, rRotate, progress;
     int		      hsize, xMove = 0;
     float	      size;
     GLenum            filter = s->display->textureFilter;
@@ -1415,7 +1460,7 @@ cubePaintTransformedOutput (CompScreen		    *s,
 	cs->outputYOffset = 0.0f;
     }
 
-    (*cs->getRotation) (s, &xRotate, &vRotate);
+    (*cs->getRotation) (s, &xRotate, &vRotate, &progress);
 
     sa.xRotate += xRotate;
     sa.vRotate += vRotate;
@@ -1476,7 +1521,7 @@ cubePaintTransformedOutput (CompScreen		    *s,
     {
 	/* Outside cube - start with FTB faces */
 	paintOrder = FTB;
-	if (wasCulled && cs->desktopOpacity != OPAQUE)
+	if (wasCulled && cs->paintAllViewports)
 	    glDisable (GL_CULL_FACE);
     }
     else
@@ -1485,12 +1530,11 @@ cubePaintTransformedOutput (CompScreen		    *s,
 	paintOrder = BTF;
     }
 
-    if (cs->invert == -1 || cs->desktopOpacity != OPAQUE)
-	cubePaintAllViewports (s, &sa,transform, region,
-			       outputPtr, mask, xMove,
-			       size, hsize, paintOrder);
+    if (cs->invert == -1 || cs->paintAllViewports)
+	cubePaintAllViewports (s, &sa, transform, region, outputPtr,
+			       mask, xMove, size, hsize, paintOrder);
 
-    if (wasCulled && cs->desktopOpacity != OPAQUE)
+    if (wasCulled && cs->paintAllViewports)
 	glDisable (GL_CULL_FACE);
 
     capsPainted = cs->capsPainted[output];
@@ -1499,18 +1543,19 @@ cubePaintTransformedOutput (CompScreen		    *s,
 	(cs->invert != 1 || cs->desktopOpacity != OPAQUE ||
 	 sa.vRotate != 0.0f || sa.yTranslate != 0.0f))
     {
-	static float top[3][3] = { { 0.5, 0.5, 0.0},
-				   { 0.0, 0.5, -0.5},
-				   { 0.0, 0.5, 0.0}};
-	static float bottom[3][3] = { { 0.5, -0.5, 0.0},
-				      { 0.0, -0.5, -0.5},
-				      { 0.0, -0.5, 0.0}};
-	topDir    = cs->checkOrientation(s, &sa, transform, outputPtr, top);
-	bottomDir = cs->checkOrientation(s, &sa, transform, outputPtr, bottom);
+	static CompVector top[3] = { { .v = { 0.5, 0.5,  0.0, 1.0} },
+				     { .v = { 0.0, 0.5, -0.5, 1.0} },
+				     { .v = { 0.0, 0.5,  0.0, 1.0} } };
+	static CompVector bottom[3] = { { .v = { 0.5, -0.5,  0.0, 1.0} },
+			                { .v = { 0.0, -0.5, -0.5, 1.0} },
+					{ .v = { 0.0, -0.5,  0.0, 1.0} } };
+	topDir    = (*cs->checkOrientation) (s, &sa, transform, outputPtr, top);
+	bottomDir = (*cs->checkOrientation) (s, &sa, transform,
+					     outputPtr, bottom);
 
 	cs->capsPainted[output] = TRUE;
 
-	allCaps = cs->desktopOpacity != OPAQUE || cs->invert != 1;
+	allCaps = cs->paintAllViewports || cs->invert != 1;
 
 	if (topDir && bottomDir)
 	{
@@ -1552,7 +1597,7 @@ cubePaintTransformedOutput (CompScreen		    *s,
     {
 	/* Outside cube - continue with BTF faces */
 	paintOrder = BTF;
-	if (wasCulled && cs->desktopOpacity != OPAQUE)
+	if (wasCulled && cs->paintAllViewports)
 	    glEnable (GL_CULL_FACE);
     }
     else
@@ -1561,7 +1606,7 @@ cubePaintTransformedOutput (CompScreen		    *s,
 	paintOrder = FTB;
     }
 
-    if (cs->invert == 1 || cs->desktopOpacity != OPAQUE)
+    if (cs->invert == 1 || cs->paintAllViewports)
 	cubePaintAllViewports (s, &sa, transform, region,
 			       outputPtr, mask, xMove,
 			       size, hsize, paintOrder);
@@ -1613,7 +1658,7 @@ cubeUnSetBackgroundOpacity (CompScreen* s)
 	    glColor3usv (defaultColor);
 	    glDisable (GL_BLEND);
 	    glBlendFunc (GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-	    screenTexEnvMode(s, GL_REPLACE);
+	    screenTexEnvMode (s, GL_REPLACE);
 	}
     }
 }
@@ -1623,33 +1668,37 @@ cubePaintBackground (CompScreen   *s,
 		     Region	  region,
 		     unsigned int mask)
 {
-    int n;
+    int numBg;
 
     CUBE_SCREEN (s);
 
-    cubeSetBackgroundOpacity(s);
+    cubeSetBackgroundOpacity (s);
 
-    n = cs->opt[CUBE_SCREEN_OPTION_BACKGROUNDS].value.list.nValue;
-    if (n)
+    numBg = cs->opt[CUBE_SCREEN_OPTION_BACKGROUNDS].value.list.nValue;
+    if (numBg)
     {
 	CompTexture *bg;
 	CompMatrix  matrix;
 	BoxPtr      pBox = region->rects;
 	int	    nBox = region->numRects;
 	GLfloat     *d, *data;
+	int         n;
 
 	if (!nBox)
 	{
-	    cubeUnSetBackgroundOpacity(s);
+	    cubeUnSetBackgroundOpacity (s);
 	    return;
 	}
 
-	n = (s->x * cs->nOutput + cs->srcOutput) % n;
+	n = (s->x - (s->windowOffsetX / s->width)) % s->hsize;
+	if (n < 0)
+	    n += s->hsize;
+	n = (n * cs->nOutput + cs->srcOutput) % numBg;
 
 	if (s->desktopWindowCount)
 	{
 	    cubeUnloadBackgrounds (s);
-	    cubeUnSetBackgroundOpacity(s);
+	    cubeUnSetBackgroundOpacity (s);
 	    return;
 	}
 	else
@@ -1666,7 +1715,7 @@ cubePaintBackground (CompScreen   *s,
 	data = malloc (sizeof (GLfloat) * nBox * 16);
 	if (!data)
 	{
-	    cubeUnSetBackgroundOpacity(s);
+	    cubeUnSetBackgroundOpacity (s);
 	    return;
 	}
 
@@ -1726,7 +1775,7 @@ cubePaintBackground (CompScreen   *s,
 	WRAP (cs, s, paintBackground, cubePaintBackground);
     }
 
-    cubeUnSetBackgroundOpacity(s);
+    cubeUnSetBackgroundOpacity (s);
 }
 
 static Bool
@@ -1736,18 +1785,27 @@ cubePaintWindow (CompWindow		  *w,
 		 Region			  region,
 		 unsigned int		  mask)
 {
-    Bool status;
-    CompScreen* s = w->screen;
-    CUBE_SCREEN(s);
+    Bool       status;
+    CompScreen *s = w->screen;
+    CUBE_SCREEN (s);
 
-    WindowPaintAttrib wa = *attrib;
+    if ((w->type & CompWindowTypeDesktopMask) &&
+	(attrib->opacity != cs->desktopOpacity))
+    {
+	WindowPaintAttrib wAttrib = *attrib;
 
-    if (w->type & CompWindowTypeDesktopMask)
-	wa.opacity = cs->desktopOpacity;
+	wAttrib.opacity = cs->desktopOpacity;
 
-    UNWRAP (cs, s, paintWindow);
-    status = (*s->paintWindow) (w, &wa, transform, region, mask);
-    WRAP (cs, s, paintWindow, cubePaintWindow);
+	UNWRAP (cs, s, paintWindow);
+	status = (*s->paintWindow) (w, &wAttrib, transform, region, mask);
+	WRAP (cs, s, paintWindow, cubePaintWindow);
+    }
+    else
+    {
+	UNWRAP (cs, s, paintWindow);
+	status = (*s->paintWindow) (w, attrib, transform, region, mask);
+	WRAP (cs, s, paintWindow, cubePaintWindow);
+    }
 
     return status;
 }
@@ -1945,22 +2003,30 @@ cubeOutputChangeNotify (CompScreen *s)
 }
 
 static Bool
-cubeSetGlobalScreenOption (CompScreen      *s,
-			   char		   *name,
-			   CompOptionValue *value)
+cubeSetOptionForPlugin (CompObject      *o,
+			const char      *plugin,
+			const char      *name,
+			CompOptionValue *value)
 {
     Bool status;
 
-    CUBE_SCREEN (s);
+    CUBE_CORE (&core);
 
-    UNWRAP (cs, s, setScreenOption);
-    status = (*s->setScreenOption) (s, name, value);
-    WRAP (cs, s, setScreenOption, cubeSetGlobalScreenOption);
+    UNWRAP (cc, &core, setOptionForPlugin);
+    status = (*core.setOptionForPlugin) (o, plugin, name, value);
+    WRAP (cc, &core, setOptionForPlugin, cubeSetOptionForPlugin);
 
-    if (status && strcmp (name, "hsize") == 0)
+    if (status && o->type == COMP_OBJECT_TYPE_SCREEN)
     {
-	cubeUpdateGeometry (s, s->hsize, cs->invert);
-	cubeUnloadBackgrounds (s);
+	if (strcmp (plugin, "core") == 0 && strcmp (name, "hsize") == 0)
+	{
+	    CompScreen *s = (CompScreen *) o;
+
+	    CUBE_SCREEN (s);
+
+	    cubeUpdateGeometry (s, s->hsize, cs->invert);
+	    cubeUnloadBackgrounds (s);
+	}
     }
 
     return status;
@@ -1980,7 +2046,7 @@ cubeGetDisplayOptions (CompPlugin  *plugin,
 static Bool
 cubeSetDisplayOption (CompPlugin      *plugin,
 		      CompDisplay     *display,
-		      char	      *name,
+		      const char      *name,
 		      CompOptionValue *value)
 {
     CompOption *o;
@@ -2003,13 +2069,53 @@ cubeSetDisplayOption (CompPlugin      *plugin,
     return FALSE;
 }
 
+static Bool
+cubeInitCore (CompPlugin *p,
+	      CompCore   *c)
+{
+    CubeCore *cc;
+
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
+
+    cc = malloc (sizeof (CubeCore));
+    if (!cc)
+	return FALSE;
+
+    cubeDisplayPrivateIndex = allocateDisplayPrivateIndex ();
+    if (cubeDisplayPrivateIndex < 0)
+    {
+	free (cc);
+	return FALSE;
+    }
+
+    WRAP (cc, &core, setOptionForPlugin, cubeSetOptionForPlugin);
+
+    c->base.privates[cubeCorePrivateIndex].ptr = cc;
+
+    return TRUE;
+}
+
+static void
+cubeFiniCore (CompPlugin *p,
+	      CompCore   *c)
+{
+    CUBE_CORE (c);
+
+    UNWRAP (cc, &core, setOptionForPlugin);
+
+    freeDisplayPrivateIndex (cubeDisplayPrivateIndex);
+
+    free (cc);
+}
+
 static const CompMetadataOptionInfo cubeDisplayOptionInfo[] = {
     { "abi", "int", 0, 0, 0 },
     { "index", "int", 0, 0, 0 },
-    { "unfold", "action", 0, cubeUnfold, cubeFold },
-    { "next_slide", "action", "<passive_grab>false</passive_grab>",
+    { "unfold_key", "key", 0, cubeUnfold, cubeFold },
+    { "next_slide_key", "key", "<passive_grab>false</passive_grab>",
       cubeNextImage, 0 },
-    { "prev_slide", "action", "<passive_grab>false</passive_grab>",
+    { "prev_slide_key", "key", "<passive_grab>false</passive_grab>",
       cubePrevImage, 0 }
 };
 
@@ -2044,7 +2150,7 @@ cubeInitDisplay (CompPlugin  *p,
 	return FALSE;
     }
 
-    d->privates[cubeDisplayPrivateIndex].ptr = cd;
+    d->base.privates[cubeDisplayPrivateIndex].ptr = cd;
 
     return TRUE;
 }
@@ -2080,7 +2186,6 @@ static const CompMetadataOptionInfo cubeScreenOptionInfo[] = {
     { "adjust_image", "bool", 0, 0, 0 },
     { "active_opacity", "float", "<min>0.0</min><max>100.0</max>", 0, 0 },
     { "inactive_opacity", "float", "<min>0.0</min><max>100.0</max>", 0, 0 },
-    { "fade_time", "float", "<min>0.0</min>", 0, 0 },
     { "transparent_manual_only", "bool", 0, 0, 0 },
     { "multioutput_mode", "int", "<min>0</min><max>2</max>", 0, 0 }
 };
@@ -2133,8 +2238,9 @@ cubeInitScreen (CompPlugin *p,
     cs->paintBottom       = cubePaintBottom;
     cs->paintInside       = cubePaintInside;
     cs->checkOrientation  = cubeCheckOrientation;
+    cs->postPaintViewport = cubePostPaintViewport;
 
-    s->privates[cd->screenPrivateIndex].ptr = cs;
+    s->base.privates[cd->screenPrivateIndex].ptr = cs;
 
     initTexture (s, &cs->texture);
     initTexture (s, &cs->sky);
@@ -2146,7 +2252,8 @@ cubeInitScreen (CompPlugin *p,
 
     cs->unfoldVelocity = 0.0f;
 
-    cs->fullscreenOutput = TRUE;
+    cs->paintAllViewports = FALSE;
+    cs->fullscreenOutput  = TRUE;
 
     cs->bg  = NULL;
     cs->nBg = 0;
@@ -2159,6 +2266,8 @@ cubeInitScreen (CompPlugin *p,
     cs->rotationState = RotationNone;
 
     cs->desktopOpacity = OPAQUE;
+
+    cs->lastOpacityIndex = CUBE_SCREEN_OPTION_INACTIVE_OPACITY;
 
     cs->moMode = cs->opt[CUBE_SCREEN_OPTION_MULTIOUTPUT_MODE].value.i;
 
@@ -2183,12 +2292,13 @@ cubeInitScreen (CompPlugin *p,
 
     WRAP (cs, s, preparePaintScreen, cubePreparePaintScreen);
     WRAP (cs, s, donePaintScreen, cubeDonePaintScreen);
+    WRAP (cs, s, paintScreen, cubePaintScreen);
     WRAP (cs, s, paintOutput, cubePaintOutput);
     WRAP (cs, s, paintTransformedOutput, cubePaintTransformedOutput);
+    WRAP (cs, s, enableOutputClipping, cubeEnableOutputClipping);
     WRAP (cs, s, paintBackground, cubePaintBackground);
     WRAP (cs, s, paintWindow, cubePaintWindow);
     WRAP (cs, s, applyScreenTransform, cubeApplyScreenTransform);
-    WRAP (cs, s, setScreenOption, cubeSetGlobalScreenOption);
     WRAP (cs, s, outputChangeNotify, cubeOutputChangeNotify);
     WRAP (cs, s, initWindowWalker, cubeInitWindowWalker);
 
@@ -2209,12 +2319,13 @@ cubeFiniScreen (CompPlugin *p,
 
     UNWRAP (cs, s, preparePaintScreen);
     UNWRAP (cs, s, donePaintScreen);
+    UNWRAP (cs, s, paintScreen);
     UNWRAP (cs, s, paintOutput);
     UNWRAP (cs, s, paintTransformedOutput);
+    UNWRAP (cs, s, enableOutputClipping);
     UNWRAP (cs, s, paintBackground);
     UNWRAP (cs, s, paintWindow);
     UNWRAP (cs, s, applyScreenTransform);
-    UNWRAP (cs, s, setScreenOption);
     UNWRAP (cs, s, outputChangeNotify);
     UNWRAP (cs, s, initWindowWalker);
 
@@ -2228,6 +2339,63 @@ cubeFiniScreen (CompPlugin *p,
     free (cs);
 }
 
+static CompBool
+cubeInitObject (CompPlugin *p,
+		CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) cubeInitCore,
+	(InitPluginObjectProc) cubeInitDisplay,
+	(InitPluginObjectProc) cubeInitScreen
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+cubeFiniObject (CompPlugin *p,
+		CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) cubeFiniCore,
+	(FiniPluginObjectProc) cubeFiniDisplay,
+	(FiniPluginObjectProc) cubeFiniScreen
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+cubeGetObjectOptions (CompPlugin *plugin,
+		      CompObject *object,
+		      int	 *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) cubeGetDisplayOptions,
+	(GetPluginObjectOptionsProc) cubeGetScreenOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+cubeSetObjectOption (CompPlugin      *plugin,
+		     CompObject      *object,
+		     const char      *name,
+		     CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) cubeSetDisplayOption,
+	(SetPluginObjectOptionProc) cubeSetScreenOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
+}
+
 static Bool
 cubeInit (CompPlugin *p)
 {
@@ -2239,8 +2407,8 @@ cubeInit (CompPlugin *p)
 					 CUBE_SCREEN_OPTION_NUM))
 	return FALSE;
 
-    cubeDisplayPrivateIndex = allocateDisplayPrivateIndex ();
-    if (cubeDisplayPrivateIndex < 0)
+    cubeCorePrivateIndex = allocateCorePrivateIndex ();
+    if (cubeCorePrivateIndex < 0)
     {
 	compFiniMetadata (&cubeMetadata);
 	return FALSE;
@@ -2254,15 +2422,8 @@ cubeInit (CompPlugin *p)
 static void
 cubeFini (CompPlugin *p)
 {
-    freeDisplayPrivateIndex (cubeDisplayPrivateIndex);
+    freeCorePrivateIndex (cubeCorePrivateIndex);
     compFiniMetadata (&cubeMetadata);
-}
-
-static int
-cubeGetVersion (CompPlugin *plugin,
-		int	   version)
-{
-    return ABIVERSION;
 }
 
 static CompMetadata *
@@ -2273,24 +2434,17 @@ cubeGetMetadata (CompPlugin *plugin)
 
 CompPluginVTable cubeVTable = {
     "cube",
-    cubeGetVersion,
     cubeGetMetadata,
     cubeInit,
     cubeFini,
-    cubeInitDisplay,
-    cubeFiniDisplay,
-    cubeInitScreen,
-    cubeFiniScreen,
-    0, /* InitWindow */
-    0, /* FiniWindow */
-    cubeGetDisplayOptions,
-    cubeSetDisplayOption,
-    cubeGetScreenOptions,
-    cubeSetScreenOption
+    cubeInitObject,
+    cubeFiniObject,
+    cubeGetObjectOptions,
+    cubeSetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &cubeVTable;
 }

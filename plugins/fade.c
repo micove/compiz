@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 static CompMetadata fadeMetadata;
 
@@ -37,14 +37,14 @@ typedef struct _FadeDisplay {
     HandleEventProc	       handleEvent;
     MatchExpHandlerChangedProc matchExpHandlerChanged;
     int			       displayModals;
-    Bool		       suppressMinimizeOpenClose;
 } FadeDisplay;
 
 #define FADE_SCREEN_OPTION_FADE_SPEED		  0
 #define FADE_SCREEN_OPTION_WINDOW_MATCH		  1
 #define FADE_SCREEN_OPTION_VISUAL_BELL		  2
 #define FADE_SCREEN_OPTION_FULLSCREEN_VISUAL_BELL 3
-#define FADE_SCREEN_OPTION_NUM			  4
+#define FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE	  4
+#define FADE_SCREEN_OPTION_NUM			  5
 
 typedef struct _FadeScreen {
     int			   windowPrivateIndex;
@@ -77,20 +77,20 @@ typedef struct _FadeWindow {
     int steps;
 } FadeWindow;
 
-#define GET_FADE_DISPLAY(d)				     \
-    ((FadeDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_FADE_DISPLAY(d)					  \
+    ((FadeDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define FADE_DISPLAY(d)			   \
     FadeDisplay *fd = GET_FADE_DISPLAY (d)
 
-#define GET_FADE_SCREEN(s, fd)					 \
-    ((FadeScreen *) (s)->privates[(fd)->screenPrivateIndex].ptr)
+#define GET_FADE_SCREEN(s, fd)					      \
+    ((FadeScreen *) (s)->base.privates[(fd)->screenPrivateIndex].ptr)
 
 #define FADE_SCREEN(s)							\
     FadeScreen *fs = GET_FADE_SCREEN (s, GET_FADE_DISPLAY (s->display))
 
-#define GET_FADE_WINDOW(w, fs)				         \
-    ((FadeWindow *) (w)->privates[(fs)->windowPrivateIndex].ptr)
+#define GET_FADE_WINDOW(w, fs)					      \
+    ((FadeWindow *) (w)->base.privates[(fs)->windowPrivateIndex].ptr)
 
 #define FADE_WINDOW(w)					     \
     FadeWindow *fw = GET_FADE_WINDOW  (w,		     \
@@ -125,7 +125,7 @@ fadeGetScreenOptions (CompPlugin *plugin,
 static Bool
 fadeSetScreenOption (CompPlugin      *plugin,
 		     CompScreen      *screen,
-		     char	     *name,
+		     const char	     *name,
 		     CompOptionValue *value)
 {
     CompOption *o;
@@ -409,7 +409,7 @@ fadeHandleEvent (CompDisplay *d,
 	{
 	    FADE_SCREEN (w->screen);
 
-	    if (fd->suppressMinimizeOpenClose)
+	    if (!fs->opt[FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE].value.b)
 		break;
 
 	    if (w->texture->pixmap && matchEval (&fs->match, w))
@@ -439,7 +439,7 @@ fadeHandleEvent (CompDisplay *d,
 
 	    fw->shaded = w->shaded;
 
-	    if (fd->suppressMinimizeOpenClose)
+	    if (!fs->opt[FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE].value.b)
 		break;
 
 	    if (!fw->shaded && w->texture->pixmap && matchEval (&fs->match, w))
@@ -462,7 +462,9 @@ fadeHandleEvent (CompDisplay *d,
 	w = findWindowAtDisplay (d, event->xmap.window);
 	if (w)
 	{
-	    if (fd->suppressMinimizeOpenClose)
+	    FADE_SCREEN(w->screen);
+
+	    if (!fs->opt[FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE].value.b)
 		break;
 
 	    fadeWindowStop (w);
@@ -573,9 +575,7 @@ fadeDamageWindowRect (CompWindow *w,
 	}
 	else if (matchEval (&fs->match, w))
 	{
-	    FADE_DISPLAY (w->screen->display);
-
-	    if (!fd->suppressMinimizeOpenClose)
+	    if (fs->opt[FADE_SCREEN_OPTION_MINIMIZE_OPEN_CLOSE].value.b)
 	    {
 		fw->opacity = 0;
 	    }
@@ -645,6 +645,9 @@ fadeInitDisplay (CompPlugin  *p,
 {
     FadeDisplay *fd;
 
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
+
     fd = malloc (sizeof (FadeDisplay));
     if (!fd)
 	return FALSE;
@@ -658,24 +661,16 @@ fadeInitDisplay (CompPlugin  *p,
 
     fd->displayModals = 0;
 
-    /* FIXME: workaround for conflict between fade and animation plugins.
-       If anybody has enabled the animation plugin, he most likely doesn't
-       want to have fade's map and unmap effects. A better solution for that
-       is having a generic animation framework, that's why this workaround
-       shouldn't be merged into the master branch. */
-    fd->suppressMinimizeOpenClose =
-	(findActivePlugin ("animation") != NULL);
-
     WRAP (fd, d, handleEvent, fadeHandleEvent);
     WRAP (fd, d, matchExpHandlerChanged, fadeMatchExpHandlerChanged);
 
-    d->privates[displayPrivateIndex].ptr = fd;
+    d->base.privates[displayPrivateIndex].ptr = fd;
 
     return TRUE;
 }
 
 static void
-fadeFiniDisplay (CompPlugin *p,
+fadeFiniDisplay (CompPlugin  *p,
 		 CompDisplay *d)
 {
     FADE_DISPLAY (d);
@@ -692,7 +687,8 @@ static const CompMetadataOptionInfo fadeScreenOptionInfo[] = {
     { "fade_speed", "float", "<min>0.1</min>", 0, 0 },
     { "window_match", "match", "<helper>true</helper>", 0, 0 },
     { "visual_bell", "bool", 0, 0, 0 },
-    { "fullscreen_visual_bell", "bool", 0, 0, 0 }
+    { "fullscreen_visual_bell", "bool", 0, 0, 0 },
+    { "minimize_open_close", "bool", 0, 0, 0 }
 };
 
 static Bool
@@ -739,7 +735,7 @@ fadeInitScreen (CompPlugin *p,
     WRAP (fs, s, focusWindow, fadeFocusWindow);
     WRAP (fs, s, windowResizeNotify, fadeWindowResizeNotify);
 
-    s->privates[fd->screenPrivateIndex].ptr = fs;
+    s->base.privates[fd->screenPrivateIndex].ptr = fs;
 
     return TRUE;
 }
@@ -788,7 +784,7 @@ fadeInitWindow (CompPlugin *p,
     fw->shaded     = w->shaded;
     fw->fadeOut    = FALSE;
 
-    w->privates[fs->windowPrivateIndex].ptr = fw;
+    w->base.privates[fs->windowPrivateIndex].ptr = fw;
 
     if (w->attrib.map_state == IsViewable)
     {
@@ -813,6 +809,65 @@ fadeFiniWindow (CompPlugin *p,
     w->paint.saturation = w->saturation;
 
     free (fw);
+}
+
+static CompBool
+fadeInitObject (CompPlugin *p,
+		CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) fadeInitDisplay,
+	(InitPluginObjectProc) fadeInitScreen,
+	(InitPluginObjectProc) fadeInitWindow
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+fadeFiniObject (CompPlugin *p,
+		CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) fadeFiniDisplay,
+	(FiniPluginObjectProc) fadeFiniScreen,
+	(FiniPluginObjectProc) fadeFiniWindow
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+fadeGetObjectOptions (CompPlugin *plugin,
+		      CompObject *object,
+		      int	 *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) 0, /* GetDisplayOptions */
+	(GetPluginObjectOptionsProc) fadeGetScreenOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+fadeSetObjectOption (CompPlugin      *plugin,
+		     CompObject      *object,
+		     const char      *name,
+		     CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) 0, /* SetDisplayOption */
+	(SetPluginObjectOptionProc) fadeSetScreenOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
 }
 
 static Bool
@@ -842,13 +897,6 @@ fadeFini (CompPlugin *p)
     compFiniMetadata (&fadeMetadata);
 }
 
-static int
-fadeGetVersion (CompPlugin *plugin,
-		int	   version)
-{
-    return ABIVERSION;
-}
-
 static CompMetadata *
 fadeGetMetadata (CompPlugin *plugin)
 {
@@ -857,24 +905,17 @@ fadeGetMetadata (CompPlugin *plugin)
 
 static CompPluginVTable fadeVTable = {
     "fade",
-    fadeGetVersion,
     fadeGetMetadata,
     fadeInit,
     fadeFini,
-    fadeInitDisplay,
-    fadeFiniDisplay,
-    fadeInitScreen,
-    fadeFiniScreen,
-    fadeInitWindow,
-    fadeFiniWindow,
-    0, /* GetDisplayOptions */
-    0, /* SetDisplayOption */
-    fadeGetScreenOptions,
-    fadeSetScreenOption
+    fadeInitObject,
+    fadeFiniObject,
+    fadeGetObjectOptions,
+    fadeSetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &fadeVTable;
 }

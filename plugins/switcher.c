@@ -30,10 +30,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <compiz-core.h>
+#include <decoration.h>
+
 #include <X11/Xatom.h>
 #include <X11/extensions/Xrender.h>
-
-#include <compiz.h>
 
 #define ZOOMED_WINDOW_MASK (1 << 0)
 #define NORMAL_WINDOW_MASK (1 << 1)
@@ -42,13 +43,19 @@ static CompMetadata switchMetadata;
 
 static int displayPrivateIndex;
 
-#define SWITCH_DISPLAY_OPTION_NEXT	     0
-#define SWITCH_DISPLAY_OPTION_PREV	     1
-#define SWITCH_DISPLAY_OPTION_NEXT_ALL	     2
-#define SWITCH_DISPLAY_OPTION_PREV_ALL	     3
-#define SWITCH_DISPLAY_OPTION_NEXT_NO_POPUP  4
-#define SWITCH_DISPLAY_OPTION_PREV_NO_POPUP  5
-#define SWITCH_DISPLAY_OPTION_NUM	     6
+#define SWITCH_DISPLAY_OPTION_NEXT_BUTTON          0
+#define SWITCH_DISPLAY_OPTION_NEXT_KEY	           1
+#define SWITCH_DISPLAY_OPTION_PREV_BUTTON	   2
+#define SWITCH_DISPLAY_OPTION_PREV_KEY	           3
+#define SWITCH_DISPLAY_OPTION_NEXT_ALL_BUTTON	   4
+#define SWITCH_DISPLAY_OPTION_NEXT_ALL_KEY	   5
+#define SWITCH_DISPLAY_OPTION_PREV_ALL_BUTTON	   6
+#define SWITCH_DISPLAY_OPTION_PREV_ALL_KEY	   7
+#define SWITCH_DISPLAY_OPTION_NEXT_NO_POPUP_BUTTON 8
+#define SWITCH_DISPLAY_OPTION_NEXT_NO_POPUP_KEY    9
+#define SWITCH_DISPLAY_OPTION_PREV_NO_POPUP_BUTTON 10
+#define SWITCH_DISPLAY_OPTION_PREV_NO_POPUP_KEY    11
+#define SWITCH_DISPLAY_OPTION_NUM	           12
 
 typedef struct _SwitchDisplay {
     int		    screenPrivateIndex;
@@ -57,6 +64,7 @@ typedef struct _SwitchDisplay {
     CompOption opt[SWITCH_DISPLAY_OPTION_NUM];
 
     Atom selectWinAtom;
+    Atom selectFgColorAtom;
 } SwitchDisplay;
 
 #define SWITCH_SCREEN_OPTION_SPEED	  0
@@ -113,11 +121,9 @@ typedef struct _SwitchScreen {
     float translate;
     float sTranslate;
 
-    GLushort saturation;
-    GLushort brightness;
-    GLushort opacity;
-
     Bool allWindows;
+
+    unsigned int fgColor[4];
 } SwitchScreen;
 
 #define MwmHintsDecorations (1L << 1)
@@ -127,8 +133,6 @@ typedef struct {
     unsigned long functions;
     unsigned long decorations;
 } MwmHints;
-
-#define SELECT_WIN_PROP "_SWITCH_SELECT_WINDOW"
 
 #define WIDTH  212
 #define HEIGHT 192
@@ -166,14 +170,14 @@ static float _boxVertices[] =
 #define WINDOW_WIDTH(count) (WIDTH * (count) + (SPACE << 1))
 #define WINDOW_HEIGHT (HEIGHT + (SPACE << 1))
 
-#define GET_SWITCH_DISPLAY(d)				       \
-    ((SwitchDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_SWITCH_DISPLAY(d)					    \
+    ((SwitchDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define SWITCH_DISPLAY(d)		       \
     SwitchDisplay *sd = GET_SWITCH_DISPLAY (d)
 
-#define GET_SWITCH_SCREEN(s, sd)				   \
-    ((SwitchScreen *) (s)->privates[(sd)->screenPrivateIndex].ptr)
+#define GET_SWITCH_SCREEN(s, sd)					\
+    ((SwitchScreen *) (s)->base.privates[(sd)->screenPrivateIndex].ptr)
 
 #define SWITCH_SCREEN(s)						      \
     SwitchScreen *ss = GET_SWITCH_SCREEN (s, GET_SWITCH_DISPLAY (s->display))
@@ -192,9 +196,9 @@ switchGetScreenOptions (CompPlugin *plugin,
 }
 
 static Bool
-switchSetScreenOption (CompPlugin *plugin,
+switchSetScreenOption (CompPlugin      *plugin,
 		       CompScreen      *screen,
-		       char	       *name,
+		       const char      *name,
 		       CompOptionValue *value)
 {
     CompOption  *o;
@@ -207,27 +211,6 @@ switchSetScreenOption (CompPlugin *plugin,
 	return FALSE;
 
     switch (index) {
-    case SWITCH_SCREEN_OPTION_SATURATION:
-	if (compSetIntOption (o, value))
-	{
-	    ss->saturation = (COLOR * o->value.i) / 100;
-	    return TRUE;
-	}
-	break;
-    case SWITCH_SCREEN_OPTION_BRIGHTNESS:
-	if (compSetIntOption (o, value))
-	{
-	    ss->brightness = (0xffff * o->value.i) / 100;
-	    return TRUE;
-	}
-	break;
-    case SWITCH_SCREEN_OPTION_OPACITY:
-	if (compSetIntOption (o, value))
-	{
-	    ss->opacity = (OPAQUE * o->value.i) / 100;
-	    return TRUE;
-	}
-	break;
     case SWITCH_SCREEN_OPTION_ZOOM:
 	if (compSetFloatOption (o, value))
 	{
@@ -612,9 +595,10 @@ switchInitiate (CompScreen *s,
 		count = 3;
 	}
 
-	xsh.flags  = PSize | PPosition;
-	xsh.width  = WINDOW_WIDTH (count);
-	xsh.height = WINDOW_HEIGHT;
+	xsh.flags       = PSize | PPosition | PWinGravity;
+	xsh.width       = WINDOW_WIDTH (count);
+	xsh.height      = WINDOW_HEIGHT;
+	xsh.win_gravity = StaticGravity;
 
 	xwmh.flags = InputHint;
 	xwmh.input = 0;
@@ -1117,9 +1101,55 @@ switchWindowRemove (CompDisplay *d,
 }
 
 static void
+updateForegroundColor (CompScreen *s)
+{
+    Atom	  actual;
+    int		  result, format;
+    unsigned long n, left;
+    unsigned char *propData;
+
+    SWITCH_SCREEN (s);
+    SWITCH_DISPLAY (s->display);
+
+    if (!ss->popupWindow)
+	return;
+
+
+    result = XGetWindowProperty (s->display->display, ss->popupWindow,
+				 sd->selectFgColorAtom, 0L, 4L, FALSE,
+				 XA_INTEGER, &actual, &format,
+				 &n, &left, &propData);
+
+    if (result == Success && n && propData)
+    {
+	if (n == 3 || n == 4)
+	{
+	    long *data = (long *) propData;
+
+	    ss->fgColor[0] = MIN (0xffff, data[0]);
+	    ss->fgColor[1] = MIN (0xffff, data[1]);
+	    ss->fgColor[2] = MIN (0xffff, data[2]);
+
+	    if (n == 4)
+		ss->fgColor[3] = MIN (0xffff, data[3]);
+	}
+
+	XFree (propData);
+    }
+    else
+    {
+	ss->fgColor[0] = 0;
+	ss->fgColor[1] = 0;
+	ss->fgColor[2] = 0;
+	ss->fgColor[3] = 0xffff;
+    }
+}
+
+static void
 switchHandleEvent (CompDisplay *d,
 		   XEvent      *event)
 {
+    CompWindow *w;
     SWITCH_DISPLAY (d);
 
     UNWRAP (sd, d, handleEvent);
@@ -1132,6 +1162,20 @@ switchHandleEvent (CompDisplay *d,
 	break;
     case DestroyNotify:
 	switchWindowRemove (d, event->xdestroywindow.window);
+	break;
+    case PropertyNotify:
+	if (event->xproperty.atom == sd->selectFgColorAtom)
+        {
+            w = findWindowAtDisplay (d, event->xproperty.window);
+            if (w)
+            {
+		SWITCH_SCREEN (w->screen);
+
+		if (event->xproperty.window == ss->popupWindow)
+		    updateForegroundColor (w->screen);
+            }
+        }
+
     default:
 	break;
     }
@@ -1309,18 +1353,18 @@ switchPaintOutput (CompScreen		   *s,
 
     if (ss->grabIndex || (ss->zooming && ss->translate > 0.001f))
     {
-	ScreenPaintAttrib sa = *sAttrib;
-	CompWindow	  *zoomed;
-	CompWindow	  *switcher;
-	Window		  zoomedAbove = None;
-	Bool		  saveDestroyed = FALSE;
+	CompTransform sTransform = *transform;
+	CompWindow    *zoomed;
+	CompWindow    *switcher;
+	Window	      zoomedAbove = None;
+	Bool	      saveDestroyed = FALSE;
 
 	if (ss->zooming)
 	{
 	    mask &= ~PAINT_SCREEN_REGION_MASK;
 	    mask |= PAINT_SCREEN_TRANSFORMED_MASK | PAINT_SCREEN_CLEAR_MASK;
 
-	    sa.zCamera -= ss->translate;
+	    matrixTranslate (&sTransform, 0.0f, 0.0f, -ss->translate);
 
 	    ss->zoomMask = NORMAL_WINDOW_MASK;
 	}
@@ -1352,20 +1396,24 @@ switchPaintOutput (CompScreen		   *s,
 	}
 
 	UNWRAP (ss, s, paintOutput);
-	status = (*s->paintOutput) (s, &sa, transform, region, output, mask);
+	status = (*s->paintOutput) (s, sAttrib, &sTransform,
+				    region, output, mask);
 	WRAP (ss, s, paintOutput, switchPaintOutput);
 
 	if (ss->zooming)
 	{
+	    float zTranslate;
+
 	    mask &= ~PAINT_SCREEN_CLEAR_MASK;
 
 	    ss->zoomMask = ZOOMED_WINDOW_MASK;
 
-	    sa.zCamera += MIN (ss->sTranslate, ss->translate);
+	    zTranslate = MIN (ss->sTranslate, ss->translate);
+	    matrixTranslate (&sTransform, 0.0f, 0.0f, zTranslate);
 
 	    UNWRAP (ss, s, paintOutput);
-	    status = (*s->paintOutput) (s, &sa, transform, region, output,
-					mask);
+	    status = (*s->paintOutput) (s, sAttrib, &sTransform, region,
+					output, mask);
 	    WRAP (ss, s, paintOutput, switchPaintOutput);
 	}
 
@@ -1377,7 +1425,7 @@ switchPaintOutput (CompScreen		   *s,
 
 	if (switcher)
 	{
-	    CompTransform sTransform = *transform;
+	    sTransform = *transform;
 
 	    switcher->destroyed = saveDestroyed;
 
@@ -1638,8 +1686,9 @@ switchPaintWindow (CompWindow		   *w,
 
     if (w->id == ss->popupWindow)
     {
-	GLenum filter;
-	int    x, y, x1, x2, cx, i;
+	GLenum         filter;
+	int            x, y, x1, x2, cx, i;
+	unsigned short color[4];
 
 	if (mask & PAINT_WINDOW_OCCLUSION_DETECTION_MASK)
 	    return FALSE;
@@ -1695,7 +1744,10 @@ switchPaintWindow (CompWindow		   *w,
 
 	glDisableClientState (GL_TEXTURE_COORD_ARRAY);
 	glEnable (GL_BLEND);
-	glColor4us (0, 0, 0, w->lastPaint.opacity);
+	for (i = 0; i < 4; i++)
+	    color[i] = (unsigned int)ss->fgColor[i] * w->lastPaint.opacity /
+		       0xffff;
+	glColor4usv (color);
 	glPushMatrix ();
 	glTranslatef (cx, y, 0.0f);
 	glVertexPointer (2, GL_FLOAT, 0, _boxVertices);
@@ -1722,17 +1774,21 @@ switchPaintWindow (CompWindow		   *w,
     else if (ss->switching)
     {
 	WindowPaintAttrib sAttrib = *attrib;
+	GLuint            value;
 
-	if (ss->saturation != COLOR)
-	    sAttrib.saturation = (sAttrib.saturation * ss->saturation) >> 16;
+	value = ss->opt[SWITCH_SCREEN_OPTION_SATURATION].value.i;
+	if (value != 100)
+	    sAttrib.saturation = sAttrib.saturation * value / 100;
 
-	if (ss->brightness != 0xffff)
-	    sAttrib.brightness = (sAttrib.brightness * ss->brightness) >> 16;
+	value = ss->opt[SWITCH_SCREEN_OPTION_BRIGHTNESS].value.i;
+	if (value != 100)
+	    sAttrib.brightness = sAttrib.brightness * value / 100;
 
 	if (w->wmType & ~(CompWindowTypeDockMask | CompWindowTypeDesktopMask))
 	{
-	    if (ss->opacity != OPAQUE)
-		sAttrib.opacity = (sAttrib.opacity * ss->opacity) >> 16;
+	    value = ss->opt[SWITCH_SCREEN_OPTION_OPACITY].value.i;
+	    if (value != 100)
+		sAttrib.opacity = sAttrib.opacity * value / 100;
 	}
 
 	if (ss->opt[SWITCH_SCREEN_OPTION_BRINGTOFRONT].value.b &&
@@ -1822,9 +1878,9 @@ switchGetDisplayOptions (CompPlugin  *plugin,
 }
 
 static Bool
-switchSetDisplayOption (CompPlugin  *plugin,
+switchSetDisplayOption (CompPlugin      *plugin,
 			CompDisplay     *display,
-			char	        *name,
+			const char	*name,
 			CompOptionValue *value)
 {
     CompOption *o;
@@ -1839,12 +1895,20 @@ switchSetDisplayOption (CompPlugin  *plugin,
 }
 
 static const CompMetadataOptionInfo switchDisplayOptionInfo[] = {
-    { "next", "action", 0, switchNext, switchTerminate },
-    { "prev", "action", 0, switchPrev, switchTerminate },
-    { "next_all", "action", 0, switchNextAll, switchTerminate },
-    { "prev_all", "action", 0, switchPrevAll, switchTerminate },
-    { "next_no_popup", "action", 0, switchNextNoPopup, switchTerminate },
-    { "prev_no_popup", "action", 0, switchPrevNoPopup, switchTerminate }
+    { "next_button", "button", 0, switchNext, switchTerminate },
+    { "next_key", "key", 0, switchNext, switchTerminate },
+    { "prev_button", "button", 0, switchPrev, switchTerminate },
+    { "prev_key", "key", 0, switchPrev, switchTerminate },
+    { "next_all_button", "button", 0, switchNextAll, switchTerminate },
+    { "next_all_key", "key", 0, switchNextAll, switchTerminate },
+    { "prev_all_button", "button", 0, switchPrevAll, switchTerminate },
+    { "prev_all_key", "key", 0, switchPrevAll, switchTerminate },
+    { "next_no_popup_button", "button", 0, switchNextNoPopup,
+      switchTerminate },
+    { "next_no_popup_key", "key", 0, switchNextNoPopup, switchTerminate },
+    { "prev_no_popup_button", "button", 0, switchPrevNoPopup,
+      switchTerminate },
+    { "prev_no_popup_key", "key", 0, switchPrevNoPopup, switchTerminate }
 };
 
 static Bool
@@ -1852,6 +1916,9 @@ switchInitDisplay (CompPlugin  *p,
 		   CompDisplay *d)
 {
     SwitchDisplay *sd;
+
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
 
     sd = malloc (sizeof (SwitchDisplay));
     if (!sd)
@@ -1875,11 +1942,14 @@ switchInitDisplay (CompPlugin  *p,
 	return FALSE;
     }
 
-    sd->selectWinAtom = XInternAtom (d->display, SELECT_WIN_PROP, 0);
+    sd->selectWinAtom     = XInternAtom (d->display,
+					 DECOR_SWITCH_WINDOW_ATOM_NAME, 0);
+    sd->selectFgColorAtom =
+	XInternAtom (d->display, DECOR_SWITCH_FOREGROUND_COLOR_ATOM_NAME, 0);
 
     WRAP (sd, d, handleEvent, switchHandleEvent);
 
-    d->privates[displayPrivateIndex].ptr = sd;
+    d->base.privates[displayPrivateIndex].ptr = sd;
 
     return TRUE;
 }
@@ -1968,14 +2038,12 @@ switchInitScreen (CompPlugin *p,
     ss->translate  = 0.0f;
     ss->sTranslate = 0.0f;
 
-    ss->saturation =
-	(COLOR  * ss->opt[SWITCH_SCREEN_OPTION_SATURATION].value.i) / 100;
-    ss->brightness =
-	(0xffff * ss->opt[SWITCH_SCREEN_OPTION_BRIGHTNESS].value.i) / 100;
-    ss->opacity    =
-	(OPAQUE * ss->opt[SWITCH_SCREEN_OPTION_OPACITY].value.i)    / 100;
-
     ss->allWindows = FALSE;
+
+    ss->fgColor[0] = 0;
+    ss->fgColor[1] = 0;
+    ss->fgColor[2] = 0;
+    ss->fgColor[3] = 0xffff;
 
     WRAP (ss, s, preparePaintScreen, switchPreparePaintScreen);
     WRAP (ss, s, donePaintScreen, switchDonePaintScreen);
@@ -1984,7 +2052,7 @@ switchInitScreen (CompPlugin *p,
     WRAP (ss, s, paintBackground, switchPaintBackground);
     WRAP (ss, s, damageWindowRect, switchDamageWindowRect);
 
-    s->privates[sd->screenPrivateIndex].ptr = ss;
+    s->base.privates[sd->screenPrivateIndex].ptr = ss;
 
     return TRUE;
 }
@@ -2008,6 +2076,63 @@ switchFiniScreen (CompPlugin *p,
     compFiniScreenOptions (s, ss->opt, SWITCH_SCREEN_OPTION_NUM);
 
     free (ss);
+}
+
+static CompBool
+switchInitObject (CompPlugin *p,
+		  CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) switchInitDisplay,
+	(InitPluginObjectProc) switchInitScreen
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+switchFiniObject (CompPlugin *p,
+		  CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) switchFiniDisplay,
+	(FiniPluginObjectProc) switchFiniScreen
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+switchGetObjectOptions (CompPlugin *plugin,
+			CompObject *object,
+			int	   *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) switchGetDisplayOptions,
+	(GetPluginObjectOptionsProc) switchGetScreenOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+switchSetObjectOption (CompPlugin      *plugin,
+		       CompObject      *object,
+		       const char      *name,
+		       CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) switchSetDisplayOption,
+	(SetPluginObjectOptionProc) switchSetScreenOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
 }
 
 static Bool
@@ -2040,13 +2165,6 @@ switchFini (CompPlugin *p)
     compFiniMetadata (&switchMetadata);
 }
 
-static int
-switchGetVersion (CompPlugin *plugin,
-		  int	     version)
-{
-    return ABIVERSION;
-}
-
 static CompMetadata *
 switchGetMetadata (CompPlugin *plugin)
 {
@@ -2055,24 +2173,17 @@ switchGetMetadata (CompPlugin *plugin)
 
 CompPluginVTable switchVTable = {
     "switcher",
-    switchGetVersion,
     switchGetMetadata,
     switchInit,
     switchFini,
-    switchInitDisplay,
-    switchFiniDisplay,
-    switchInitScreen,
-    switchFiniScreen,
-    0, /* InitWindow */
-    0, /* FiniWindow */
-    switchGetDisplayOptions,
-    switchSetDisplayOption,
-    switchGetScreenOptions,
-    switchSetScreenOption
+    switchInitObject,
+    switchFiniObject,
+    switchGetObjectOptions,
+    switchSetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &switchVTable;
 }

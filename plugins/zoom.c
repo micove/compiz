@@ -31,17 +31,17 @@
 
 #include <X11/cursorfont.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 static CompMetadata zoomMetadata;
 
 static int displayPrivateIndex;
 
-#define ZOOM_DISPLAY_OPTION_INITIATE 0
-#define ZOOM_DISPLAY_OPTION_IN	     1
-#define ZOOM_DISPLAY_OPTION_OUT	     2
-#define ZOOM_DISPLAY_OPTION_PAN	     3
-#define ZOOM_DISPLAY_OPTION_NUM	     4
+#define ZOOM_DISPLAY_OPTION_INITIATE_BUTTON 0
+#define ZOOM_DISPLAY_OPTION_IN_BUTTON	    1
+#define ZOOM_DISPLAY_OPTION_OUT_BUTTON	    2
+#define ZOOM_DISPLAY_OPTION_PAN_BUTTON	    3
+#define ZOOM_DISPLAY_OPTION_NUM	            4
 
 typedef struct _ZoomDisplay {
     int		    screenPrivateIndex;
@@ -93,14 +93,14 @@ typedef struct _ZoomScreen {
     int zoomOutput;
 } ZoomScreen;
 
-#define GET_ZOOM_DISPLAY(d)				      \
-    ((ZoomDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_ZOOM_DISPLAY(d)					  \
+    ((ZoomDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define ZOOM_DISPLAY(d)		           \
     ZoomDisplay *zd = GET_ZOOM_DISPLAY (d)
 
-#define GET_ZOOM_SCREEN(s, zd)				         \
-    ((ZoomScreen *) (s)->privates[(zd)->screenPrivateIndex].ptr)
+#define GET_ZOOM_SCREEN(s, zd)					      \
+    ((ZoomScreen *) (s)->base.privates[(zd)->screenPrivateIndex].ptr)
 
 #define ZOOM_SCREEN(s)						        \
     ZoomScreen *zs = GET_ZOOM_SCREEN (s, GET_ZOOM_DISPLAY (s->display))
@@ -121,7 +121,7 @@ zoomGetScreenOptions (CompPlugin *plugin,
 static Bool
 zoomSetScreenOption (CompPlugin      *plugin,
 		     CompScreen      *screen,
-		     char	     *name,
+		     const char	     *name,
 		     CompOptionValue *value)
 {
     CompOption *o;
@@ -933,7 +933,7 @@ zoomGetDisplayOptions (CompPlugin  *plugin,
 static Bool
 zoomSetDisplayOption (CompPlugin      *plugin,
 		      CompDisplay     *display,
-		      char	      *name,
+		      const char      *name,
 		      CompOptionValue *value)
 {
     CompOption *o;
@@ -946,7 +946,7 @@ zoomSetDisplayOption (CompPlugin      *plugin,
 	return FALSE;
 
     switch (index) {
-    case ZOOM_DISPLAY_OPTION_OUT:
+    case ZOOM_DISPLAY_OPTION_OUT_BUTTON:
 	if (compSetActionOption (o, value))
 	    return TRUE;
 	break;
@@ -958,10 +958,10 @@ zoomSetDisplayOption (CompPlugin      *plugin,
 }
 
 static const CompMetadataOptionInfo zoomDisplayOptionInfo[] = {
-    { "initiate", "action", 0, zoomInitiate, zoomTerminate },
-    { "zoom_in", "action", 0, zoomIn, 0 },
-    { "zoom_out", "action", 0, zoomOut, 0 },
-    { "zoom_pan", "action", 0, zoomInitiatePan, zoomTerminatePan }
+    { "initiate_button", "button", 0, zoomInitiate, zoomTerminate },
+    { "zoom_in_button", "button", 0, zoomIn, 0 },
+    { "zoom_out_button", "button", 0, zoomOut, 0 },
+    { "zoom_pan_button", "button", 0, zoomInitiatePan, zoomTerminatePan }
 };
 
 static Bool
@@ -969,6 +969,9 @@ zoomInitDisplay (CompPlugin  *p,
 		 CompDisplay *d)
 {
     ZoomDisplay *zd;
+
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
 
     zd = malloc (sizeof (ZoomDisplay));
     if (!zd)
@@ -994,7 +997,7 @@ zoomInitDisplay (CompPlugin  *p,
 
     WRAP (zd, d, handleEvent, zoomHandleEvent);
 
-    d->privates[displayPrivateIndex].ptr = zd;
+    d->base.privates[displayPrivateIndex].ptr = zd;
 
     return TRUE;
 }
@@ -1065,7 +1068,7 @@ zoomInitScreen (CompPlugin *p,
     WRAP (zs, s, donePaintScreen, zoomDonePaintScreen);
     WRAP (zs, s, paintOutput, zoomPaintOutput);
 
-    s->privates[zd->screenPrivateIndex].ptr = zs;
+    s->base.privates[zd->screenPrivateIndex].ptr = zs;
 
     return TRUE;
 }
@@ -1086,6 +1089,63 @@ zoomFiniScreen (CompPlugin *p,
     compFiniScreenOptions (s, zs->opt, ZOOM_SCREEN_OPTION_NUM);
 
     free (zs);
+}
+
+static CompBool
+zoomInitObject (CompPlugin *p,
+		CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) zoomInitDisplay,
+	(InitPluginObjectProc) zoomInitScreen
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+zoomFiniObject (CompPlugin *p,
+		CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) zoomFiniDisplay,
+	(FiniPluginObjectProc) zoomFiniScreen
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+zoomGetObjectOptions (CompPlugin *plugin,
+		      CompObject *object,
+		      int	 *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) zoomGetDisplayOptions,
+	(GetPluginObjectOptionsProc) zoomGetScreenOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+zoomSetObjectOption (CompPlugin      *plugin,
+		     CompObject      *object,
+		     const char      *name,
+		     CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) zoomSetDisplayOption,
+	(SetPluginObjectOptionProc) zoomSetScreenOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
 }
 
 static Bool
@@ -1118,13 +1178,6 @@ zoomFini (CompPlugin *p)
     compFiniMetadata (&zoomMetadata);
 }
 
-static int
-zoomGetVersion (CompPlugin *plugin,
-		int	   version)
-{
-    return ABIVERSION;
-}
-
 static CompMetadata *
 zoomGetMetadata (CompPlugin *plugin)
 {
@@ -1133,24 +1186,17 @@ zoomGetMetadata (CompPlugin *plugin)
 
 CompPluginVTable zoomVTable = {
     "zoom",
-    zoomGetVersion,
     zoomGetMetadata,
     zoomInit,
     zoomFini,
-    zoomInitDisplay,
-    zoomFiniDisplay,
-    zoomInitScreen,
-    zoomFiniScreen,
-    0, /* InitWindow */
-    0, /* FiniWindow */
-    zoomGetDisplayOptions,
-    zoomSetDisplayOption,
-    zoomGetScreenOptions,
-    zoomSetScreenOption
+    zoomInitObject,
+    zoomFiniObject,
+    zoomGetObjectOptions,
+    zoomSetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &zoomVTable;
 }

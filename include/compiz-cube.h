@@ -23,21 +23,30 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#include <compiz.h>
+#ifndef _COMPIZ_CUBE_H
+#define _COMPIZ_CUBE_H
 
-#define CUBE_ABIVERSION 20070827
+#include <compiz-core.h>
+
+COMPIZ_BEGIN_DECLS
+
+#define CUBE_ABIVERSION 20080401
+
+typedef struct _CubeCore {
+    SetOptionForPluginProc setOptionForPlugin;
+} CubeCore;
 
 #define CUBE_MOMODE_AUTO  0
 #define CUBE_MOMODE_MULTI 1
 #define CUBE_MOMODE_ONE   2
 #define CUBE_MOMODE_LAST  CUBE_MOMODE_ONE
 
-#define CUBE_DISPLAY_OPTION_ABI    0
-#define CUBE_DISPLAY_OPTION_INDEX  1
-#define CUBE_DISPLAY_OPTION_UNFOLD 2
-#define CUBE_DISPLAY_OPTION_NEXT   3
-#define CUBE_DISPLAY_OPTION_PREV   4
-#define CUBE_DISPLAY_OPTION_NUM    5
+#define CUBE_DISPLAY_OPTION_ABI        0
+#define CUBE_DISPLAY_OPTION_INDEX      1
+#define CUBE_DISPLAY_OPTION_UNFOLD_KEY 2
+#define CUBE_DISPLAY_OPTION_NEXT_KEY   3
+#define CUBE_DISPLAY_OPTION_PREV_KEY   4
+#define CUBE_DISPLAY_OPTION_NUM        5
 
 typedef struct _CubeDisplay {
     int	screenPrivateIndex;
@@ -62,33 +71,33 @@ typedef struct _CubeDisplay {
 #define CUBE_SCREEN_OPTION_ADJUST_IMAGE	           14
 #define CUBE_SCREEN_OPTION_ACTIVE_OPACITY          15
 #define CUBE_SCREEN_OPTION_INACTIVE_OPACITY        16
-#define CUBE_SCREEN_OPTION_FADE_TIME               17
-#define CUBE_SCREEN_OPTION_TRANSPARENT_MANUAL_ONLY 18
-#define CUBE_SCREEN_OPTION_MULTIOUTPUT_MODE        19
-#define CUBE_SCREEN_OPTION_NUM                     20
+#define CUBE_SCREEN_OPTION_TRANSPARENT_MANUAL_ONLY 17
+#define CUBE_SCREEN_OPTION_MULTIOUTPUT_MODE        18
+#define CUBE_SCREEN_OPTION_NUM                     19
 
 typedef void (*CubeGetRotationProc) (CompScreen *s,
 				     float      *x,
-				     float      *v);
+				     float      *v,
+				     float      *progress);
 
 typedef void (*CubeClearTargetOutputProc) (CompScreen *s,
 					   float      xRotate,
 					   float      vRotate);
 
 typedef void (*CubePaintTopProc) (CompScreen			*s,
-				  const ScreenPaintAttrib 	*sAttrib,
+				  const ScreenPaintAttrib	*sAttrib,
 				  const CompTransform		*transform,
 				  CompOutput			*output,
 				  int				size);
 
 typedef void (*CubePaintBottomProc) (CompScreen			*s,
-				     const ScreenPaintAttrib 	*sAttrib,
+				     const ScreenPaintAttrib	*sAttrib,
 				     const CompTransform	*transform,
 				     CompOutput			*output,
 				     int			size);
 
 typedef void (*CubePaintInsideProc) (CompScreen			*s,
-				     const ScreenPaintAttrib 	*sAttrib,
+				     const ScreenPaintAttrib	*sAttrib,
 				     const CompTransform	*transform,
 				     CompOutput			*output,
 				     int			size);
@@ -97,32 +106,37 @@ typedef Bool (*CubeCheckOrientationProc) (CompScreen              *s,
 					  const ScreenPaintAttrib *sAttrib,
 					  const CompTransform     *transform,
 					  CompOutput              *output,
-					  float                   points[3][3]);
+					  CompVector              *points);
 
-typedef enum _PaintOrder
-{
+typedef void (*CubePostPaintViewportProc) (CompScreen              *s,
+					   const ScreenPaintAttrib *sAttrib,
+					   const CompTransform     *transform,
+					   CompOutput              *output,
+					   Region                  region);
+
+typedef enum _PaintOrder {
     BTF = 0,
     FTB
 } PaintOrder;
 
-typedef enum _RotationState
-{
+typedef enum _RotationState {
     RotationNone = 0,
     RotationChange,
     RotationManual
 } RotationState;
 
 typedef struct _CubeScreen {
-    PreparePaintScreenProc     preparePaintScreen;
-    DonePaintScreenProc	       donePaintScreen;
-    PaintOutputProc	       paintOutput;
-    PaintTransformedOutputProc paintTransformedOutput;
-    PaintBackgroundProc        paintBackground;
-    PaintWindowProc            paintWindow;
-    ApplyScreenTransformProc   applyScreenTransform;
-    SetScreenOptionProc	       setScreenOption;
-    OutputChangeNotifyProc     outputChangeNotify;
-    InitWindowWalkerProc       initWindowWalker;
+    PreparePaintScreenProc       preparePaintScreen;
+    DonePaintScreenProc	         donePaintScreen;
+    PaintScreenProc		 paintScreen;
+    PaintOutputProc	         paintOutput;
+    PaintTransformedOutputProc   paintTransformedOutput;
+    EnableOutputClippingProc     enableOutputClipping;
+    PaintBackgroundProc          paintBackground;
+    PaintWindowProc              paintWindow;
+    ApplyScreenTransformProc     applyScreenTransform;
+    OutputChangeNotifyProc       outputChangeNotify;
+    InitWindowWalkerProc         initWindowWalker;
 
     CubeGetRotationProc	      getRotation;
     CubeClearTargetOutputProc clearTargetOutput;
@@ -130,6 +144,7 @@ typedef struct _CubeScreen {
     CubePaintBottomProc       paintBottom;
     CubePaintInsideProc       paintInside;
     CubeCheckOrientationProc  checkOrientation;
+    CubePostPaintViewportProc postPaintViewport;
 
     CompOption opt[CUBE_SCREEN_OPTION_NUM];
 
@@ -138,6 +153,8 @@ typedef struct _CubeScreen {
     PaintOrder paintOrder;
 
     RotationState rotationState;
+
+    Bool paintAllViewports;
 
     GLfloat  distance;
     GLushort color[3];
@@ -178,6 +195,7 @@ typedef struct _CubeScreen {
 
     float desktopOpacity;
     float toOpacity;
+    int   lastOpacityIndex;
 
     CompTexture *bg;
     int		nBg;
@@ -186,14 +204,24 @@ typedef struct _CubeScreen {
     Bool recalcOutput;
 } CubeScreen;
 
-#define GET_CUBE_DISPLAY(d)					 \
-    ((CubeDisplay *) (d)->privates[cubeDisplayPrivateIndex].ptr)
+#define GET_CUBE_CORE(c)					\
+    ((CubeCore *) (c)->base.privates[cubeCorePrivateIndex].ptr)
+
+#define CUBE_CORE(c)		     \
+    CubeCore *cc = GET_CUBE_CORE (c)
+
+#define GET_CUBE_DISPLAY(d)					      \
+    ((CubeDisplay *) (d)->base.privates[cubeDisplayPrivateIndex].ptr)
 
 #define CUBE_DISPLAY(d)			   \
     CubeDisplay *cd = GET_CUBE_DISPLAY (d)
 
-#define GET_CUBE_SCREEN(s, cd)					 \
-    ((CubeScreen *) (s)->privates[(cd)->screenPrivateIndex].ptr)
+#define GET_CUBE_SCREEN(s, cd)					      \
+    ((CubeScreen *) (s)->base.privates[(cd)->screenPrivateIndex].ptr)
 
 #define CUBE_SCREEN(s)							\
     CubeScreen *cs = GET_CUBE_SCREEN (s, GET_CUBE_DISPLAY (s->display))
+
+COMPIZ_END_DECLS
+
+#endif

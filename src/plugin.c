@@ -29,14 +29,121 @@
 #include <dlfcn.h>
 #include <dirent.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 CompPlugin *plugins = 0;
 
 static Bool
+coreInit (CompPlugin *p)
+{
+    return TRUE;
+}
+
+static void
+coreFini (CompPlugin *p)
+{
+}
+
+static CompMetadata *
+coreGetMetadata (CompPlugin *plugin)
+{
+    return &coreMetadata;
+}
+
+static CompOption *
+coreGetObjectOptions (CompPlugin *plugin,
+		      CompObject *object,
+		      int	 *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) getDisplayOptions,
+	(GetPluginObjectOptionsProc) getScreenOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static Bool
+coreSetObjectOption (CompPlugin      *plugin,
+		     CompObject      *object,
+		     const char      *name,
+		     CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) setDisplayOption,
+	(SetPluginObjectOptionProc) setScreenOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
+}
+
+static CompPluginVTable coreVTable = {
+    "core",
+    coreGetMetadata,
+    coreInit,
+    coreFini,
+    0, /* InitObject */
+    0, /* FiniObject */
+    coreGetObjectOptions,
+    coreSetObjectOption
+};
+
+static Bool
+cloaderLoadPlugin (CompPlugin *p,
+		   const char *path,
+		   const char *name)
+{
+    if (path)
+	return FALSE;
+
+    if (strcmp (name, coreVTable.name))
+	return FALSE;
+
+    p->vTable	      = &coreVTable;
+    p->devPrivate.ptr = NULL;
+    p->devType	      = "cloader";
+
+    return TRUE;
+}
+
+static void
+cloaderUnloadPlugin (CompPlugin *p)
+{
+}
+
+static char **
+cloaderListPlugins (const char *path,
+		    int	       *n)
+{
+    char **list;
+
+    if (path)
+	return 0;
+
+    list = malloc (sizeof (char *));
+    if (!list)
+	return 0;
+
+    *list = strdup (coreVTable.name);
+    if (!*list)
+    {
+	free (list);
+	return 0;
+    }
+
+    *n = 1;
+
+    return list;
+}
+
+static Bool
 dlloaderLoadPlugin (CompPlugin *p,
-		    char       *path,
-		    char       *name)
+		    const char *path,
+		    const char *name)
 {
     char *file;
     void *dlhand;
@@ -58,7 +165,8 @@ dlloaderLoadPlugin (CompPlugin *p,
 
 	dlerror ();
 
-	getInfo = (PluginGetInfoProc) dlsym (dlhand, "getCompPluginInfo");
+	getInfo = (PluginGetInfoProc)
+	    dlsym (dlhand, "getCompPluginInfo20070830");
 
 	error = dlerror ();
 	if (error)
@@ -86,10 +194,6 @@ dlloaderLoadPlugin (CompPlugin *p,
 	}
 	else
 	{
-	    compLogMessage (NULL, "core", CompLogLevelError,
-			    "Failed to lookup getCompPluginInfo in '%s' "
-			    "plugin\n", file);
-
 	    dlclose (dlhand);
 	    free (file);
 
@@ -100,7 +204,7 @@ dlloaderLoadPlugin (CompPlugin *p,
     {
 	free (file);
 
-	return FALSE;
+	return cloaderLoadPlugin (p, path, name);
     }
 
     free (file);
@@ -114,7 +218,10 @@ dlloaderLoadPlugin (CompPlugin *p,
 static void
 dlloaderUnloadPlugin (CompPlugin *p)
 {
-    dlclose (p->devPrivate.ptr);
+    if (strcmp (p->devType, "dlloader") == 0)
+	dlclose (p->devPrivate.ptr);
+    else
+	cloaderUnloadPlugin (p);
 }
 
 static int
@@ -133,24 +240,28 @@ dlloaderFilter (const struct dirent *name)
 }
 
 static char **
-dlloaderListPlugins (char *path,
-		     int  *n)
+dlloaderListPlugins (const char *path,
+		     int	*n)
 {
     struct dirent **nameList;
-    char	  **list;
+    char	  **list, **cList;
     char	  *name;
     int		  length, nFile, i, j = 0;
+
+    cList = cloaderListPlugins (path, n);
+    if (cList)
+	j = *n;
 
     if (!path)
 	path = ".";
 
     nFile = scandir (path, &nameList, dlloaderFilter, alphasort);
     if (!nFile)
-	return 0;
+	return cList;
 
-    list = malloc (nFile * sizeof (char *));
+    list = realloc (cList, (j + nFile) * sizeof (char *));
     if (!list)
-	return 0;
+	return cList;
 
     for (i = 0; i < nFile; i++)
     {
@@ -182,127 +293,143 @@ LoadPluginProc   loaderLoadPlugin   = dlloaderLoadPlugin;
 UnloadPluginProc loaderUnloadPlugin = dlloaderUnloadPlugin;
 ListPluginsProc  loaderListPlugins  = dlloaderListPlugins;
 
-Bool
-initPluginForDisplay (CompPlugin  *p,
-		      CompDisplay *d)
+typedef struct _InitObjectContext {
+    CompPlugin *plugin;
+    CompObject *object;
+} InitObjectContext;
+
+typedef struct _InitObjectTypeContext {
+    CompPlugin     *plugin;
+    CompObjectType type;
+} InitObjectTypeContext;
+
+static CompBool
+initObjectTree (CompObject *object,
+		void       *closure);
+
+static CompBool
+finiObjectTree (CompObject *object,
+		void       *closure);
+
+static CompBool
+initObjectsWithType (CompObjectType type,
+		     CompObject	    *parent,
+		     void	    *closure)
 {
-    CompScreen *s, *failedScreen = d->screens;
-    Bool       status = TRUE;
+    InitObjectTypeContext *pCtx = (InitObjectTypeContext *) closure;
+    InitObjectContext	  ctx;
 
-    for (s = d->screens; s; s = s->next)
+    pCtx->type = type;
+
+    ctx.plugin = pCtx->plugin;
+    ctx.object = NULL;
+
+    if (!compObjectForEach (parent, type, initObjectTree, (void *) &ctx))
     {
-	if (p->vTable->initScreen)
-	{
-	    if (!(*p->vTable->initScreen) (p, s))
-	    {
-		failedScreen = s;
-		status = FALSE;
-		break;
-	    }
-	}
+	compObjectForEach (parent, type, finiObjectTree, (void *) &ctx);
 
-	if (!(*s->initPluginForScreen) (p, s))
-	{
-	    compLogMessage (NULL, "core", CompLogLevelError,
-			    "Plugin '%s':initScreen failed",
-			    p->vTable->name);
-
-	    if (p->vTable->finiScreen)
-		(*p->vTable->finiScreen) (p, s);
-
-	    failedScreen = s;
-	    status = FALSE;
-	    break;
-	}
+	return FALSE;
     }
 
-    for (s = d->screens; s != failedScreen; s = s->next)
-    {
-	(*s->finiPluginForScreen) (p, s);
-
-	if (p->vTable->finiScreen)
-	    (*p->vTable->finiScreen) (p, s);
-    }
-
-    return status;
+    return TRUE;
 }
 
-void
-finiPluginForDisplay (CompPlugin  *p,
-		      CompDisplay *d)
+static CompBool
+finiObjectsWithType (CompObjectType type,
+		     CompObject	    *parent,
+		     void	    *closure)
 {
-    CompScreen  *s;
+    InitObjectTypeContext *pCtx = (InitObjectTypeContext *) closure;
+    InitObjectContext	  ctx;
 
-    for (s = d->screens; s; s = s->next)
-    {
-	(*s->finiPluginForScreen) (p, s);
+    /* pCtx->type is set to the object type that failed to be initialized */
+    if (pCtx->type == type)
+	return FALSE;
 
-	if (p->vTable->finiScreen)
-	    (*p->vTable->finiScreen) (p, s);
-    }
+    ctx.plugin = pCtx->plugin;
+    ctx.object = NULL;
+
+    compObjectForEach (parent, type, finiObjectTree, (void *) &ctx);
+
+    return TRUE;
 }
 
-Bool
-initPluginForScreen (CompPlugin *p,
-		     CompScreen *s)
+static CompBool
+initObjectTree (CompObject *object,
+		void       *closure)
 {
-    Bool status = TRUE;
+    InitObjectContext     *pCtx = (InitObjectContext *) closure;
+    CompPlugin		  *p = pCtx->plugin;
+    InitObjectTypeContext ctx;
 
-    if (p->vTable->initWindow)
+    pCtx->object = object;
+
+    if (p->vTable->initObject)
     {
-	CompWindow *w, *failedWindow = s->windows;
-
-	for (w = s->windows; w; w = w->next)
+	if (!(*p->vTable->initObject) (p, object))
 	{
-	    if (!(*p->vTable->initWindow) (p, w))
-	    {
-		compLogMessage (NULL, "core", CompLogLevelError,
-				"Plugin '%s':initWindow "
-				"failed", p->vTable->name);
-		failedWindow = w;
-		status = FALSE;
-		break;
-	    }
-	}
-
-	if (p->vTable->finiWindow)
-	{
-	    for (w = s->windows; w != failedWindow; w = w->next)
-		(*p->vTable->finiWindow) (p, w);
+	    compLogMessage (NULL, p->vTable->name, CompLogLevelError,
+			    "InitObject failed");
+	    return FALSE;
 	}
     }
 
-    return status;
+    ctx.plugin = p;
+    ctx.type   = 0;
+
+    /* initialize children */
+    if (!compObjectForEachType (object, initObjectsWithType, (void *) &ctx))
+    {
+	compObjectForEachType (object, finiObjectsWithType, (void *) &ctx);
+
+	if (p->vTable->initObject && p->vTable->finiObject)
+	    (*p->vTable->finiObject) (p, object);
+
+	return FALSE;
+    }
+
+    if (!(*core.initPluginForObject) (p, object))
+    {
+	compObjectForEachType (object, finiObjectsWithType, (void *) &ctx);
+
+	if (p->vTable->initObject && p->vTable->finiObject)
+	    (*p->vTable->finiObject) (p, object);
+
+	return FALSE;
+    }
+
+    return TRUE;
 }
 
-void
-finiPluginForScreen (CompPlugin *p,
-		     CompScreen *s)
+static CompBool
+finiObjectTree (CompObject *object,
+		void       *closure)
 {
-    if (p->vTable->finiWindow)
-    {
-	CompWindow *w = s->windows;
+    InitObjectContext     *pCtx = (InitObjectContext *) closure;
+    CompPlugin		  *p = pCtx->plugin;
+    InitObjectTypeContext ctx;
 
-	for (w = s->windows; w; w = w->next)
-	    (*p->vTable->finiWindow) (p, w);
-    }
+    /* pCtx->object is set to the object that failed to be initialized */
+    if (pCtx->object == object)
+	return FALSE;
+
+    ctx.plugin = p;
+    ctx.type   = ~0;
+
+    compObjectForEachType (object, finiObjectsWithType, (void *) &ctx);
+
+    if (p->vTable->initObject && p->vTable->finiObject)
+	(*p->vTable->finiObject) (p, object);
+
+    (*core.finiPluginForObject) (p, object);
+
+    return TRUE;
 }
 
 static Bool
 initPlugin (CompPlugin *p)
 {
-    CompDisplay *d = compDisplays;
-    int		version;
-
-    version = (*p->vTable->getVersion) (p, ABIVERSION);
-    if (version != ABIVERSION)
-    {
-	compLogMessage (NULL, "core", CompLogLevelError,
-			"Can't load plugin '%s' because it is built for "
-			"ABI version %d and actual version is %d",
-			p->vTable->name, version, ABIVERSION);
-	return FALSE;
-    }
+    InitObjectContext ctx;
 
     if (!(*p->vTable->init) (p))
     {
@@ -311,29 +438,13 @@ initPlugin (CompPlugin *p)
 	return FALSE;
     }
 
-    if (d)
+    ctx.plugin = p;
+    ctx.object = NULL;
+
+    if (!initObjectTree (&core.base, (void *) &ctx))
     {
-	if (p->vTable->initDisplay)
-	{
-	    if (!(*p->vTable->initDisplay) (p, d))
-	    {
-		(*p->vTable->fini) (p);
-
-		return FALSE;
-
-	    }
-	}
-
-	if (!(*d->initPluginForDisplay) (p, d))
-	{
-	    compLogMessage (NULL, "core", CompLogLevelError,
-			    "Plugin '%s':initDisplay failed",
-			    p->vTable->name);
-
-	    (*p->vTable->fini) (p);
-
-	    return FALSE;
-	}
+	(*p->vTable->fini) (p);
+	return FALSE;
     }
 
     return TRUE;
@@ -342,24 +453,24 @@ initPlugin (CompPlugin *p)
 static void
 finiPlugin (CompPlugin *p)
 {
-    CompDisplay *d = compDisplays;
+    InitObjectContext ctx;
 
-    if (d)
-    {
-	(*d->finiPluginForDisplay) (p, d);
+    ctx.plugin = p;
+    ctx.object = NULL;
 
-	if (p->vTable->finiDisplay)
-	    (*p->vTable->finiDisplay) (p, d);
-    }
+    finiObjectTree (&core.base, (void *) &ctx);
 
     (*p->vTable->fini) (p);
 }
 
-void
-screenInitPlugins (CompScreen *s)
+CompBool
+objectInitPlugins (CompObject *o)
 {
-    CompPlugin *p;
-    int	       i, j = 0;
+    InitObjectContext ctx;
+    CompPlugin	      *p;
+    int		      i, j = 0;
+
+    ctx.object = NULL;
 
     for (p = plugins; p; p = p->next)
 	j++;
@@ -370,49 +481,42 @@ screenInitPlugins (CompScreen *s)
 	for (p = plugins; i < j; p = p->next)
 	    i++;
 
-	if (p->vTable->initScreen)
-	    (*s->initPluginForScreen) (p, s);
+	ctx.plugin = p;
+
+	if (!initObjectTree (o, (void *) &ctx))
+	{
+	    for (p = p->next; p; p = p->next)
+	    {
+		ctx.plugin = p;
+
+		finiObjectTree (o, (void *) &ctx);
+	    }
+
+	    return FALSE;
+	}
     }
+
+    return TRUE;
 }
 
 void
-screenFiniPlugins (CompScreen *s)
+objectFiniPlugins (CompObject *o)
 {
-    CompPlugin *p;
+    InitObjectContext ctx;
+    CompPlugin	      *p;
+
+    ctx.object = NULL;
 
     for (p = plugins; p; p = p->next)
     {
-	if (p->vTable->finiScreen)
-	    (*s->finiPluginForScreen) (p, s);
-    }
-}
+	ctx.plugin = p;
 
-void
-windowInitPlugins (CompWindow *w)
-{
-    CompPlugin *p;
-
-    for (p = plugins; p; p = p->next)
-    {
-	if (p->vTable->initWindow)
-	    (*p->vTable->initWindow) (p, w);
-    }
-}
-
-void
-windowFiniPlugins (CompWindow *w)
-{
-    CompPlugin *p;
-
-    for (p = plugins; p; p = p->next)
-    {
-	if (p->vTable->finiWindow)
-	    (*p->vTable->finiWindow) (p, w);
+	finiObjectTree (o, (void *) &ctx);
     }
 }
 
 CompPlugin *
-findActivePlugin (char *name)
+findActivePlugin (const char *name)
 {
     CompPlugin *p;
 
@@ -433,7 +537,7 @@ unloadPlugin (CompPlugin *p)
 }
 
 CompPlugin *
-loadPlugin (char *name)
+loadPlugin (const char *name)
 {
     CompPlugin *p;
     char       *home, *plugindir;
@@ -471,7 +575,8 @@ loadPlugin (char *name)
     if (status)
 	return p;
 
-    compLogMessage (NULL, "core", CompLogLevelError, "Couldn't load plugin '%s'", name);
+    compLogMessage (NULL, "core", CompLogLevelError,
+		    "Couldn't load plugin '%s'", name);
 
     return 0;
 }
@@ -559,7 +664,7 @@ availablePlugins (int *n)
     }
 
     pluginList  = (*loaderListPlugins) (PLUGINDIR, &nPluginList);
-    currentList = (*loaderListPlugins) (".", &nCurrentList);
+    currentList = (*loaderListPlugins) (NULL, &nCurrentList);
 
     count = 0;
     if (homeList)
@@ -607,4 +712,59 @@ availablePlugins (int *n)
     *n = j;
 
     return list;
+}
+
+int
+getPluginABI (const char *name)
+{
+    CompPlugin *p = findActivePlugin (name);
+    CompOption	*option;
+    int		nOption;
+
+    if (!p || !p->vTable->getObjectOptions)
+	return 0;
+
+    /* MULTIDPYERROR: ABI options should be moved into core */
+    option = (*p->vTable->getObjectOptions) (p, &core.displays->base,
+					     &nOption);
+
+    return getIntOptionNamed (option, nOption, "abi", 0);
+}
+
+Bool
+checkPluginABI (const char *name,
+		int	   abi)
+{
+    if (getPluginABI (name) != abi)
+    {
+	compLogMessage (NULL, "core", CompLogLevelError,
+			"no '%s' plugin with ABI version '%d' loaded\n",
+			name, abi);
+	return FALSE;
+    }
+
+    return TRUE;
+}
+
+Bool
+getPluginDisplayIndex (CompDisplay *d,
+		       const char  *name,
+		       int	   *index)
+{
+    CompPlugin *p = findActivePlugin (name);
+    CompOption	*option;
+    int		nOption, value;
+
+    if (!p || !p->vTable->getObjectOptions)
+	return FALSE;
+
+    option = (*p->vTable->getObjectOptions) (p, &d->base, &nOption);
+
+    value = getIntOptionNamed (option, nOption, "index", -1);
+    if (value < 0)
+	return FALSE;
+
+    *index = value;
+
+    return TRUE;
 }

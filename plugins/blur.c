@@ -27,7 +27,7 @@
 #include <string.h>
 #include <math.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 #include <decoration.h>
 
 #include <X11/Xatom.h>
@@ -49,6 +49,8 @@ typedef struct _BlurFunction {
     int target;
     int param;
     int unit;
+    int startTC;
+    int numITC;
 } BlurFunction;
 
 typedef struct _BlurBox {
@@ -67,6 +69,12 @@ typedef struct _BlurState {
     Bool    active;
     Bool    clipped;
 } BlurState;
+
+static int corePrivateIndex;
+
+typedef struct _BlurCore {
+    ObjectAddProc objectAdd;
+} BlurCore;
 
 static int displayPrivateIndex;
 
@@ -95,7 +103,8 @@ typedef struct _BlurDisplay {
 #define BLUR_SCREEN_OPTION_MIPMAP_LOD        8
 #define BLUR_SCREEN_OPTION_SATURATION        9
 #define BLUR_SCREEN_OPTION_BLUR_OCCLUSION    10
-#define BLUR_SCREEN_OPTION_NUM		     11
+#define BLUR_SCREEN_OPTION_INDEPENDENT_TEX   11
+#define BLUR_SCREEN_OPTION_NUM		     12
 
 typedef struct _BlurScreen {
     int	windowPrivateIndex;
@@ -110,7 +119,6 @@ typedef struct _BlurScreen {
     DrawWindowProc	         drawWindow;
     DrawWindowTextureProc        drawWindowTexture;
 
-    WindowAddNotifyProc    windowAddNotify;
     WindowResizeNotifyProc windowResizeNotify;
     WindowMoveNotifyProc   windowMoveNotify;
 
@@ -153,6 +161,8 @@ typedef struct _BlurScreen {
     float amp[BLUR_GAUSSIAN_RADIUS_MAX];
     float pos[BLUR_GAUSSIAN_RADIUS_MAX];
     int	  numTexop;
+
+    CompTransform mvp;
 } BlurScreen;
 
 typedef struct _BlurWindow {
@@ -167,20 +177,26 @@ typedef struct _BlurWindow {
     Region clip;
 } BlurWindow;
 
-#define GET_BLUR_DISPLAY(d)				     \
-    ((BlurDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_BLUR_CORE(c)				    \
+    ((BlurCore *) (c)->base.privates[corePrivateIndex].ptr)
+
+#define BLUR_CORE(c)		     \
+    BlurCore *bc = GET_BLUR_CORE (c)
+
+#define GET_BLUR_DISPLAY(d)					  \
+    ((BlurDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define BLUR_DISPLAY(d)			   \
     BlurDisplay *bd = GET_BLUR_DISPLAY (d)
 
-#define GET_BLUR_SCREEN(s, bd)					 \
-    ((BlurScreen *) (s)->privates[(bd)->screenPrivateIndex].ptr)
+#define GET_BLUR_SCREEN(s, bd)					      \
+    ((BlurScreen *) (s)->base.privates[(bd)->screenPrivateIndex].ptr)
 
 #define BLUR_SCREEN(s)							\
     BlurScreen *bs = GET_BLUR_SCREEN (s, GET_BLUR_DISPLAY (s->display))
 
-#define GET_BLUR_WINDOW(w, bs)					 \
-    ((BlurWindow *) (w)->privates[(bs)->windowPrivateIndex].ptr)
+#define GET_BLUR_WINDOW(w, bs)					      \
+    ((BlurWindow *) (w)->base.privates[(bs)->windowPrivateIndex].ptr)
 
 #define BLUR_WINDOW(w)					     \
     BlurWindow *bw = GET_BLUR_WINDOW  (w,		     \
@@ -545,7 +561,7 @@ blurGetScreenOptions (CompPlugin *plugin,
 static Bool
 blurSetScreenOption (CompPlugin      *plugin,
 		     CompScreen      *screen,
-		     char	     *name,
+		     const char	     *name,
 		     CompOptionValue *value)
 {
     CompOption *o;
@@ -658,6 +674,17 @@ blurSetScreenOption (CompPlugin      *plugin,
 	    bs->blurOcclusion = o->value.b;
 	    blurReset (screen);
 	    damageScreen (screen);
+	    return TRUE;
+	}
+    case BLUR_SCREEN_OPTION_INDEPENDENT_TEX:
+	if (compSetBoolOption (o, value))
+	{
+	    filter = bs->opt[BLUR_SCREEN_OPTION_FILTER].value.i;
+	    if (filter == BLUR_FILTER_GAUSSIAN)
+	    {
+		blurReset (screen);
+		damageScreen (screen);
+	    }
 	    return TRUE;
 	}
     default:
@@ -1064,7 +1091,9 @@ static int
 getDstBlurFragmentFunction (CompScreen  *s,
 			    CompTexture *texture,
 			    int	        param,
-			    int		unit)
+			    int		unit,
+			    int         numITC,
+			    int         startTC)
 {
     BlurFunction     *function;
     CompFunctionData *data;
@@ -1085,15 +1114,17 @@ getDstBlurFragmentFunction (CompScreen  *s,
     }
 
     for (function = bs->dstBlurFunctions; function; function = function->next)
-	if (function->param  == param  &&
-	    function->target == target &&
-	    function->unit   == unit)
+	if (function->param   == param  &&
+	    function->target  == target &&
+	    function->unit    == unit   &&
+	    function->numITC  == numITC &&
+	    function->startTC == startTC)
 	    return function->handle;
 
     data = createFunctionData ();
     if (data)
     {
-	static char *temp[] = { "coord", "mask", "sum", "dst" };
+	static char *temp[] = { "fCoord", "mask", "sum", "dst" };
 	int	    i, handle = 0;
 	char	    str[1024];
 	int	    saturation = bs->opt[BLUR_SCREEN_OPTION_SATURATION].value.i;
@@ -1119,22 +1150,22 @@ getDstBlurFragmentFunction (CompScreen  *s,
 	    ok &= addColorOpToFunctionData (data, "output", "output");
 
 	    snprintf (str, 1024,
-		      "MUL coord, fragment.position, program.env[%d];",
+		      "MUL fCoord, fragment.position, program.env[%d];",
 		      param);
 
 	    ok &= addDataOpToFunctionData (data, str);
 
 	    snprintf (str, 1024,
-		      "ADD t0, coord, program.env[%d];"
+		      "ADD t0, fCoord, program.env[%d];"
 		      "TEX s0, t0, texture[%d], %s;"
 
-		      "SUB t1, coord, program.env[%d];"
+		      "SUB t1, fCoord, program.env[%d];"
 		      "TEX s1, t1, texture[%d], %s;"
 
-		      "MAD t2, program.env[%d], { -1.0, 1.0, 0.0, 0.0 }, coord;"
+		      "MAD t2, program.env[%d], { -1.0, 1.0, 0.0, 0.0 }, fCoord;"
 		      "TEX s2, t2, texture[%d], %s;"
 
-		      "MAD t3, program.env[%d], { 1.0, -1.0, 0.0, 0.0 }, coord;"
+		      "MAD t3, program.env[%d], { 1.0, -1.0, 0.0, 0.0 }, fCoord;"
 		      "TEX s3, t3, texture[%d], %s;"
 
 		      "MUL_SAT mask, output.a, program.env[%d];"
@@ -1160,20 +1191,57 @@ getDstBlurFragmentFunction (CompScreen  *s,
 	    for (i = 0; i < sizeof (filterTemp) / sizeof (filterTemp[0]); i++)
 		ok &= addTempHeaderOpToFunctionData (data, filterTemp[i]);
 
+	    for (i = 0; i < bs->numTexop * 2; i++)
+	    {
+		snprintf (str, 1024, "pix_%d", i);
+		ok &= addTempHeaderOpToFunctionData (data, str);
+	    }
+
+	    for (i = numITC * 2; i < bs->numTexop * 2; i++)
+	    {
+		snprintf (str, 1024, "coord_%d", i);
+		ok &= addTempHeaderOpToFunctionData (data, str);
+	    }
+
 	    ok &= addFetchOpToFunctionData (data, "output", NULL, target);
 	    ok &= addColorOpToFunctionData (data, "output", "output");
 
-	    snprintf (str, 1024,
-		      "MUL coord, fragment.position, program.env[%d];",
-		      param);
+	    if (!numITC)
+	    {
+	        snprintf (str, 1024,
+			  "MUL fCoord, fragment.position, program.env[%d];",
+			  param);
 
-	    ok &= addDataOpToFunctionData (data, str);
+		ok &= addDataOpToFunctionData (data, str);
+	    }
+	    /* some drivers implement fragment.position as texture coordinate
+	       and we might already use them all */
+	    else if (numITC < bs->numTexop)
+	    {
+	        snprintf (str, 1024,
+			  "RCP fCoord, fragment.texcoord[%d].w;"
+			  "MUL fCoord, fCoord, fragment.texcoord[%d];",
+			  startTC, startTC);
 
-	    snprintf (str, 1024,
-		      "TEX sum, coord, texture[%d], %s;",
-		      unit + 1, targetString);
+		ok &= addDataOpToFunctionData (data, str);
+	    }
 
-	    ok &= addDataOpToFunctionData (data, str);
+	    if (numITC)
+	    {
+		snprintf (str, 1024,
+			  "TXP sum, fragment.texcoord[%d], texture[%d], %s;",
+			  startTC, unit + 1, targetString);
+
+		ok &= addDataOpToFunctionData (data, str);
+	    }
+	    else
+	    {
+		snprintf (str, 1024,
+			  "TEX sum, fCoord, texture[%d], %s;",
+			  unit + 1, targetString);
+
+		ok &= addDataOpToFunctionData (data, str);
+	    }
 
 	    snprintf (str, 1024,
 		      "MUL_SAT mask, output.a, program.env[%d];"
@@ -1182,21 +1250,48 @@ getDstBlurFragmentFunction (CompScreen  *s,
 
 	    ok &= addDataOpToFunctionData (data, str);
 
-	    for (i = 0; i < bs->numTexop; i++)
+	    for (i = numITC; i < bs->numTexop; i++)
 	    {
 		snprintf (str, 1024,
-			  "ADD tCoord, coord, program.env[%d];"
-			  "TEX pix, tCoord, texture[%d], %s;"
-			  "MAD sum, pix, %f, sum;"
-			  "SUB tCoord, coord, program.env[%d];"
-			  "TEX pix, tCoord, texture[%d], %s;"
-			  "MAD sum, pix, %f, sum;",
-			  param + 2 + i,
+			  "ADD coord_%d, fCoord, {0.0, %g, 0.0, 0.0};"
+			  "SUB coord_%d, fCoord, {0.0, %g, 0.0, 0.0};",
+			  i * 2, bs->pos[i] * bs->ty,
+			  (i * 2) + 1, bs->pos[i] * bs->ty);
+
+		ok &= addDataOpToFunctionData (data, str);
+	    }
+	    
+	    for (i = 0; i < numITC; i++)
+	    {
+		snprintf (str, 1024,
+			  "TXP pix_%d, fragment.texcoord[%d], texture[%d], %s;"
+			  "TXP pix_%d, fragment.texcoord[%d], texture[%d], %s;",
+			  i * 2, startTC + 1 + (i * 2),
 			  unit + 1, targetString,
-			  bs->amp[i],
-			  param + 2 + i,
+			  (i * 2) + 1, startTC + 2 + (i * 2),
+			  unit + 1, targetString);
+
+		ok &= addDataOpToFunctionData (data, str);
+	    }
+
+	    for (i = numITC; i < bs->numTexop; i++)
+	    {
+		snprintf (str, 1024,
+			  "TEX pix_%d, coord_%d, texture[%d], %s;"
+			  "TEX pix_%d, coord_%d, texture[%d], %s;",
+			  i * 2, i * 2,
 			  unit + 1, targetString,
-			  bs->amp[i]);
+			  (i * 2) + 1, (i * 2) + 1,
+			  unit + 1, targetString);
+
+		ok &= addDataOpToFunctionData (data, str);
+	    }
+
+	    for (i = 0; i < bs->numTexop * 2; i++)
+	    {
+		snprintf (str, 1024,
+			  "MAD sum, pix_%d, %f, sum;",
+			  i, bs->amp[i / 2]);
 
 		ok &= addDataOpToFunctionData (data, str);
 	    }
@@ -1206,9 +1301,9 @@ getDstBlurFragmentFunction (CompScreen  *s,
 	    ok &= addColorOpToFunctionData (data, "output", "output");
 
 	    snprintf (str, 1024,
-		      "MUL coord, fragment.position, program.env[%d].xyzz;"
-		      "MOV coord.w, program.env[%d].w;"
-		      "TXB sum, coord, texture[%d], %s;"
+		      "MUL fCoord, fragment.position, program.env[%d].xyzz;"
+		      "MOV fCoord.w, program.env[%d].w;"
+		      "TXB sum, fCoord, texture[%d], %s;"
 		      "MUL_SAT mask, output.a, program.env[%d];",
 		      param, param, unit, targetString,
 		      param + 1);
@@ -1247,10 +1342,12 @@ getDstBlurFragmentFunction (CompScreen  *s,
 	{
 	    handle = createFragmentFunction (s, "blur", data);
 
-	    function->handle = handle;
-	    function->target = target;
-	    function->param  = param;
-	    function->unit   = unit;
+	    function->handle  = handle;
+	    function->target  = target;
+	    function->param   = param;
+	    function->unit    = unit;
+	    function->numITC  = numITC;
+	    function->startTC = startTC;
 
 	    function->next = bs->dstBlurFunctions;
 	    bs->dstBlurFunctions = function;
@@ -1291,7 +1388,7 @@ projectVertices (CompScreen	     *s,
 
     while (n--)
     {
-	if (!gluProject (object[0], object[1], 0.0,
+	if (!gluProject (object[0], object[1], object[2],
 			 dModel, dProjection, viewport,
 			 &x, &y, &z))
 	    return FALSE;
@@ -1299,7 +1396,7 @@ projectVertices (CompScreen	     *s,
 	screen[0] = x;
 	screen[1] = y;
 
-	object += 2;
+	object += 3;
 	screen += 2;
     }
 
@@ -1340,7 +1437,7 @@ loadFragmentProgram (CompScreen *s,
 }
 
 static Bool
-loadFilterProgram (CompScreen *s)
+loadFilterProgram (CompScreen *s, int numITC)
 {
     char  buffer[2048];
     char  *targetString;
@@ -1361,6 +1458,12 @@ loadFilterProgram (CompScreen *s)
 
     str += sprintf (str, "TEMP tCoord, pix;");
 
+    for (i = 0; i < bs->numTexop; i++)
+	str += sprintf (str,"TEMP pix_%d, pix_%d;", i * 2, (i * 2) + 1);
+
+    for (i = numITC; i < bs->numTexop; i++)
+	str += sprintf (str,"TEMP coord_%d, coord_%d;", i * 2, (i * 2) + 1);
+
     str += sprintf (str,
 		    "TEX sum, texcoord, texture[0], %s;",
 		    targetString);
@@ -1368,18 +1471,33 @@ loadFilterProgram (CompScreen *s)
     str += sprintf (str,
 		    "MUL sum, sum, %f;",
 		    bs->amp[bs->numTexop]);
-
-    for (i = 0; i < bs->numTexop; i++)
+    
+    for (i = numITC; i < bs->numTexop; i++)
 	str += sprintf (str,
-			"ADD tCoord, texcoord, program.local[%d];"
-			"TEX pix, tCoord, texture[0], %s;"
-			"MAD sum, pix, %f, sum;"
-			"SUB tCoord, texcoord, program.local[%d];"
-			"TEX pix, tCoord, texture[0], %s;"
-			"MAD sum, pix, %f, sum;",
-			i, targetString, bs->amp[i],
-			i, targetString, bs->amp[i]);
+			"ADD coord_%d, texcoord, {%g, 0.0, 0.0, 0.0};"
+			"SUB coord_%d, texcoord, {%g, 0.0, 0.0, 0.0};",
+			i * 2, bs->pos[i] * bs->tx,
+			(i * 2) + 1, bs->pos[i] * bs->tx);
 
+    for (i = 0; i < numITC; i++)
+	str += sprintf (str,
+			"TEX pix_%d, fragment.texcoord[%d], texture[0], %s;"
+			"TEX pix_%d, fragment.texcoord[%d], texture[0], %s;",
+			i * 2, (i * 2) + 1, targetString,
+			(i * 2) + 1, (i * 2) + 2, targetString);
+
+    for (i = numITC; i < bs->numTexop; i++)
+	str += sprintf (str,
+			"TEX pix_%d, coord_%d, texture[0], %s;"
+			"TEX pix_%d, coord_%d, texture[0], %s;",
+			i * 2, i * 2, targetString,
+			(i * 2) + 1, (i * 2) + 1, targetString);
+
+    for (i = 0; i < bs->numTexop * 2; i++)
+	str += sprintf (str,
+			"MAD sum, pix_%d, %f, sum;",
+			i, bs->amp[i / 2]);
+    
     str += sprintf (str,
 		    "MOV result.color, sum;"
 		    "END");
@@ -1473,12 +1591,16 @@ fboUpdate (CompScreen *s,
 	   BoxPtr     pBox,
 	   int	      nBox)
 {
-    int i, y;
+    int i, y, iTC = 0;
 
     BLUR_SCREEN (s);
 
+    if (s->maxTextureUnits && 
+	bs->opt[BLUR_SCREEN_OPTION_INDEPENDENT_TEX].value.b)
+	iTC = MIN ((s->maxTextureUnits - 1) / 2, bs->numTexop);
+
     if (!bs->program)
-	if (!loadFilterProgram (s))
+	if (!loadFilterProgram (s, iTC))
 	    return FALSE;
 
     if (!fboPrologue (s))
@@ -1491,26 +1613,63 @@ fboUpdate (CompScreen *s,
     glEnable (GL_FRAGMENT_PROGRAM_ARB);
     (*s->bindProgram) (GL_FRAGMENT_PROGRAM_ARB, bs->program);
 
-    for (i = 0; i < bs->numTexop; i++)
-	(*s->programLocalParameter4f) (GL_FRAGMENT_PROGRAM_ARB, i,
-				       bs->tx * bs->pos[i],
-				       0.0f, 0.0f, 0.0f);
-
     glBegin (GL_QUADS);
 
     while (nBox--)
     {
 	y = s->height - pBox->y2;
 
+	for (i = 0; i < iTC; i++)
+	{
+	    (*s->multiTexCoord2f) (GL_TEXTURE1_ARB + (i * 2),
+				   bs->tx * (pBox->x1 + bs->pos[i]),
+				   bs->ty * y);
+	    (*s->multiTexCoord2f) (GL_TEXTURE1_ARB + (i * 2) + 1,
+				   bs->tx * (pBox->x1 - bs->pos[i]),
+				   bs->ty * y);
+	}
+
 	glTexCoord2f (bs->tx * pBox->x1, bs->ty * y);
 	glVertex2i   (pBox->x1, y);
+
+	for (i = 0; i < iTC; i++)
+	{
+	    (*s->multiTexCoord2f) (GL_TEXTURE1_ARB + (i * 2),
+				   bs->tx * (pBox->x2 + bs->pos[i]),
+				   bs->ty * y);
+	    (*s->multiTexCoord2f) (GL_TEXTURE1_ARB + (i * 2) + 1,
+				   bs->tx * (pBox->x2 - bs->pos[i]),
+				   bs->ty * y);
+	}
+
 	glTexCoord2f (bs->tx * pBox->x2, bs->ty * y);
 	glVertex2i   (pBox->x2, y);
 
 	y = s->height - pBox->y1;
 
+	for (i = 0; i < iTC; i++)
+	{
+	    (*s->multiTexCoord2f) (GL_TEXTURE1_ARB + (i * 2),
+				   bs->tx * (pBox->x2 + bs->pos[i]),
+				   bs->ty * y);
+	    (*s->multiTexCoord2f) (GL_TEXTURE1_ARB + (i * 2) + 1,
+				   bs->tx * (pBox->x2 - bs->pos[i]),
+				   bs->ty * y);
+	}
+
 	glTexCoord2f (bs->tx * pBox->x2, bs->ty * y);
 	glVertex2i   (pBox->x2, y);
+
+	for (i = 0; i < iTC; i++)
+	{
+	    (*s->multiTexCoord2f) (GL_TEXTURE1_ARB + (i * 2),
+				   bs->tx * (pBox->x1 + bs->pos[i]),
+				   bs->ty * y);
+	    (*s->multiTexCoord2f) (GL_TEXTURE1_ARB + (i * 2) + 1,
+				   bs->tx * (pBox->x1 - bs->pos[i]),
+				   bs->ty * y);
+	}
+
 	glTexCoord2f (bs->tx * pBox->x1, bs->ty * y);
 	glVertex2i   (pBox->x1, y);
 
@@ -1537,11 +1696,11 @@ blurProjectRegion (CompWindow	       *w,
 {
     CompScreen *s = w->screen;
     float      screen[MAX_VERTEX_PROJECT_COUNT * 2];
-    float      vertices[MAX_VERTEX_PROJECT_COUNT * 2];
+    float      vertices[MAX_VERTEX_PROJECT_COUNT * 3];
     int	       nVertices;
     int        i, j, stride;
     float      *v, *vert;
-    float      minX, maxX, minY, maxY;
+    float      minX, maxX, minY, maxY, minZ, maxZ;
     float      *scr;
     REGION     region;
 
@@ -1556,8 +1715,8 @@ blurProjectRegion (CompWindow	       *w,
 
     nVertices = (w->indexCount) ? w->indexCount: w->vCount;
 
-    stride = (1 + w->texUnits) * 2;
-    vert = w->vertices + (stride - 2);
+    stride = w->vertexStride;
+    vert = w->vertices + (stride - 3);
 
     /* we need to find the best value here */
     if (nVertices <= MAX_VERTEX_PROJECT_COUNT)
@@ -1573,8 +1732,9 @@ blurProjectRegion (CompWindow	       *w,
 		v = vert + (stride * i);
 	    }
 
-	    vertices[i * 2] = v[0];
-	    vertices[(i * 2) + 1] = v[1];
+	    vertices[i * 3] = v[0];
+	    vertices[(i * 3) + 1] = v[1];
+	    vertices[(i * 3) + 2] = v[2];
 	}
     }
     else
@@ -1583,6 +1743,8 @@ blurProjectRegion (CompWindow	       *w,
 	maxX = 0;
 	minY = s->height;
 	maxY = 0;
+	minZ = 1000000;
+	maxZ = -1000000;
 
 	for (i = 0; i < w->vCount; i++)
 	{
@@ -1599,14 +1761,35 @@ blurProjectRegion (CompWindow	       *w,
 
 	    if (v[1] > maxY)
 		maxY = v[1];
+
+	    if (v[2] < minZ)
+		minZ = v[2];
+
+	    if (v[2] > maxZ)
+		maxZ = v[2];
 	}
 
-	vertices[0] = vertices[6] = minX;
-	vertices[1] = vertices[3] = minY;
-	vertices[2] = vertices[4] = maxX;
-	vertices[5] = vertices[7] = maxY;
+	vertices[0] = vertices[9]  = minX;
+	vertices[1] = vertices[4]  = minY;
+	vertices[3] = vertices[6]  = maxX;
+	vertices[7] = vertices[10] = maxY;
+	vertices[2] = vertices[5]  = maxZ;
+	vertices[8] = vertices[11] = maxZ;
 
-	nVertices = 4;
+	if (maxZ == minZ)
+	{
+	    nVertices = 4;
+	}
+	else
+	{
+	    vertices[12] = vertices[21] = minX;
+	    vertices[13] = vertices[16] = minY;
+	    vertices[15] = vertices[18] = maxX;
+	    vertices[19] = vertices[22] = maxY;
+	    vertices[14] = vertices[17] = minZ;
+	    vertices[20] = vertices[23] = minZ;
+	    nVertices = 8;
+	}
     }
 
     if (!projectVertices (w->screen, output, transform, vertices, screen,
@@ -1900,6 +2083,12 @@ blurDrawWindow (CompWindow	     *w,
 	    Bool   clipped = FALSE;
 	    BoxRec box = { 0, 0, 0, 0 };
 	    Region reg;
+	    int    i;
+
+	    for (i = 0; i < 16; i++)
+		bs->mvp.m[i] = s->projection[i];
+
+	    matrixMultiply (&bs->mvp, &bs->mvp, transform);
 
 	    if (mask & PAINT_WINDOW_TRANSFORMED_MASK)
 		reg = &infiniteRegion;
@@ -2037,6 +2226,7 @@ blurDrawWindowTexture (CompWindow	    *w,
 	int	       param, function;
 	int	       unit = 0;
 	GLfloat	       dx, dy;
+	int            iTC = 0;
 
 	if (bw->blur)
 	{
@@ -2071,7 +2261,8 @@ blurDrawWindowTexture (CompWindow	    *w,
 		param = allocFragmentParameters (&dstFa, 3);
 		unit  = allocFragmentTextureUnits (&dstFa, 1);
 
-		function = getDstBlurFragmentFunction (s, texture, param, unit);
+		function = 
+		    getDstBlurFragmentFunction (s, texture, param, unit, 0, 0);
 		if (function)
 		{
 		    addFragmentFunction (&dstFa, function);
@@ -2094,13 +2285,22 @@ blurDrawWindowTexture (CompWindow	    *w,
 		}
 		break;
 	    case BLUR_FILTER_GAUSSIAN:
-		param = allocFragmentParameters (&dstFa, 5);
+		if (bs->opt[BLUR_SCREEN_OPTION_INDEPENDENT_TEX].value.b)
+		{
+		    iTC = MAX (0, s->maxTextureUnits - w->texUnits);
+		    if (iTC)
+			iTC = MIN (((iTC - 1) / 2), bs->numTexop);
+		}
+
+		param = allocFragmentParameters (&dstFa, 2);
 		unit  = allocFragmentTextureUnits (&dstFa, 2);
 
-		function = getDstBlurFragmentFunction (s, texture, param, unit);
+		function = 
+		    getDstBlurFragmentFunction (s, texture, param, unit, 
+						iTC, w->texUnits);
 		if (function)
 		{
-		    int i;
+		    int           i;
 
 		    addFragmentFunction (&dstFa, function);
 
@@ -2120,19 +2320,135 @@ blurDrawWindowTexture (CompWindow	    *w,
 						 threshold, threshold,
 						 threshold, threshold);
 
+		    if (iTC)
+		    {
+			CompTransform tm, rm;
+		        float s_gen[4], t_gen[4], q_gen[4];
 
-		    for (i = 0; i < bs->numTexop; i++)
-			(*s->programEnvParameter4f) (GL_FRAGMENT_PROGRAM_ARB,
-						     param + 2 + i,
-						     0.0f, bs->ty * bs->pos[i],
-						     0.0f, 0.0f);
+			for (i = 0; i < 16; i++)
+			    tm.m[i] = 0;
+			tm.m[0] = (bs->output->width / 2.0) * bs->tx;
+			tm.m[5] = (bs->output->height / 2.0) * bs->ty;
+			tm.m[10] = 1;
+
+			tm.m[12] = (bs->output->width / 2.0 +
+			bs->output->region.extents.x1) * bs->tx;
+			tm.m[13] = (bs->output->height / 2.0 + s->height -
+				bs->output->region.extents.y2) * bs->ty;
+			tm.m[14] = 1;
+			tm.m[15] = 1;
+
+			matrixMultiply (&tm, &tm, &bs->mvp);
+
+			s_gen[0] = tm.m[0];
+			s_gen[1] = tm.m[4];
+			s_gen[2] = tm.m[8];
+			s_gen[3] = tm.m[12];
+			t_gen[0] = tm.m[1];
+			t_gen[1] = tm.m[5];
+			t_gen[2] = tm.m[9];
+			t_gen[3] = tm.m[13];
+			q_gen[0] = tm.m[3];
+			q_gen[1] = tm.m[7];
+			q_gen[2] = tm.m[11];
+			q_gen[3] = tm.m[15];
+
+			(*s->activeTexture) (GL_TEXTURE0_ARB + w->texUnits);
+
+			glTexGenfv(GL_T, GL_OBJECT_PLANE, t_gen);
+			glTexGenfv(GL_S, GL_OBJECT_PLANE, s_gen);
+			glTexGenfv(GL_Q, GL_OBJECT_PLANE, q_gen);
+
+			glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
+			glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
+			glTexGeni(GL_Q, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
+
+			glEnable(GL_TEXTURE_GEN_S);
+			glEnable(GL_TEXTURE_GEN_T);
+			glEnable(GL_TEXTURE_GEN_Q);
+
+			for (i = 0; i < iTC; i++)
+			{
+			    (*s->activeTexture) (GL_TEXTURE0_ARB + w->texUnits
+						 + 1 + (i * 2));
+
+			    matrixGetIdentity (&rm);
+			    rm.m[13] = bs->ty * bs->pos[i];
+			    matrixMultiply (&rm, &rm, &tm);
+			    s_gen[0] = rm.m[0];
+			    s_gen[1] = rm.m[4];
+			    s_gen[2] = rm.m[8];
+			    s_gen[3] = rm.m[12];
+			    t_gen[0] = rm.m[1];
+			    t_gen[1] = rm.m[5];
+			    t_gen[2] = rm.m[9];
+			    t_gen[3] = rm.m[13];
+			    q_gen[0] = rm.m[3];
+			    q_gen[1] = rm.m[7];
+			    q_gen[2] = rm.m[11];
+			    q_gen[3] = rm.m[15];
+
+			    glTexGenfv(GL_T, GL_OBJECT_PLANE, t_gen);
+			    glTexGenfv(GL_S, GL_OBJECT_PLANE, s_gen);
+			    glTexGenfv(GL_Q, GL_OBJECT_PLANE, q_gen);
+
+			    glTexGeni(GL_S, GL_TEXTURE_GEN_MODE,
+				      GL_OBJECT_LINEAR);
+			    glTexGeni(GL_T, GL_TEXTURE_GEN_MODE,
+				      GL_OBJECT_LINEAR);
+			    glTexGeni(GL_Q, GL_TEXTURE_GEN_MODE,
+				      GL_OBJECT_LINEAR);
+
+			    glEnable(GL_TEXTURE_GEN_S);
+			    glEnable(GL_TEXTURE_GEN_T);
+			    glEnable(GL_TEXTURE_GEN_Q);
+
+			    (*s->activeTexture) (GL_TEXTURE0_ARB + w->texUnits
+						 + 2 + (i * 2));
+
+			    matrixGetIdentity (&rm);
+			    rm.m[13] = -bs->ty * bs->pos[i];
+			    matrixMultiply (&rm, &rm, &tm);
+			    s_gen[0] = rm.m[0];
+			    s_gen[1] = rm.m[4];
+			    s_gen[2] = rm.m[8];
+			    s_gen[3] = rm.m[12];
+			    t_gen[0] = rm.m[1];
+			    t_gen[1] = rm.m[5];
+			    t_gen[2] = rm.m[9];
+			    t_gen[3] = rm.m[13];
+			    q_gen[0] = rm.m[3];
+			    q_gen[1] = rm.m[7];
+			    q_gen[2] = rm.m[11];
+			    q_gen[3] = rm.m[15];
+
+			    glTexGenfv(GL_T, GL_OBJECT_PLANE, t_gen);
+			    glTexGenfv(GL_S, GL_OBJECT_PLANE, s_gen);
+			    glTexGenfv(GL_Q, GL_OBJECT_PLANE, q_gen);
+
+			    glTexGeni(GL_S, GL_TEXTURE_GEN_MODE,
+				      GL_OBJECT_LINEAR);
+			    glTexGeni(GL_T, GL_TEXTURE_GEN_MODE,
+				      GL_OBJECT_LINEAR);
+			    glTexGeni(GL_Q, GL_TEXTURE_GEN_MODE,
+				      GL_OBJECT_LINEAR);
+
+			    glEnable(GL_TEXTURE_GEN_S);
+			    glEnable(GL_TEXTURE_GEN_T);
+			    glEnable(GL_TEXTURE_GEN_Q);
+			}
+			
+			(*s->activeTexture) (GL_TEXTURE0_ARB);
+		    }
+
 		}
 		break;
 	    case BLUR_FILTER_MIPMAP:
 		param = allocFragmentParameters (&dstFa, 2);
 		unit  = allocFragmentTextureUnits (&dstFa, 1);
 
-		function = getDstBlurFragmentFunction (s, texture, param, unit);
+		function = 
+		    getDstBlurFragmentFunction (s, texture, param, unit, 0, 0);
 		if (function)
 		{
 		    float lod = bs->opt[BLUR_SCREEN_OPTION_MIPMAP_LOD].value.f;
@@ -2197,6 +2513,19 @@ blurDrawWindowTexture (CompWindow	    *w,
 	    glBindTexture (bs->target, 0);
 	    (*s->activeTexture) (GL_TEXTURE0_ARB + unit + 1);
 	    glBindTexture (bs->target, 0);
+	    (*s->activeTexture) (GL_TEXTURE0_ARB);
+	}
+	
+	if (iTC)
+	{
+	    int i;
+	    for (i = w->texUnits; i < w->texUnits + 1 + (2 * iTC); i++)
+	    {
+		(*s->activeTexture) (GL_TEXTURE0_ARB + i);
+		glDisable(GL_TEXTURE_GEN_S);
+		glDisable(GL_TEXTURE_GEN_T);
+		glDisable(GL_TEXTURE_GEN_Q);
+	    }
 	    (*s->activeTexture) (GL_TEXTURE0_ARB);
 	}
     }
@@ -2319,9 +2648,9 @@ blurGetDisplayOptions (CompPlugin  *plugin,
 }
 
 static Bool
-blurSetDisplayOption (CompPlugin  *plugin,
+blurSetDisplayOption (CompPlugin      *plugin,
 		      CompDisplay     *display,
-		      char	      *name,
+		      const char      *name,
 		      CompOptionValue *value)
 {
     CompOption *o;
@@ -2399,9 +2728,10 @@ blurMatchPropertyChanged (CompDisplay *d,
 }
 
 static void
-blurWindowAdd (CompWindow *w)
+blurWindowAdd (CompScreen *s,
+	       CompWindow *w)
 {
-    BLUR_SCREEN (w->screen);
+    BLUR_SCREEN (s);
 
     blurWindowUpdate (w, BLUR_STATE_CLIENT);
     blurWindowUpdate (w, BLUR_STATE_DECOR);
@@ -2410,19 +2740,67 @@ blurWindowAdd (CompWindow *w)
 }
 
 static void
-blurWindowAddNotify (CompWindow *w)
+blurObjectAdd (CompObject *parent,
+	       CompObject *object)
 {
-    BLUR_SCREEN (w->screen);
+    static ObjectAddProc dispTab[] = {
+	(ObjectAddProc) 0, /* CoreAdd */
+	(ObjectAddProc) 0, /* DisplayAdd */
+	(ObjectAddProc) 0, /* ScreenAdd */
+	(ObjectAddProc) blurWindowAdd
+    };
 
-    blurWindowAdd (w);
+    BLUR_CORE (&core);
 
-    UNWRAP (bs, w->screen, windowAddNotify);
-    (*w->screen->windowAddNotify) (w);
-    WRAP (bs, w->screen, windowAddNotify, blurWindowAddNotify);
+    UNWRAP (bc, &core, objectAdd);
+    (*core.objectAdd) (parent, object);
+    WRAP (bc, &core, objectAdd, blurObjectAdd);
+
+    DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), (parent, object));
+}
+
+static Bool
+blurInitCore (CompPlugin *p,
+	      CompCore   *c)
+{
+    BlurCore *bc;
+
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
+
+    bc = malloc (sizeof (BlurCore));
+    if (!bc)
+	return FALSE;
+
+    displayPrivateIndex = allocateDisplayPrivateIndex ();
+    if (displayPrivateIndex < 0)
+    {
+	free (bc);
+	return FALSE;
+    }
+
+    WRAP (bc, c, objectAdd, blurObjectAdd);
+
+    c->base.privates[corePrivateIndex].ptr = bc;
+
+    return TRUE;
+}
+
+static void
+blurFiniCore (CompPlugin *p,
+	      CompCore   *c)
+{
+    BLUR_CORE (c);
+
+    freeDisplayPrivateIndex (displayPrivateIndex);
+
+    UNWRAP (bc, c, objectAdd);
+
+    free (bc);
 }
 
 static const CompMetadataOptionInfo blurDisplayOptionInfo[] = {
-    { "pulse", "action", 0, blurPulse, 0 }
+    { "pulse", "bell", 0, blurPulse, 0 }
 };
 
 static Bool
@@ -2456,13 +2834,13 @@ blurInitDisplay (CompPlugin  *p,
     bd->blurAtom[BLUR_STATE_CLIENT] =
 	XInternAtom (d->display, "_COMPIZ_WM_WINDOW_BLUR", 0);
     bd->blurAtom[BLUR_STATE_DECOR] =
-	XInternAtom (d->display, "_COMPIZ_WM_WINDOW_BLUR_DECOR", 0);
+	XInternAtom (d->display, DECOR_BLUR_ATOM_NAME, 0);
 
     WRAP (bd, d, handleEvent, blurHandleEvent);
     WRAP (bd, d, matchExpHandlerChanged, blurMatchExpHandlerChanged);
     WRAP (bd, d, matchPropertyChanged, blurMatchPropertyChanged);
 
-    d->privates[displayPrivateIndex].ptr = bd;
+    d->base.privates[displayPrivateIndex].ptr = bd;
 
     return TRUE;
 }
@@ -2495,7 +2873,8 @@ static const CompMetadataOptionInfo blurScreenOptionInfo[] = {
     { "gaussian_strength", "float", "<min>0.0</min><max>1.0</max>", 0, 0 },
     { "mipmap_lod", "float", "<min>0.1</min><max>5.0</max>", 0, 0 },
     { "saturation", "int", "<min>0</min><max>100</max>", 0, 0 },
-    { "occlusion", "bool", 0, 0, 0 }
+    { "occlusion", "bool", 0, 0, 0 },
+    { "independent_tex", "bool", 0, 0, 0 }
 };
 
 static Bool
@@ -2623,11 +3002,10 @@ blurInitScreen (CompPlugin *p,
     WRAP (bs, s, paintWindow, blurPaintWindow);
     WRAP (bs, s, drawWindow, blurDrawWindow);
     WRAP (bs, s, drawWindowTexture, blurDrawWindowTexture);
-    WRAP (bs, s, windowAddNotify, blurWindowAddNotify);
     WRAP (bs, s, windowResizeNotify, blurWindowResizeNotify);
     WRAP (bs, s, windowMoveNotify, blurWindowMoveNotify);
 
-    s->privates[bd->screenPrivateIndex].ptr = bs;
+    s->base.privates[bd->screenPrivateIndex].ptr = bs;
 
     blurUpdateFilterRadius (s);
 
@@ -2669,7 +3047,6 @@ blurFiniScreen (CompPlugin *p,
     UNWRAP (bs, s, paintWindow);
     UNWRAP (bs, s, drawWindow);
     UNWRAP (bs, s, drawWindowTexture);
-    UNWRAP (bs, s, windowAddNotify);
     UNWRAP (bs, s, windowResizeNotify);
     UNWRAP (bs, s, windowMoveNotify);
 
@@ -2715,10 +3092,10 @@ blurInitWindow (CompPlugin *p,
 	return FALSE;
     }
 
-    w->privates[bs->windowPrivateIndex].ptr = bw;
+    w->base.privates[bs->windowPrivateIndex].ptr = bw;
 
-    if (w->added)
-	blurWindowAdd (w);
+    if (w->base.parent)
+	blurWindowAdd (w->screen, w);
 
     return TRUE;
 }
@@ -2743,6 +3120,65 @@ blurFiniWindow (CompPlugin *p,
     free (bw);
 }
 
+static CompBool
+blurInitObject (CompPlugin *p,
+		CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) blurInitCore,
+	(InitPluginObjectProc) blurInitDisplay,
+	(InitPluginObjectProc) blurInitScreen,
+	(InitPluginObjectProc) blurInitWindow
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+blurFiniObject (CompPlugin *p,
+		CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) blurFiniCore,
+	(FiniPluginObjectProc) blurFiniDisplay,
+	(FiniPluginObjectProc) blurFiniScreen,
+	(FiniPluginObjectProc) blurFiniWindow
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+blurGetObjectOptions (CompPlugin *plugin,
+		      CompObject *object,
+		      int	 *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) blurGetDisplayOptions,
+	(GetPluginObjectOptionsProc) blurGetScreenOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+blurSetObjectOption (CompPlugin      *plugin,
+		     CompObject      *object,
+		     const char      *name,
+		     CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) blurSetDisplayOption,
+	(SetPluginObjectOptionProc) blurSetScreenOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
+}
+
 static Bool
 blurInit (CompPlugin *p)
 {
@@ -2754,8 +3190,8 @@ blurInit (CompPlugin *p)
 					 BLUR_SCREEN_OPTION_NUM))
 	return FALSE;
 
-    displayPrivateIndex = allocateDisplayPrivateIndex ();
-    if (displayPrivateIndex < 0)
+    corePrivateIndex = allocateCorePrivateIndex ();
+    if (corePrivateIndex < 0)
     {
 	compFiniMetadata (&blurMetadata);
 	return FALSE;
@@ -2769,15 +3205,8 @@ blurInit (CompPlugin *p)
 static void
 blurFini (CompPlugin *p)
 {
-    freeDisplayPrivateIndex (displayPrivateIndex);
+    freeCorePrivateIndex (corePrivateIndex);
     compFiniMetadata (&blurMetadata);
-}
-
-static int
-blurGetVersion (CompPlugin *plugin,
-		int	   version)
-{
-    return ABIVERSION;
 }
 
 static CompMetadata *
@@ -2788,24 +3217,17 @@ blurGetMetadata (CompPlugin *plugin)
 
 static CompPluginVTable blurVTable = {
     "blur",
-    blurGetVersion,
     blurGetMetadata,
     blurInit,
     blurFini,
-    blurInitDisplay,
-    blurFiniDisplay,
-    blurInitScreen,
-    blurFiniScreen,
-    blurInitWindow,
-    blurFiniWindow,
-    blurGetDisplayOptions,
-    blurSetDisplayOption,
-    blurGetScreenOptions,
-    blurSetScreenOption
+    blurInitObject,
+    blurFiniObject,
+    blurGetObjectOptions,
+    blurSetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &blurVTable;
 }

@@ -29,7 +29,7 @@
 #include <png.h>
 #include <setjmp.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 static CompMetadata pngMetadata;
 
@@ -42,8 +42,8 @@ typedef struct _PngDisplay {
     ImageToFileProc imageToFile;
 } PngDisplay;
 
-#define GET_PNG_DISPLAY(d)				    \
-    ((PngDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_PNG_DISPLAY(d)					 \
+    ((PngDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define PNG_DISPLAY(d)			 \
     PngDisplay *pd = GET_PNG_DISPLAY (d)
@@ -466,6 +466,9 @@ pngInitDisplay (CompPlugin  *p,
     PngDisplay *pd;
     CompScreen *s;
 
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
+
     pd = malloc (sizeof (PngDisplay));
     if (!pd)
 	return FALSE;
@@ -473,7 +476,7 @@ pngInitDisplay (CompPlugin  *p,
     WRAP (pd, d, fileToImage, pngFileToImage);
     WRAP (pd, d, imageToFile, pngImageToFile);
 
-    d->privates[displayPrivateIndex].ptr = pd;
+    d->base.privates[displayPrivateIndex].ptr = pd;
 
     for (s = d->screens; s; s = s->next)
 	updateDefaultIcon (s);
@@ -496,6 +499,30 @@ pngFiniDisplay (CompPlugin  *p,
 	updateDefaultIcon (s);
 
     free (pd);
+}
+
+static CompBool
+pngInitObject (CompPlugin *p,
+	       CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) pngInitDisplay
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+pngFiniObject (CompPlugin *p,
+	       CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) pngFiniDisplay
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
 }
 
 static Bool
@@ -524,13 +551,6 @@ pngFini (CompPlugin *p)
     compFiniMetadata (&pngMetadata);
 }
 
-static int
-pngGetVersion (CompPlugin *plugin,
-	       int	  version)
-{
-    return ABIVERSION;
-}
-
 static CompMetadata *
 pngGetMetadata (CompPlugin *plugin)
 {
@@ -539,24 +559,17 @@ pngGetMetadata (CompPlugin *plugin)
 
 CompPluginVTable pngVTable = {
     "png",
-    pngGetVersion,
     pngGetMetadata,
     pngInit,
     pngFini,
-    pngInitDisplay,
-    pngFiniDisplay,
-    0, /* InitScreen */
-    0, /* FiniScreen */
-    0, /* InitWindow */
-    0, /* FiniWindow */
-    0, /* GetDisplayOptions */
-    0, /* SetDisplayOption */
-    0, /* GetScreenOptions */
-    0  /* SetScreenOption */
+    pngInitObject,
+    pngFiniObject,
+    0, /* GetObjectOptions */
+    0  /* SetObjectOption */
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &pngVTable;
 }

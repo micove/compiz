@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 #include <glib.h>
 
@@ -61,18 +61,18 @@ typedef struct _PlaceDisplay {
 typedef struct _PlaceScreen {
     CompOption opt[PLACE_SCREEN_OPTION_NUM];
 
-    PlaceWindowProc placeWindow;
-
+    PlaceWindowProc                 placeWindow;
+    ValidateWindowResizeRequestProc validateWindowResizeRequest;
 } PlaceScreen;
 
-#define GET_PLACE_DISPLAY(d)				      \
-    ((PlaceDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_PLACE_DISPLAY(d)					   \
+    ((PlaceDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define PLACE_DISPLAY(d)		     \
     PlaceDisplay *pd = GET_PLACE_DISPLAY (d)
 
-#define GET_PLACE_SCREEN(s, pd)					  \
-    ((PlaceScreen *) (s)->privates[(pd)->screenPrivateIndex].ptr)
+#define GET_PLACE_SCREEN(s, pd)					       \
+    ((PlaceScreen *) (s)->base.privates[(pd)->screenPrivateIndex].ptr)
 
 #define PLACE_SCREEN(s)							   \
     PlaceScreen *ps = GET_PLACE_SCREEN (s, GET_PLACE_DISPLAY (s->display))
@@ -153,7 +153,7 @@ placeGetScreenOptions (CompPlugin *plugin,
 static Bool
 placeSetScreenOption (CompPlugin      *plugin,
 		      CompScreen      *screen,
-		      char	      *name,
+		      const char      *name,
 		      CompOptionValue *value)
 {
     CompOption *o;
@@ -851,10 +851,10 @@ placeSmart (CompWindow *window,
     xOptimal = xTmp; yOptimal = yTmp;
 
     /* client gabarit */
-    int ch = get_window_height (window) + window->input.left +
-	     window->input.right - 1;
-    int cw = get_window_width (window) + window->input.top +
+    int ch = get_window_height (window) + window->input.top +
 	     window->input.bottom - 1;
+    int cw = get_window_width (window) + window->input.left +
+	     window->input.right - 1;
 
     /* loop over possible positions */
     do
@@ -1015,6 +1015,30 @@ placeSmart (CompWindow *window,
 }
 
 static void
+placeSendWindowMaximizationRequest (CompWindow *w)
+{
+    XEvent      xev;
+    CompDisplay *d = w->screen->display;
+
+    xev.xclient.type    = ClientMessage;
+    xev.xclient.display = d->display;
+    xev.xclient.format  = 32;
+
+    xev.xclient.message_type = d->winStateAtom;
+    xev.xclient.window	     = w->id;
+
+    xev.xclient.data.l[0] = 1;
+    xev.xclient.data.l[1] = d->winStateMaximizedHorzAtom;
+    xev.xclient.data.l[2] = d->winStateMaximizedVertAtom;
+    xev.xclient.data.l[3] = 0;
+    xev.xclient.data.l[4] = 0;
+
+    XSendEvent (d->display, w->screen->root, FALSE,
+		SubstructureRedirectMask | SubstructureNotifyMask, &xev);
+}
+
+
+static void
 placeWin (CompWindow *window,
      	  int        x,
 	  int        y,
@@ -1133,9 +1157,9 @@ placeWin (CompWindow *window,
 	}
     }
 
-    if ((window->type == CompWindowTypeDialogMask ||
-	 window->type == CompWindowTypeModalDialogMask) &&
-	window->transientFor != None)
+    if (window->transientFor &&
+	(window->type & (CompWindowTypeDialogMask |
+			 CompWindowTypeModalDialogMask)))
     {
 	/* Center horizontally, at top of parent vertically */
 
@@ -1172,18 +1196,27 @@ placeWin (CompWindow *window,
 		parent->serverY < parent->screen->height  &&
 		parent->serverY + parent->serverHeight > 0)
 	    {
-		XRectangle area;
-		int        output;
+		XRectangle        area;
+		int               output;
+		CompWindowExtents extents;
 
 		output = outputDeviceForWindow (parent);
 		getWorkareaForOutput (window->screen, output, &area);
 
-		if (x + window_width > area.x + area.width)
-		    x = area.x + area.width - window_width;
-		if (y + window_height > area.y + area.height)
-		    y = area.y + area.height - window_height;
-		if (x < area.x) x = area.x;
-		if (y < area.y) y = area.y;
+		extents.left   = x - window->input.left;
+		extents.top    = y - window->input.top;
+		extents.right  = x + window_width + window->input.right;
+		extents.bottom = y + window_height + window->input.bottom;
+
+		if (extents.left < area.x)
+		    x += area.x - extents.left;
+		else if (extents.right > area.x + area.width)
+		    x += area.x + area.width - extents.right;
+
+		if (extents.top < area.y)
+		    y += area.y - extents.top;
+		else if (extents.bottom > area.y + area.height)
+		    y += area.y + area.height - extents.bottom;
 	    }
 
 	    avoid_being_obscured_as_second_modal_dialog (window, &x, &y);
@@ -1243,7 +1276,20 @@ placeWin (CompWindow *window,
     x = x0;
     y = y0;
 
-    if (!placeMatchPosition (window, &x, &y))
+    if (placeMatchPosition (window, &x, &y))
+    {
+	int output;
+
+	output = outputDeviceForGeometry (window->screen, x, y,
+					  window_width, window_height,
+					  window->serverBorderWidth);
+
+	getWorkareaForOutput (window->screen, output, &work_area);
+
+	work_area.x += x0;
+	work_area.y += y0;
+    }
+    else
     {
 	switch (ps->opt[PLACE_SCREEN_OPTION_MODE].value.i) {
 	case PLACE_MODE_CASCADE:
@@ -1270,22 +1316,6 @@ placeWin (CompWindow *window,
 	default:
 	    break;
 	}
-    }
-
-    /* Maximize windows if they are too big for their work area (bit of
-     * a hack here). Assume undecorated windows probably don't intend to
-     * be maximized.
-     */
-    if ((window->actions & MAXIMIZE_STATE) == MAXIMIZE_STATE &&
-	(window->mwmDecor & (MwmDecorAll | MwmDecorTitle))   &&
-	!(window->state & CompWindowStateFullscreenMask))
-    {
-	XRectangle outer;
-
-	get_outer_rect_of_window (window, &outer);
-
-	if (outer.width >= work_area.width && outer.height >= work_area.height)
-	    maximizeWindow (window, MAXIMIZE_STATE);
     }
 
 done_check_denied_focus:
@@ -1342,6 +1372,22 @@ done_check_denied_focus:
     g_list_free (windows);
 
 done:
+    /* Maximize windows if they are too big for their work area (bit of
+     * a hack here). Assume undecorated windows probably don't intend to
+     * be maximized.
+     */
+    if ((window->actions & MAXIMIZE_STATE) == MAXIMIZE_STATE &&
+	(window->mwmDecor & (MwmDecorAll | MwmDecorTitle))   &&
+	!(window->state & CompWindowStateFullscreenMask))
+    {
+	XRectangle outer;
+
+	get_outer_rect_of_window (window, &outer);
+
+	if (outer.width >= work_area.width && outer.height >= work_area.height)
+	    maximizeWindow (window, MAXIMIZE_STATE);
+    }
+
     if (x + window_width + window->input.right > work_area.x + work_area.width)
 	x = work_area.x + work_area.width - window_width - window->input.right;
 
@@ -1359,6 +1405,140 @@ done:
 done_no_constraints:
     *new_x = x;
     *new_y = y;
+}
+
+static void
+placeValidateWindowResizeRequest (CompWindow     *w,
+				  unsigned int   *mask,
+				  XWindowChanges *xwc)
+{
+    Bool       checkPlacement = FALSE;
+    CompScreen *s = w->screen;
+
+    PLACE_SCREEN (s);
+
+    UNWRAP (ps, s, validateWindowResizeRequest);
+    (*s->validateWindowResizeRequest) (w, mask, xwc);
+    WRAP (ps, s, validateWindowResizeRequest,
+	  placeValidateWindowResizeRequest);
+
+    if (w->type & (CompWindowTypeSplashMask      |
+		   CompWindowTypeDialogMask      |
+		   CompWindowTypeModalDialogMask |
+		   CompWindowTypeNormalMask))
+    {
+	if (!(w->state & CompWindowStateFullscreenMask))
+	{
+	    if (!(w->sizeHints.flags & USPosition))
+		checkPlacement = TRUE;
+	}
+    }
+
+    if (checkPlacement)
+    {
+	XRectangle workArea;
+	int        x, y, left, right, top, bottom;
+	int        output;
+
+	/* left, right, top, bottom target coordinates, clamped to viewport
+	   sizes as we don't need to validate movements to other viewports;
+	   we are only interested in inner-viewport movements */
+	x = xwc->x % s->width;
+	if (x < 0)
+	    x += s->width;
+
+	y = xwc->y % s->height;
+	if (y < 0)
+	    y += s->height;
+
+	left   = x - w->input.left;
+	right  = x + xwc->width + w->input.right;
+	top    = y - w->input.top;
+	bottom = y + xwc->height + w->input.bottom;
+
+	output = outputDeviceForGeometry (s,
+					  xwc->x, xwc->y,
+					  xwc->width, xwc->height,
+					  w->serverBorderWidth);
+
+	getWorkareaForOutput (s, output, &workArea);
+
+	if (xwc->width >= workArea.width &&
+	    xwc->height >= workArea.height)
+	{
+	    placeSendWindowMaximizationRequest (w);
+	}
+
+	if ((right - left) > workArea.width)
+	{
+	    left  = workArea.x;
+	    right = left + workArea.width;
+	}
+	else
+	{
+	    if (left < workArea.x)
+	    {
+		right += workArea.x - left;
+		left  = workArea.x;
+	    }
+
+	    if (right > (workArea.x + workArea.width))
+	    {
+		left -= right - (workArea.x + workArea.width);
+		right = workArea.x + workArea.width;
+	    }
+	}
+
+	if ((bottom - top) > workArea.height)
+	{
+	    top    = workArea.y;
+	    bottom = top + workArea.height;
+	}
+	else
+	{
+	    if (top < workArea.y)
+	    {
+		bottom += workArea.y - top;
+		top    = workArea.y;
+	    }
+
+	    if (bottom > (workArea.y + workArea.height))
+	    {
+		top   -= bottom - (workArea.y + workArea.height);
+		bottom = workArea.y + workArea.height;
+	    }
+	}
+
+	/* bring left/right/top/bottom to actual window coordinates */
+	left   += w->input.left;
+	right  -= w->input.right;
+	top    += w->input.top;
+	bottom -= w->input.bottom;
+
+	if (left != x)
+	{
+	    xwc->x += left - x;
+	    *mask  |= CWX;
+	}
+
+	if (top != y)
+	{
+	    xwc->y += top - y;
+	    *mask  |= CWY;
+	}
+
+	if ((right - left) != xwc->width)
+	{
+	    xwc->width = right - left;
+	    *mask      |= CWWidth;
+	}
+
+	if ((bottom - top) != xwc->height)
+	{
+	    xwc->height = bottom - top;
+	    *mask       |= CWHeight;
+	}
+    }
 }
 
 static Bool
@@ -1401,6 +1581,9 @@ placeInitDisplay (CompPlugin  *p,
 {
     PlaceDisplay *pd;
 
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
+
     pd = malloc (sizeof (PlaceDisplay));
     if (!pd)
 	return FALSE;
@@ -1412,7 +1595,7 @@ placeInitDisplay (CompPlugin  *p,
 	return FALSE;
     }
 
-    d->privates[displayPrivateIndex].ptr = pd;
+    d->base.privates[displayPrivateIndex].ptr = pd;
 
     return TRUE;
 }
@@ -1461,9 +1644,11 @@ placeInitScreen (CompPlugin *p,
 	return FALSE;
     }
 
-    s->privates[pd->screenPrivateIndex].ptr = ps;
-
     WRAP (ps, s, placeWindow, placePlaceWindow);
+    WRAP (ps, s, validateWindowResizeRequest,
+	  placeValidateWindowResizeRequest);
+
+    s->base.privates[pd->screenPrivateIndex].ptr = ps;
 
     return TRUE;
 }
@@ -1475,10 +1660,68 @@ placeFiniScreen (CompPlugin *p,
     PLACE_SCREEN (s);
 
     UNWRAP (ps, s, placeWindow);
+    UNWRAP (ps, s, validateWindowResizeRequest);
 
     compFiniScreenOptions (s, ps->opt, PLACE_SCREEN_OPTION_NUM);
 
     free (ps);
+}
+
+static CompBool
+placeInitObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) placeInitDisplay,
+	(InitPluginObjectProc) placeInitScreen
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+placeFiniObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) placeFiniDisplay,
+	(FiniPluginObjectProc) placeFiniScreen
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+placeGetObjectOptions (CompPlugin *plugin,
+		       CompObject *object,
+		       int	  *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) 0, /* GetDisplayOptions */
+	(GetPluginObjectOptionsProc) placeGetScreenOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+placeSetObjectOption (CompPlugin      *plugin,
+		      CompObject      *object,
+		      const char      *name,
+		      CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) 0, /* SetDisplayOption */
+	(SetPluginObjectOptionProc) placeSetScreenOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
 }
 
 static Bool
@@ -1509,13 +1752,6 @@ placeFini (CompPlugin *p)
     compFiniMetadata (&placeMetadata);
 }
 
-static int
-placeGetVersion (CompPlugin *plugin,
-		 int	    version)
-{
-    return ABIVERSION;
-}
-
 static CompMetadata *
 placeGetMetadata (CompPlugin *plugin)
 {
@@ -1524,24 +1760,17 @@ placeGetMetadata (CompPlugin *plugin)
 
 static CompPluginVTable placeVTable = {
     "place",
-    placeGetVersion,
     placeGetMetadata,
     placeInit,
     placeFini,
-    placeInitDisplay,
-    placeFiniDisplay,
-    placeInitScreen,
-    placeFiniScreen,
-    0, /* InitWindow */
-    0, /* FiniWindow */
-    0, /* GetDisplayOptions */
-    0, /* SetDisplayOption */
-    placeGetScreenOptions,
-    placeSetScreenOption
+    placeInitObject,
+    placeFiniObject,
+    placeGetObjectOptions,
+    placeSetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &placeVTable;
 }

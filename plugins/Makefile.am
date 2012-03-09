@@ -96,6 +96,13 @@ libgconf_la_SOURCES = gconf.c
 libgconf_module = libgconf.la
 endif
 
+if USE_KCONFIG
+libkconfig_la_LDFLAGS = -module -avoid-version -no-undefined
+libkconfig_la_LIBADD = @KCONFIG_LIBS@
+libkconfig_la_SOURCES = kconfig.cpp
+libkconfig_module = libkconfig.la
+endif
+
 if PLACE_PLUGIN
 libplace_la_LDFLAGS = -module -avoid-version -no-undefined
 libplace_la_LIBADD = @PLACE_LIBS@
@@ -129,6 +136,7 @@ INCLUDES =					\
 	@LIBRSVG_CFLAGS@			\
 	@ANNOTATE_CFLAGS@			\
 	@GCONF_CFLAGS@				\
+	@KCONFIG_CFLAGS@			\
 	@PLACE_CFLAGS@				\
 	@DBUS_CFLAGS@				\
 	@FUSE_CFLAGS@				\
@@ -138,6 +146,7 @@ INCLUDES =					\
 	-DPLUGINDIR=\"$(plugindir)\"		\
 	-DIMAGEDIR=\"$(imagedir)\"		\
 	-I$(top_srcdir)/include                 \
+	-I$(top_builddir)/include               \
 	-DMETADATADIR=\"$(metadatadir)\"
 
 moduledir = $(plugindir)
@@ -145,6 +154,7 @@ moduledir = $(plugindir)
 module_LTLIBRARIES =		\
 	$(libglib_module)	\
 	$(libgconf_module)	\
+	$(libkconfig_module)	\
 	libdecoration.la	\
 	libwobbly.la		\
 	libfade.la		\

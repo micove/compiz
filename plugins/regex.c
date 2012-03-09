@@ -31,7 +31,7 @@
 
 #include <X11/Xatom.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 static CompMetadata regexMetadata;
 
@@ -54,20 +54,20 @@ typedef struct _RegexWindow {
     char *role;
 } RegexWindow;
 
-#define GET_REGEX_DISPLAY(d)				      \
-    ((RegexDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_REGEX_DISPLAY(d)					   \
+    ((RegexDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define REGEX_DISPLAY(d)		     \
     RegexDisplay *rd = GET_REGEX_DISPLAY (d)
 
-#define GET_REGEX_SCREEN(s, rd)					  \
-    ((RegexScreen *) (s)->privates[(rd)->screenPrivateIndex].ptr)
+#define GET_REGEX_SCREEN(s, rd)					       \
+    ((RegexScreen *) (s)->base.privates[(rd)->screenPrivateIndex].ptr)
 
 #define REGEX_SCREEN(s)							   \
     RegexScreen *rs = GET_REGEX_SCREEN (s, GET_REGEX_DISPLAY (s->display))
 
-#define GET_REGEX_WINDOW(w, rs)					  \
-    ((RegexWindow *) (w)->privates[(rs)->windowPrivateIndex].ptr)
+#define GET_REGEX_WINDOW(w, rs)					       \
+    ((RegexWindow *) (w)->base.privates[(rs)->windowPrivateIndex].ptr)
 
 #define REGEX_WINDOW(w)					       \
     RegexWindow *rw = GET_REGEX_WINDOW  (w,		       \
@@ -80,8 +80,11 @@ regexMatchExpFini (CompDisplay *d,
 {
     regex_t *preg = (regex_t *) private.ptr;
 
-    regfree (preg);
-    free (preg);
+    if (preg)
+    {
+	regfree (preg);
+	free (preg);
+    }
 }
 
 static Bool
@@ -93,6 +96,9 @@ regexMatchExpEvalTitle (CompDisplay *d,
     int	    status;
 
     REGEX_WINDOW (w);
+
+    if (!preg)
+	return FALSE;
 
     if (!rw->title)
 	return FALSE;
@@ -114,6 +120,9 @@ regexMatchExpEvalRole (CompDisplay *d,
 
     REGEX_WINDOW (w);
 
+    if (!preg)
+	return FALSE;
+
     if (!rw->role)
 	return FALSE;
 
@@ -132,6 +141,9 @@ regexMatchExpEvalClass (CompDisplay *d,
     regex_t *preg = (regex_t *) private.ptr;
     int	    status;
 
+    if (!preg)
+	return FALSE;
+
     if (!w->resClass)
 	return FALSE;
 
@@ -149,6 +161,9 @@ regexMatchExpEvalName (CompDisplay *d,
 {
     regex_t *preg = (regex_t *) private.ptr;
     int	    status;
+
+    if (!preg)
+	return FALSE;
 
     if (!w->resName)
 	return FALSE;
@@ -211,14 +226,13 @@ regexMatchInitExp (CompDisplay  *d,
 
 		regfree (preg);
 		free (preg);
-	    }
-	    else
-	    {
-		exp->fini     = regexMatchExpFini;
-		exp->eval     = prefix[i].eval;
-		exp->priv.ptr = preg;
+		preg = NULL;
 	    }
 	}
+
+	exp->fini     = regexMatchExpFini;
+	exp->eval     = prefix[i].eval;
+	exp->priv.ptr = preg;
     }
     else
     {
@@ -349,6 +363,9 @@ regexInitDisplay (CompPlugin  *p,
 {
     RegexDisplay *rd;
 
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
+
     rd = malloc (sizeof (RegexDisplay));
     if (!rd)
 	return FALSE;
@@ -366,7 +383,7 @@ regexInitDisplay (CompPlugin  *p,
     WRAP (rd, d, handleEvent, regexHandleEvent);
     WRAP (rd, d, matchInitExp, regexMatchInitExp);
 
-    d->privates[displayPrivateIndex].ptr = rd;
+    d->base.privates[displayPrivateIndex].ptr = rd;
 
     /* one shot timeout to which will register the expression handler
        after all screens and windows have been initialized */
@@ -386,7 +403,8 @@ regexFiniDisplay (CompPlugin  *p,
     UNWRAP (rd, d, handleEvent);
     UNWRAP (rd, d, matchInitExp);
 
-    (*d->matchExpHandlerChanged) (d);
+    if (d->base.parent)
+	(*d->matchExpHandlerChanged) (d);
 
     free (rd);
 }
@@ -410,7 +428,7 @@ regexInitScreen (CompPlugin *p,
 	return FALSE;
     }
 
-    s->privates[rd->screenPrivateIndex].ptr = rs;
+    s->base.privates[rd->screenPrivateIndex].ptr = rs;
 
     return TRUE;
 }
@@ -442,7 +460,7 @@ regexInitWindow (CompPlugin *p,
     rw->title = regexGetWindowTitle (w);
     rw->role  = regexGetStringProperty (w, rd->roleAtom, XA_STRING);
 
-    w->privates[rs->windowPrivateIndex].ptr = rw;
+    w->base.privates[rs->windowPrivateIndex].ptr = rw;
 
     return TRUE;
 }
@@ -460,6 +478,34 @@ regexFiniWindow (CompPlugin *p,
 	free (rw->role);
 
     free (rw);
+}
+
+static CompBool
+regexInitObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) regexInitDisplay,
+	(InitPluginObjectProc) regexInitScreen,
+	(InitPluginObjectProc) regexInitWindow
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+regexFiniObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) regexFiniDisplay,
+	(FiniPluginObjectProc) regexFiniScreen,
+	(FiniPluginObjectProc) regexFiniWindow
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
 }
 
 static Bool
@@ -488,13 +534,6 @@ regexFini (CompPlugin *p)
     compFiniMetadata (&regexMetadata);
 }
 
-static int
-regexGetVersion (CompPlugin *plugin,
-		 int	    version)
-{
-    return ABIVERSION;
-}
-
 static CompMetadata *
 regexGetMetadata (CompPlugin *plugin)
 {
@@ -503,24 +542,17 @@ regexGetMetadata (CompPlugin *plugin)
 
 static CompPluginVTable regexVTable = {
     "regex",
-    regexGetVersion,
     regexGetMetadata,
     regexInit,
     regexFini,
-    regexInitDisplay,
-    regexFiniDisplay,
-    regexInitScreen,
-    regexFiniScreen,
-    regexInitWindow,
-    regexFiniWindow,
-    0, /* GetDisplayOptions */
-    0, /* SetDisplayOption */
-    0, /* GetScreenOptions */
-    0  /* SetScreenOption */
+    regexInitObject,
+    regexFiniObject,
+    0, /* GetObjectOptions */
+    0  /* SetObjectOption */
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &regexVTable;
 }

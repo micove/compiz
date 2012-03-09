@@ -31,7 +31,7 @@
 #include <string.h>
 #include <math.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 #define WIN_X(w) ((w)->attrib.x - (w)->output.left)
 #define WIN_Y(w) ((w)->attrib.y - (w)->output.top)
@@ -112,7 +112,7 @@ static CompMetadata wobblyMetadata;
 
 static int displayPrivateIndex;
 
-#define WOBBLY_DISPLAY_OPTION_SNAP          0
+#define WOBBLY_DISPLAY_OPTION_SNAP_KEY      0
 #define WOBBLY_DISPLAY_OPTION_SNAP_INVERTED 1
 #define WOBBLY_DISPLAY_OPTION_SHIVER        2
 #define WOBBLY_DISPLAY_OPTION_NUM           3
@@ -175,20 +175,20 @@ typedef struct _WobblyWindow {
     unsigned int state;
 } WobblyWindow;
 
-#define GET_WOBBLY_DISPLAY(d)				       \
-    ((WobblyDisplay *) (d)->privates[displayPrivateIndex].ptr)
+#define GET_WOBBLY_DISPLAY(d)					    \
+    ((WobblyDisplay *) (d)->base.privates[displayPrivateIndex].ptr)
 
 #define WOBBLY_DISPLAY(d)		       \
     WobblyDisplay *wd = GET_WOBBLY_DISPLAY (d)
 
-#define GET_WOBBLY_SCREEN(s, wd)				   \
-    ((WobblyScreen *) (s)->privates[(wd)->screenPrivateIndex].ptr)
+#define GET_WOBBLY_SCREEN(s, wd)					\
+    ((WobblyScreen *) (s)->base.privates[(wd)->screenPrivateIndex].ptr)
 
 #define WOBBLY_SCREEN(s)						      \
     WobblyScreen *ws = GET_WOBBLY_SCREEN (s, GET_WOBBLY_DISPLAY (s->display))
 
-#define GET_WOBBLY_WINDOW(w, ws)				   \
-    ((WobblyWindow *) (w)->privates[(ws)->windowPrivateIndex].ptr)
+#define GET_WOBBLY_WINDOW(w, ws)					\
+    ((WobblyWindow *) (w)->base.privates[(ws)->windowPrivateIndex].ptr)
 
 #define WOBBLY_WINDOW(w)				         \
     WobblyWindow *ww = GET_WOBBLY_WINDOW  (w,		         \
@@ -211,7 +211,7 @@ wobblyGetScreenOptions (CompPlugin *plugin,
 static Bool
 wobblySetScreenOption (CompPlugin      *plugin,
 		       CompScreen      *screen,
-		       char	       *name,
+		       const char      *name,
 		       CompOptionValue *value)
 {
     CompOption *o;
@@ -1764,12 +1764,12 @@ wobblyDrawWindowGeometry (CompWindow *w)
 {
     int     texUnit = w->texUnits;
     int     currentTexUnit = 0;
-    int     stride = (1 + texUnit) * 2;
-    GLfloat *vertices = w->vertices + (stride - 2);
+    int     stride = w->vertexStride;
+    GLfloat *vertices = w->vertices + (stride - 3);
 
     stride *= sizeof (GLfloat);
 
-    glVertexPointer (2, GL_FLOAT, stride, vertices);
+    glVertexPointer (3, GL_FLOAT, stride, vertices);
 
     while (texUnit--)
     {
@@ -1779,8 +1779,8 @@ wobblyDrawWindowGeometry (CompWindow *w)
 	    glEnableClientState (GL_TEXTURE_COORD_ARRAY);
 	    currentTexUnit = texUnit;
 	}
-	vertices -= 2;
-	glTexCoordPointer (2, GL_FLOAT, stride, vertices);
+	vertices -= w->texCoordSize;
+	glTexCoordPointer (w->texCoordSize, GL_FLOAT, stride, vertices);
     }
 
     glDrawElements (GL_QUADS, w->indexCount, GL_UNSIGNED_SHORT, w->indices);
@@ -1850,7 +1850,7 @@ wobblyAddWindowGeometry (CompWindow *w,
 
 	w->texUnits = nMatrix;
 
-	vSize = 2 + nMatrix * 2;
+	vSize = 3 + nMatrix * 2;
 
 	nVertices = w->vCount;
 	nIndices  = w->indexCount;
@@ -1935,6 +1935,7 @@ wobblyAddWindowGeometry (CompWindow *w,
 
 		    *v++ = deformedX;
 		    *v++ = deformedY;
+		    *v++ = 0.0;
 
 		    nVertices++;
 
@@ -1950,6 +1951,8 @@ wobblyAddWindowGeometry (CompWindow *w,
 	}
 
 	w->vCount	      = nVertices;
+	w->vertexStride       = vSize;
+	w->texCoordSize       = 2;
 	w->indexCount	      = nIndices;
 	w->drawWindowGeometry = wobblyDrawWindowGeometry;
     }
@@ -2125,7 +2128,8 @@ wobblyHandleEvent (CompDisplay *d,
 		Bool		    inverted;
 		unsigned int	    mods = 0xffffffff;
 
-		action   = &wd->opt[WOBBLY_DISPLAY_OPTION_SNAP].value.action;
+		action   =
+		    &wd->opt[WOBBLY_DISPLAY_OPTION_SNAP_KEY].value.action;
 		inverted = wd->opt[WOBBLY_DISPLAY_OPTION_SNAP_INVERTED].value.b;
 
 		if (action->type & CompBindingTypeKey)
@@ -2632,9 +2636,9 @@ wobblyGetDisplayOptions (CompPlugin  *plugin,
 }
 
 static Bool
-wobblySetDisplayOption (CompPlugin  *plugin,
+wobblySetDisplayOption (CompPlugin      *plugin,
 			CompDisplay     *display,
-			char	        *name,
+			const char	*name,
 			CompOptionValue *value)
 {
     CompOption *o;
@@ -2647,7 +2651,7 @@ wobblySetDisplayOption (CompPlugin  *plugin,
 	return FALSE;
 
     switch (index) {
-    case WOBBLY_DISPLAY_OPTION_SNAP:
+    case WOBBLY_DISPLAY_OPTION_SNAP_KEY:
 	/* ignore the key */
 	value->action.key.keycode = 0;
 
@@ -2662,10 +2666,10 @@ wobblySetDisplayOption (CompPlugin  *plugin,
 }
 
 static const CompMetadataOptionInfo wobblyDisplayOptionInfo[] = {
-    { "snap", "action", "<passive_grab>false</passive_grab>",
+    { "snap_key", "key", "<passive_grab>false</passive_grab>",
       wobblyEnableSnapping, wobblyDisableSnapping },
     { "snap_inverted", "bool", 0, 0, 0 },
-    { "shiver", "action", 0, wobblyShiver, 0 }
+    { "shiver", "bell", 0, wobblyShiver, 0 }
 };
 
 static Bool
@@ -2673,6 +2677,9 @@ wobblyInitDisplay (CompPlugin  *p,
 		   CompDisplay *d)
 {
     WobblyDisplay *wd;
+
+    if (!checkPluginABI ("core", CORE_ABIVERSION))
+	return FALSE;
 
     wd = malloc (sizeof (WobblyDisplay));
     if (!wd)
@@ -2700,7 +2707,7 @@ wobblyInitDisplay (CompPlugin  *p,
 
     wd->snapping = FALSE;
 
-    d->privates[displayPrivateIndex].ptr = wd;
+    d->base.privates[displayPrivateIndex].ptr = wd;
 
     return TRUE;
 }
@@ -2767,7 +2774,7 @@ wobblyInitScreen (CompPlugin *p,
     WRAP (ws, s, windowGrabNotify, wobblyWindowGrabNotify);
     WRAP (ws, s, windowUngrabNotify, wobblyWindowUngrabNotify);
 
-    s->privates[wd->screenPrivateIndex].ptr = ws;
+    s->base.privates[wd->screenPrivateIndex].ptr = ws;
 
     return TRUE;
 }
@@ -2813,7 +2820,7 @@ wobblyInitWindow (CompPlugin *p,
     ww->grabbed = FALSE;
     ww->state   = w->state;
 
-    w->privates[ws->windowPrivateIndex].ptr = ww;
+    w->base.privates[ws->windowPrivateIndex].ptr = ww;
 
     if (w->mapNum && ws->opt[WOBBLY_SCREEN_OPTION_MAXIMIZE_EFFECT].value.b)
     {
@@ -2846,6 +2853,65 @@ wobblyFiniWindow (CompPlugin *p,
     free (ww);
 }
 
+static CompBool
+wobblyInitObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static InitPluginObjectProc dispTab[] = {
+	(InitPluginObjectProc) 0, /* InitCore */
+	(InitPluginObjectProc) wobblyInitDisplay,
+	(InitPluginObjectProc) wobblyInitScreen,
+	(InitPluginObjectProc) wobblyInitWindow
+    };
+
+    RETURN_DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), TRUE, (p, o));
+}
+
+static void
+wobblyFiniObject (CompPlugin *p,
+		 CompObject *o)
+{
+    static FiniPluginObjectProc dispTab[] = {
+	(FiniPluginObjectProc) 0, /* FiniCore */
+	(FiniPluginObjectProc) wobblyFiniDisplay,
+	(FiniPluginObjectProc) wobblyFiniScreen,
+	(FiniPluginObjectProc) wobblyFiniWindow
+    };
+
+    DISPATCH (o, dispTab, ARRAY_SIZE (dispTab), (p, o));
+}
+
+static CompOption *
+wobblyGetObjectOptions (CompPlugin *plugin,
+		       CompObject *object,
+		       int	  *count)
+{
+    static GetPluginObjectOptionsProc dispTab[] = {
+	(GetPluginObjectOptionsProc) 0, /* GetCoreOptions */
+	(GetPluginObjectOptionsProc) wobblyGetDisplayOptions,
+	(GetPluginObjectOptionsProc) wobblyGetScreenOptions
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab),
+		     (void *) (*count = 0), (plugin, object, count));
+}
+
+static CompBool
+wobblySetObjectOption (CompPlugin      *plugin,
+		      CompObject      *object,
+		      const char      *name,
+		      CompOptionValue *value)
+{
+    static SetPluginObjectOptionProc dispTab[] = {
+	(SetPluginObjectOptionProc) 0, /* SetCoreOption */
+	(SetPluginObjectOptionProc) wobblySetDisplayOption,
+	(SetPluginObjectOptionProc) wobblySetScreenOption
+    };
+
+    RETURN_DISPATCH (object, dispTab, ARRAY_SIZE (dispTab), FALSE,
+		     (plugin, object, name, value));
+}
+
 static Bool
 wobblyInit (CompPlugin *p)
 {
@@ -2876,13 +2942,6 @@ wobblyFini (CompPlugin *p)
     compFiniMetadata (&wobblyMetadata);
 }
 
-static int
-wobblyGetVersion (CompPlugin *plugin,
-		  int	     version)
-{
-    return ABIVERSION;
-}
-
 static CompMetadata *
 wobblyGetMetadata (CompPlugin *plugin)
 {
@@ -2891,24 +2950,17 @@ wobblyGetMetadata (CompPlugin *plugin)
 
 CompPluginVTable wobblyVTable = {
     "wobbly",
-    wobblyGetVersion,
     wobblyGetMetadata,
     wobblyInit,
     wobblyFini,
-    wobblyInitDisplay,
-    wobblyFiniDisplay,
-    wobblyInitScreen,
-    wobblyFiniScreen,
-    wobblyInitWindow,
-    wobblyFiniWindow,
-    wobblyGetDisplayOptions,
-    wobblySetDisplayOption,
-    wobblyGetScreenOptions,
-    wobblySetScreenOption
+    wobblyInitObject,
+    wobblyFiniObject,
+    wobblyGetObjectOptions,
+    wobblySetObjectOption
 };
 
 CompPluginVTable *
-getCompPluginInfo (void)
+getCompPluginInfo20070830 (void)
 {
     return &wobblyVTable;
 }

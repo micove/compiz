@@ -29,7 +29,7 @@
 #include <ctype.h>
 #include <math.h>
 
-#include <compiz.h>
+#include <compiz-core.h>
 
 struct _Modifier {
     char *name;
@@ -46,25 +46,34 @@ struct _Modifier {
     { "<Meta>",	      CompMetaMask       },
     { "<Super>",      CompSuperMask      },
     { "<Hyper>",      CompHyperMask	 },
-    { "<ModeSwitch>", CompModeSwitchMask },
+    { "<ModeSwitch>", CompModeSwitchMask }
 };
 
 #define N_MODIFIERS (sizeof (modifiers) / sizeof (struct _Modifier))
 
-static char *edgeName[] = {
-    "Left",
-    "Right",
-    "Top",
-    "Bottom",
-    "TopLeft",
-    "TopRight",
-    "BottomLeft",
-    "BottomRight"
+struct _Edge {
+    char *name;
+    char *modifierName;
+} edges[] = {
+    { "Left",	     "<LeftEdge>"	 },
+    { "Right",	     "<RightEdge>"	 },
+    { "Top",	     "<TopEdge>"	 },
+    { "Bottom",	     "<BottomEdge>"	 },
+    { "TopLeft",     "<TopLeftEdge>"	 },
+    { "TopRight",    "<TopRightEdge>"	 },
+    { "BottomLeft",  "<BottomLeftEdge>"	 },
+    { "BottomRight", "<BottomRightEdge>" }
 };
 
-static void
-finiOptionValue (CompOptionValue *v,
-		 CompOptionType  type)
+void
+compInitOptionValue (CompOptionValue *v)
+{
+    memset (v, 0, sizeof (CompOptionValue));
+}
+
+void
+compFiniOptionValue (CompOptionValue *v,
+		     CompOptionType  type)
 {
     int i;
 
@@ -77,8 +86,13 @@ finiOptionValue (CompOptionValue *v,
 	matchFini (&v->match);
 	break;
     case CompOptionTypeList:
-	for (i = 0; i < v->list.nValue; i++)
-	    finiOptionValue (&v->list.value[i], v->list.type);
+	if (v->list.nValue)
+	{
+	    for (i = 0; i < v->list.nValue; i++)
+		compFiniOptionValue (&v->list.value[i], v->list.type);
+
+	    free (v->list.value);
+	}
     default:
 	break;
     }
@@ -93,13 +107,13 @@ compInitOption (CompOption *o)
 void
 compFiniOption (CompOption *o)
 {
-    finiOptionValue (&o->value, o->type);
+    compFiniOptionValue (&o->value, o->type);
 }
 
 CompOption *
 compFindOption (CompOption *option,
 		int	    nOption,
-		char	    *name,
+		const char  *name,
 		int	    *index)
 {
     int i;
@@ -218,39 +232,58 @@ Bool
 compSetActionOption (CompOption      *option,
 		     CompOptionValue *value)
 {
-    CompAction *action = &option->value.action;
+    CompAction	    *action = &option->value.action;
+    CompOptionValue v = *value;
 
-    if (value->action.type     == action->type &&
-	value->action.bell     == action->bell &&
-	value->action.edgeMask == action->edgeMask)
+    /* initiate, terminate and state should never be changed */
+    v.action.initiate  = action->initiate;
+    v.action.terminate = action->terminate;
+    v.action.state     = action->state;
+
+    if (action->type == v.action.type)
     {
-	Bool equal = TRUE;
+	switch (option->type) {
+	case CompOptionTypeKey:
+	    if (!(action->type & CompBindingTypeKey))
+		return FALSE;
 
-	if (value->action.type & CompBindingTypeButton)
-	{
-	    if (action->button.button    != value->action.button.button ||
-		action->button.modifiers != value->action.button.modifiers)
-		equal = FALSE;
-	}
+	    if (action->key.keycode   == v.action.key.keycode &&
+		action->key.modifiers == v.action.key.modifiers)
+		return FALSE;
+	    break;
+	case CompOptionTypeButton:
+	    if (!(action->type & (CompBindingTypeButton |
+				  CompBindingTypeEdgeButton)))
+		return FALSE;
 
-	if (value->action.type & CompBindingTypeKey)
-	{
-	    if (action->key.keycode   != value->action.key.keycode ||
-		action->key.modifiers != value->action.key.modifiers)
-		equal = FALSE;
-	}
-
-	if (value->action.type & CompBindingTypeEdgeButton)
-	{
-	    if (action->edgeButton != value->action.edgeButton)
-		equal = FALSE;
-	}
-
-	if (equal)
+	    if (action->type & CompBindingTypeEdgeButton)
+	    {
+		if (action->button.button    == v.action.button.button    &&
+		    action->button.modifiers == v.action.button.modifiers &&
+		    action->edgeMask         == v.action.edgeMask)
+		    return FALSE;
+	    }
+	    else if (action->type & CompBindingTypeButton)
+	    {
+		if (action->button.button    == v.action.button.button &&
+		    action->button.modifiers == v.action.button.modifiers)
+		    return FALSE;
+	    }
+	    break;
+	case CompOptionTypeEdge:
+	    if (v.action.edgeMask == action->edgeMask)
+		return FALSE;
+	    break;
+	case CompOptionTypeBell:
+	    if (v.action.bell == action->bell)
+		return FALSE;
+	    break;
+	default:
 	    return FALSE;
+	}
     }
 
-    *action = value->action;
+    *action = v.action;
 
     return TRUE;
 }
@@ -379,6 +412,10 @@ compSetOption (CompOption      *option,
     case CompOptionTypeMatch:
 	return compSetMatchOption (option, value);
     case CompOptionTypeAction:
+    case CompOptionTypeKey:
+    case CompOptionTypeButton:
+    case CompOptionTypeEdge:
+    case CompOptionTypeBell:
 	return compSetActionOption (option, value);
     case CompOptionTypeList:
 	return compSetOptionList (option, value);
@@ -387,22 +424,10 @@ compSetOption (CompOption      *option,
     return FALSE;
 }
 
-unsigned int
-compWindowTypeMaskFromStringList (CompOptionValue *value)
-{
-    int		 i;
-    unsigned int mask = 0;
-
-    for (i = 0; i < value->list.nValue; i++)
-	mask |= windowTypeFromString (value->list.value[i].s);
-
-    return mask;
-}
-
 Bool
 getBoolOptionNamed (CompOption *option,
 		    int	       nOption,
-		    char       *name,
+		    const char *name,
 		    Bool       defaultValue)
 {
     while (nOption--)
@@ -420,7 +445,7 @@ getBoolOptionNamed (CompOption *option,
 int
 getIntOptionNamed (CompOption *option,
 		   int	      nOption,
-		   char	      *name,
+		   const char *name,
 		   int	      defaultValue)
 {
     while (nOption--)
@@ -438,7 +463,7 @@ getIntOptionNamed (CompOption *option,
 float
 getFloatOptionNamed (CompOption *option,
 		     int	nOption,
-		     char	*name,
+		     const char *name,
 		     float	defaultValue)
 {
     while (nOption--)
@@ -456,7 +481,7 @@ getFloatOptionNamed (CompOption *option,
 char *
 getStringOptionNamed (CompOption *option,
 		      int	 nOption,
-		      char	 *name,
+		      const char *name,
 		      char	 *defaultValue)
 {
     while (nOption--)
@@ -474,7 +499,7 @@ getStringOptionNamed (CompOption *option,
 unsigned short *
 getColorOptionNamed (CompOption	    *option,
 		     int	    nOption,
-		     char	    *name,
+		     const char     *name,
 		     unsigned short *defaultValue)
 {
     while (nOption--)
@@ -492,7 +517,7 @@ getColorOptionNamed (CompOption	    *option,
 CompMatch *
 getMatchOptionNamed (CompOption	*option,
 		     int	nOption,
-		     char	*name,
+		     const char *name,
 		     CompMatch  *defaultValue)
 {
     while (nOption--)
@@ -508,8 +533,8 @@ getMatchOptionNamed (CompOption	*option,
 }
 
 static char *
-stringAppend (char *s,
-	      char *a)
+stringAppend (char	 *s,
+	      const char *a)
 {
     char *r;
     int  len;
@@ -550,6 +575,20 @@ modifiersToString (CompDisplay  *d,
 	if (modMask & modifiers[i].modifier)
 	    binding = stringAppend (binding, modifiers[i].name);
     }
+
+    return binding;
+}
+
+static char *
+edgeMaskToBindingString (CompDisplay  *d,
+			 unsigned int edgeMask)
+{
+    char *binding = NULL;
+    int  i;
+
+    for (i = 0; i < SCREEN_EDGE_NUM; i++)
+	if (edgeMask & (1 << i))
+	    binding = stringAppend (binding, edges[i].modifierName);
 
     return binding;
 }
@@ -601,6 +640,44 @@ buttonBindingToString (CompDisplay       *d,
     return binding;
 }
 
+char *
+keyActionToString (CompDisplay *d,
+		   CompAction  *action)
+{
+    char *binding;
+
+    binding = keyBindingToString (d, &action->key);
+    if (!binding)
+	return strdup ("Disabled");
+
+    return binding;
+}
+
+char *
+buttonActionToString (CompDisplay *d,
+		      CompAction  *action)
+{
+    char *binding, *edge;
+    char buttonStr[256];
+
+    binding = modifiersToString (d, action->button.modifiers);
+    edge    = edgeMaskToBindingString (d, action->edgeMask);
+
+    if (edge)
+    {
+	binding = stringAppend (binding, edge);
+	free (edge);
+    }
+
+    snprintf (buttonStr, 256, "Button%d", action->button.button);
+    binding = stringAppend (binding, buttonStr);
+
+    if (!binding)
+	return strdup ("Disabled");
+
+    return binding;
+}
+
 static unsigned int
 stringToModifiers (CompDisplay *d,
 		   const char  *binding)
@@ -615,6 +692,20 @@ stringToModifiers (CompDisplay *d,
     }
 
     return mods;
+}
+
+static unsigned int
+bindingStringToEdgeMask (CompDisplay *d,
+			 const char  *binding)
+{
+    unsigned int edgeMask = 0;
+    int		 i;
+
+    for (i = 0; i < SCREEN_EDGE_NUM; i++)
+	if (strstr (binding, edges[i].modifierName))
+	    edgeMask |= 1 << i;
+
+    return edgeMask;
 }
 
 Bool
@@ -707,10 +798,90 @@ stringToButtonBinding (CompDisplay	 *d,
     return FALSE;
 }
 
-char *
+void
+stringToKeyAction (CompDisplay *d,
+		   const char  *binding,
+		   CompAction  *action)
+{
+    if (stringToKeyBinding (d, binding, &action->key))
+	action->type = CompBindingTypeKey;
+    else
+	action->type = CompBindingTypeNone;
+}
+
+void
+stringToButtonAction (CompDisplay *d,
+		      const char  *binding,
+		      CompAction  *action)
+{
+    if (stringToButtonBinding (d, binding, &action->button))
+    {
+	action->edgeMask = bindingStringToEdgeMask (d, binding);
+	if (action->edgeMask)
+	    action->type = CompBindingTypeEdgeButton;
+	else
+	    action->type = CompBindingTypeButton;
+    }
+    else
+    {
+	action->type = CompBindingTypeNone;
+    }
+}
+
+const char *
 edgeToString (unsigned int edge)
 {
-    return edgeName[edge];
+    return edges[edge].name;
+}
+
+unsigned int
+stringToEdgeMask (const char *edge)
+{
+    unsigned int edgeMask = 0;
+    char	 *needle;
+    int		 i;
+
+    for (i = 0; i < SCREEN_EDGE_NUM; i++)
+    {
+	needle = strstr (edge, edgeToString (i));
+	if (needle)
+	{
+	    if (needle != edge && isalnum (*(needle - 1)))
+		continue;
+
+	    needle += strlen (edgeToString (i));
+
+	    if (*needle && isalnum (*needle))
+		continue;
+
+	    edgeMask |= 1 << i;
+	}
+    }
+
+    return edgeMask;
+}
+
+char *
+edgeMaskToString (unsigned int edgeMask)
+{
+    char *edge = NULL;
+    int	 i;
+
+    for (i = 0; i < SCREEN_EDGE_NUM; i++)
+    {
+	if (edgeMask & (1 << i))
+	{
+	    if (edge)
+		edge = stringAppend (edge, " | ");
+
+	    edge = stringAppend (edge, edgeToString (i));
+	}
+    }
+
+    if (!edge)
+	return strdup ("");
+
+    return edge;
 }
 
 Bool
@@ -743,14 +914,10 @@ colorToString (unsigned short *rgba)
     return strdup (tmp);
 }
 
-char *
+const char *
 optionTypeToString (CompOptionType type)
 {
     switch (type) {
-    case CompOptionTypeAction:
-	return "action";
-    case CompOptionTypeMatch:
-	return "match";
     case CompOptionTypeBool:
 	return "bool";
     case CompOptionTypeInt:
@@ -761,9 +928,38 @@ optionTypeToString (CompOptionType type)
 	return "string";
     case CompOptionTypeColor:
 	return "color";
+    case CompOptionTypeAction:
+	return "action";
+    case CompOptionTypeKey:
+	return "key";
+    case CompOptionTypeButton:
+	return "button";
+    case CompOptionTypeEdge:
+	return "edge";
+    case CompOptionTypeBell:
+	return "bell";
+    case CompOptionTypeMatch:
+	return "match";
     case CompOptionTypeList:
 	return "list";
     }
 
     return "unknown";
+}
+
+Bool
+isActionOption (CompOption *option)
+{
+    switch (option->type) {
+    case CompOptionTypeAction:
+    case CompOptionTypeKey:
+    case CompOptionTypeButton:
+    case CompOptionTypeEdge:
+    case CompOptionTypeBell:
+	return TRUE;
+    default:
+	break;
+    }
+
+    return FALSE;
 }

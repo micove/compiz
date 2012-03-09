@@ -23,9 +23,14 @@
  * Author: David Reveman <davidr@novell.com>
  */
 
-#include <compiz.h>
+#ifndef _COMPIZ_SCALE_H
+#define _COMPIZ_SCALE_H
 
-#define SCALE_ABIVERSION 20070706
+#include <compiz-core.h>
+
+COMPIZ_BEGIN_DECLS
+
+#define SCALE_ABIVERSION 20080301
 
 #define SCALE_STATE_NONE 0
 #define SCALE_STATE_OUT  1
@@ -52,15 +57,23 @@ typedef struct _SlotArea {
     XRectangle workArea;
 } SlotArea;
 
-#define SCALE_DISPLAY_OPTION_ABI	     0
-#define SCALE_DISPLAY_OPTION_INDEX	     1
-#define SCALE_DISPLAY_OPTION_INITIATE        2
-#define SCALE_DISPLAY_OPTION_INITIATE_ALL    3
-#define SCALE_DISPLAY_OPTION_INITIATE_GROUP  4
-#define SCALE_DISPLAY_OPTION_INITIATE_OUTPUT 5
-#define SCALE_DISPLAY_OPTION_SHOW_DESKTOP    6
-#define SCALE_DISPLAY_OPTION_RELAYOUT        7
-#define SCALE_DISPLAY_OPTION_NUM             8
+#define SCALE_DISPLAY_OPTION_ABI	            0
+#define SCALE_DISPLAY_OPTION_INDEX	            1
+#define SCALE_DISPLAY_OPTION_INITIATE_EDGE          2
+#define SCALE_DISPLAY_OPTION_INITIATE_BUTTON        3
+#define SCALE_DISPLAY_OPTION_INITIATE_KEY           4
+#define SCALE_DISPLAY_OPTION_INITIATE_ALL_EDGE      5
+#define SCALE_DISPLAY_OPTION_INITIATE_ALL_BUTTON    6
+#define SCALE_DISPLAY_OPTION_INITIATE_ALL_KEY       7
+#define SCALE_DISPLAY_OPTION_INITIATE_GROUP_EDGE    8
+#define SCALE_DISPLAY_OPTION_INITIATE_GROUP_BUTTON  9
+#define SCALE_DISPLAY_OPTION_INITIATE_GROUP_KEY     10
+#define SCALE_DISPLAY_OPTION_INITIATE_OUTPUT_EDGE   11
+#define SCALE_DISPLAY_OPTION_INITIATE_OUTPUT_BUTTON 12
+#define SCALE_DISPLAY_OPTION_INITIATE_OUTPUT_KEY    13
+#define SCALE_DISPLAY_OPTION_SHOW_DESKTOP           14
+#define SCALE_DISPLAY_OPTION_RELAYOUT               15
+#define SCALE_DISPLAY_OPTION_NUM                    16
 
 typedef struct _ScaleDisplay {
     int		    screenPrivateIndex;
@@ -70,8 +83,11 @@ typedef struct _ScaleDisplay {
 
     unsigned int lastActiveNum;
     Window       lastActiveWindow;
+
     Window       selectedWindow;
     Window       hoveredWindow;
+    Window       previousActiveWindow;
+
     KeyCode	 leftKeyCode, rightKeyCode, upKeyCode, downKeyCode;
 } ScaleDisplay;
 
@@ -104,6 +120,8 @@ typedef void (*ScalePaintDecorationProc) (CompWindow		  *w,
 					  Region		  region,
 					  unsigned int		  mask);
 
+typedef void (*ScaleSelectWindowProc) (CompWindow *w);
+
 typedef struct _ScaleScreen {
     int windowPrivateIndex;
 
@@ -116,6 +134,7 @@ typedef struct _ScaleScreen {
     ScaleLayoutSlotsAndAssignWindowsProc layoutSlotsAndAssignWindows;
     ScaleSetScaledPaintAttributesProc    setScaledPaintAttributes;
     ScalePaintDecorationProc		 scalePaintDecoration;
+    ScaleSelectWindowProc                selectWindow;
 
     CompOption opt[SCALE_SCREEN_OPTION_NUM];
 
@@ -165,23 +184,26 @@ typedef struct _ScaleWindow {
     float lastThumbOpacity;
 } ScaleWindow;
 
-#define GET_SCALE_DISPLAY(d)				      \
-    ((ScaleDisplay *) (d)->privates[scaleDisplayPrivateIndex].ptr)
+#define GET_SCALE_DISPLAY(d)						\
+    ((ScaleDisplay *) (d)->base.privates[scaleDisplayPrivateIndex].ptr)
 
 #define SCALE_DISPLAY(d)		     \
     ScaleDisplay *sd = GET_SCALE_DISPLAY (d)
 
-#define GET_SCALE_SCREEN(s, sd)					  \
-    ((ScaleScreen *) (s)->privates[(sd)->screenPrivateIndex].ptr)
+#define GET_SCALE_SCREEN(s, sd)					       \
+    ((ScaleScreen *) (s)->base.privates[(sd)->screenPrivateIndex].ptr)
 
 #define SCALE_SCREEN(s)							   \
     ScaleScreen *ss = GET_SCALE_SCREEN (s, GET_SCALE_DISPLAY (s->display))
 
-#define GET_SCALE_WINDOW(w, ss)					  \
-    ((ScaleWindow *) (w)->privates[(ss)->windowPrivateIndex].ptr)
+#define GET_SCALE_WINDOW(w, ss)					       \
+    ((ScaleWindow *) (w)->base.privates[(ss)->windowPrivateIndex].ptr)
 
 #define SCALE_WINDOW(w)					       \
     ScaleWindow *sw = GET_SCALE_WINDOW  (w,		       \
 		      GET_SCALE_SCREEN  (w->screen,	       \
 		      GET_SCALE_DISPLAY (w->screen->display)))
 
+COMPIZ_END_DECLS
+
+#endif
