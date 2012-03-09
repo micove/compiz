@@ -1370,7 +1370,7 @@ cubePaintTransformedOutput (CompScreen		    *s,
     PaintOrder        paintOrder;
     Bool	      capsPainted;
     Bool              wasCulled = FALSE;
-    Bool              topDir, bottomDir;
+    Bool              topDir, bottomDir, allCaps;
     int output = 0;
 
     CUBE_SCREEN (s);
@@ -1510,10 +1510,12 @@ cubePaintTransformedOutput (CompScreen		    *s,
 
 	cs->capsPainted[output] = TRUE;
 
+	allCaps = cs->desktopOpacity != OPAQUE || cs->invert != 1;
+
 	if (topDir && bottomDir)
 	{
 	    glNormal3f (0.0f, -1.0f, 0.0f);
-	    if (cs->desktopOpacity != OPAQUE)
+	    if (allCaps)
 	    {
 		(*cs->paintBottom) (s, &sa, transform, outputPtr, hsize);
 		glNormal3f (0.0f, 0.0f, -1.0f);
@@ -1525,7 +1527,7 @@ cubePaintTransformedOutput (CompScreen		    *s,
 	else if (!topDir && !bottomDir)
 	{
 	    glNormal3f (0.0f, 1.0f, 0.0f);
-	    if (cs->desktopOpacity != OPAQUE)
+	    if (allCaps)
 	    {
 		(*cs->paintTop) (s, &sa, transform, outputPtr, hsize);
 		glNormal3f (0.0f, 0.0f, -1.0f);
@@ -1534,7 +1536,7 @@ cubePaintTransformedOutput (CompScreen		    *s,
 	    }
 	    (*cs->paintBottom) (s, &sa, transform, outputPtr, hsize);
 	}
-	else if (cs->desktopOpacity != OPAQUE)
+	else if (allCaps)
 	{
 	    glNormal3f (0.0f, 1.0f, 0.0f);
 	    (*cs->paintTop) (s, &sa, transform, outputPtr, hsize);
