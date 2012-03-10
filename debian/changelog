@@ -30,9 +30,19 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
       + Change libgnome-window-settings-dev to gnome-control-center-dev.
       + Add lcov, libgtest-dev and google-mock for building the tests.
       + Add libgtk-3-dev.
-    - Depend/Break based on 0.9.7. 0.9.2 is not fully compatible with 0.9.7.
+    - Depend on compiz-fusion-plugins-main and libcompizconfig0 (>= 0.9.7.0).
+    - compiz-core breaks/replaces compiz-gtk (<< 0.9). The compiz-decorator file
+      got moved here. Changes Conflicts/Replaces to Breaks/Replaces.
+    - compiz-gtk breaks/replaces compiz-plugins (<< 0.9). The gconf schemas
+      folder is now here. Changes Conflicts/Replaces to Breaks/Replaces.
     - Add libgtk-3-dev and libdecoration0-dev to the dependencies of compiz-dev.
     - Add compiz-plugins to the dependencies of compiz-gtk.
+    - Add the libcompiz-core package.
+      + Move the breaks of the compiz-fusion-plugins-{main,extra} and
+        libcompizconfig0 from the compiz-core package here.
+      + Breaks are now (<< 0.9.7.0).
+      + Provides libcompiz-coreabi-${coreabiversion}. Upstream non-standard
+        notation.
   * debian/rules:
     - Enable hardening support using the workaround for cmake.
     - Find CORE_ABIVERSION in abiversion.h.
@@ -43,12 +53,12 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
       the binary they test.
       + Override dh_auto_test.
     - Disable gsettings support.
-  * Partial Multiarch Support.
-    - Mark compiz-{dev,plugins} and libdecoration{-dev} as M-A: same.
-    - For full multiarch support compiz-core needs to be made foreign/same by
-      either moving the binary to the compiz package or the library out.
+  * Add Multiarch Support.
+    - Mark compiz-{dev,plugins}, libcompiz-core and libdecoration{-dev} as M-A:
+      same.
+    - Mark compiz-core as M-A: foreign.
 
- -- Miguel Colon <debian.micove@gmail.com>  Sat, 10 Mar 2012 04:21:53 -0500
+ -- Miguel Colon <debian.micove@gmail.com>  Sat, 10 Mar 2012 17:04:09 -0500
 
 compiz (0.9.2.1+git20110226.f059fae9-4) experimental; urgency=low
 
