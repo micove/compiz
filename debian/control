@@ -75,6 +75,7 @@ Description: OpenGL window and compositing manager - metapackage
 
 Package: compiz-core
 Architecture: any
+Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
  ${misc:Depends}
 Breaks: compiz-fusion-plugins-extra (<< 0.9.7.0),
@@ -100,6 +101,7 @@ Description: OpenGL window and compositing manager
 
 Package: compiz-dev
 Architecture: any
+Multi-Arch: same
 Depends: ${misc:Depends},
  compiz-core (= ${binary:Version}),
  compiz-plugins (= ${binary:Version}),
@@ -163,6 +165,7 @@ Description: OpenGL window and compositing manager - KDE window decorator
 
 Package: compiz-plugins
 Architecture: any
+Multi-Arch: same
 Depends: ${shlibs:Depends},
  ${misc:Depends},
  compiz-core (= ${binary:Version}),
@@ -177,6 +180,8 @@ Description: OpenGL window and compositing manager - plugins
 
 Package: libdecoration0
 Architecture: any
+Pre-Depends: ${misc:Pre-Depends}
+Multi-Arch: same
 Depends: ${shlibs:Depends},
  ${misc:Depends}
 Description: Compiz window decoration library
@@ -187,6 +192,7 @@ Description: Compiz window decoration library
 Package: libdecoration0-dev
 Section: libdevel
 Architecture: any
+Multi-Arch: same
 Depends: ${misc:Depends},
  libdecoration0 (= ${binary:Version}),
  libx11-dev,
