@@ -6,14 +6,24 @@
 
 CORE_ABIVERSION := $(shell sed -rn 's/^\#define[[:space:]]+CORE_ABIVERSION[[:space:]]+//p' include/core/abiversion.h )
 
-DEFAULT_PLUGINS = "core bailer detection composite opengl decor mousepoll vpswitch regex animation snap expo move compiztoolbox place grid gnomecompat wall ezoom workarounds staticswitcher resize fade scale session"
+DEFAULT_PLUGINS = "core bailer detection composite opengl decor mousepoll \
+vpswitch regex animation snap expo move compiztoolbox place grid gnomecompat \
+wall ezoom workarounds staticswitcher resize fade scale session"
+
+override_dh_auto_configure:
+	# currently, segfault if CMAKE_BUILD_TYPE=Release
+	dh_auto_configure -- \
+			-DCOMPIZ_BUILD_WITH_RPATH=FALSE \
+			-DCOMPIZ_DEFAULT_PLUGINS=\"$(DEFAULT_PLUGINS)\" \
+			-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+			-DCOMPIZ_PACKAGING_ENABLED=TRUE \
+			-DUSE_GNOME=OFF
 
 override_dh_clean:
 	dh_clean .AUTHORS.sed po/compiz.pot
 
-override_dh_auto_configure:
-	# currently, segfault if CMAKE_BUILD_TYPE=Release
-	dh_auto_configure -- -DCOMPIZ_BUILD_WITH_RPATH=FALSE -DCOMPIZ_DEFAULT_PLUGINS=\"$(DEFAULT_PLUGINS)\" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCOMPIZ_PACKAGING_ENABLED=TRUE -DUSE_GNOME=OFF
+override_dh_gencontrol:
+	dh_gencontrol -- -Vcoreabiversion=$(CORE_ABIVERSION)
 
 override_dh_install:
 	# cmake findcompiz_install use COMPIZ_DESTDIR and using COMPIZ_DESTDIR and
@@ -24,9 +34,6 @@ override_dh_install:
 	mkdir -p debian/tmp$${cmake_dir}/Modules && cp cmake/FindCompiz.cmake debian/tmp$${cmake_dir}/Modules
 
 	dh_install --fail-missing
-
-override_dh_gencontrol:
-	dh_gencontrol -- -Vcoreabiversion=$(CORE_ABIVERSION)
 
 %:
 	dh $@
