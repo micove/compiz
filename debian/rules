@@ -11,7 +11,7 @@ CORE_ABIVERSION := $(shell sed -rn 's/^\#define[[:space:]]+CORE_ABIVERSION[[:spa
 
 DEFAULT_PLUGINS = "core bailer detection composite opengl decor mousepoll \
 vpswitch regex animation snap expo move compiztoolbox place grid gnomecompat \
-wall ezoom workarounds staticswitcher resize fade scale session"
+imgpng wall ezoom workarounds staticswitcher resize fade scale session"
 
 override_dh_auto_configure:
 	# currently, segfault if CMAKE_BUILD_TYPE=Release
@@ -20,7 +20,12 @@ override_dh_auto_configure:
 			-DCOMPIZ_DEFAULT_PLUGINS=\"$(DEFAULT_PLUGINS)\" \
 			-DCMAKE_BUILD_TYPE=RelWithDebInfo \
 			-DCOMPIZ_PACKAGING_ENABLED=TRUE \
-			-DUSE_GNOME=OFF
+			-DCOMPIZ_BUILD_TESTING=OFF \
+			-DUSE_GSETTINGS=OFF \
+			-DUSE_GCONF=ON
+
+override_dh_auto_test:
+	# google-mock library has to be built by upstream to be used.
 
 override_dh_clean:
 	dh_clean .AUTHORS.sed po/compiz.pot
