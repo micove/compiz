@@ -164,7 +164,7 @@ Description: OpenGL window and compositing manager - KDE window decorator
 Package: compiz-plugins
 Architecture: any
 Depends: ${shlibs:Depends},
- ${misc:Depends}
+ ${misc:Depends},
  compiz-core (= ${binary:Version}),
  libdecoration0 (= ${binary:Version})
 Description: OpenGL window and compositing manager - plugins
