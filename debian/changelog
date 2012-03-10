@@ -12,9 +12,11 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
 
   [ Miguel Colon ]
   * Acknowledge NMU 0.8.4-5.1 and remove compiz-gnome.
-  * Update the watch file to find the tarball in launchpad.
-  * Update compiz-core.install and remove the compiz.links file.
-  * Include a libdecoration0.symbols based on the file from Ubuntu.
+  * debian/*:
+    - Update the watch file to find the tarball in launchpad.
+    - Add libcompiz_core to compiz-core.install and compiz-dev.install.
+    - Remove the compiz.links file.
+    - Include a libdecoration0.symbols based on the file from Ubuntu.
   * debian/patches:
     - Refresh 017_always_unredirect_screensaver_on_nvidia.patch.
     - Remove 2nd HUNK from 060_move_checks_to_compiz.patch since it was merged
@@ -32,7 +34,7 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
     - Add libgtk-3-dev and libdecoration0-dev to the dependencies of compiz-dev.
     - Add compiz-plugins to the dependencies of compiz-gtk.
   * debian/rules:
-    - Enable hardening support with cmake workaround.
+    - Enable hardening support using the workaround for cmake.
     - Find CORE_ABIVERSION in abiversion.h.
     - Add the imgpng plugin to the defaults.
     - Update the clean routine.
@@ -41,8 +43,12 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
       the binary they test.
       + Override dh_auto_test.
     - Disable gsettings support.
+  * Partial Multiarch Support.
+    - Mark compiz-{dev,plugins} and libdecoration{-dev} as M-A: same.
+    - For full multiarch support compiz-core needs to be made foreign/same by
+      either moving the binary to the compiz package or the library out.
 
- -- Miguel Colon <debian.micove@gmail.com>  Fri, 09 Mar 2012 21:04:52 -0500
+ -- Miguel Colon <debian.micove@gmail.com>  Sat, 10 Mar 2012 04:21:53 -0500
 
 compiz (0.9.2.1+git20110226.f059fae9-4) experimental; urgency=low
 
