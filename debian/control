@@ -79,8 +79,8 @@ Multi-Arch: foreign
 Depends: ${shlibs:Depends},
  ${misc:Depends},
  libcompiz-core (= ${binary:Version})
-Breaks: compiz-gtk (<< 9)
-Replaces: compiz-gtk (<< 9)
+Breaks: compiz-gtk (<< 0.9)
+Replaces: compiz-gtk (<< 0.9)
 Recommends: compiz-plugins (= ${binary:Version})
 Suggests: nvidia-glx (>= 1.0.9625-1)
 Provides: compiz-core-abiversion-${coreabiversion}
@@ -135,8 +135,8 @@ Depends: ${shlibs:Depends},
  ${misc:Depends},
  compiz-core (= ${binary:Version}),
  compiz-plugins (= ${binary:Version})
-Breaks: compiz-plugins (<< 9)
-Replaces: compiz-plugins (<< 9)
+Breaks: compiz-plugins (<< 0.9)
+Replaces: compiz-plugins (<< 0.9)
 Suggests: gnome-themes
 Description: OpenGL window and compositing manager - Gtk window decorator
  Compiz brings to life a variety of visual effects that make the Linux desktop
