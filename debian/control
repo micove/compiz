@@ -75,13 +75,11 @@ Description: OpenGL window and compositing manager - metapackage
 
 Package: compiz-core
 Architecture: any
-Pre-Depends: ${misc:Pre-Depends}
+Multi-Arch: foreign
 Depends: ${shlibs:Depends},
- ${misc:Depends}
-Breaks: compiz-fusion-plugins-extra (<< 0.9.7.0),
- compiz-fusion-plugins-main (<< 0.9.7.0),
- compiz-gtk (<< 0.9.7.0),
- libcompizconfig0 (<< 0.9.7.0)
+ ${misc:Depends},
+ libcompiz-core (= ${binary:Version})
+Breaks: compiz-gtk (<< 9)
 Replaces: compiz-gtk (<< 9)
 Recommends: compiz-plugins (= ${binary:Version})
 Suggests: nvidia-glx (>= 1.0.9625-1)
@@ -104,6 +102,7 @@ Multi-Arch: same
 Depends: ${misc:Depends},
  compiz-core (= ${binary:Version}),
  compiz-plugins (= ${binary:Version}),
+ libcompiz-core (= ${binary:Version}),
  libdecoration0-dev (= ${binary:Version}),
  libgl1-mesa-dev | libgl-dev,
  libglib2.0-dev,
@@ -168,6 +167,7 @@ Multi-Arch: same
 Depends: ${shlibs:Depends},
  ${misc:Depends},
  compiz-core (= ${binary:Version}),
+ libcompiz-core (= ${binary:Version}),
  libdecoration0 (= ${binary:Version})
 Description: OpenGL window and compositing manager - plugins
  Compiz brings to life a variety of visual effects that make the Linux desktop
@@ -176,6 +176,23 @@ Description: OpenGL window and compositing manager - plugins
  .
  This package contains the standard plugins that come with compiz. Compiz
  without these plugins is not very useful.
+
+Package: libcompiz-core
+Architecture: any
+Pre-Depends: ${misc:Pre-Depends}
+Multi-Arch: same
+Depends: ${shlibs:Depends},
+ ${misc:Depends}
+Breaks: compiz-fusion-plugins-extra (<< 0.9.7.0),
+ compiz-fusion-plugins-main (<< 0.9.7.0),
+ libcompizconfig0 (<< 0.9.7.0)
+Provides: libcompiz-coreabi-${coreabiversion}
+Description: OpenGL window and compositing manager - core library
+ Compiz brings to life a variety of visual effects that make the Linux desktop
+ easier to use, more powerful and intuitive, and more accessible for users
+ with special needs.
+ .
+ This package contains the core library of compiz.
 
 Package: libdecoration0
 Architecture: any
