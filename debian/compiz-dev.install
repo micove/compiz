@@ -1,5 +1,6 @@
 usr/include/compiz/[!d]*
-usr/lib/pkgconfig/[!l]*
+usr/lib/*/libcompiz_core.so
+usr/lib/*/pkgconfig/[!l]*
 usr/share/compiz/xslt
 usr/share/cmake*
 usr/share/compiz/cmake

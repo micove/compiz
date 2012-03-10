@@ -1,1 +1,1 @@
-usr/lib/libdecoration*.so.*
+usr/lib/*/libdecoration*.so.*
