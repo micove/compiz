@@ -30,7 +30,8 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
       + Change libgnome-window-settings-dev to gnome-control-center-dev.
       + Add lcov, libgtest-dev and google-mock for building the tests.
       + Add libgtk-3-dev.
-    - Depend on compiz-fusion-plugins-main and libcompizconfig0 (>= 0.9.7.0).
+    - Depend on compiz-fusion-plugins-main (>= 0.9.7.0) and libcompizconfig0
+      (>= 0.9.5.92).
     - compiz-core breaks/replaces compiz-gtk (<< 0.9). The compiz-decorator file
       got moved here. Changes Conflicts/Replaces to Breaks/Replaces.
     - compiz-gtk breaks/replaces compiz-plugins (<< 0.9). The gconf schemas
@@ -40,7 +41,7 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
     - Add the libcompiz-core package.
       + Move the breaks of the compiz-fusion-plugins-{main,extra} and
         libcompizconfig0 from the compiz-core package here.
-      + Breaks are now (<< 0.9.7.0).
+      + Breaks are now (<< 0.9.7.0) or (<< 0.9.5.92).
       + Provides libcompiz-coreabi-${coreabiversion}. Upstream non-standard
         notation.
   * debian/rules:

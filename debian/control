@@ -61,7 +61,7 @@ Depends: ${misc:Depends},
  compiz-fusion-plugins-main (>= 0.9.7.0),
  compiz-gtk | compiz-kde,
  compiz-plugins (>= ${source:Version}),
- libcompizconfig0 (>= 0.9.7.0)
+ libcompizconfig0 (>= 0.9.5.92)
 Suggests: compizconfig-settings-manager
 Description: OpenGL window and compositing manager - metapackage
  Compiz brings to life a variety of visual effects that make the Linux desktop
@@ -185,7 +185,7 @@ Depends: ${shlibs:Depends},
  ${misc:Depends}
 Breaks: compiz-fusion-plugins-extra (<< 0.9.7.0),
  compiz-fusion-plugins-main (<< 0.9.7.0),
- libcompizconfig0 (<< 0.9.7.0)
+ libcompizconfig0 (<< 0.9.5.92)
 Provides: libcompiz-coreabi-${coreabiversion}
 Description: OpenGL window and compositing manager - core library
  Compiz brings to life a variety of visual effects that make the Linux desktop
