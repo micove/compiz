@@ -40,16 +40,13 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
       (>= 0.9.5.92).
     - compiz-core breaks/replaces compiz-gtk (<< 0.9). The compiz-decorator file
       got moved here. Changes Conflicts/Replaces to Breaks/Replaces.
+    - compiz-core other breaks are now (<< 0.9.7.0) or (<< 0.9.5.92). Some of
+      experimental versions did not depend on compiz-core-abiversion.
     - compiz-gtk breaks/replaces compiz-plugins (<< 0.9). The gconf schemas
       folder is now here. Changes Conflicts/Replaces to Breaks/Replaces.
     - Add libgtk-3-dev and libdecoration0-dev to the dependencies of compiz-dev.
     - Add compiz-plugins to the dependencies of compiz-gtk.
     - Add the libcompiz-core package.
-      + Move the breaks of the compiz-fusion-plugins-{main,extra} and
-        libcompizconfig0 from the compiz-core package here.
-      + Breaks are now (<< 0.9.7.0) or (<< 0.9.5.92).
-      + Provides libcompiz-coreabi-${coreabiversion}. Upstream non-standard
-        notation.
   * debian/rules:
     - Enable hardening support using the workaround for cmake.
     - Find CORE_ABIVERSION in abiversion.h.

@@ -79,7 +79,11 @@ Multi-Arch: foreign
 Depends: ${shlibs:Depends},
  ${misc:Depends},
  libcompiz-core (= ${binary:Version})
-Breaks: compiz-gtk (<< 0.9)
+Breaks: compiz-fusion-plugins-extra (<< 0.9.7.0),
+ compiz-fusion-plugins-main (<< 0.9.7.0),
+ compiz-fusion-plugins-unsupported (<< 0.9.7.0),
+ compiz-gtk (<< 0.9),
+ libcompizconfig0 (<< 0.9.5.92)
 Replaces: compiz-gtk (<< 0.9)
 Recommends: compiz-plugins (= ${binary:Version})
 Suggests: nvidia-glx (>= 1.0.9625-1)
@@ -183,10 +187,6 @@ Pre-Depends: ${misc:Pre-Depends}
 Multi-Arch: same
 Depends: ${shlibs:Depends},
  ${misc:Depends}
-Breaks: compiz-fusion-plugins-extra (<< 0.9.7.0),
- compiz-fusion-plugins-main (<< 0.9.7.0),
- libcompizconfig0 (<< 0.9.5.92)
-Provides: libcompiz-coreabi-${coreabiversion}
 Description: OpenGL window and compositing manager - core library
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
