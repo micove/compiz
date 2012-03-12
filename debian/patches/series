@@ -1,4 +1,6 @@
 000_move_checks_to_compiz.patch
 001_use_metacity_settings.patch
+002_workaround_broken_drivers.patch
+003_ubuntu-config_adapted_to_debian.patch
 100_fix_compiztoolbox_pc_file.patch
 bzr3043.patch
