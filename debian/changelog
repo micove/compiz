@@ -47,7 +47,6 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
   * debian/rules:
     - Enable hardening support using the workaround for cmake.
     - Find CORE_ABIVERSION in abiversion.h.
-    - Add the imgpng plugin to the defaults.
     - Update the clean routine.
     - Disable the tests since they won't build. Google mock is distributed as
       source files in Debian and require to be compile with the same flags as
