@@ -20,6 +20,13 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
   * debian/patches:
     - Drop the deprecated Ubuntu patches.
     - Rename and refresh the remaining patches.
+    - Introduce remaining patches from Ubuntu:
+      + 002_workaround_broken_drivers.patch. Workaround broken drivers that do
+        binary detection.
+      + 003_ubuntu-config_adapted_to_debian.patch. Some of the compiz defaults
+        cause bugs and crashes. Remove Ubuntu related configurations and use
+        their sane defaults.
+    - Add a patch to fix the exec_prefix entries in some pc files.
     - Cherry pick commit 3043 from bzr. Lowers CPU usage.
   * debian/control:
     - Bump debhelper and the compatibility level to 9.
@@ -58,7 +65,7 @@ compiz (0.9.7.0-0.1) UNRELEASED; urgency=low
       same.
     - Mark compiz-core as M-A: foreign.
 
- -- Miguel Colon <debian.micove@gmail.com>  Mon, 12 Mar 2012 01:45:20 -0400
+ -- Miguel Colon <debian.micove@gmail.com>  Mon, 12 Mar 2012 03:27:04 -0400
 
 compiz (0.9.2.1+git20110226.f059fae9-4) experimental; urgency=low
 
