@@ -1,5 +1,4 @@
 017_always_unredirect_screensaver_on_nvidia.patch
 018_use_metacity_settings.patch
-030_no_fade_in_staticswicher.patch
 060_move_checks_to_compiz.patch
 bzr_3043.patch
