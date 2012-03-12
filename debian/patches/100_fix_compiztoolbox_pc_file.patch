@@ -1,0 +1,14 @@
+Description: Fix exec_prefix entry.
+Author: Miguel Colon <debian.micove@gmail.com>
+Forwarded: no
+Last-Update: 2012-03-10
+
+--- compiz-0.9.7.0.orig/plugins/compiztoolbox/compiz-compiztoolbox.pc.in
++++ compiz-0.9.7.0/plugins/compiztoolbox/compiz-compiztoolbox.pc.in
+@@ -1,5 +1,5 @@
+ prefix=@prefix@
+-exec_prefix=@prefix@
++exec_prefix=@exec_prefix@
+ libdir=@libdir@
+ includedir=@includedir@
+ 

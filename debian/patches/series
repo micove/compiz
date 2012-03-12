@@ -1,3 +1,4 @@
 000_move_checks_to_compiz.patch
 001_use_metacity_settings.patch
+100_fix_compiztoolbox_pc_file.patch
 bzr3043.patch
