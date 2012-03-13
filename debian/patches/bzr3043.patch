@@ -1,3 +1,9 @@
+Description: Lower CPU usage by avoiding pointless copy.
+ Upstream's commit message:
+ Avoid pointlessly doing a full copy of a linked list every frame when the
+ copy is never changed and never different to the source. This cuts an
+ instant 6-9% from compiz' CPU usage (LP: #946887)
+
 === modified file 'plugins/opengl/src/paint.cpp'
 --- a/plugins/opengl/src/paint.cpp	2012-02-27 03:53:45 +0000
 +++ b/plugins/opengl/src/paint.cpp	2012-03-05 09:38:48 +0000

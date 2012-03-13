@@ -9,7 +9,7 @@ CXXFLAGS+=$(CPPFLAGS)
 
 CORE_ABIVERSION := $(shell sed -rn 's/^\#define[[:space:]]+CORE_ABIVERSION[[:space:]]+//p' include/core/abiversion.h )
 
-DEFAULT_PLUGINS = "core composite opengl decor mousepoll snap compiztoolbox resize gnomecompat wall grid regex vpswitch place move session animation fade scale expo workarounds ezoom staticswitcher"
+DEFAULT_PLUGINS = "core composite opengl decor mousepoll snap compiztoolbox resize gnomecompat wall grid regex vpswitch place move session animation expo workarounds ezoom staticswitcher fade scale"
 
 override_dh_auto_configure:
 	# currently, segfault if CMAKE_BUILD_TYPE=Release

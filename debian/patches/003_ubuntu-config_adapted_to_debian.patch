@@ -1,3 +1,5 @@
+Description: Miscellaneous fixes and workarounds from Ubuntu.
+
 === modified file 'metadata/core.xml.in'
 Index: compiz-0.9.7.0~bzr2995/metadata/core.xml.in
 ===================================================================
