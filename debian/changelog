@@ -14,7 +14,7 @@ compiz (0.9.7.0-0.1) experimental; urgency=low
   * Acknowledge NMU 0.8.4-5.1 and remove compiz-gnome.
   * debian/*:
     - Update the watch file to find the tarball in launchpad.
-    - Add libcompiz_core to compiz-core.install and compiz-dev.install.
+    - Add libcompiz_core to libcompiz-core.install and compiz-dev.install.
     - Remove the compiz.links file.
     - Include a libdecoration0.symbols based on the file from Ubuntu. Update it
       for the API change from 0.9.5.0.
