@@ -7,7 +7,7 @@ Description: Add missing library links.
  libcompiztoolbox.so contains an unresolvable reference to symbol XRenderFindVisualFormat: it's probably a plugin.
  .
  These 3 files are obviously plugins and dpkg-shlibdeps assumes that the program
- that loads the plugins provides theses symbols therefore not giving an error.
+ that loads the plugins provides these symbols therefore not giving an error.
 Author: Miguel Colon <debian.micove@gmail.com>
 Last-Update: 2012-03-14
 
