@@ -201,6 +201,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Multi-Arch: same
 Depends: ${shlibs:Depends},
  ${misc:Depends}
+Breaks: compiz-plugins (<< 0.9.7.0)
 Description: Compiz window decoration library
  The window decoration library is responsible for drawing the window borders
  and title bar of windows managed by Compiz. It is used by window decorators

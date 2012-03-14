@@ -49,6 +49,7 @@ compiz (0.9.7.0-0.1) experimental; urgency=low
     - Add compiz-plugins to the dependencies of compiz-gtk.
     - Add the libcompiz-core package.
       + Add a Breaks: compiz-core (<< 0.9.7.0).
+    - libdecoration0 breaks compiz-plugins (<< 0.9.7.0).
   * debian/rules:
     - Enable hardening support using the workaround for cmake.
     - Find CORE_ABIVERSION in abiversion.h.
