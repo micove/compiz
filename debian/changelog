@@ -28,6 +28,7 @@ compiz (0.9.7.0-0.1) experimental; urgency=low
         cause bugs and crashes. Remove Ubuntu related configurations and use
         their sane defaults.
     - Add a patch to fix the exec_prefix entries in some pc files.
+    - Add a patch to add some missing library links to the plugins.
     - Cherry pick commit 3043 from bzr. Lowers CPU usage.
   * debian/control:
     - Bump debhelper and the compatibility level to 9.

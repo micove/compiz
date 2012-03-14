@@ -1,0 +1,41 @@
+Description: Add missing library links.
+ Loading imgsvg was causing segfaults and saying it was missing a symbol from
+ libdecoration. I checked the buildlogs and found:
+ .
+ libimgsvg.so contains an unresolvable reference to symbol decor_apply_gravity: it's probably a plugin.
+ libopengl.so contains an unresolvable reference to symbol dlsym: it's probably a plugin.
+ libcompiztoolbox.so contains an unresolvable reference to symbol XRenderFindVisualFormat: it's probably a plugin.
+ .
+ These 3 files are obviously plugins and dpkg-shlibdeps assumes that the program
+ that loads the plugins provides theses symbols therefore not giving an error.
+Author: Miguel Colon <debian.micove@gmail.com>
+Last-Update: 2012-03-14
+
+--- compiz-0.9.7.0.orig/plugins/imgsvg/CMakeLists.txt
++++ compiz-0.9.7.0/plugins/imgsvg/CMakeLists.txt
+@@ -2,4 +2,4 @@ find_package (Compiz REQUIRED)
+ 
+ include (CompizPlugin)
+ 
+-compiz_plugin(imgsvg PLUGINDEPS composite opengl PKGDEPS cairo>=1.0 cairo-xlib librsvg-2.0>=2.14.0)
+\ No newline at end of file
++compiz_plugin(imgsvg PLUGINDEPS composite opengl PKGDEPS cairo>=1.0 cairo-xlib librsvg-2.0>=2.14.0 LIBRARIES decoration)
+--- compiz-0.9.7.0.orig/plugins/opengl/CMakeLists.txt
++++ compiz-0.9.7.0/plugins/opengl/CMakeLists.txt
+@@ -4,5 +4,5 @@ include (CompizPlugin)
+ 
+ find_package (OpenGL)
+ if (OPENGL_FOUND)
+-    compiz_plugin(opengl PLUGINDEPS composite LIBRARIES ${OPENGL_gl_LIBRARY} INCDIRS ${OPENGL_INCLUDE_DIR})
+-endif ()
+\ No newline at end of file
++    compiz_plugin(opengl PLUGINDEPS composite LDFLAGSADD -ldl LIBRARIES ${OPENGL_gl_LIBRARY} INCDIRS ${OPENGL_INCLUDE_DIR})
++endif ()
+--- compiz-0.9.7.0.orig/plugins/compiztoolbox/CMakeLists.txt
++++ compiz-0.9.7.0/plugins/compiztoolbox/CMakeLists.txt
+@@ -2,4 +2,4 @@ find_package (Compiz REQUIRED)
+ 
+ include (CompizPlugin)
+ 
+-compiz_plugin (compiztoolbox PLUGINDEPS composite opengl)
++compiz_plugin (compiztoolbox PLUGINDEPS composite opengl PKGDEPS xrender)
