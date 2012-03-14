@@ -187,6 +187,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Multi-Arch: same
 Depends: ${shlibs:Depends},
  ${misc:Depends}
+Breaks: compiz-core (<< 0.9.7.0)
 Description: OpenGL window and compositing manager - core library
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
