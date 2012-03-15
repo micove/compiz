@@ -18,6 +18,7 @@ compiz (0.9.7.0-0.1) experimental; urgency=low
     - Remove the compiz.links file.
     - Include a libdecoration0.symbols based on the file from Ubuntu. Update it
       for the API change from 0.9.5.0.
+    - Update gconf file s/allscreens/screen0/.
   * debian/patches:
     - Drop the deprecated Ubuntu patches.
     - Rename and refresh the remaining patches.
