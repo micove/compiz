@@ -21,7 +21,9 @@ override_dh_auto_configure:
 			-Dlibdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
 			-DCOMPIZ_BUILD_TESTING=OFF \
 			-DUSE_GSETTINGS=OFF \
-			-DUSE_GCONF=ON
+			-DUSE_GCONF=ON \
+			-DCOMPIZ_DISABLE_PLUGIN_INOTIFY=ON \
+			-DCOMPIZ_DISABLE_PLUGIN_DBUS=ON
 
 override_dh_auto_test:
 	# google-mock library has to be built by upstream to be used.
