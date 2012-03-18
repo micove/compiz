@@ -29,7 +29,7 @@ Last-Update: 2012-03-14
 -    compiz_plugin(opengl PLUGINDEPS composite LIBRARIES ${OPENGL_gl_LIBRARY} INCDIRS ${OPENGL_INCLUDE_DIR})
 -endif ()
 \ No newline at end of file
-+    compiz_plugin(opengl PLUGINDEPS composite LDFLAGSADD -ldl LIBRARIES ${OPENGL_gl_LIBRARY} INCDIRS ${OPENGL_INCLUDE_DIR})
++    compiz_plugin(opengl PLUGINDEPS composite LIBRARIES dl ${OPENGL_gl_LIBRARY} INCDIRS ${OPENGL_INCLUDE_DIR})
 +endif ()
 --- compiz-0.9.7.0.orig/plugins/compiztoolbox/CMakeLists.txt
 +++ compiz-0.9.7.0/plugins/compiztoolbox/CMakeLists.txt
