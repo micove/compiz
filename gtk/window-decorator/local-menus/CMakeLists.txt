@@ -1,0 +1,60 @@
+pkg_check_modules(
+  LOCAL_MENUS
+  REQUIRED
+  glib-2.0 gio-2.0 libwnck-1.0 gtk+-2.0>=2.18.0
+)
+
+INCLUDE_DIRECTORIES(  
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  
+  ${compiz_SOURCE_DIR}/gtk/window-decorator
+    
+  ${Boost_INCLUDE_DIRS}
+  
+  ${LOCAL_MENUS_INCLUDE_DIRS}
+  ${METACITY_INCLUDE_DIRS}
+)
+
+LINK_DIRECTORIES (${LOCAL_MENUS_LIBRARY_DIRS}) 
+
+SET( 
+  PUBLIC_HEADERS 
+)
+
+SET( 
+  PRIVATE_HEADERS
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/local-menus.h 
+)
+
+SET( 
+  SRCS 
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/local-menus.c
+)
+
+ADD_LIBRARY( 
+  gtk_window_decorator_local_menus STATIC
+  
+  ${SRCS}
+  
+  ${PUBLIC_HEADERS}
+  ${PRIVATE_HEADERS}
+)
+
+IF (COMPIZ_BUILD_TESTING)
+ADD_SUBDIRECTORY( ${CMAKE_CURRENT_SOURCE_DIR}/tests )
+ENDIF (COMPIZ_BUILD_TESTING)
+
+SET_TARGET_PROPERTIES(
+  gtk_window_decorator_local_menus PROPERTIES
+  PUBLIC_HEADER "${PUBLIC_HEADERS}"
+)
+
+install (FILES ${PUBLIC_HEADERS} DESTINATION ${COMPIZ_CORE_INCLUDE_DIR})
+
+TARGET_LINK_LIBRARIES( 
+  gtk_window_decorator_local_menus
+  
+  ${LOCAL_MENUS_LIBRARIES}
+)
+

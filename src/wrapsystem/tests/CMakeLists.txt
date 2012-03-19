@@ -15,4 +15,4 @@ target_link_libraries(
   ${CMAKE_THREAD_LIBS_INIT} # Link in pthread.
 )
 
-add_test( compiz_wrapsystem_test compiz_wrapsystem_test )
+add_test( compiz_wrapsystem_test "/bin/bash" "${CMAKE_SOURCE_DIR}/scripts/run-with-xvfb.sh" "./compiz_wrapsystem_test" )

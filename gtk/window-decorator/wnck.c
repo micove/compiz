@@ -24,6 +24,7 @@
  */
 
 #include "gtk-window-decorator.h"
+#include "local-menus.h"
 
 const gchar *
 get_frame_type (WnckWindow *win)
@@ -375,6 +376,19 @@ add_frame_window (WnckWindow *win,
 		if (cursor[i][j].cursor)
 		    XDefineCursor (xdisplay, d->event_windows[i][j].window,
 		    cursor[i][j].cursor);
+
+		XGrabButton (xdisplay,
+			     Button1Mask,
+			     AnyModifier,
+			     d->event_windows[i][j].window,
+			     FALSE,
+			     ButtonPressMask |
+			     ButtonReleaseMask |
+			     PointerMotionMask,
+			     GrabModeAsync,
+			     GrabModeAsync,
+			     None,
+			     None);
 	    }
 	}
 
@@ -388,6 +402,20 @@ add_frame_window (WnckWindow *win,
 			   0, 0, 1, 1, 0,
 			   CopyFromParent, CopyFromParent, CopyFromParent,
 			   CWOverrideRedirect | CWEventMask, &attr);
+
+
+	    XGrabButton (xdisplay,
+			 Button1Mask,
+			 AnyModifier,
+			 d->button_windows[i].window,
+			 FALSE,
+			 ButtonPressMask |
+			 ButtonReleaseMask |
+			 PointerMotionMask,
+			 GrabModeAsync,
+			 GrabModeAsync,
+			 None,
+			 None);
 
 	    d->button_states[i] = 0;
 	}
@@ -641,8 +669,10 @@ active_window_changed (WnckScreen *screen)
 	    * however if the shadow size doesn't change
 	    * then we need to redraw the decoration anyways
 	    * since the image would have changed */
-	    if (!update_window_decoration_size (d->win) && d->decorated)
-	       queue_decor_draw (d);
+	    if (d->win != NULL &&
+		!update_window_decoration_size (d->win) &&
+		d->decorated)
+		queue_decor_draw (d);
 
 	}
     }
@@ -707,8 +737,10 @@ active_window_changed (WnckScreen *screen)
 	    * however if the shadow size doesn't change
 	    * then we need to redraw the decoration anyways
 	    * since the image would have changed */
-	    if (!update_window_decoration_size (d->win) && d->decorated)
-	       queue_decor_draw (d);
+	    if (d->win != NULL &&
+		!update_window_decoration_size (d->win) &&
+		d->decorated)
+		queue_decor_draw (d);
 
 	}
     }
@@ -738,7 +770,8 @@ window_opened (WnckScreen *screen,
 	stick_button_event,
 	unshade_button_event,
 	unabove_button_event,
-	unstick_button_event
+	unstick_button_event,
+	window_menu_button_event
     };
 
     d = calloc (1, sizeof (decor_t));
@@ -784,6 +817,8 @@ void
 window_closed (WnckScreen *screen,
 	       WnckWindow *win)
 {
+    local_menu_cache_notify_window_destroyed (wnck_window_get_xid (win));
+
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
 
     if (d)

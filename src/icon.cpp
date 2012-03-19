@@ -29,7 +29,7 @@
 
 CompIcon::CompIcon (unsigned int width,
 		    unsigned int height) :
-    CompSize (width, height),
+    mSize (width, height),
     mData (new unsigned char[width * height * 4])
 {
 }

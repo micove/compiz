@@ -24,6 +24,7 @@
  */
 
 #include "gtk-window-decorator.h"
+#include "local-menus.h"
 
 #ifdef USE_METACITY
 
@@ -488,6 +489,8 @@ meta_get_decoration_geometry (decor_t		*d,
 	    button_layout->right_buttons[i] = META_BUTTON_FUNCTION_LAST;
     }
 
+    force_local_menus_on (d->win ? wnck_window_get_xid (d->win) : 0, button_layout);
+
     *flags = 0;
 
     if (d->actions & WNCK_WINDOW_ACTION_CLOSE)
@@ -538,6 +541,12 @@ meta_get_decoration_geometry (decor_t		*d,
 	*flags |= (MetaFrameFlags ) META_FRAME_ABOVE;
 #endif
 
+#ifdef META_HAS_LOCAL_MENUS
+    if (d->win &&
+	local_menu_allowed_on_window (gdk_x11_display_get_xdisplay (gdk_display_get_default ()), wnck_window_get_xid (d->win)))
+	*flags |= (MetaFrameFlags ) META_FRAME_ALLOWS_WINDOW_MENU;
+#endif
+
     meta_theme_get_frame_borders (theme,
 				  frame_type,
 				  d->frame->text_height,
@@ -558,6 +567,15 @@ meta_get_decoration_geometry (decor_t		*d,
     else
 	clip->height = d->border_layout.left.y2 - d->border_layout.left.y1;
 
+    memset (fgeom, 0, sizeof (MetaFrameGeometry));
+
+#ifdef META_HAS_LOCAL_MENUS
+
+    if (d->layout)
+	fgeom->text_layout = g_object_ref (d->layout);
+
+#endif
+
     meta_theme_calc_geometry (theme,
 			      frame_type,
 			      d->frame->text_height,
@@ -566,6 +584,15 @@ meta_get_decoration_geometry (decor_t		*d,
 			      clip->height,
 			      button_layout,
 			      fgeom);
+
+#ifdef META_HAS_LOCAL_MENUS
+
+    if (d->layout)
+	g_object_unref (fgeom->text_layout);
+
+    fgeom->text_layout = NULL;
+
+#endif
 
     clip->width  += left_width + right_width;
     clip->height += top_height + bottom_height;
@@ -600,6 +627,11 @@ meta_draw_window_decoration (decor_t *d)
     GtkWidget	      *style_window;
     GdkColor	      bg_color;
     double	      bg_alpha;
+
+    memset (&button_layout, 0, sizeof (MetaButtonLayout));
+
+    for (i = 0; i < MAX_BUTTONS_PER_CORNER; i++)
+	button_layout.left_buttons[i] = button_layout.right_buttons[i] = META_BUTTON_FUNCTION_LAST;
 
     if (!d->pixmap || !d->picture)
 	return;
@@ -674,6 +706,9 @@ meta_draw_window_decoration (decor_t *d)
     rect.width = clip.width;
 
     size = MAX (fgeom.top_height, fgeom.bottom_height);
+
+    if (active_menu)
+	g_object_set_data (G_OBJECT (style_window), "local_menu_rect", &active_menu->rect);
 
     if (rect.width && size)
     {
@@ -899,6 +934,9 @@ meta_draw_window_decoration (decor_t *d)
 	XRenderFreePicture (xdisplay, src);
     }
 
+    if (active_menu)
+	g_object_set_data (G_OBJECT (style_window), "local_menu_rect", NULL);
+
     copy_to_front_buffer (d);
 
     if (d->frame_window)
@@ -1075,6 +1113,15 @@ meta_get_button_position (decor_t	 *d,
 	    return FALSE;
 
 	space = &fgeom.unstick_rect;
+	break;
+#endif
+
+#ifdef META_HAS_LOCAL_MENUS
+    case BUTTON_WINDOW_MENU:
+	if (!meta_button_present (&button_layout, META_BUTTON_FUNCTION_WINDOW_MENU))
+	    return FALSE;
+
+	space = &fgeom.window_menu_rect;
 	break;
 #endif
 
@@ -1265,6 +1312,8 @@ meta_get_event_window_position (decor_t *d,
     MetaFrameFlags    flags;
     MetaTheme	      *theme;
     GdkRectangle      clip;
+
+    memset (&fgeom, 0, sizeof (MetaFrameGeometry));
 
     theme = meta_theme_get_current ();
 
@@ -1488,6 +1537,11 @@ meta_button_function_from_string (const char *str)
 	return META_BUTTON_FUNCTION_UNABOVE;
     else if (strcmp (str, "unstick") == 0)
 	return META_BUTTON_FUNCTION_UNSTICK;
+#endif
+
+#ifdef META_HAS_LOCAL_MENUS
+    else if (strcmp (str, "window_menu") == 0)
+	return META_BUTTON_FUNCTION_WINDOW_MENU;
 #endif
 
     else

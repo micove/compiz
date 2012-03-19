@@ -30,21 +30,26 @@
 
 #include <core/size.h>
 
+#include <boost/noncopyable.hpp>
 /**
  * Wraps an application icon pixel map and it's meta information (such as dimensions)
  */
-class CompIcon : public CompSize {
+class CompIcon : boost::noncopyable {
     public:
 	CompIcon (unsigned width, unsigned int height);
 	~CompIcon ();
 	
+	int width () const { return mSize.width(); }
+	int height () const { return mSize.height(); }
+	operator CompSize const&() const { return mSize; }
+
 	/**
 	 * Gets a pointer to the pixel data for this icon.
 	 */
 	unsigned char* data ();
 
     private:
-	CompSize      mSize;
+	CompSize mSize;
 	unsigned char *mData;
 };
 

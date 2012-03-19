@@ -209,6 +209,7 @@ class PrivateWindow {
 
 	bool checkClear ();
 
+	static CompWindow* createCompWindow (Window aboveId, XWindowAttributes &wa, Window id);
     public:
 
 	PrivateWindow *priv;
@@ -326,23 +327,6 @@ class PrivateWindow {
 
 	bool closeRequests;
 	Time lastCloseRequestTime;
-};
-
-class CoreWindow
-{
-public:
-
-    CoreWindow (Window id);
-
-    CompWindow * manage (Window above, XWindowAttributes &wa);
-
-    friend class PrivateWindow;
-    friend class PrivateScreen;
-    friend class CompScreenImpl;
-
-private:
-
-    PrivateWindow *priv;
 };
 
 #endif

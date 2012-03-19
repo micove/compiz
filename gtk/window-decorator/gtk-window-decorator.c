@@ -24,6 +24,7 @@
  */
 
 #include "gtk-window-decorator.h"
+#include "local-menus.h"
 
 gboolean minimal = FALSE;
 
@@ -48,6 +49,7 @@ Atom compiz_shadow_color_atom;
 Atom toolkit_action_atom;
 Atom toolkit_action_window_menu_atom;
 Atom toolkit_action_force_quit_dialog_atom;
+Atom ubuntu_appmenu_unique_name_atom;
 
 Atom net_wm_state_atom;
 Atom net_wm_state_modal_atom;
@@ -127,6 +129,38 @@ decor_settings_t *settings;
 const gchar * window_type_frames[WINDOW_TYPE_FRAMES_NUM] = {
     "normal", "modal_dialog", "dialog", "menu", "utility"
 };
+
+Box *
+get_active_window_local_menu_rectangle (gpointer user_data, int *dx, int *dy, int *top_height, Window *xid)
+{
+    WnckScreen *screen = (WnckScreen *) user_data;
+    WnckWindow *window = wnck_screen_get_active_window (screen);
+    int width, height;
+    decor_t    *d = g_object_get_data (G_OBJECT (window), "decor");
+
+    if (!d->decorated)
+	return NULL;
+
+    wnck_window_get_geometry (window, dx, dy, &width, &height);
+
+    *top_height = d->context->extents.top;
+
+    *xid = wnck_window_get_xid (window);
+
+    Box *rect = &d->button_windows[BUTTON_WINDOW_MENU].pos;
+
+    return rect;
+}
+
+void
+on_local_menu_window_menu_updated (gpointer user_data)
+{
+    Window xid = GPOINTER_TO_INT (user_data);
+    WnckWindow *window = wnck_window_get (xid);
+    decor_t *d = g_object_get_data (G_OBJECT (window), "decor");
+
+    queue_decor_draw (d);
+}
 
 int
 main (int argc, char *argv[])
@@ -304,6 +338,7 @@ main (int argc, char *argv[])
 
     net_wm_state_atom = XInternAtom (xdisplay,"_NET_WM_STATE", 0);
     net_wm_state_modal_atom = XInternAtom (xdisplay, "_NET_WM_STATE_MODAL", 0);
+    ubuntu_appmenu_unique_name_atom = XInternAtom (xdisplay, "_UBUNTU_APPMENU_UNIQUE_NAME", 0);
 
     status = decor_acquire_dm_session (xdisplay,
 				       gdk_screen_get_number (gdkscreen),
@@ -448,8 +483,32 @@ main (int argc, char *argv[])
 
     update_default_decorations (gdkscreen);
 
-    gtk_main ();
+#ifdef META_HAS_LOCAL_MENUS
+    GDBusConnection *conn = g_bus_get_sync (G_BUS_TYPE_SESSION, NULL, NULL);
+    local_menu_entry_activated_request_funcs funcs =
+    {
+	get_active_window_local_menu_rectangle,
+	on_local_menu_window_menu_updated
+    };
 
+    if (conn)
+    {
+	global_lim_listener = g_dbus_proxy_new_sync (conn, 0, NULL, "com.canonical.Unity.Panel.Service",
+						   "/com/canonical/Unity/Panel/Service",
+						   "com.canonical.Unity.Panel.Service",
+						   NULL, NULL);
+
+	g_signal_connect (G_OBJECT (global_lim_listener), "g-signal", G_CALLBACK (local_menu_entry_activated_request), (gpointer) &funcs);
+    }
+#endif
+    gtk_main ();
+#ifdef META_HAS_LOCAL_MENUS
+    if (global_lim_listener)
+	g_object_unref (global_lim_listener);
+
+    if (conn)
+	g_object_unref (conn);
+#endif
     win = windows = wnck_screen_get_windows (screen);
 
     while (win != NULL)

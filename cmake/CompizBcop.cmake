@@ -17,7 +17,10 @@ endfunction ()
 
 # prepare bcop build
 function (compiz_add_bcop_targets _plugin _file _sources)
-
+    add_custom_target (${_plugin}-options
+        SOURCES ${CMAKE_BINARY_DIR}/generated/${_plugin}_options.h
+                ${CMAKE_BINARY_DIR}/generated/${_plugin}_options.cpp
+    )
     add_custom_command (
         OUTPUT ${CMAKE_BINARY_DIR}/generated/${_plugin}_options.h
         COMMAND ${XSLTPROC_EXECUTABLE}
