@@ -30,7 +30,6 @@ compiz (0.9.7.0-0.1) experimental; urgency=low
         their sane defaults.
     - Add a patch to fix the exec_prefix entries in some pc files.
     - Add a patch to add some missing library links to the plugins.
-    - Cherry pick commit 3043 from bzr. Lowers CPU usage.
   * debian/control:
     - Bump debhelper and the compatibility level to 9.
     - Organize the build dependency list:
@@ -67,7 +66,7 @@ compiz (0.9.7.0-0.1) experimental; urgency=low
       same.
     - Mark compiz-core as M-A: foreign.
 
- -- Miguel Colon <debian.micove@gmail.com>  Thu, 15 Mar 2012 00:36:36 -0400
+ -- Miguel Colon <debian.micove@gmail.com>  Mon, 19 Mar 2012 07:43:46 -0400
 
 compiz (0.9.2.1+git20110226.f059fae9-4) experimental; urgency=low
 

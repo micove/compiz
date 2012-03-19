@@ -3,5 +3,4 @@
 002_workaround_broken_drivers.patch
 003_ubuntu-config_adapted_to_debian.patch
 100_fix_compiztoolbox_pc_file.patch
-bzr3043.patch
 101_add_missing_link_libraries.patch
