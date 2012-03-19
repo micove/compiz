@@ -53,6 +53,10 @@ class CompIcon;
 class PrivateWindow;
 struct CompStartupSequence;
 
+namespace compiz { namespace private_screen {
+    class GrabManager;
+}}
+
 #define ROOTPARENT(x) (((x)->frame ()) ? (x)->frame () : (x)->id ())
 
 #define CompWindowProtocolDeleteMask	  (1 << 0)
@@ -549,6 +553,7 @@ class CompWindow :
 	friend class PrivateWindow;
 	friend class CompScreenImpl;
 	friend class PrivateScreen;
+	friend class compiz::private_screen::GrabManager;
 	friend class ModifierHandler;
 	friend class CoreWindow;
 	friend class StackDebugger;

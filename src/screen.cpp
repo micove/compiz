@@ -106,12 +106,6 @@ void CompScreenImpl::setWindowState (unsigned int state, Window id)
     priv->setWindowState (state, id);
 }
 
-void
-CompScreenImpl::removeFromCreatedWindows(CoreWindow *cw)
-{
-    priv->createdWindows.remove (cw);
-}
-
 void CompScreenImpl::addToDestroyedWindows(CompWindow * cw)
 {
     priv->destroyedWindows.push_back (cw);
@@ -160,14 +154,20 @@ cps::EventManager::handleSignal (int signum)
 void
 CompScreenImpl::eventLoop ()
 {
-    priv->source = CompEventSource::create ();
-    priv->timeout = CompTimeoutSource::create (priv->ctx);
+    priv->startEventLoop ();
+}
 
-    priv->source->attach (priv->ctx);
+void
+cps::EventManager::startEventLoop()
+{
+    source = CompEventSource::create ();
+    timeout = CompTimeoutSource::create (ctx);
 
-    XFlush (priv->dpy);
+    source->attach (ctx);
 
-    priv->mainloop->run ();
+    XFlush (screen->dpy());
+
+    mainloop->run();
 }
 
 CompFileWatchHandle
@@ -175,50 +175,78 @@ CompScreenImpl::addFileWatch (const char        *path,
 			  int               mask,
 			  FileWatchCallBack callBack)
 {
-    CompFileWatch *fileWatch = new CompFileWatch ();
+    CompFileWatch *fileWatch = priv->addFileWatch (path, mask, callBack);
+
     if (!fileWatch)
 	return 0;
-
-    fileWatch->path	= path;
-    fileWatch->mask	= mask;
-    fileWatch->callBack = callBack;
-    fileWatch->handle   = priv->lastFileWatchHandle++;
-
-    if (priv->lastFileWatchHandle == MAXSHORT)
-	priv->lastFileWatchHandle = 1;
-
-    priv->fileWatch.push_front (fileWatch);
 
     fileWatchAdded (fileWatch);
 
     return fileWatch->handle;
 }
 
+CompFileWatch*
+cps::EventManager::addFileWatch (
+    const char        *path,
+    int               mask,
+    FileWatchCallBack callBack)
+{
+    CompFileWatch *fw = new CompFileWatch ();
+    if (!fw)
+	return 0;
+
+    fw->path	= path;
+    fw->mask	= mask;
+    fw->callBack = callBack;
+    fw->handle   = lastFileWatchHandle++;
+
+    if (lastFileWatchHandle == MAXSHORT)
+	lastFileWatchHandle = 1;
+
+    fileWatch.push_front (fw);
+
+    return fw;
+}
+
 void
 CompScreenImpl::removeFileWatch (CompFileWatchHandle handle)
 {
-    std::list<CompFileWatch *>::iterator it;
-    CompFileWatch                        *w;
+    if (CompFileWatch* w = priv->removeFileWatch (handle))
+    {
+	fileWatchRemoved (w);
 
-    for (it = priv->fileWatch.begin (); it != priv->fileWatch.end (); it++)
+	delete w;
+    }
+}
+
+CompFileWatch*
+cps::EventManager::removeFileWatch (CompFileWatchHandle handle)
+{
+    std::list<CompFileWatch *>::iterator it;
+
+    for (it = fileWatch.begin (); it != fileWatch.end (); it++)
 	if ((*it)->handle == handle)
 	    break;
 
-    if (it == priv->fileWatch.end ())
-	return;
+    if (it == fileWatch.end ())
+	return 0;
 
-    w = (*it);
-    priv->fileWatch.erase (it);
+    CompFileWatch* w = (*it);
+    fileWatch.erase (it);
 
-    fileWatchRemoved (w);
-
-    delete w;
+    return w;
 }
 
 const CompFileWatchList &
 CompScreenImpl::getFileWatches () const
 {
-    return priv->fileWatch;
+    return priv->getFileWatches ();
+}
+
+const CompFileWatchList &
+cps::EventManager::getFileWatches () const
+{
+    return fileWatch;
 }
 
 CompWatchFd::CompWatchFd (int		    fd,
@@ -251,6 +279,14 @@ CompScreenImpl::addWatchFd (int             fd,
 			short int       events,
 			FdWatchCallBack callBack)
 {
+    return priv->addWatchFd (fd, events, callBack);
+}
+
+CompWatchFdHandle
+cps::EventManager::addWatchFd (int             fd,
+			short int       events,
+			FdWatchCallBack callBack)
+{
     Glib::IOCondition gEvents;
     
     memset (&gEvents, 0, sizeof (Glib::IOCondition));
@@ -268,16 +304,16 @@ CompScreenImpl::addWatchFd (int             fd,
 
     CompWatchFd *watchFd = CompWatchFd::create (fd, gEvents, callBack);
 
-    watchFd->attach (priv->ctx);
+    watchFd->attach (ctx);
 
     if (!watchFd)
 	return 0;
-    watchFd->mHandle   = priv->lastWatchFdHandle++;
+    watchFd->mHandle   = lastWatchFdHandle++;
 
-    if (priv->lastWatchFdHandle == MAXSHORT)
-	priv->lastWatchFdHandle = 1;
+    if (lastWatchFdHandle == MAXSHORT)
+	lastWatchFdHandle = 1;
 
-    priv->watchFds.push_front (watchFd);
+    watchFds.push_front (watchFd);
 
     return watchFd->mHandle;
 }
@@ -285,17 +321,23 @@ CompScreenImpl::addWatchFd (int             fd,
 void
 CompScreenImpl::removeWatchFd (CompWatchFdHandle handle)
 {
+    priv->removeWatchFd (handle);
+}
+
+void
+cps::EventManager::removeWatchFd (CompWatchFdHandle handle)
+{
     std::list<CompWatchFd * >::iterator it;
     CompWatchFd *			w;
 
-    for (it = priv->watchFds.begin();
-	 it != priv->watchFds.end (); it++)
+    for (it = watchFds.begin();
+	 it != watchFds.end (); it++)
     {
 	if ((*it)->mHandle == handle)
 	    break;
     }
 
-    if (it == priv->watchFds.end ())
+    if (it == watchFds.end ())
 	return;
 
     w = (*it);
@@ -307,7 +349,7 @@ CompScreenImpl::removeWatchFd (CompWatchFdHandle handle)
     }
 
     delete w;
-    priv->watchFds.erase (it);
+    watchFds.erase (it);
 }
 
 void
@@ -659,7 +701,7 @@ PrivateScreen::setOption (const CompString  &name,
 
     switch (index) {
 	case CoreOptions::ActivePlugins:
-	    dirtyPluginList = true;
+	    setDirtyPluginList ();
 	    break;
 	case CoreOptions::PingDelay:
 	    pingTimer.setTimes (optionGetPingDelay (),
@@ -737,7 +779,7 @@ PrivateScreen::processEvents ()
     std::list <XEvent> events;
     StackDebugger *dbg = StackDebugger::Default ();
 
-    if (dirtyPluginList)
+    if (isDirtyPluginList ())
 	updatePlugins ();
 
     /* Restacks recently processed, ensure that
@@ -1142,7 +1184,7 @@ PrivateScreen::handleSelectionClear (XEvent *event)
 	wmSnAtom != event->xselectionclear.selection)
 	return;
 
-    mainloop->quit ();
+    quit ();
 }
 
 #define IMAGEDIR "images"
@@ -2045,7 +2087,7 @@ PrivateScreen::updateStartupFeedback ()
 #define STARTUP_TIMEOUT_DELAY 15000
 
 bool
-PrivateScreen::handleStartupSequenceTimeout ()
+cps::StartupSequence::handleStartupSequenceTimeout ()
 {
     struct timeval	now, active;
     double		elapsed;
@@ -2069,7 +2111,7 @@ PrivateScreen::handleStartupSequenceTimeout ()
 }
 
 void
-PrivateScreen::addSequence (SnStartupSequence *sequence)
+cps::StartupSequence::addSequence (SnStartupSequence *sequence)
 {
     CompStartupSequence *s;
 
@@ -2092,7 +2134,7 @@ PrivateScreen::addSequence (SnStartupSequence *sequence)
 }
 
 void
-PrivateScreen::removeSequence (SnStartupSequence *sequence)
+cps::StartupSequence::removeSequence (SnStartupSequence *sequence)
 {
     CompStartupSequence *s = NULL;
 
@@ -2123,7 +2165,7 @@ PrivateScreen::removeSequence (SnStartupSequence *sequence)
 }
 
 void
-PrivateScreen::removeAllSequences ()
+cps::StartupSequence::removeAllSequences ()
 {
     foreach (CompStartupSequence *s, startupSequences)
     {
@@ -2239,7 +2281,7 @@ PrivateScreen::configure (XConfigureEvent *ce)
 }
 
 void
-PrivateScreen::setSupportingWmCheck ()
+cps::EventManager::setSupportingWmCheck (Display* dpy, Window root)
 {
     XChangeProperty (dpy, grabWindow,
 		     Atoms::supportingWmCheck,
@@ -2260,10 +2302,21 @@ PrivateScreen::setSupportingWmCheck ()
 		     XA_ATOM, 32, PropModeAppend,
 		     (unsigned char *) &Atoms::winStateHidden, 1);
 
-    XChangeProperty (dpy, root, Atoms::supportingWmCheck,
+    XChangeProperty (dpy, screen->root(), Atoms::supportingWmCheck,
 		     XA_WINDOW, 32, PropModeReplace,
 		     (unsigned char *) &grabWindow, 1);
 }
+
+void
+cps::EventManager::createGrabWindow (Display* dpy, Window root, XSetWindowAttributes* attrib)
+{
+    grabWindow = XCreateWindow (dpy, root, -100, -100, 1, 1, 0,
+				  CopyFromParent, InputOnly, CopyFromParent,
+				  CWOverrideRedirect | CWEventMask,
+				  attrib);
+    XMapWindow (dpy, grabWindow);
+}
+
 
 void
 CompScreenImpl::updateSupportedWmHints ()
@@ -2496,7 +2549,7 @@ unsigned int CompScreenImpl::showingDesktopMask() const
 
 bool CompScreenImpl::grabsEmpty() const
 {
-    return priv->grabs.empty();
+    return priv->grabsEmpty();
 }
 
 void
@@ -2935,11 +2988,11 @@ CompScreenImpl::invisibleCursor ()
 CompScreenImpl::GrabHandle
 CompScreenImpl::pushGrab (Cursor cursor, const char *name)
 {
-    if (priv->grabs.empty ())
+    if (priv->grabsEmpty ())
     {
 	int status;
 
-	status = XGrabPointer (priv->dpy, priv->grabWindow, true,
+	status = XGrabPointer (priv->dpy, priv->getGrabWindow(), true,
 			       POINTER_GRAB_MASK,
 			       GrabModeAsync, GrabModeAsync,
 			       priv->root, cursor,
@@ -2948,7 +3001,7 @@ CompScreenImpl::pushGrab (Cursor cursor, const char *name)
 	if (status == GrabSuccess)
 	{
 	    status = XGrabKeyboard (priv->dpy,
-				    priv->grabWindow, true,
+				    priv->getGrabWindow(), true,
 				    GrabModeAsync, GrabModeAsync,
 				    CurrentTime);
 	    if (status != GrabSuccess)
@@ -2956,8 +3009,6 @@ CompScreenImpl::pushGrab (Cursor cursor, const char *name)
 		XUngrabPointer (priv->dpy, CurrentTime);
 		return NULL;
 	    }
-	    else
-	        priv->tapGrab = false;
 	}
 	else
 	    return NULL;
@@ -2968,11 +3019,8 @@ CompScreenImpl::pushGrab (Cursor cursor, const char *name)
 				  cursor, CurrentTime);
     }
 
-    PrivateScreen::Grab *grab = new PrivateScreen::Grab ();
-    grab->cursor = cursor;
-    grab->name   = name;
-
-    priv->grabs.push_back (grab);
+    cps::Grab *grab = new cps::Grab (cursor, name);
+    priv->grabsPush (grab);
 
     return grab;
 }
@@ -2986,7 +3034,7 @@ CompScreenImpl::updateGrab (CompScreen::GrabHandle handle, Cursor cursor)
     XChangeActivePointerGrab (priv->dpy, POINTER_GRAB_MASK,
 			      cursor, CurrentTime);
 
-    ((PrivateScreen::Grab *) handle)->cursor = cursor;
+    handle->cursor = cursor;
 }
 
 void
@@ -2996,20 +3044,13 @@ CompScreenImpl::removeGrab (CompScreen::GrabHandle handle,
     if (!handle)
 	return;
 
-    std::list<PrivateScreen::Grab *>::iterator it;
+    priv-> grabsRemove(handle);
 
-    it = std::find (priv->grabs.begin (), priv->grabs.end (), handle);
-
-    if (it != priv->grabs.end ())
-    {
-	priv->grabs.erase (it);
-	delete (static_cast<PrivateScreen::Grab *> (handle));
-    }
-    if (!priv->grabs.empty ())
+    if (!priv->grabsEmpty ())
     {
 	XChangeActivePointerGrab (priv->dpy,
 				  POINTER_GRAB_MASK,
-				  priv->grabs.back ()->cursor,
+				  priv->grabsBack ()->cursor,
 				  CurrentTime);
     }
     else
@@ -3020,7 +3061,20 @@ CompScreenImpl::removeGrab (CompScreen::GrabHandle handle,
 
 	XUngrabPointer (priv->dpy, CurrentTime);
 	XUngrabKeyboard (priv->dpy, CurrentTime);
-	priv->tapGrab = false;
+    }
+}
+
+void
+cps::GrabList::grabsRemove(Grab* handle)
+{
+    PrivateScreen::GrabIterator it;
+
+    it = std::find (grabsBegin (), grabsEnd (), handle);
+
+    if (it != grabsEnd ())
+    {
+	grabs.erase (it);
+	delete (handle);
     }
 }
 
@@ -3034,9 +3088,9 @@ CompScreenImpl::otherGrabExist (const char *first, ...)
     va_list    ap;
     const char *name;
 
-    std::list<PrivateScreen::Grab *>::iterator it;
+    std::list<cps::Grab *>::iterator it;
 
-    for (it = priv->grabs.begin (); it != priv->grabs.end (); it++)
+    for (it = priv->grabsBegin (); it != priv->grabsEnd (); it++)
     {
 	va_start (ap, first);
 
@@ -3061,7 +3115,13 @@ CompScreenImpl::otherGrabExist (const char *first, ...)
 bool
 CompScreenImpl::grabExist (const char *grab)
 {
-    foreach (PrivateScreen::Grab* g, priv->grabs)
+    return priv->grabExist (grab);
+}
+
+bool
+cps::GrabList::grabExist (const char *grab)
+{
+    foreach (cps::Grab* g, grabs)
     {
 	if (strcmp (g->name, grab) == 0)
 	    return true;
@@ -3072,42 +3132,46 @@ CompScreenImpl::grabExist (const char *grab)
 bool
 CompScreenImpl::grabbed ()
 {
-    return priv->grabbed;
+    return priv->isGrabbed();
 }
 
 void
-PrivateScreen::grabUngrabOneKey (unsigned int modifiers,
+cps::GrabManager::grabUngrabOneKey (unsigned int modifiers,
 				 int          keycode,
 				 bool         grab)
 {
     if (grab)
     {
-	XGrabKey (dpy,
+	/*
+	 * Always grab the keyboard Sync-ronously. This is so that we can
+	 * choose to ReplayKeyboard in alwaysHandleEvent if need be.
+	 */
+	XGrabKey (screen->dpy(),
 		  keycode,
 		  modifiers,
-		  root,
+		  screen->root(),
 		  true,
 		  GrabModeAsync,
-		  GrabModeAsync);
+		  GrabModeSync);
     }
     else
     {
-	XUngrabKey (dpy,
+	XUngrabKey (screen->dpy(),
 		    keycode,
 		    modifiers,
-		    root);
+		    screen->root());
     }
 }
 
 bool
-PrivateScreen::grabUngrabKeys (unsigned int modifiers,
+cps::GrabManager::grabUngrabKeys (unsigned int modifiers,
 			       int          keycode,
 			       bool         grab)
 {
     int             mod, k;
     unsigned int    ignore;
 
-    CompScreen::checkForError (dpy);
+    CompScreen::checkForError (screen->dpy());
 
     for (ignore = 0; ignore <= modHandler->ignoredModMask (); ignore++)
     {
@@ -3138,9 +3202,23 @@ PrivateScreen::grabUngrabKeys (unsigned int modifiers,
 		    }
 		}
 	    }
+
+	    /*
+	     * keycode == 0, so this is a modifier-only keybinding.
+	     * Until now I have been trying to:
+	     *     grabUngrabOneKey (modifiers | ignore, AnyKey, grab);
+	     * which does not seem to work at all.
+	     * However, binding to each keycode individually does work.
+	     * This is so that we can detect taps on individual modifier
+	     * keys, and know to cancel the tap if <modifier>+k is pressed.
+	     */
+	    int minCode, maxCode;
+	    XDisplayKeycodes (screen->dpy(), &minCode, &maxCode);
+	    for (k = minCode; k <= maxCode; k++)
+	        grabUngrabOneKey (modifiers | ignore, k, grab);
 	}
 
-	if (CompScreen::checkForError (dpy))
+	if (CompScreen::checkForError (screen->dpy()))
 	    return false;
     }
 
@@ -3148,7 +3226,7 @@ PrivateScreen::grabUngrabKeys (unsigned int modifiers,
 }
 
 bool
-PrivateScreen::addPassiveKeyGrab (CompAction::KeyBinding &key)
+cps::GrabManager::addPassiveKeyGrab (CompAction::KeyBinding &key)
 {
     KeyGrab                      newKeyGrab;
     unsigned int                 mask;
@@ -3184,7 +3262,7 @@ PrivateScreen::addPassiveKeyGrab (CompAction::KeyBinding &key)
 }
 
 void
-PrivateScreen::removePassiveKeyGrab (CompAction::KeyBinding &key)
+cps::GrabManager::removePassiveKeyGrab (CompAction::KeyBinding &key)
 {
     unsigned int                 mask;
     std::list<KeyGrab>::iterator it;
@@ -3206,14 +3284,22 @@ PrivateScreen::removePassiveKeyGrab (CompAction::KeyBinding &key)
 		grabUngrabKeys (mask, key.keycode (), false);
 	}
     }
+
+    /*
+     * Removing modifier-only grabs is tricky. Because it also removes grabs
+     * for modifier+all_other_keys. See XDisplayKeycodes above to find out why.
+     * So we need to refresh all grabs...
+     */
+    if (!(mask & CompNoMask) && key.keycode () == 0)
+	updatePassiveKeyGrabs ();
 }
 
 void
-PrivateScreen::updatePassiveKeyGrabs ()
+cps::GrabManager::updatePassiveKeyGrabs ()
 {
-    std::list<KeyGrab>::iterator it;
+    std::list<cps::KeyGrab>::iterator it;
 
-    XUngrabKey (dpy, AnyKey, AnyModifier, root);
+    XUngrabKey (screen->dpy(), AnyKey, AnyModifier, screen->root());
 
     for (it = keyGrabs.begin (); it != keyGrabs.end (); it++)
     {
@@ -3226,7 +3312,7 @@ PrivateScreen::updatePassiveKeyGrabs ()
 }
 
 bool
-PrivateScreen::addPassiveButtonGrab (CompAction::ButtonBinding &button)
+cps::GrabManager::addPassiveButtonGrab (CompAction::ButtonBinding &button)
 {
     ButtonGrab                      newButtonGrab;
     std::list<ButtonGrab>::iterator it;
@@ -3253,8 +3339,39 @@ PrivateScreen::addPassiveButtonGrab (CompAction::ButtonBinding &button)
     return true;
 }
 
+void cps::GrabManager::updatePassiveButtonGrabs(Window serverFrame)
+{
+    /* Grab only we have bindings on */
+    foreach (ButtonGrab &bind, buttonGrabs)
+    {
+	unsigned int mods = modHandler->virtualToRealModMask (bind.modifiers);
+
+	if (mods & CompNoMask)
+	    continue;
+
+	for (unsigned int ignore = 0;
+		 ignore <= modHandler->ignoredModMask (); ignore++)
+	{
+	    if (ignore & ~modHandler->ignoredModMask ())
+		continue;
+
+	    XGrabButton (screen->dpy(),
+			 bind.button,
+			 mods | ignore,
+			 serverFrame,
+			 false,
+			 ButtonPressMask | ButtonReleaseMask |
+			    ButtonMotionMask,
+			 GrabModeSync,
+			 GrabModeAsync,
+			 None,
+			 None);
+	}
+    }
+}
+
 void
-PrivateScreen::removePassiveButtonGrab (CompAction::ButtonBinding &button)
+cps::GrabManager::removePassiveButtonGrab (CompAction::ButtonBinding &button)
 {
     std::list<ButtonGrab>::iterator it;
 
@@ -3502,11 +3619,11 @@ PrivateScreen::updateClientList ()
 	    XChangeProperty (dpy, root,
 			     Atoms::clientList,
 			     XA_WINDOW, 32, PropModeReplace,
-			     (unsigned char *) &grabWindow, 1);
+			     (unsigned char *) &getGrabWindow(), 1);
 	    XChangeProperty (dpy, root,
 			     Atoms::clientListStacking,
 			     XA_WINDOW, 32, PropModeReplace,
-			     (unsigned char *) &grabWindow, 1);
+			     (unsigned char *) &getGrabWindow(), 1);
 	}
 
 	return;
@@ -3597,7 +3714,6 @@ CompScreenImpl::toolkitAction (Atom   toolkitAction,
 
     XUngrabPointer (priv->dpy, CurrentTime);
     XUngrabKeyboard (priv->dpy, CurrentTime);
-    priv->tapGrab = false;
 
     XSendEvent (priv->dpy, priv->root, false,
 		StructureNotifyMask, &ev);
@@ -4098,7 +4214,7 @@ CompScreenImpl::updateDefaultIcon ()
 }
 
 void
-PrivateScreen::setCurrentActiveWindowHistory (int x, int y)
+cps::History::setCurrentActiveWindowHistory (int x, int y)
 {
     int	i, min = 0;
 
@@ -4125,7 +4241,7 @@ PrivateScreen::setCurrentActiveWindowHistory (int x, int y)
 }
 
 void
-PrivateScreen::addToCurrentActiveWindowHistory (Window id)
+cps::History::addToCurrentActiveWindowHistory (Window id)
 {
     CompActiveWindowHistory *history = &this->history[currentHistory];
     Window		    tmp, next = id;
@@ -4269,12 +4385,18 @@ CompScreenImpl::destroyedWindows ()
 Time
 CompScreenImpl::getCurrentTime ()
 {
+    return priv->getCurrentTime (priv->dpy);
+}
+
+Time
+cps::EventManager::getCurrentTime (Display* dpy) const
+{
     XEvent event;
 
-    XChangeProperty (priv->dpy, priv->grabWindow,
+    XChangeProperty (dpy, grabWindow,
 		     XA_PRIMARY, XA_STRING, 8,
 		     PropModeAppend, NULL, 0);
-    XWindowEvent (priv->dpy, priv->grabWindow,
+    XWindowEvent (dpy, grabWindow,
 		  PropertyChangeMask,
 		  &event);
 
@@ -4314,7 +4436,7 @@ CompScreenImpl::desktopWindowCount ()
 unsigned int
 CompScreenImpl::activeNum () const
 {
-    return priv->activeNum;
+    return priv->getActiveNum();
 }
 
 CompOutput::vector &
@@ -4350,7 +4472,7 @@ CompScreenImpl::nDesktop ()
 CompActiveWindowHistory *
 CompScreenImpl::currentHistory ()
 {
-    return &priv->history[priv->currentHistory];
+    return priv->getCurrentHistory ();
 }
 
 bool
@@ -4420,7 +4542,8 @@ CompScreen::CompScreen ():
 {
 }
 
-CompScreenImpl::CompScreenImpl ()
+CompScreenImpl::CompScreenImpl () :
+    eventHandled (false)
 {
     CompPrivate p;
     CompOption::Value::Vector vList;
@@ -4450,7 +4573,7 @@ CompScreenImpl::CompScreenImpl ()
 
     vList.push_back ("core");
 
-    priv->plugin.set (CompOption::TypeString, vList);
+    priv->setPlugins (vList);
 }
 
 bool
@@ -4469,11 +4592,6 @@ cps::EventManager::init (const char *name)
     sigtermSource = CompSignalSource::create (SIGTERM, boost::bind (&PrivateScreen::handleSignal, this, _1));
 
     if (!initDisplay(name)) return false;
-
-    pingTimer.setTimes (optionGetPingDelay (),
-			      optionGetPingDelay () + 500);
-
-    pingTimer.start ();
 
     optionSetCloseWindowKeyInitiate (CompScreenImpl::closeWin);
     optionSetCloseWindowButtonInitiate (CompScreenImpl::closeWin);
@@ -4508,7 +4626,7 @@ cps::EventManager::init (const char *name)
 
     optionSetToggleWindowShadedKeyInitiate (CompScreenImpl::shadeWin);
 
-    if (dirtyPluginList)
+    if (isDirtyPluginList ())
 	updatePlugins ();
 
     return true;
@@ -4748,8 +4866,6 @@ PrivateScreen::initDisplay (const char *name)
     workArea.setWidth (attrib.width);
     workArea.setHeight (attrib.height);
 
-    grabWindow = None;
-
     XVisualInfo          templ;
     templ.visualid = XVisualIDFromVisual (attrib.visual);
 
@@ -4812,11 +4928,7 @@ PrivateScreen::initDisplay (const char *name)
 	attrib.override_redirect = 1;
 	attrib.event_mask = PropertyChangeMask;
 
-	grabWindow = XCreateWindow (dpy, root, -100, -100, 1, 1, 0,
-					  CopyFromParent, InputOnly, CopyFromParent,
-					  CWOverrideRedirect | CWEventMask,
-					  &attrib);
-	XMapWindow (dpy, grabWindow);
+	createGrabWindow(dpy, root, &attrib);
 
 	for (int i = 0; i < SCREEN_EDGE_NUM; i++)
 	{
@@ -4848,7 +4960,7 @@ PrivateScreen::initDisplay (const char *name)
     updateScreenEdges ();
 
     setDesktopHints ();
-    setSupportingWmCheck ();
+    setSupportingWmCheck (dpy, root);
     screen->updateSupportedWmHints ();
 
     normalCursor = XCreateFontCursor (dpy, XC_left_ptr);
@@ -4885,10 +4997,7 @@ PrivateScreen::initDisplay (const char *name)
 	if (!XGetWindowAttributes (screen->dpy (), children[i], &attrib))
 	    setDefaultWindowAttributes(&attrib);
 
-	CoreWindow *cw = new CoreWindow (children[i]);
-	cw->manage (i ? children[i - 1] : 0, attrib);
-	createdWindows.remove (cw);
-	delete cw;
+	PrivateWindow::createCompWindow (i ? children[i - 1] : 0, attrib, children[i]);
     }
 
     /* enforce restack on all windows
@@ -4905,7 +5014,7 @@ PrivateScreen::initDisplay (const char *name)
     foreach (CompWindow *w, windows)
     {
 	if (w->isViewable ())
-	    w->priv->activeNum = activeNum++;
+	    w->priv->activeNum = nextActiveNum ();
     }
 
     Window               focus;
@@ -4954,6 +5063,12 @@ PrivateScreen::initDisplay (const char *name)
 
     setAudibleBell (optionGetAudibleBell ());
 
+
+    pingTimer.setTimes (optionGetPingDelay (),
+			      optionGetPingDelay () + 500);
+
+    pingTimer.start ();
+
     return true;
 }
 
@@ -4970,34 +5085,46 @@ CompScreenImpl::~CompScreenImpl ()
     screen = NULL;
 }
 
+cps::GrabManager::GrabManager (CompScreen *screen) :
+    ScreenUser(screen),
+    buttonGrabs (),
+    keyGrabs ()
+{
+}
+
+cps::ViewPort::ViewPort() :
+    vp (0, 0),
+    vpSize (1, 1)
+{
+}
+
+cps::StartupSequence::StartupSequence() :
+    startupSequences (),
+    startupSequenceTimer ()
+{
+}
+
 PrivateScreen::PrivateScreen (CompScreen *screen) :
+    ScreenUser (screen),
     EventManager (screen),
+    GrabManager (screen),
     screenInfo (0),
     snDisplay(0),
     windows (),
-    vp (0, 0),
-    vpSize (1, 1),
     nDesktop (1),
     currentDesktop (0),
     root (None),
-    grabWindow (None),
-    activeNum (1),
     outputDevs (0),
     currentOutputDev (0),
     hasOverlappingOutputs (false),
-    currentHistory (0),
     snContext (0),
-    startupSequences (0),
-    startupSequenceTimer (),
-    buttonGrabs (0),
-    keyGrabs (0),
-    grabs (0),
-    grabbed (false),
     showingDesktopMask (0),
     desktopHintData (0),
     desktopHintSize (0),
-    eventHandled (false),
-    initialized (false)
+    initialized (false),
+    edgeWindow (None),
+    edgeDelayTimer (),
+    xdndWindow (None)
 {
     pingTimer.setCallback (
 	boost::bind (&PrivateScreen::handlePingTimeout, this));
@@ -5005,7 +5132,12 @@ PrivateScreen::PrivateScreen (CompScreen *screen) :
     startupSequenceTimer.setCallback (
 	boost::bind (&PrivateScreen::handleStartupSequenceTimeout, this));
     startupSequenceTimer.setTimes (1000, 1500);
+}
 
+cps::History::History() :
+    currentHistory(0),
+    activeNum (1)
+{
     memset (&history[currentHistory], 0, sizeof history[currentHistory]);
 }
 
@@ -5022,27 +5154,24 @@ cps::WindowManager::WindowManager() :
 {
 }
 
-cps::PluginManager::PluginManager() :
+cps::PluginManager::PluginManager(CompScreen *screen) :
+    ScreenUser (screen),
     CoreOptions (false),
     plugin (),
-    dirtyPluginList (true),
-    possibleTap (NULL)
+    dirtyPluginList (true)
 {
 }
 
 cps::EventManager::EventManager (CompScreen *screen) :
+    ScreenUser (screen),
+    PluginManager (screen),
     source(0),
     timeout(0),
     fileWatch (0),
     lastFileWatchHandle (1),
     watchFds (0),
     lastWatchFdHandle (1),
-    edgeDelayTimer (),
-    screen (screen),
-    desktopWindowCount (0),
-    mapNum (1),
-    defaultIcon (0),
-    tapGrab (false)
+    grabWindow (None)
 {
     ValueHolder::SetDefault (static_cast<ValueHolder *> (this));
     TimeoutHandler *dTimeoutHandler = new TimeoutHandler ();
@@ -5050,18 +5179,22 @@ cps::EventManager::EventManager (CompScreen *screen) :
 }
 
 cps::OrphanData::OrphanData() :
-    edgeWindow (None),
-    xdndWindow (None)
+    desktopWindowCount (0),
+    mapNum (1),
+    defaultIcon (0)
 {
+}
+
+cps::OrphanData::~OrphanData()
+{
+    if (defaultIcon)
+	delete defaultIcon;
 }
 
 cps::EventManager::~EventManager ()
 {
     delete timeout;
     delete source;
-
-    if (defaultIcon)
-	delete defaultIcon;
 
     foreach (CompWatchFd *fd, watchFds)
 	delete fd;
@@ -5080,7 +5213,7 @@ PrivateScreen::~PrivateScreen ()
 	for (int i = 0; i < SCREEN_EDGE_NUM; i++)
 	    XDestroyWindow (dpy, screenEdge[i].id);
 
-	XDestroyWindow (dpy, grabWindow);
+	destroyGrabWindow (dpy);
 
 	XFreeCursor (dpy, invisibleCursor);
 	XSync (dpy, False);

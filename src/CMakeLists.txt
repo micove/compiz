@@ -10,7 +10,7 @@ add_subdirectory( rect )
 add_subdirectory( window )
 
 IF (COMPIZ_BUILD_TESTING)
-add_subdirectory( privatescreen )
+add_subdirectory( privatescreen/tests )
 add_subdirectory( wrapsystem/tests )
 add_subdirectory( region/tests )
 add_subdirectory( plugin )
@@ -109,9 +109,12 @@ add_library (compiz_core SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/eventsource.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/signalsource.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/stackdebugger.cpp
-    
+
     ${_bcop_sources}
 )
+
+add_dependencies (core-options core-xml-file)
+add_dependencies (compiz_core core-options)
 
 #
 # Normal libraries use the major version number of the library as their

@@ -22,41 +22,43 @@ else ()
     set (_core_file "${CMAKE_CURRENT_SOURCE_DIR}/core.xml.in")
 endif ()
 
-
 set (_xml_targets)
 set (_schema_targets)
 
+set (_core_xml_file ${CMAKE_BINARY_DIR}/generated/core.xml)
 compiz_translate_xml (
     ${_core_file}
-    ${CMAKE_BINARY_DIR}/generated/core.xml
+    ${_core_xml_file}
 )
 
 install (
-    FILES ${CMAKE_BINARY_DIR}/generated/core.xml
+    FILES ${_core_xml_file}
     DESTINATION ${COMPIZ_DESTDIR}${compiz_metadatadir}
 )
 
 add_custom_target (core-xml-file ALL
-    DEPENDS ${CMAKE_BINARY_DIR}/generated/core.xml
+    DEPENDS ${_core_xml_file}
 )
 
 if (USE_GCONF)
     compiz_gconf_schema (
-	${CMAKE_BINARY_DIR}/generated/core.xml
+	${_core_xml_file}
 	${CMAKE_BINARY_DIR}/generated/compiz-core.schemas
 	${SCHEMADIR}
     )
     add_custom_target (core-gconf-schema ALL
 	DEPENDS ${CMAKE_BINARY_DIR}/generated/compiz-core.schemas
+	        core-xml-file
     )
 endif ()
 if (USE_GSETTINGS)
     compiz_gsettings_schema (
-	${CMAKE_BINARY_DIR}/generated/core.xml
+	${_core_xml_file}
 	${CMAKE_BINARY_DIR}/generated/org.freedesktop.compiz.gschema.xml
 	${datadir}/glib-2.0/schemas
     )
     add_custom_target (core-settings-schema ALL
 	DEPENDS ${CMAKE_BINARY_DIR}/generated/org.freedesktop.compiz.gschema.xml
+	        core-xml-file
     )
 endif ()

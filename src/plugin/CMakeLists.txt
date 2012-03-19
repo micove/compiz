@@ -40,6 +40,8 @@ ADD_LIBRARY(
   ${PRIVATE_HEADERS}
 )
 
+add_dependencies (compiz_plugin core-options)
+
 ADD_SUBDIRECTORY( ${CMAKE_CURRENT_SOURCE_DIR}/tests )
 
 SET_TARGET_PROPERTIES(

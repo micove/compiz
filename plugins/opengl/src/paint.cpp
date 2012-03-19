@@ -234,6 +234,11 @@ PrivateGLScreen::paintOutputRegion (const GLMatrix   &transform,
 	count	       = 0;
     }
 
+    /*
+     * We need to COPY the PaintList for now because there seem to be some
+     * odd cases where the master list might change during the below loops.
+     * (LP: #958540)
+     */
     pl = cScreen->getWindowPaintList ();
 
     if (!(mask & PAINT_SCREEN_NO_OCCLUSION_DETECTION_MASK))

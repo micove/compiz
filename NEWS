@@ -1,3 +1,30 @@
+Release 0.9.7.2 (2012-03-19 Daniel van Vugt <daniel.van.vugt@canonical.com>)
+============================================================================
+
+Bugs fixed (https://launchpad.net/compiz-core/+milestone/0.9.7.2)
+
+    806255 - Unity/compiz intercepts keystrokes from grabbed windows.
+    808007 - compiz crashed with signal 5 in Glib::exception_handlers_invoke()
+    682788 - Global menu is not ergonomical on large screens
+    931245 - Finish the implementation of the locally integrated menubars
+    938417 - lp:compiz-core fails parallel builds (make -jN)
+    943194 - [regression] Pressing alt doesn't show the menu title bar in top
+             panel
+    943612 - Alt+Right arrow key trigger a kind of Alt + Tab
+    943851 - [unity 5.6] Pressing Alts steals focus from current widget,
+             cannot compose characters with AltGr
+    944979 - Quicklist are not showing if right-clicking a launcher icon in
+             Expo mode if triggered by Super + S
+    945373 - Regression: ALT + Drag doesn't behave how it should
+    945816 - [regression] Changing the HUD shortcut disables all Alt-based
+             combinations
+    946118 - screen.cpp:3281: virtual bool
+             CompScreenImpl::addAction(CompAction*): Assertion
+	     `priv->initialized' failed.
+    953089 - Unity 5.6: key bindings (such as Super) don't work on empty
+             workspace or on slow/loaded systems
+
+
 Release 0.9.7.0 ( 2012-03-02 smspillaz <sam.spilsbury@canonical.com> ) 
 =======================================================================
 Release version 0.9.7.0

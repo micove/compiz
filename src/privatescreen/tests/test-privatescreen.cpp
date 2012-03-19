@@ -103,7 +103,6 @@ public:
     MOCK_METHOD2(viewportForGeometry, void (const CompWindow::Geometry &gm,
 				  CompPoint                   &viewport));
 
-    MOCK_METHOD1(removeFromCreatedWindows, void (CoreWindow *cw));
     MOCK_METHOD1(addToDestroyedWindows, void (CompWindow * cw));
 
     MOCK_CONST_METHOD0(workArea, CompRect const& ());
@@ -303,7 +302,7 @@ TEST(privatescreen_PluginManagerTest, create_and_destroy)
 
     MockCompScreen comp_screen;
 
-    cps::PluginManager ps;
+    cps::PluginManager ps(&comp_screen);
 }
 
 TEST(privatescreen_PluginManagerTest, calling_updatePlugins_does_not_error)
@@ -312,13 +311,13 @@ TEST(privatescreen_PluginManagerTest, calling_updatePlugins_does_not_error)
 
     MockCompScreen comp_screen;
 
-    cps::PluginManager ps;
+    cps::PluginManager ps(&comp_screen);
 
     // Stuff that has to be done before calling updatePlugins()
     CompOption::Value::Vector values;
     values.push_back ("core");
-    ps.plugin.set (CompOption::TypeString, values);
-    ps.dirtyPluginList = true;
+    ps.setPlugins (values);
+    ps.setDirtyPluginList ();
 
     // Now we can call updatePlugins() without a segfault.  Hoorah!
     EXPECT_CALL(comp_screen, _setOptionForPlugin(StrEq("core"), StrEq("active_plugins"), _)).
@@ -332,13 +331,13 @@ TEST(privatescreen_PluginManagerTest, calling_updatePlugins_after_setting_initia
 
     MockCompScreen comp_screen;
 
-    cps::PluginManager ps;
+    cps::PluginManager ps(&comp_screen);
 
     // Stuff that has to be done before calling updatePlugins()
     CompOption::Value::Vector values;
     values.push_back ("core");
-    ps.plugin.set (CompOption::TypeString, values);
-    ps.dirtyPluginList = true;
+    ps.setPlugins (values);
+    ps.setDirtyPluginList ();
 
     initialPlugins.push_back ("one");
     initialPlugins.push_back ("two");

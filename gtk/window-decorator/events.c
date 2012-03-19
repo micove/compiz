@@ -24,6 +24,16 @@
  */
 
 #include "gtk-window-decorator.h" 
+#include "local-menus.h"
+
+typedef struct _delayed_move_info
+{
+    WnckWindow *win;
+    int        x_root;
+    int        y_root;
+    unsigned int button;
+    unsigned int time;
+} delayed_move_info;
 
 void
 move_resize_window (WnckWindow *win,
@@ -65,14 +75,33 @@ move_resize_window (WnckWindow *win,
     ev.xclient.data.l[3] = gtkwd_event->button;
     ev.xclient.data.l[4] = 1;
 
-    XUngrabPointer (xdisplay, gtkwd_event->time);
-    XUngrabKeyboard (xdisplay, gtkwd_event->time);
+    XAllowEvents (xdisplay, AsyncKeyboard | AsyncPointer, CurrentTime);
+    XUngrabPointer (xdisplay, CurrentTime);
+    XUngrabKeyboard (xdisplay, CurrentTime);
 
     XSendEvent (xdisplay, xroot, FALSE,
 		SubstructureRedirectMask | SubstructureNotifyMask,
 		&ev);
 
     XSync (xdisplay, FALSE);
+}
+
+static gboolean
+move_resize_window_on_timeout (gpointer user_data)
+{
+    delayed_move_info *info = (delayed_move_info *) user_data;
+
+    decor_event event;
+    event.x = 0;
+    event.y = 0;
+    event.x_root = info->x_root;
+    event.y_root = info->y_root;
+    event.button = info->button;
+    event.window = wnck_window_get_xid (info->win);
+
+    move_resize_window (info->win, WM_MOVERESIZE_MOVE, &event);
+
+    return FALSE;
 }
 
 void
@@ -380,6 +409,75 @@ unstick_button_event (WnckWindow *win,
 }
 
 void
+on_local_menu_hidden (gpointer user_data)
+{
+    Window xid = GPOINTER_TO_INT (user_data);
+    WnckWindow *win = wnck_window_get (xid);
+    decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
+
+    d->button_states[BUTTON_WINDOW_MENU] &= ~PRESSED_EVENT_WINDOW;
+
+    queue_decor_draw (d);
+}
+
+void
+window_menu_button_event (WnckWindow *win,
+			  decor_event *gtkwd_event,
+			  decor_event_type gtkwd_type)
+{
+    decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
+    guint   state = d->button_states[BUTTON_WINDOW_MENU];
+
+    common_button_event (win, gtkwd_event, gtkwd_type,
+			 BUTTON_WINDOW_MENU, 1, _("Window Menu"));
+
+    switch (gtkwd_type) {
+    case GButtonPress:
+	    if (gtkwd_event->button == 1)
+	    {
+		if (d->button_states[BUTTON_WINDOW_MENU] & BUTTON_EVENT_ACTION_STATE)
+		{
+		    delayed_move_info *info = g_new0 (delayed_move_info, 1);
+
+		    info->button = gtkwd_event->button;
+		    info->time   = gtkwd_event->time;
+		    info->win    = win;
+		    info->x_root = gtkwd_event->x_root;
+		    info->y_root = gtkwd_event->y_root;
+
+		    gwd_prepare_show_local_menu ((start_move_window_cb) move_resize_window_on_timeout, (gpointer) info, info->x_root, info->y_root);
+		}
+	    }
+	    break;
+    case GButtonRelease:
+	if (gtkwd_event->button == 1)
+	    if (state)
+	    {
+		int win_x, win_y;
+		int box_x = d->button_windows[BUTTON_WINDOW_MENU].pos.x1;
+
+		wnck_window_get_geometry (win, &win_x, &win_y, NULL, NULL);
+
+		int x = win_x + box_x;
+		int y = win_y + d->context->extents.top;
+
+		gwd_show_local_menu (gdk_x11_display_get_xdisplay (gdk_display_get_default ()),
+				     wnck_window_get_xid (win),
+				     x, y,
+				     box_x,
+				     d->context->extents.top,
+				     gtkwd_event->button,
+				     gtkwd_event->time,
+				     (show_window_menu_hidden_cb) on_local_menu_hidden,
+				     GINT_TO_POINTER (wnck_window_get_xid (d->win)));
+	    }
+	break;
+    default:
+	break;
+    }
+}
+
+void
 handle_title_button_event (WnckWindow   *win,
 			   int          action,
 			   decor_event *gtkwd_event)
@@ -485,7 +583,17 @@ title_event (WnckWindow       *win,
 
 	    restack_window (win, Above);
 
-	    move_resize_window (win, WM_MOVERESIZE_MOVE, gtkwd_event);
+	    delayed_move_info *info = g_new0 (delayed_move_info, 1);
+
+	    info->x_root = gtkwd_event->x_root;
+	    info->y_root = gtkwd_event->y_root;
+	    info->button = gtkwd_event->button;
+	    info->time = gtkwd_event->time;
+	    info->win   = win;
+
+	    move_resize_window_on_timeout ((gpointer) info);
+
+	    g_free (info);
 	}
     }
     else if (gtkwd_event->button == 2)
@@ -918,6 +1026,7 @@ event_filter_func (GdkXEvent *gdkxevent,
 	xid = (gulong)
 	    g_hash_table_lookup (frame_table,
 				 GINT_TO_POINTER (xevent->xbutton.window));
+	XAllowEvents (gdk_x11_display_get_xdisplay (gdkdisplay), AsyncPointer, CurrentTime);
 	break;
     case EnterNotify:
     case LeaveNotify:
@@ -929,6 +1038,7 @@ event_filter_func (GdkXEvent *gdkxevent,
 	xid = (gulong)
 	    g_hash_table_lookup (frame_table,
 				 GINT_TO_POINTER (xevent->xmotion.window));
+	local_menu_process_motion (xevent->xmotion.x_root, xevent->xmotion.y_root);
 	break;
     case PropertyNotify:
 	if (xevent->xproperty.atom == frame_input_window_atom)
@@ -1030,6 +1140,10 @@ event_filter_func (GdkXEvent *gdkxevent,
 
 	    if (get_window_prop (xevent->xproperty.window, select_window_atom, &select))
 		update_switcher_window (xevent->xproperty.window, select);
+	}
+	else if (xevent->xproperty.atom == ubuntu_appmenu_unique_name_atom)
+	{
+	    local_menu_cache_reload_xwindow (gdk_x11_display_get_xdisplay (gdkdisplay), xevent->xproperty.window);
 	}
 	break;
     case DestroyNotify:
