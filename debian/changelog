@@ -1,4 +1,4 @@
-compiz (0.9.7.2-0.1) experimental; urgency=low
+compiz (0.9.7.4-0.1) experimental; urgency=low
 
   * Non-maintainer upload.
   * New upstream release.
@@ -62,7 +62,7 @@ compiz (0.9.7.2-0.1) experimental; urgency=low
       same.
     - Mark compiz-core as M-A: foreign.
 
- -- Miguel Colon <debian.micove@gmail.com>  Mon, 19 Mar 2012 10:51:18 -0400
+ -- Miguel Colon <debian.micove@gmail.com>  Fri, 30 Mar 2012 14:06:24 -0400
 
 compiz (0.9.2.1+git20110226.f059fae9-4) experimental; urgency=low
 
