@@ -306,7 +306,6 @@ extern Atom toolkit_action_window_menu_atom;
 extern Atom toolkit_action_force_quit_dialog_atom;
 extern Atom net_wm_state_atom;
 extern Atom net_wm_state_modal_atom;
-extern Atom ubuntu_appmenu_unique_name_atom;
 
 extern Time dm_sn_timestamp;
 
@@ -329,8 +328,7 @@ extern struct _cursor cursor[3][3];
 #define BUTTON_UNSHADE 7
 #define BUTTON_UNABOVE 8
 #define BUTTON_UNSTICK 9
-#define BUTTON_WINDOW_MENU 10
-#define BUTTON_NUM     11
+#define BUTTON_NUM     10
 
 struct _pos {
     int x, y, w, h;
@@ -1013,11 +1011,6 @@ void
 unstick_button_event (WnckWindow *win,
 		      decor_event *gtkwd_event,
 		      decor_event_type gtkwd_type);
-
-void
-window_menu_button_event (WnckWindow *win,
-			  decor_event *gtkwd_event,
-			  decor_event_type gtkwd_type);
 
 void
 handle_title_button_event (WnckWindow   *win,

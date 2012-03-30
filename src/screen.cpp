@@ -893,83 +893,45 @@ PrivateScreen::processEvents ()
     }
 }
 
-void
-cps::PluginManager::updatePlugins ()
+CompOption::Value::Vector
+cps::PluginManager::mergedPluginList ()
 {
-    unsigned int pListCount = 1;
+    std::list<CompString> availablePlugins(CompPlugin::availablePlugins ());
 
-    possibleTap = NULL;
-    dirtyPluginList = false;
+    CompOption::Value::Vector result;
 
-    CompOption::Value::Vector &list = optionGetActivePlugins ();
-
-    /* Determine the number of plugins, which is core +
-     * initial plugins + plugins in option list in addition
-     * to initial plugins */
-    foreach (CompString &pn, initialPlugins)
-    {
-	if (pn != "core")
-	    pListCount++;
-    }
-
-    CompString lpName;
-	
-    foreach (CompOption::Value &lp, list)
-    {
-	bool skip = false;
-	
-	lpName = lp.s();
-	
-	if (lpName == "core")
-	    continue;
-
-	foreach (CompString &p, initialPlugins)
-	{
-	    if (p == lpName)
-	    {
-		skip = true;
-		break;
-	    }
-	}
-
-	/* plugin not in initial list */
-	if (!skip)
-	    pListCount++;
-    }
-
-    /* pListCount is now the number of plugisn contained in both the
-     * initial and new plugins list */
-    CompOption::Value::Vector pList(pListCount);
-
-    if (pList.empty ())
-    {
-	screen->setOptionForPlugin ("core", "active_plugins", plugin);
-	return;
-    }
+    CompOption::Value::Vector const& extraPluginsRequested = optionGetActivePlugins();
 
     /* Must have core as first plugin */
-    pList.at (0) = "core";
-    unsigned int j = 1;
+    result.push_back("core");
 
     /* Add initial plugins */
-    foreach (CompString &p, initialPlugins)
+    foreach(CompString & p, initialPlugins)
     {
 	if (p == "core")
 	    continue;
-	pList.at (j).set (p);
-	j++;
+
+	if (blacklist.find (p) != blacklist.end ())
+	    continue;
+
+	if (availablePlugins.end() != std::find(availablePlugins.begin(), availablePlugins.end(), p))
+	    result.push_back(p);
     }
 
     /* Add plugins not in the initial list */
-    foreach (CompOption::Value &opt, list)
+    foreach(CompOption::Value const& opt, extraPluginsRequested)
     {
-	std::list <CompString>::iterator it = initialPlugins.begin ();
-	bool				 skip = false;
-	
-	if (opt.s () == "core")
-	   continue;
+	if (opt.s() == "core")
+	    continue;
 
-	for (; it != initialPlugins.end (); it++)
+	if (blacklist.find (opt.s()) != blacklist.end ())
+	    continue;
+
+	typedef std::list<CompString>::iterator iterator;
+	bool skip = false;
+
+	for (iterator it = initialPlugins.begin(); it != initialPlugins.end();
+		it++)
 	{
 	    if ((*it) == opt.s())
 	    {
@@ -980,50 +942,71 @@ cps::PluginManager::updatePlugins ()
 
 	if (!skip)
 	{
-	    pList.at (j++).set (opt.s ());
+	    if (availablePlugins.end() != std::find(availablePlugins.begin(), availablePlugins.end(), opt.s()))
+		result.push_back(opt.s());
 	}
     }
+    return result;
+}
 
-    assert (j == pList.size ());
 
-    /* j is initialized to 1 to make sure we never pop the core plugin */
-    unsigned int              i;
-    for (i = j = 1; j < plugin.list ().size () && i < pList.size (); i++, j++)
+void
+cps::PluginManager::updatePlugins ()
+{
+    possibleTap = NULL;
+    dirtyPluginList = false;
+
+    CompOption::Value::Vector const desiredPlugins(mergedPluginList());
+
+    unsigned int pluginIndex;
+    for (pluginIndex = 1;
+	pluginIndex < plugin.list ().size () && pluginIndex < desiredPlugins.size ();
+	pluginIndex++)
     {
-	if (plugin.list ().at (j).s () != pList.at (i).s ())
+	if (plugin.list ().at (pluginIndex).s () != desiredPlugins.at (pluginIndex).s ())
 	    break;
     }
 
-    CompPlugin::List pop;
+    unsigned int desireIndex = pluginIndex;
 
-    if (unsigned int const nPop = plugin.list ().size () - j)
+    // We have pluginIndex pointing at first difference (or end).
+    // Now pop plugins off stack to this point, but keep track that they are loaded
+    CompPlugin::List alreadyLoaded;
+    if (const unsigned int nPop = plugin.list().size() - pluginIndex)
     {
-	for (j = 0; j < nPop; j++)
+	for (pluginIndex = 0; pluginIndex < nPop; pluginIndex++)
 	{
-	    pop.push_back (CompPlugin::pop ());
-	    plugin.list ().pop_back ();
+	    alreadyLoaded.push_back(CompPlugin::pop());
+	    plugin.list().pop_back();
 	}
     }
 
-    for (; i < pList.size (); i++)
+    // Now work forward through requested plugins
+    for (; desireIndex < desiredPlugins.size(); desireIndex++)
     {
 	CompPlugin *p = NULL;
 	bool failedPush = false;
 
-	foreach (CompPlugin *pp, pop)
+	// If already loaded, just try to push it...
+	foreach(CompPlugin * pp, alreadyLoaded)
 	{
-	    if (pList[i]. s () == pp->vTable->name ())
+	    if (desiredPlugins[desireIndex].s() == pp->vTable->name())
 	    {
 		if (CompPlugin::push (pp))
 		{
 		    p = pp;
-		    pop.erase (std::find (pop.begin (), pop.end (), pp));
+		    alreadyLoaded.erase(
+			    std::find(alreadyLoaded.begin(),
+				    alreadyLoaded.end(), pp));
 		    break;
 		}
 		else
 		{
-		    pop.erase (std::find (pop.begin (), pop.end (), pp));
-		    CompPlugin::unload (pp);
+		    alreadyLoaded.erase(
+			    std::find(alreadyLoaded.begin(),
+				    alreadyLoaded.end(), pp));
+		    blacklist.insert (desiredPlugins[desireIndex].s ());
+		    CompPlugin::unload(pp);
 		    p = NULL;
 		    failedPush = true;
 		    break;
@@ -1031,25 +1014,32 @@ cps::PluginManager::updatePlugins ()
 	    }
 	}
 
+	// ...otherwise, try to load and push
 	if (p == 0 && !failedPush)
 	{
-	    p = CompPlugin::load (pList[i].s ().c_str ());
-	    
+	    p = CompPlugin::load(desiredPlugins[desireIndex].s ().c_str ());
+
 	    if (p)
 	    {
-		if (!CompPlugin::push (p))
+		if (!CompPlugin::push(p))
 		{
-		    CompPlugin::unload (p);
+		    blacklist.insert (desiredPlugins[desireIndex].s ());
+		    CompPlugin::unload(p);
 		    p = 0;
 		}
+	    }
+	    else
+	    {
+		blacklist.insert (desiredPlugins[desireIndex].s ());
 	    }
 	}
 
 	if (p)
-	    plugin.list ().push_back (p->vTable->name ());
+	    plugin.list().push_back(p->vTable->name());
     }
 
-    foreach (CompPlugin *pp, pop)
+    // Any plugins that are loaded, but were not re-initialized can be unloaded.
+    foreach(CompPlugin * pp, alreadyLoaded)
 	CompPlugin::unload (pp);
 
     if (!dirtyPluginList)
@@ -2698,6 +2688,7 @@ CompScreenImpl::focusDefaultWindow ()
 
     if (!focus)
     {
+	/* Traverse down the stack */
 	for (CompWindowList::reverse_iterator rit = priv->windows.rbegin ();
 	     rit != priv->windows.rend (); rit++)
 	{
@@ -2714,12 +2705,27 @@ CompScreenImpl::focusDefaultWindow ()
 				      CompWindowTypeDialogMask |
 				      CompWindowTypeModalDialogMask))
 		    {
-			if (PrivateWindow::compareWindowActiveness (focus, w) < 0)
+			if (!priv->optionGetClickToFocus ())
+			{
+			    /* We should favor the more active window in the mouse focus
+			     * case since the user does not care if the focused window is on top */
+			    if (PrivateWindow::compareWindowActiveness (focus, w) < 0)
+				focus = w;
+			}
+			else
+			{
 			    focus = w;
+			    break;
+			}
 		    }
 		}
 		else
+		{
 		    focus = w;
+
+		    if (priv->optionGetClickToFocus ())
+			break;
+		}
 	    }
 	}
     }
@@ -4625,9 +4631,6 @@ cps::EventManager::init (const char *name)
 	CompScreenImpl::toggleWinMaximizedVertically);
 
     optionSetToggleWindowShadedKeyInitiate (CompScreenImpl::shadeWin);
-
-    if (isDirtyPluginList ())
-	updatePlugins ();
 
     return true;
 }

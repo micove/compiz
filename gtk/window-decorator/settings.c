@@ -148,13 +148,20 @@ static gboolean
 mutter_draggable_border_width_changed (GConfClient *client)
 {
     static const unsigned int default_draggable_border_width = 7;
-    int      new_width;
+    int      new_width = default_draggable_border_width;
     int      width = settings->mutter_draggable_border_width;
     GError   *error = NULL;
 
-    new_width = gconf_client_get_int (client,
-			              MUTTER_DRAGGABLE_BORDER_WIDTH_KEY,
-			              &error);
+    if (gconf_client_dir_exists (client,
+				 MUTTER_GCONF_DIR,
+				 &error))
+    {
+	if (!error)
+	    new_width = gconf_client_get_int (client,
+				              MUTTER_DRAGGABLE_BORDER_WIDTH_KEY,
+				              &error);
+    }
+
     if (error)
     {
 	new_width = default_draggable_border_width;
