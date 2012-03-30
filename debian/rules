@@ -9,6 +9,9 @@ CXXFLAGS+=$(CPPFLAGS)
 
 CORE_ABIVERSION := $(shell sed -rn 's/^\#define[[:space:]]+CORE_ABIVERSION[[:space:]]+//p' include/core/abiversion.h )
 
+# http://bazaar.launchpad.net/~compiz-team/compiz-core/0.9.7/revision/3075
+# TODO: Pass the default plugin list to each of the backends (ini, gconf, etc).
+# DEFAULT_PLUGINS = "ccp"
 DEFAULT_PLUGINS = "core composite opengl decor mousepoll snap compiztoolbox resize gnomecompat wall grid regex vpswitch place move session animation expo workarounds ezoom staticswitcher fade scale"
 
 override_dh_auto_configure:
