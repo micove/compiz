@@ -4,10 +4,7 @@ if (USE_GTK)
 	set (CMAKE_INSTALL_RPATH ${libdir})
     endif (COMPIZ_BUILD_WITH_RPATH)
 
-    add_subdirectory (local-menus)
-
     include_directories (
-	${CMAKE_CURRENT_SOURCE_DIR}/local-menus/src
 	${compiz_SOURCE_DIR}/include
 	${CMAKE_BINARY_DIR}/gtk
 	${GTK_WINDOW_DECORATOR_INCLUDE_DIRS}
@@ -66,9 +63,6 @@ if (USE_GTK)
     target_link_libraries (
 	gtk-window-decorator
 	decoration
-
-	gtk_window_decorator_local_menus
-
 	${GTK_WINDOW_DECORATOR_LIBRARIES}
 	${GCONF_LIBRARIES}
 	${DBUS_GLIB_LIBRARIES}

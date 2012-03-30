@@ -282,7 +282,9 @@ PrivateCompositeScreen::PrivateCompositeScreen (CompositeScreen *cs) :
     slowAnimations (false),
     pHnd (NULL),
     FPSLimiterMode (CompositeFPSLimiterModeDefault),
-    withDestroyedWindows ()
+    withDestroyedWindows (),
+    cmSnAtom (0),
+    newCmSnOwner (None)
 {
     gettimeofday (&lastRedraw, 0);
     // wrap outputChangeNotify
@@ -293,14 +295,19 @@ PrivateCompositeScreen::PrivateCompositeScreen (CompositeScreen *cs) :
 
 PrivateCompositeScreen::~PrivateCompositeScreen ()
 {
+    Display *dpy = screen->dpy ();
+
+    if (cmSnAtom)
+	XSetSelectionOwner (dpy, cmSnAtom, None, CurrentTime);
+
+    if (newCmSnOwner != None)
+	XDestroyWindow (dpy, newCmSnOwner);
 }
 
 bool
 PrivateCompositeScreen::init ()
 {
     Display              *dpy = screen->dpy ();
-    Window               newCmSnOwner = None;
-    Atom                 cmSnAtom = 0;
     Time                 cmSnTimestamp = 0;
     XEvent               event;
     XSetWindowAttributes attr;
@@ -316,12 +323,12 @@ PrivateCompositeScreen::init ()
     {
 	if (!replaceCurrentWm)
 	{
-	    compLogMessage ("composite", CompLogLevelError,
-			    "Screen %d on display \"%s\" already "
-			    "has a compositing manager; try using the "
-			    "--replace option to replace the current "
-			    "compositing manager.",
-			    screen->screenNum (), DisplayString (dpy));
+	    compLogMessage (
+		"composite", CompLogLevelError,
+		"Screen %d on display \"%s\" already has a compositing "
+		"manager (%x); try using the --replace option to replace "
+		"the current compositing manager.",
+		screen->screenNum (), DisplayString (dpy), currentCmSnOwner);
 
 	    return false;
 	}

@@ -103,6 +103,9 @@ class PrivateCompositeScreen :
 	CompositeFPSLimiterMode FPSLimiterMode;
 
 	CompWindowList withDestroyedWindows;
+
+	Atom cmSnAtom;
+	Window newCmSnOwner;
 };
 
 class PrivateCompositeWindow : WindowInterface

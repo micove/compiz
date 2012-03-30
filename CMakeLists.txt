@@ -121,6 +121,30 @@ install (
 
 # Build Google Test and make its headers known
 find_package (GTest)
+
+if (NOT GTEST_FOUND)
+
+    # Check for google test and build it locally
+    set (GTEST_ROOT_DIR
+	"/usr/src/gtest" # Default value, adjustable by user with e.g., ccmake
+	CACHE
+	PATH
+	"Path to Google test srcs"
+    )
+
+    find_path (GTEST_INCLUDE_DIR gtest/gtest.h)
+
+    if (GTEST_INCLUDE_DIR)
+	#FIXME - hardcoded is bad!
+	add_subdirectory (${GTEST_ROOT_DIR}
+		      gtest)
+    endif(GTEST_INCLUDE_DIR)
+
+    set (GTEST_BOTH_LIBRARIES gtest gtest_main)
+    set (GTEST_FOUND TRUE)
+
+endif (NOT GTEST_FOUND)
+
 find_library (GMOCK_LIBRARY gmock)
 find_library (GMOCK_MAIN_LIBRARY gmock_main)
 

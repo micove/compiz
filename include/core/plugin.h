@@ -207,7 +207,7 @@ class CompPlugin {
 	 * CompPlugin::pop()'d.
 	 */
 	static List & getPlugins ();
-	
+
 	/**
 	 * Gets a list of the names of all the known plugins, including plugins that may
 	 * have already been loaded.

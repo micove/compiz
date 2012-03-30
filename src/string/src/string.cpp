@@ -44,13 +44,13 @@ CompString compPrintf (const char *format, ...)
 CompString compPrintf (const char *format, va_list ap)
 {
     va_list      aq;
-    unsigned int size = strlen (format) + 1;
     int          n;
     char         *str;
 
     if (!format)
 	return CompString ("");
 
+    unsigned int size = strlen (format) + 1;
     str = new char[size];
 
     if (!str)

@@ -1,3 +1,37 @@
+Release 0.9.7.4 (2012-04-02 Daniel van Vugt <daniel.van.vugt@canonical.com>)
+============================================================================
+
+Bugs fixed (https://launchpad.net/compiz-core/+milestone/0.9.7.4)
+
+    833729 - compiz crashed with SIGSEGV in
+             CompositeScreen::compositingActive()
+    888704 - Window management - Closing one window sends others to the
+             background
+    953089 - Unity 5.6: key bindings (such as Super) don't work on empty
+             workspace or on slow/loaded systems
+    953839 - [regression] Invisible resize border is now only 1px wide
+    957572 - Coverity REVERSE_INULL - CID 10888
+    960831 - Unity dash opens and immediately closes if you tap Super+A quickly
+    962085 - [0.9.7.2] gtk-window-decorator receives BadWindow errors 
+    963093 - Unity 5.8: Flickering and corruption on Unity UI elements
+    963264 - We are using 1 bad hack for compiz hanging on startup
+    963465 - Unity 5.8: Can't login to Unity since upgrade to 5.8
+    963470 - [regression] Unity 5.8+Compiz 0.9.7.2: Pressing Super+Tab or
+             Super+W works, but unity does not respond to when Super is
+             released.
+    963633 - Unity 5.8: Login to blank screen (all black or just wallpaper)
+    964248 - Tests do not build when libgtest-dev is installed but libgtest
+             isn't 
+
+
+Fixes REMOVED for stability reasons:
+
+    682788 - Global menu is not ergonomical on large screens 
+    806255 - Unity/compiz intercepts Super and Alt keypresses from grabbed
+             windows like VMs. 
+    931245 - Finish the implementation of the locally integrated menubars
+
+
 Release 0.9.7.2 (2012-03-19 Daniel van Vugt <daniel.van.vugt@canonical.com>)
 ============================================================================
 
@@ -20,7 +54,7 @@ Bugs fixed (https://launchpad.net/compiz-core/+milestone/0.9.7.2)
              combinations
     946118 - screen.cpp:3281: virtual bool
              CompScreenImpl::addAction(CompAction*): Assertion
-	     `priv->initialized' failed.
+             `priv->initialized' failed.
     953089 - Unity 5.6: key bindings (such as Super) don't work on empty
              workspace or on slow/loaded systems
 

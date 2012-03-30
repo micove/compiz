@@ -143,24 +143,7 @@ cps::EventManager::triggerPress (CompAction         *action,
 
     if (state == CompAction::StateInitKey && grabsEmpty ())
     {
-        if (grabbed)
-        {
-            possibleTap = action;
-        }
-        else
-        {
-            /*
-             * If we received this keypress event and weren't grabbed then
-             * the event doesn't belong to us. More likely belongs to
-             * a different client's grab so ignore it. (LP: #806255)
-             * The reason why we might receive such keypress events while
-             * other clients have grabs is because of the XKB extension that
-             * we're using. It sends you events even if they're not yours...
-             * http://www.x.org/releases/current/doc/libX11/specs/XKB/xkblib.html
-             */
-            possibleTap = NULL;
-            return false;
-        }
+        possibleTap = action;
     }
 
     if (!action->initiate ().empty ())
@@ -1060,13 +1043,16 @@ CompScreen::handleEvent (XEvent *event)
 void
 CompScreenImpl::alwaysHandleEvent (XEvent *event)
 {
-    eventHandled = true;  // if we return inside WRAPABLE_HND_FUNCTN
-
-    handleEvent (event);
-
     /*
      * Critical event handling that cannot be overridden by plugins
      */
+    
+    if (event->type == ButtonPress || event->type == KeyPress)
+	priv->possibleTap = NULL;
+
+    eventHandled = true;  // if we return inside WRAPABLE_HND_FUNCTN
+
+    handleEvent (event);
 
     bool keyEvent = (event->type == KeyPress || event->type == KeyRelease);
 
