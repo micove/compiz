@@ -55,10 +55,6 @@ compiz (0.9.7.2-0.1) experimental; urgency=low
     - Find CORE_ABIVERSION in abiversion.h.
     - Update and reorder the DEFAULT_PLUGINS list.
     - Update the clean routine.
-    - Disable the tests since they won't build. Google mock is distributed as
-      source files in Debian and require to be compile with the same flags as
-      the binary they test.
-      + Override dh_auto_test.
     - Disable gsettings support.
     - Disable the "File Watcher" and "D-Bus" plugins since they are broken.
   * Add Multiarch Support.
