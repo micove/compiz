@@ -46,7 +46,7 @@ CompPlaceTestConstrainToWorkarea::~CompPlaceTestConstrainToWorkarea ()
 {
 }
 
-TEST_F (CompPlaceTestConstrainToWorkarea, TestConstrainToWorkarea)
+TEST_F(CompPlaceTestConstrainToWorkarea, TestConstrainToWorkarea)
 {
     CompSize screensize (1000, 2000);
     CompRect workArea (50, 50, 900, 1900);

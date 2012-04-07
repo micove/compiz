@@ -215,7 +215,7 @@ protected:
     }
 };
 
-TEST_F (CompTimerTestCallback, TimerOrder)
+TEST_F(CompTimerTestCallback, TimerOrder)
 {
     AddTimer (100, 110, boost::bind (&MockCompTimerTestCallbackDispatchTable::callback1, mDispatchTable, 0), 10);
     AddTimer (50, 90, boost::bind (&MockCompTimerTestCallbackDispatchTable::callback2, mDispatchTable, 1), 10);
@@ -251,7 +251,7 @@ TEST_F (CompTimerTestCallback, TimerOrder)
     Run ();
 }
 
-TEST_F (CompTimerTestCallback, NoZeroStarvation)
+TEST_F(CompTimerTestCallback, NoZeroStarvation)
 {
     AddTimer (100, 110, boost::bind (&MockCompTimerTestCallbackDispatchTable::callback1, mDispatchTable, 0), 1);
     AddTimer (50, 90, boost::bind (&MockCompTimerTestCallbackDispatchTable::callback2, mDispatchTable, 1), 1);

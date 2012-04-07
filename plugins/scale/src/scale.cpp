@@ -477,64 +477,22 @@ PrivateScaleScreen::layoutSlotsForArea (const CompRect& workArea,
 SlotArea::vector
 PrivateScaleScreen::getSlotAreas ()
 {
-    unsigned int       i = 0;
-    CompRect           workArea;
-    std::vector<float> size;
-    float              sizePerWindow, sum = 0.0f;
-    int                left;
-    SlotArea::vector   slotAreas;
+    SlotArea::vector slotAreas;
 
     slotAreas.resize (screen->outputDevs ().size ());
-    size.resize (screen->outputDevs ().size ());
 
-    left = windows.size ();
-
+    unsigned int i = 0;
     foreach (CompOutput &o, screen->outputDevs ())
     {
-	/* determine the size of the workarea for each output device */
-	workArea = CompRect (o.workArea ());
-
-	size[i] = workArea.width () * workArea.height ();
-	sum += size[i];
-
 	slotAreas[i].nWindows = 0;
-	slotAreas[i].workArea = workArea;
-
-	i++;
-    }
-
-    /* calculate size available for each window */
-    sizePerWindow = sum / windows.size ();
-
-    for (i = 0; i < screen->outputDevs ().size () && left; i++)
-    {
-	/* fill the areas with windows */
-	int nw = floor (size[i] / sizePerWindow);
-
-	nw = MIN (nw, left);
-	size[i] -= nw * sizePerWindow;
-	slotAreas[i].nWindows = nw;
-	left -= nw;
-    }
-
-    /* add left windows to output devices with the biggest free space */
-    while (left > 0)
-    {
-	int   num = 0;
-	float big = 0;
-
-	for (i = 0; i < screen->outputDevs ().size (); i++)
+	foreach (ScaleWindow *window, windows)
 	{
-	    if (size[i] > big)
-	    {
-		num = i;
-		big = size[i];
-	    }
+	    CompWindow *cw = window->priv->window;
+	    if (cw->outputDevice () == (int) o.id ())
+		slotAreas[i].nWindows++;
 	}
 
-	size[num] -= sizePerWindow;
-	slotAreas[num].nWindows++;
-	left--;
+	slotAreas[i++].workArea = o.workArea ();
     }
 
     return slotAreas;

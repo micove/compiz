@@ -33,3 +33,22 @@ target_link_libraries(
 )
 
 env_gtest_add_tests( compiz_plugin_test "" ${CMAKE_CURRENT_SOURCE_DIR}/test-plugin.cpp )
+
+add_executable( 
+  compiz_loader_test
+  
+  ${CMAKE_CURRENT_SOURCE_DIR}/test-loader.cpp
+)
+
+target_link_libraries( 
+  compiz_loader_test 
+  
+  compiz_plugin
+  compiz_core
+  
+  ${GTEST_BOTH_LIBRARIES}
+  ${GMOCK_LIBRARY}
+  ${CMAKE_THREAD_LIBS_INIT} # Link in pthread.
+)
+
+env_gtest_add_tests( compiz_plugin_test "" ${CMAKE_CURRENT_SOURCE_DIR}/test-loader.cpp )

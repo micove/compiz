@@ -42,6 +42,57 @@
 
 COMPIZ_PLUGIN_20090315 (decor, DecorPluginVTable)
 
+MatchedDecorClipGroup::MatchedDecorClipGroup (const CompMatch &match) :
+    mMatch (match)
+{
+}
+
+bool
+MatchedDecorClipGroup::doPushClippable (DecorClippableInterface *dc)
+{
+    if (dc->matches (mMatch))
+	return mClipGroupImpl.pushClippable (dc);
+
+    return false;
+}
+
+void
+DecorWindow::doUpdateShadow (const CompRegion &reg)
+{
+    shadowRegion = outputRegion () - (reg - inputRegion ());
+}
+
+void
+DecorWindow::doSetOwner (DecorClipGroupInterface *i)
+{
+    mClipGroup = i;
+}
+
+bool
+DecorWindow::doMatches (const CompMatch &m)
+{
+    return const_cast <CompMatch &> (m).evaluate (window) && !window->invisible ();
+}
+
+const CompRegion &
+DecorWindow::getOutputRegion ()
+{
+    return mOutputRegion;
+}
+
+const CompRegion &
+DecorWindow::getInputRegion ()
+{
+    return mInputRegion;
+}
+
+void
+DecorWindow::doUpdateGroupShadows ()
+{
+    if (mClipGroup)
+	mClipGroup->updateAllShadows ();
+}
+
 /* From core */
 
 /*
@@ -67,89 +118,6 @@ isAncestorTo (CompWindow *window,
     }
 
     return false;
-}
-
-/* 
- * DecorWindow::computeShadowRegion
- *
- * This function computes the current clip region for the
- * shadow that should be draw on glDraw. 
- *
- * Make shadows look nice, don't paint shadows on top of
- * things they don't make sense on top of, eg, menus
- * need shadows but they don't need to be painted when
- * another menu is adjacent and covering the shadow
- * region. Also panel shadows are nice, but not
- * when they obscure client window shadows
- *
- * We need to use the current clip region here
- * and take an intersection of that to ensure
- * that we don't unintentionally expand the clip
- * region that core already reduced by doing
- * occlusion detection
- */
-void
-DecorWindow::computeShadowRegion ()
-{
-    shadowRegion = CompRegion (window->outputRect ());
-
-    if (window->type () == CompWindowTypeDropdownMenuMask ||
-        window->type () == CompWindowTypePopupMenuMask)
-    {
-        /* Other transient menus should clip
-         * this menu's shadows, also the panel
-         * which is a transient parent should
-         * too */
-
-        CompWindowList::iterator it = std::find (screen->windows ().begin (),
-                                                 screen->windows ().end (),
-                                                 window);
-
-        for (it--; it != screen->windows ().end (); it--)
-        {
-            if (!(*it)->isViewable ())
-                continue;
-
-            if (!((*it)->type () == CompWindowTypeDropdownMenuMask ||
-                  (*it)->type () == CompWindowTypePopupMenuMask ||
-                  (*it)->type () == CompWindowTypeDockMask))
-		continue;
-
-            /* window needs to be a transient parent */
-            if (!isAncestorTo (window, (*it)))
-                continue;
-
-            CompRegion inter (shadowRegion);
-            inter &= (*it)->borderRect ();
-
-            if (!inter.isEmpty ())
-                shadowRegion -= inter;
-        }
-
-        /* If the region didn't change, then it is safe to
-         * say that that this window was probably the first
-         * menu in the "chain" of dropdown menus that comes
-         * from a menu-bar - in that case there isn't any
-         * window that the shadow would necessarily occlude
-         * here so clip the shadow to the top of the input
-         * rect.
-         *
-         * FIXME: We need a better way to detect exactly
-         * where the menubar is for the dropdown menu,
-         * that will look a lot better.
-         */
-        if (window->type () == CompWindowTypeDropdownMenuMask &&
-	    shadowRegion == CompRegionRef (window->outputRect ().region ()))
-        {
-            CompRect area (window->outputRect ().x1 (),
-                           window->outputRect ().y1 (),
-                           window->outputRect ().width (),
-			   window->inputRect ().y1 () -
-                           window->outputRect ().y1 ());
-
-	    shadowRegion -= area;
-        }
-    }
 }
 
 /*
@@ -1508,7 +1476,7 @@ DecorWindow::update (bool allowDecoration)
     if (dScreen->cmActive)
     {
 	cWindow->damageOutputExtents ();
-	computeShadowRegion ();
+	updateGroupShadows ();
     }
 
     /* Determine how much we moved the window for the old
@@ -2183,7 +2151,17 @@ DecorWindow::windowNotify (CompWindowNotify n)
 		break;
 	    }
 
+	    /* For non-switcher windows we need to update the decoration
+	     * anyways, since the window is unmapped. Also need to
+	     * update the shadow clip regions for panels and other windows */
+	    update (true);
+	    if (dScreen->mMenusClipGroup.pushClippable (this))
+		updateGroupShadows ();
+
+	    break;
+
 	case CompWindowNotifyUnmap:
+	{
 
 	    /* When the switcher is unmapped, it has no frame window
 	     * so the frame window for it needs to unmapped manually */
@@ -2198,14 +2176,15 @@ DecorWindow::windowNotify (CompWindowNotify n)
 	     * anyways, since the window is unmapped. Also need to
 	     * update the shadow clip regions for panels and other windows */
 	    update (true);
-	    if (dScreen->cmActive)
-	    {
-		foreach (CompWindow *cw, DecorScreen::get (screen)->cScreen->getWindowPaintList ())
-		{
-		    DecorWindow::get (cw)->computeShadowRegion ();
-		}
-	    }
+
+	    /* Preserve the group shadow update ptr */
+	    DecorClipGroupInterface *clipGroup = mClipGroup;
+
+	    if (dScreen->mMenusClipGroup.popClippable (this))
+		if (clipGroup)
+		    clipGroup->updateAllShadows ();
 	    break;
+	}
 	case CompWindowNotifyUnreparent:
 	{
 	    /* Compiz detaches the frame window from
@@ -2396,18 +2375,6 @@ DecorScreen::handleEvent (XEvent *event)
 		w = screen->findWindow (event->xproperty.window);
 		if (w)
 		    DecorWindow::get (w)->update (true);
-	    }
-	    /* On a transient change, we need to recompute shadow regions
-	     * for eg, menus */
-	    else if (event->xproperty.atom == XA_WM_TRANSIENT_FOR)
-	    {
-		if (cmActive)
-		{
-		    foreach (CompWindow *cw, cScreen->getWindowPaintList ())
-		    {
-			DecorWindow::get (cw)->computeShadowRegion ();
-		    }
-		}
 	    }
 	    else
 	    {
@@ -2736,14 +2703,11 @@ DecorWindow::moveNotify (int dx, int dy, bool immediate)
     }
     updateReg = true;
 
-    if (dScreen->cmActive)
-    {
-	foreach (CompWindow *cw,
-		 DecorScreen::get (screen)->cScreen->getWindowPaintList ())
-	{
-	    DecorWindow::get (cw)->computeShadowRegion ();
-	}
-    }
+    mInputRegion.translate (dx, dy);
+    mOutputRegion.translate (dx, dy);
+
+    if (dScreen->cmActive && mClipGroup)
+	updateGroupShadows ();
 
     window->moveNotify (dx, dy, immediate);
 }
@@ -2796,14 +2760,10 @@ DecorWindow::resizeNotify (int dx, int dy, int dwidth, int dheight)
     updateDecorationScale ();
     updateReg = true;
 
-    if (dScreen->cmActive)
-    {
-	foreach (CompWindow *cw,
-		 DecorScreen::get (screen)->cScreen->getWindowPaintList ())
-	{
-	    DecorWindow::get (cw)->computeShadowRegion ();
-	}
-    }
+    mInputRegion = CompRegion (window->inputRect ());
+    mOutputRegion = CompRegion (window->outputRect ());
+    if (dScreen->cmActive && mClipGroup)
+	updateGroupShadows ();
 
     window->resizeNotify (dx, dy, dwidth, dheight);
 }
@@ -2971,7 +2931,8 @@ DecorScreen::DecorScreen (CompScreen *s) :
 				   0,
 				   None,
 				   boost::shared_array <decor_quad_t> (NULL),
-				   0))
+				   0)),
+    mMenusClipGroup (CompMatch ("type=Dock | type=DropdownMenu | type=Menu | type=PopupMenu"))
 {
     supportingDmCheckAtom =
 	XInternAtom (s->dpy (), DECOR_SUPPORTING_DM_CHECK_ATOM_NAME, 0);
@@ -3045,7 +3006,10 @@ DecorWindow::DecorWindow (CompWindow *w) :
     unshading (false),
     shading (false),
     isSwitcher (false),
-    frameExtentsRequested (false)
+    frameExtentsRequested (false),
+    mClipGroup (NULL),
+    mOutputRegion (window->outputRect ()),
+    mInputRegion (window->inputRect ())
 {
     WindowInterface::setHandler (window);
 
@@ -3074,6 +3038,10 @@ DecorWindow::DecorWindow (CompWindow *w) :
     }
 
     window->resizeNotifySetEnabled (this, true);
+
+    if (!window->invisible ())
+	if (dScreen->mMenusClipGroup.pushClippable (this))
+	    updateGroupShadows ();
 }
 
 /* 
@@ -3089,6 +3057,9 @@ DecorWindow::~DecorWindow ()
 
     if (wd)
 	WindowDecoration::destroy (wd);
+
+    if (mClipGroup)
+	mClipGroup->popClippable (this);
 
     decor.mList.clear ();
 }

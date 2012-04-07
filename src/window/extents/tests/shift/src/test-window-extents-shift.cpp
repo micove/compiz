@@ -35,7 +35,7 @@ protected:
     compiz::window::extents::Extents e;
 };
 
-TEST_F (CompWindowExtentsTestShift, TestShift)
+TEST_F(CompWindowExtentsTestShift, TestShift)
 {
     CompPoint rp;
     e.left = 5;

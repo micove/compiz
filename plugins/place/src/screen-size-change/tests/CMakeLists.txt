@@ -15,4 +15,4 @@ target_link_libraries (compiz_test_place_screen_size_change
 		       ${CMAKE_THREAD_LIBS_INIT} # Link in pthread. 
                        )
 
-add_test (compiz_place_screen_size_change compiz_test_place_screen_size_change)
+gtest_add_tests (compiz_test_place_screen_size_change "" ${CMAKE_CURRENT_SOURCE_DIR}/screen-size-change/src/test-place-screen-size-change.cpp)

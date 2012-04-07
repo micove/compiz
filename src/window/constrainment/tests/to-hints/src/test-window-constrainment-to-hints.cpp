@@ -31,7 +31,7 @@ class CompWindowConstrainmentTestToHints :
 {
 };
 
-TEST_F (CompWindowConstrainmentTestToHints, ToHints)
+TEST_F(CompWindowConstrainmentTestToHints, ToHints)
 {
     /* No hints, size is the same */
     XSizeHints hints;

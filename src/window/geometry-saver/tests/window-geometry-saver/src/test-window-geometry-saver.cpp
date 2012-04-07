@@ -49,7 +49,7 @@ CompWindowGeometryTestSaver::~CompWindowGeometryTestSaver ()
 {
 }
 
-TEST_F (CompWindowGeometryTestSaver, TestSaver)
+TEST_F(CompWindowGeometryTestSaver, TestSaver)
 {
     /* g by default */
     compiz::window::Geometry rg;

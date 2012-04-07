@@ -119,10 +119,8 @@ cloaderListPlugins (const char *path)
 {
     CompStringList rv;
 
-    if (path)
-	return CompStringList ();
-
-    rv.push_back (CompString (getCoreVTable ()->name ()));
+    if (!path)
+	rv.push_back (CompString (getCoreVTable ()->name ()));
 
     return rv;
 }
@@ -245,29 +243,25 @@ dlloaderFilter (const struct dirent *name)
 static CompStringList
 dlloaderListPlugins (const char *path)
 {
-    struct dirent **nameList;
-    char	  name[1024];
-    int		  length, nFile, i;
-
-    CompStringList rv = cloaderListPlugins (path);
+    CompStringList rv (cloaderListPlugins (path));
 
     if (!path)
 	path = ".";
 
-    nFile = scandir (path, &nameList, dlloaderFilter, alphasort);
-    if (!nFile)
+    struct dirent **nameList;
+    int nFile = scandir (path, &nameList, dlloaderFilter, alphasort);
+    if (nFile < 0)
 	return rv;
 
-    for (i = 0; i < nFile; i++)
+    for (int i = 0; i < nFile; i++)
     {
-	length = strlen (nameList[i]->d_name);
+	int length = strlen (nameList[i]->d_name);
 
-	strncpy (name, nameList[i]->d_name + 3, length - 6);
-	name[length - 6] = '\0';
-
-	rv.push_back (CompString (name));
+	rv.push_back (CompString (nameList[i]->d_name + 3, nameList[i]->d_name + length - 3));
+	free (nameList[i]);
     }
 
+    free (nameList);
     return rv;
 }
 

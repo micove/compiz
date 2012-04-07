@@ -162,7 +162,7 @@ reserveStruts (CompRect &workArea)
     workArea.setBottom (workArea.bottom () - 24);
 }
 
-TEST_F (CompPlaceScreenSizeChangeTestScreenSizeChange, TestScreenSizeChange)
+TEST_F(CompPlaceScreenSizeChangeTestScreenSizeChange, TestScreenSizeChange)
 {
     CompSize		     current, old;
     compiz::window::Geometry g (200, 250, 300, 400, 0);

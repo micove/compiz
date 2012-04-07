@@ -15,4 +15,4 @@ target_link_libraries (compiz_test_window_geometry_saver
 		       ${CMAKE_THREAD_LIBS_INIT} # Link in pthread. 
                        )
 
-add_test (compiz_window_geometry_saver compiz_test_window_geometry_saver)
+gtest_add_tests (compiz_test_window_geometry_saver "" ${CMAKE_CURRENT_SOURCE_DIR}/window-geometry-saver/src/test-window-geometry-saver.cpp)

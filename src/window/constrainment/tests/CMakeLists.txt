@@ -16,4 +16,4 @@ target_link_libraries (compiz_test_window_constrainment_to_hints
 		       ${CMAKE_THREAD_LIBS_INIT} # Link in pthread. 
                        )
 
-add_test (compiz_window_constrainment_to_hints compiz_test_window_constrainment_to_hints)
+gtest_add_tests ( compiz_test_window_constrainment_to_hints "" ${CMAKE_CURRENT_SOURCE_DIR}/to-hints/src/test-window-constrainment-to-hints.cpp)

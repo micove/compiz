@@ -27,7 +27,7 @@
 #include <iostream>
 #include <stdlib.h>
 
-TEST_F (CompRectTest, TestRect)
+TEST_F(CompRectTest, TestRect)
 {
     ASSERT_EQ (mRect, CompRect (0, 0, 0, 0));
 
