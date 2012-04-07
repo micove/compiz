@@ -27,5 +27,5 @@ target_link_libraries (compiz_test_rect_wraparound_point
 		       ${CMAKE_THREAD_LIBS_INIT} # Link in pthread. 
                        )
 
-add_test (compiz_rect compiz_test_rect)
-add_test (compiz_rect_wraparound_point compiz_test_rect_wraparound_point)
+gtest_add_tests (compiz_test_rect "" ${CMAKE_CURRENT_SOURCE_DIR}/rect/src/test-rect.cpp)
+gtest_add_tests (compiz_test_rect_wraparound_point "" ${CMAKE_CURRENT_SOURCE_DIR}/wraparound_point/src/test-rect-wraparound-point.cpp)

@@ -33,6 +33,8 @@
 #include <core/atoms.h>
 #include <core/windowextents.h>
 
+#include <clip-groups.h>
+
 #include "decor_options.h"
 
 #define DECOR_SCREEN(s) DecorScreen *ds = DecorScreen::get(s)
@@ -49,6 +51,27 @@ struct Vector {
 #define DECOR_BARE   0
 #define DECOR_ACTIVE 1
 #define DECOR_NUM    2
+
+using namespace compiz::decor;
+
+class MatchedDecorClipGroup :
+    public DecorClipGroupInterface
+{
+    public:
+
+	MatchedDecorClipGroup (const CompMatch &match);
+
+    private:
+
+	bool doPushClippable (DecorClippableInterface *dc);
+	bool doPopClippable (DecorClippableInterface *dc) { return mClipGroupImpl.popClippable (dc); }
+	void doRegenerateClipRegion () { return mClipGroupImpl.regenerateClipRegion (); }
+	const CompRegion & getClipRegion () { return mClipGroupImpl.clipRegion (); }
+	void doUpdateAllShadows () { return mClipGroupImpl.updateAllShadows (); }
+
+	impl::GenericDecorClipGroup		mClipGroupImpl;
+	CompMatch                               mMatch;
+};
 
 class DecorTexture {
 
@@ -204,13 +227,16 @@ class DecorScreen :
 	std::map<Window, DecorWindow *> frames;
 
 	CompTimer decoratorStart;
+
+	MatchedDecorClipGroup mMenusClipGroup;
 };
 
 class DecorWindow :
     public WindowInterface,
     public CompositeWindowInterface,
     public GLWindowInterface,
-    public PluginClassHandler<DecorWindow,CompWindow>
+    public PluginClassHandler<DecorWindow,CompWindow>,
+    public DecorClippableInterface
 {
     public:
 	DecorWindow (CompWindow *w);
@@ -260,6 +286,15 @@ class DecorWindow :
 	static bool matchState (CompWindow *w, unsigned int decorState);
 	static bool matchActions (CompWindow *w, unsigned int decorActions);
 
+    private:
+
+	void doUpdateShadow (const CompRegion &);
+	void doSetOwner (DecorClipGroupInterface *i);
+	bool doMatches (const CompMatch &m);
+	const CompRegion & getOutputRegion ();
+	const CompRegion & getInputRegion ();
+	void doUpdateGroupShadows ();
+
     public:
 
 	CompWindow      *window;
@@ -296,6 +331,10 @@ class DecorWindow :
 	bool	  isSwitcher;
 
 	bool      frameExtentsRequested;
+
+	DecorClipGroupInterface *mClipGroup;
+	CompRegion		mOutputRegion;
+	CompRegion              mInputRegion;
 };
 
 class DecorPluginVTable :

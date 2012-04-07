@@ -1441,8 +1441,11 @@ CompWindow::destroy ()
 	windowNotify (CompWindowNotifyBeforeDestroy);
 
 	/* Don't allow frame windows to block input */
-	XUnmapWindow (screen->dpy (), priv->serverFrame);
-	XUnmapWindow (screen->dpy (), priv->wrapper);
+	if (priv->serverFrame)
+	    XUnmapWindow (screen->dpy (), priv->serverFrame);
+
+	if (priv->wrapper)
+	    XUnmapWindow (screen->dpy (), priv->wrapper);
 
 	oldServerNext = serverNext;
 	oldServerPrev = serverPrev;
@@ -1606,6 +1609,7 @@ CompWindow::map ()
 {
     windowNotify (CompWindowNotifyBeforeMap);
 
+    /* Previously not viewable */
     if (!isViewable ())
     {
 	if (priv->pendingMaps > 0)
@@ -1626,7 +1630,7 @@ CompWindow::map ()
 	if (!overrideRedirect ())
 	    screen->priv->setWmState (NormalState, priv->id);
 
-	priv->invisible  = true;
+	priv->invisible  = priv->isInvisible ();
 	priv->alive      = true;
 
 	priv->lastPong = screen->priv->lastPing;
@@ -6460,21 +6464,6 @@ CompWindow::~CompWindow ()
 	    dw->serverPrev = this->serverPrev;
     }
 
-    /* If this window has a detached frame, destroy it, but only
-     * using XDestroyWindow since there may be pending restack
-     * requests relative to it */
-
-    std::map <CompWindow *, CompWindow *>::iterator it =
-	    screen->priv->detachedFrameWindows.find (this);
-
-    if (it != screen->priv->detachedFrameWindows.end ())
-    {
-	CompWindow *fw = (it->second);
-
-	XDestroyWindow (screen->dpy (), fw->id ());
-	screen->priv->detachedFrameWindows.erase (it);
-    }
-
     if (!priv->destroyed)
     {
 	StackDebugger *dbg = StackDebugger::Default ();
@@ -6933,22 +6922,6 @@ PrivateWindow::reparent ()
     attr.colormap          = cmap;
     attr.override_redirect = true;
 
-    /* Look for existing detached frame windows and reattach them
-     * in case this window as reparented again after being withdrawn */
-    std::map <CompWindow *, CompWindow *>::iterator it =
-	    screen->priv->detachedFrameWindows.find (window);
-
-    if (it != screen->priv->detachedFrameWindows.end ())
-    {
-	/* Trash the old frame window
-	 * TODO: It would be nicer if we could just
-	 * reparent back into it, but there are some
-	 * problems with that */
-
-	XDestroyWindow (dpy, (it->second)->id ());
-	screen->priv->detachedFrameWindows.erase (it);
-    }
-
     /* We need to know when the frame window is created
      * but that's all */
     XSelectInput (dpy, screen->root (), SubstructureNotifyMask);
@@ -7191,17 +7164,11 @@ PrivateWindow::unreparent ()
 
 	/* Put the frame window "above" the client window
 	 * in the stack */
-	CompWindow *fw = PrivateWindow::createCompWindow (id, attrib, serverFrame);
-
-	/* Put this window in the list of "detached frame windows"
-	 * so that we can reattach it or destroy it when we are
-	 * done with it */
-
-	screen->priv->detachedFrameWindows[window] = fw;
+	PrivateWindow::createCompWindow (id, attrib, serverFrame);
     }
 
-    /* Safe to destroy the wrapper but not the frame */
-    XUnmapWindow (screen->dpy (), serverFrame);
+    /* Issue a DestroyNotify */
+    XDestroyWindow (screen->dpy (), serverFrame);
     XDestroyWindow (screen->dpy (), wrapper);
 
     window->windowNotify (CompWindowNotifyUnreparent);

@@ -51,7 +51,7 @@ CompRectTestWraparound::~CompRectTestWraparound ()
 {
 }
 
-TEST_F (CompRectTestWraparound, TestWraparound)
+TEST_F(CompRectTestWraparound, TestWraparound)
 {
     CompPoint outsider = CompPoint (2501, 2401);
     CompPoint inside = CompPoint ();

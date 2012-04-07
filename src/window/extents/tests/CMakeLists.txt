@@ -15,4 +15,4 @@ target_link_libraries (compiz_test_window_extents_shift
 		       ${CMAKE_THREAD_LIBS_INIT} # Link in pthread. 
                        )
 
-add_test (compiz_window_extents_shift compiz_test_window_extents_shift)
+gtest_add_tests (compiz_test_window_extents_shift "" ${CMAKE_CURRENT_SOURCE_DIR}/shift/src/test-window-extents-shift.cpp)

@@ -47,7 +47,7 @@ CompWindowGeometryTestGeometry::~CompWindowGeometryTestGeometry ()
 {
 }
 
-TEST_F (CompWindowGeometryTestGeometry, TestGeometry)
+TEST_F(CompWindowGeometryTestGeometry, TestGeometry)
 {
 
     /* apply x only */

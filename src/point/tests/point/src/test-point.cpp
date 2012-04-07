@@ -47,7 +47,7 @@ CompPointTestPoint::~CompPointTestPoint ()
 {
 }
 
-TEST_F (CompPointTestPoint, TestPoint)
+TEST_F(CompPointTestPoint, TestPoint)
 {
   p.setX (10);
 

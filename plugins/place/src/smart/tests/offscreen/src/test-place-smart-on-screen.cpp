@@ -87,7 +87,7 @@ MockPlaceableObject::MockPlaceableObject (const compiz::window::Geometry &geomet
     mWorkarea = running;
 }
 
-TEST_F (CompPlaceSmartOffscreenTest, TestOffscreenOne)
+TEST_F(CompPlaceSmartOffscreenTest, TestOffscreenOne)
 {
     CompRect wa1 (0, 24, 1680, 1026);
     CompRect wa2 (1680, 24, 1024, 744);

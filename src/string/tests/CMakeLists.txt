@@ -17,4 +17,4 @@ target_link_libraries(
   ${CMAKE_THREAD_LIBS_INIT} # Link in pthread.
 )
 
-add_test( compiz_string_test compiz_string_test )
+gtest_add_tests( compiz_string_test "" ${CMAKE_CURRENT_SOURCE_DIR}/printf/src/test-string-printf.cpp )

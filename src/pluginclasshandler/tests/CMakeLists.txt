@@ -74,8 +74,8 @@ target_link_libraries(
 #  gtest_main
 #)
 
-add_test( compiz_pch_construct compiz_pch_construct )
-add_test( compiz_pch_get compiz_pch_get )
+gtest_add_tests( compiz_pch_construct "" ${CMAKE_CURRENT_SOURCE_DIR}/construct/src/test-pch-construct.cpp )
+gtest_add_tests( compiz_pch_get "" ${CMAKE_CURRENT_SOURCE_DIR}/get/src/test-pch-get.cpp )
 #add_test( compiz_pch_indexes compiz_pch_indexes )
-add_test( compiz_pch_typenames compiz_pch_typenames )
+gtest_add_tests( compiz_pch_typenames "" ${CMAKE_CURRENT_SOURCE_DIR}/typenames/src/test-pch-typenames.cpp )
 

@@ -1355,7 +1355,8 @@ CompScreenImpl::_handleEvent (XEvent *event)
 
         if (w)
 	{
-	    if (event->xreparent.parent != w->priv->wrapper)
+	    if ((w->priv->wrapper && event->xreparent.parent != w->priv->wrapper) ||
+		(!w->priv->wrapper && event->xreparent.parent != priv->root))
 	    {
 		w->moveInputFocusToOtherWindow ();
 		w->destroy ();
