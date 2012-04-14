@@ -8,7 +8,7 @@ Description: Add missing library links.
  .
  These 3 files are obviously plugins and dpkg-shlibdeps assumes that the program
  that loads the plugins provides these symbols therefore not giving an error.
-Author: Miguel Colon <debian.micove@gmail.com>
+Author: Miguel A. Colón Vélez <debian.micove@gmail.com>
 Last-Update: 2012-03-14
 
 --- compiz-0.9.7.0.orig/plugins/imgsvg/CMakeLists.txt
