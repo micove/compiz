@@ -4,3 +4,4 @@
 003_ubuntu-config_adapted_to_debian.patch
 100_fix_compiztoolbox_pc_file.patch
 101_add_missing_link_libraries.patch
+bzr3091.patch

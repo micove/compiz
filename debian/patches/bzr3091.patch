@@ -1,0 +1,16 @@
+Description: Fix a FTBFS when compiling with gcc-4.7.
+Origin: upstream, http://bazaar.launchpad.net/~compiz-team/compiz-core/0.9.7/revision/3091
+Last-Update: 2012-04-12
+
+--- a/src/timer/src/timeouthandler.cpp	2012-02-06 17:44:17 +0000
++++ b/src/timer/src/timeouthandler.cpp	2012-04-12 06:50:42 +0000
+@@ -57,7 +57,7 @@
+ 
+     for (it = priv->mTimers.begin (); it != priv->mTimers.end (); it++)
+     {
+-	if ((int) timer->minTime () < (*it)->minLeft ())
++	if (timer->minTime () < (*it)->minLeft ())
+ 	    break;
+     }
+ 
+
