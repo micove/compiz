@@ -214,32 +214,36 @@ DecorWindow::glDecorate (const GLMatrix     &transform,
 		         const CompRegion   &region,
 		         unsigned int       mask)
 {
-    const CompRegion *preg = NULL;
-
-    if ((mask & (PAINT_WINDOW_ON_TRANSFORMED_SCREEN_MASK |
-		 PAINT_WINDOW_WITH_OFFSET_MASK)))
-	preg = &region;
-    else if (mask & PAINT_WINDOW_TRANSFORMED_MASK)
-	preg = &infiniteRegion;
-    else
-    {
-	tmpRegion = shadowRegion;
-	tmpRegion &= region;
-	preg = &tmpRegion;
-    }
-
-    /* In case some plugin needs to paint us with an offset region */
-    if (preg->isEmpty ())
-	preg = &region;
-
-    const CompRegion &reg (*preg);
-
     if (wd &&
 	wd->decor->type == WINDOW_DECORATION_TYPE_PIXMAP)
     {
 	CompRect box;
 	GLTexture::MatrixList ml (1);
 	mask |= PAINT_WINDOW_BLEND_MASK;
+
+	const CompRegion *preg = NULL;
+
+	if ((mask & (PAINT_WINDOW_ON_TRANSFORMED_SCREEN_MASK |
+		 PAINT_WINDOW_WITH_OFFSET_MASK)))
+	    preg = &region;
+	else if (mask & PAINT_WINDOW_TRANSFORMED_MASK)
+	    preg = &infiniteRegion;
+	else
+	{
+	    tmpRegion = mOutputRegion;
+	    tmpRegion &= region;
+
+	    if (tmpRegion.isEmpty ())
+		preg = &region;
+	    else
+		preg = &shadowRegion;
+	}
+
+	/* In case some plugin needs to paint us with an offset region */
+	if (preg->isEmpty ())
+	    preg = &region;
+
+	const CompRegion &reg (*preg);
 
 	gWindow->geometry ().reset ();
 
@@ -262,8 +266,7 @@ DecorWindow::glDecorate (const GLMatrix     &transform,
 	    gWindow->glDrawTexture (wd->decor->texture->textures[0],
 				    attrib, mask);
     }
-    else if (wd && !reg.isEmpty () &&
-	     wd->decor->type == WINDOW_DECORATION_TYPE_WINDOW)
+    else if (wd && wd->decor->type == WINDOW_DECORATION_TYPE_WINDOW)
     {
 	GLTexture::MatrixList ml (1);
 
@@ -276,7 +279,7 @@ DecorWindow::glDecorate (const GLMatrix     &transform,
 	{
 	    ml[0] = gWindow->matrices ()[0];
 	    gWindow->geometry ().reset ();
-	    gWindow->glAddGeometry (ml, window->frameRegion (), reg);
+	    gWindow->glAddGeometry (ml, window->frameRegion (), region);
 
 	    if (gWindow->geometry ().vCount)
 		gWindow->glDrawTexture (gWindow->textures ()[0], attrib, mask);
@@ -289,7 +292,7 @@ DecorWindow::glDecorate (const GLMatrix     &transform,
 	    {
 		ml[0] = gWindow->matrices ()[i];
 		gWindow->geometry ().reset ();
-		gWindow->glAddGeometry (ml, regions[i], reg);
+		gWindow->glAddGeometry (ml, regions[i], region);
 
 		if (gWindow->geometry ().vCount)
 		    gWindow->glDrawTexture (gWindow->textures ()[i], attrib,
@@ -324,7 +327,7 @@ DecorTexture::DecorTexture (Pixmap pixmap) :
     if (!XGetGeometry (screen->dpy (), pixmap, &root,
 		       &i, &i, &width, &height, &ui, &depth))
     {
-        status = false;
+	status = false;
 	return;
     }
 
@@ -333,7 +336,7 @@ DecorTexture::DecorTexture (Pixmap pixmap) :
     if (textures.size () != 1)
     {
 	bindFailed = true;
-        status = false;
+	status = false;
 	return;
     }
 
@@ -1520,6 +1523,8 @@ DecorWindow::update (bool allowDecoration)
 	if (decorate)
 	    updateFrame ();
 	window->updateWindowOutputExtents ();
+	mOutputRegion = CompRegion (window->outputRect ());
+	updateGroupShadows ();
 	if (dScreen->cmActive)
 	    cWindow->damageOutputExtents ();
 	updateDecorationScale ();
@@ -1532,8 +1537,7 @@ DecorWindow::update (bool allowDecoration)
 	/* Undecorated windows need to have the
 	 * input and output frame removed and the
 	 * frame window geometry reset */
-	if (decorate)
-	    updateFrame ();
+	updateFrame ();
 
 	memset (&emptyExtents, 0, sizeof (CompWindowExtents));
 
@@ -2317,7 +2321,7 @@ DecorScreen::handleEvent (XEvent *event)
 				    dw->cWindow->damageOutputExtents ();
 			    }
 			}
-			return;
+			break;
 		    }
 		}
 	    }
@@ -2932,7 +2936,7 @@ DecorScreen::DecorScreen (CompScreen *s) :
 				   None,
 				   boost::shared_array <decor_quad_t> (NULL),
 				   0)),
-    mMenusClipGroup (CompMatch ("type=Dock | type=DropdownMenu | type=Menu | type=PopupMenu"))
+    mMenusClipGroup (CompMatch ("type=Dock | type=DropdownMenu | type=PopupMenu"))
 {
     supportingDmCheckAtom =
 	XInternAtom (s->dpy (), DECOR_SUPPORTING_DM_CHECK_ATOM_NAME, 0);
