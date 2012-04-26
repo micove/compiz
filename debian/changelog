@@ -31,7 +31,8 @@ compiz (0.9.7.8-0.1) experimental; urgency=low
     - Add a patch to fix the exec_prefix entries in some pc files.
     - Add a patch to add some missing library links to the plugins.
   * debian/control:
-    - Bump debhelper and the compatibility level to 9.
+    - Bump debhelper to (>= 9.20120419) and the compatibility level to 9.
+      + debhelper (>= 9.20120419) enables hardening support with cmake.
     - Organize the build dependency list:
       + Change kdebase-workspace-dev to kde-workspace-dev.
       + Change libpng12-dev | libpng-dev to libpng-dev.
@@ -51,7 +52,6 @@ compiz (0.9.7.8-0.1) experimental; urgency=low
       + Add a Breaks: compiz-core (<< 0.9.7.0).
     - libdecoration0 breaks compiz-plugins (<< 0.9.7.0).
   * debian/rules:
-    - Enable hardening support using the workaround for cmake.
     - Find CORE_ABIVERSION in abiversion.h.
     - Update and reorder the DEFAULT_PLUGINS list.
     - Update the clean routine.
@@ -62,7 +62,7 @@ compiz (0.9.7.8-0.1) experimental; urgency=low
       same.
     - Mark compiz-core as M-A: foreign.
 
- -- Miguel A. Colón Vélez <debian.micove@gmail.com>  Thu, 26 Apr 2012 04:09:58 -0400
+ -- Miguel A. Colón Vélez <debian.micove@gmail.com>  Thu, 26 Apr 2012 05:04:55 -0400
 
 compiz (0.9.2.1+git20110226.f059fae9-4) experimental; urgency=low
 

@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Debian X Strike Force <debian-x@lists.debian.org>
 Uploaders: David Nusinow <dnusinow@debian.org>, Sean Finney <seanius@debian.org>, Cyril Brulebois <kibi@debian.org>
 Build-Depends: cmake (>= 2.6),
- debhelper (>= 9),
+ debhelper (>= 9.20120419),
  gnome-control-center-dev,
  google-mock,
  intltool,
