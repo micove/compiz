@@ -30,7 +30,6 @@ compiz (0.9.7.6-0.1) experimental; urgency=low
         their sane defaults.
     - Add a patch to fix the exec_prefix entries in some pc files.
     - Add a patch to add some missing library links to the plugins.
-    - Add a patch to fix a FTBFS when compiling with gcc-4.7.
   * debian/control:
     - Bump debhelper and the compatibility level to 9.
     - Organize the build dependency list:
@@ -63,7 +62,7 @@ compiz (0.9.7.6-0.1) experimental; urgency=low
       same.
     - Mark compiz-core as M-A: foreign.
 
- -- Miguel A. Colón Vélez <debian.micove@gmail.com>  Tue, 24 Apr 2012 09:34:24 -0400
+ -- Miguel A. Colón Vélez <debian.micove@gmail.com>  Sat, 14 Apr 2012 04:46:07 -0400
 
 compiz (0.9.2.1+git20110226.f059fae9-4) experimental; urgency=low
 
