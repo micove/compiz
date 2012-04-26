@@ -57,7 +57,7 @@ TimeoutHandler::addTimer (CompTimer *timer)
 
     for (it = priv->mTimers.begin (); it != priv->mTimers.end (); it++)
     {
-	if ((int) timer->minTime () < (*it)->minLeft ())
+	if (timer->minTime () < (*it)->minLeft ())
 	    break;
     }
 

@@ -1,3 +1,21 @@
+Release 0.9.7.8 (2012-04-26 Daniel van Vugt <daniel.van.vugt@canonical.com>)
+============================================================================
+
+Bugs fixed (https://launchpad.net/compiz-core/+milestone/0.9.7.8)
+
+    770283 - [fglrx] Title bar does not update on non-maximized windows
+    946388 - Some apps (like Remmina) can't full-screen under Compiz (or Unity)
+    972519 - Compiz-core fails to compile with gcc-4.7 - 'cc1plus: all warnings
+             being treated as errors'
+    976467 - [regression] Compiz 0.9.7.6: Menus often have no shadows at all
+    978900 - Menu shadow clipping flickers while switching menubar
+             items/indicators
+    979252 - Shadow Clipping / Regressions compiz 0.9.7.7 (built an hour ago)
+    980026 - Compiz should not move windows to workspace 0,0 when restarted
+    981703 - regression / unable to interact with window-titlebar (window
+             decoration) after minimizing/unminimizing gnome-terminal
+
+
 Release 0.9.7.6 (2012-04-06 Sam Spilsbury <sam.spilsbury@canonical.com>)
 ========================================================================
 
@@ -8,13 +26,11 @@ Bugs fixed (https://launchpad.net/compiz-core/+milestone/0.9.7.6)
     919139 - window management, multi-monitor - In multi-monitor
              environment, windows should spread on the
              monitor in which they reside
-    659816 - Drop-down menus look disembodied from their titles 
     931883 - Improve performace of the shadow clipping code
     969101 - DecorWindow::computeShadowRegion called way too much
-    940603 - white box randomly shows up at top left corner blocking application
-             from using stuff under it
 
 Use gtest_add_tests for more detailed testing output
+
 
 Release 0.9.7.4 (2012-04-02 Daniel van Vugt <daniel.van.vugt@canonical.com>)
 ============================================================================
