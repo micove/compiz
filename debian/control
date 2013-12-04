@@ -2,14 +2,18 @@ Source: compiz
 Section: x11
 Priority: optional
 Maintainer: Debian X Strike Force <debian-x@lists.debian.org>
-Uploaders: David Nusinow <dnusinow@debian.org>, Sean Finney <seanius@debian.org>, Cyril Brulebois <kibi@debian.org>
-Build-Depends: cmake (>= 2.6),
+Uploaders:
+ David Nusinow <dnusinow@debian.org>,
+ Sean Finney <seanius@debian.org>,
+ Cyril Brulebois <kibi@debian.org>
+Build-Depends:
+ cmake (>= 2.6),
  debhelper (>= 9.20120419),
  gnome-control-center-dev,
  google-mock,
  intltool,
- kdelibs5-dev (>= 4:4.2.2),
  kde-workspace-dev,
+ kdelibs5-dev (>= 4:4.2.2),
  lcov,
  libboost-dev,
  libboost-serialization-dev,
@@ -39,8 +43,8 @@ Build-Depends: cmake (>= 2.6),
  libxext-dev,
  libxfixes-dev (>= 1:4.0.1),
  libxinerama-dev,
- libxml2-dev,
  libxml-parser-perl,
+ libxml2-dev,
  libxrandr-dev (>= 2:1.1.0.2),
  libxrender-dev (>= 1:0.9.1),
  libxslt1-dev,
@@ -54,14 +58,17 @@ Vcs-Browser: http://git.debian.org/?p=pkg-xorg/app/compiz.git
 
 Package: compiz
 Architecture: all
-Provides: x-window-manager
-Depends: ${misc:Depends},
+Provides:
+ x-window-manager
+Depends:
  compiz-core (>= ${source:Version}),
  compiz-fusion-plugins-main (>= 0.9.7.0),
  compiz-gtk | compiz-kde,
  compiz-plugins (>= ${source:Version}),
- libcompizconfig0 (>= 0.9.5.92)
-Suggests: compizconfig-settings-manager
+ libcompizconfig0 (>= 0.9.5.92),
+ ${misc:Depends}
+Suggests:
+ compizconfig-settings-manager
 Description: OpenGL window and compositing manager - metapackage
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
@@ -75,18 +82,24 @@ Description: OpenGL window and compositing manager - metapackage
 Package: compiz-core
 Architecture: any
 Multi-Arch: foreign
-Depends: ${shlibs:Depends},
+Depends:
+ libcompiz-core (= ${binary:Version}),
  ${misc:Depends},
- libcompiz-core (= ${binary:Version})
-Breaks: compiz-fusion-plugins-extra (<< 0.9.7.0),
+ ${shlibs:Depends}
+Breaks:
+ compiz-fusion-plugins-extra (<< 0.9.7.0),
  compiz-fusion-plugins-main (<< 0.9.7.0),
  compiz-fusion-plugins-unsupported (<< 0.9.7.0),
  compiz-gtk (<< 0.9),
  libcompizconfig0 (<< 0.9.5.92)
-Replaces: compiz-gtk (<< 0.9)
-Recommends: compiz-plugins (= ${binary:Version})
-Suggests: nvidia-glx (>= 1.0.9625-1)
-Provides: compiz-core-abiversion-${coreabiversion}
+Replaces:
+ compiz-gtk (<< 0.9)
+Recommends:
+ compiz-plugins (= ${binary:Version})
+Suggests:
+ nvidia-glx (>= 1.0.9625-1)
+Provides:
+ compiz-core-abiversion-${coreabiversion}
 Description: OpenGL window and compositing manager
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
@@ -102,7 +115,7 @@ Description: OpenGL window and compositing manager
 Package: compiz-dev
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
+Depends:
  compiz-core (= ${binary:Version}),
  compiz-plugins (= ${binary:Version}),
  libcompiz-core (= ${binary:Version}),
@@ -122,7 +135,8 @@ Depends: ${misc:Depends},
  libxinerama-dev,
  libxml2-dev,
  libxrandr-dev (>=2:1.1.0.2),
- libxslt1-dev
+ libxslt1-dev,
+ ${misc:Depends}
 Description: OpenGL window and compositing manager - development files
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
@@ -133,13 +147,17 @@ Description: OpenGL window and compositing manager - development files
 
 Package: compiz-gtk
 Architecture: any
-Depends: ${shlibs:Depends},
- ${misc:Depends},
+Depends:
  compiz-core (= ${binary:Version}),
- compiz-plugins (= ${binary:Version})
-Breaks: compiz-plugins (<< 0.9)
-Replaces: compiz-plugins (<< 0.9)
-Suggests: gnome-themes
+ compiz-plugins (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends}
+Breaks:
+ compiz-plugins (<< 0.9)
+Replaces:
+ compiz-plugins (<< 0.9)
+Suggests:
+ gnome-themes
 Description: OpenGL window and compositing manager - Gtk window decorator
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
@@ -150,11 +168,12 @@ Description: OpenGL window and compositing manager - Gtk window decorator
 
 Package: compiz-kde
 Architecture: any
-Depends: ${shlibs:Depends},
- ${misc:Depends},
- compizconfig-backend-kconfig4,
+Depends:
  compiz-core (= ${binary:Version}),
- compiz-plugins (= ${binary:Version})
+ compiz-plugins (= ${binary:Version}),
+ compizconfig-backend-kconfig4,
+ ${misc:Depends},
+ ${shlibs:Depends}
 Description: OpenGL window and compositing manager - KDE window decorator
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
@@ -166,11 +185,12 @@ Description: OpenGL window and compositing manager - KDE window decorator
 Package: compiz-plugins
 Architecture: any
 Multi-Arch: same
-Depends: ${shlibs:Depends},
- ${misc:Depends},
+Depends:
  compiz-core (= ${binary:Version}),
  libcompiz-core (= ${binary:Version}),
- libdecoration0 (= ${binary:Version})
+ libdecoration0 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends}
 Description: OpenGL window and compositing manager - plugins
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
@@ -181,11 +201,14 @@ Description: OpenGL window and compositing manager - plugins
 
 Package: libcompiz-core
 Architecture: any
-Pre-Depends: ${misc:Pre-Depends}
+Pre-Depends:
+ ${misc:Pre-Depends}
 Multi-Arch: same
-Depends: ${shlibs:Depends},
- ${misc:Depends}
-Breaks: compiz-core (<< 0.9.7.0)
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends}
+Breaks:
+ compiz-core (<< 0.9.7.0)
 Description: OpenGL window and compositing manager - core library
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
@@ -195,11 +218,14 @@ Description: OpenGL window and compositing manager - core library
 
 Package: libdecoration0
 Architecture: any
-Pre-Depends: ${misc:Pre-Depends}
+Pre-Depends:
+ ${misc:Pre-Depends}
 Multi-Arch: same
-Depends: ${shlibs:Depends},
- ${misc:Depends}
-Breaks: compiz-plugins (<< 0.9.7.0)
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends}
+Breaks:
+ compiz-plugins (<< 0.9.7.0)
 Description: Compiz window decoration library
  The window decoration library is responsible for drawing the window borders
  and title bar of windows managed by Compiz. It is used by window decorators
@@ -209,10 +235,11 @@ Package: libdecoration0-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${misc:Depends},
+Depends:
  libdecoration0 (= ${binary:Version}),
  libx11-dev,
- libxrender-dev (>= 1:0.9.1)
+ libxrender-dev (>= 1:0.9.1),
+ ${misc:Depends}
 Description: Compiz window decoration library - development files
  The window decoration library is responsible for drawing the window borders
  and title bar of windows managed by Compiz. It is used by window decorators
