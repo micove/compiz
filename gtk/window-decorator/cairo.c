@@ -24,6 +24,7 @@
  */
 
 #include "gtk-window-decorator.h"
+#include "gwd-cairo-window-decoration-util.h"
 
 void
 rounded_rectangle (cairo_t *cr,
@@ -316,19 +317,10 @@ draw_window_decoration (decor_t *d)
     color.g = style->bg[GTK_STATE_NORMAL].green / 65535.0;
     color.b = style->bg[GTK_STATE_NORMAL].blue  / 65535.0;
 
-    if (d->frame_window)
-    {
-	GdkColormap *cmap;
-
-	cmap = get_colormap_for_drawable (GDK_DRAWABLE (d->pixmap));
-	gdk_drawable_set_colormap (GDK_DRAWABLE (d->pixmap), cmap);
-	gdk_drawable_set_colormap (GDK_DRAWABLE (d->buffer_pixmap), cmap);
-	drawable = GDK_DRAWABLE (d->buffer_pixmap);
-    }
-    else if (d->buffer_pixmap)
-	drawable = GDK_DRAWABLE (d->buffer_pixmap);
+    if (d->buffer_pixmap)
+	drawable = d->buffer_pixmap;
     else
-	drawable = GDK_DRAWABLE (d->pixmap);
+	drawable = d->pixmap;
 
     cr = gdk_cairo_create (GDK_DRAWABLE (drawable));
     if (!cr)
@@ -354,7 +346,7 @@ draw_window_decoration (decor_t *d)
     {
 	decor_color_t *title_color = _title_color;
 
-	alpha = settings->decoration_alpha + 0.3;
+	alpha = decoration_alpha + 0.3;
 
 	fill_rounded_rectangle (cr,
 				x1 + 0.5,
@@ -386,7 +378,7 @@ draw_window_decoration (decor_t *d)
     }
     else
     {
-	alpha = settings->decoration_alpha;
+	alpha = decoration_alpha;
 
 	fill_rounded_rectangle (cr,
 				x1 + 0.5,
@@ -716,9 +708,7 @@ draw_window_decoration (decor_t *d)
 static void
 calc_button_size (decor_t *d)
 {
-    gint button_width;
-
-    button_width = 0;
+    gint button_width = 0;
 
     if (d->actions & WNCK_WINDOW_ACTION_CLOSE)
 	button_width += 17;
@@ -729,12 +719,11 @@ calc_button_size (decor_t *d)
 		      WNCK_WINDOW_ACTION_UNMAXIMIZE_VERTICALLY))
 	button_width += 17;
 
-    if (d->actions & (WNCK_WINDOW_ACTION_MINIMIZE |
-		      WNCK_WINDOW_ACTION_MINIMIZE))
+    if (d->actions & WNCK_WINDOW_ACTION_MINIMIZE)
 	button_width += 17;
 
     if (button_width)
-	button_width++;
+	++button_width;
 
     d->button_width = button_width;
 }
@@ -749,6 +738,9 @@ calc_decoration_size (decor_t *d,
 {
     decor_layout_t layout;
     int		   top_width;
+
+    if (!d->decorated)
+	return FALSE;
 
     /* To avoid wasting texture memory, we only calculate the minimal
      * required decoration size then clip and stretch the texture where
@@ -922,8 +914,9 @@ update_border_extents (decor_frame_t *frame)
 {
     frame = gwd_decor_frame_ref (frame);
 
-    frame->win_extents = frame->win_extents;
-    frame->max_win_extents = frame->win_extents;
+    gwd_cairo_window_decoration_get_extents (&frame->win_extents,
+					     &frame->max_win_extents);
+
     frame->titlebar_height = frame->max_titlebar_height =
 	    (frame->text_height < 17) ? 17 : frame->text_height;
 

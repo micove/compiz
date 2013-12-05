@@ -57,7 +57,7 @@ gdk_cairo_set_source_color_alpha (cairo_t  *cr,
 			   alpha);
 }
 
-inline GdkWindow *
+GdkWindow *
 create_gdk_window (Window xframe)
 {
     GdkDisplay  *display = gdk_display_get_default ();
@@ -92,6 +92,26 @@ get_format_for_drawable (decor_t *d, GdkDrawable *drawable)
 }
 
 GdkPixmap *
+create_native_pixmap_and_wrap (int	  w,
+			       int	  h,
+			       GtkWidget *parent_style_window)
+{
+    GdkWindow *window;
+
+    if (w <= 0 || h <= 0)
+	abort ();
+
+    window = gtk_widget_get_window (parent_style_window);
+    GdkPixmap *pixmap =
+	   gdk_pixmap_foreign_new (XCreatePixmap (gdk_x11_display_get_xdisplay (gdk_display_get_default ()),
+						  GDK_WINDOW_XID (window), w, h,
+						  gdk_drawable_get_depth (window)));
+    GdkColormap *cmap = get_colormap_for_drawable (GDK_DRAWABLE (pixmap));
+    gdk_drawable_set_colormap (GDK_DRAWABLE (pixmap), cmap);
+    return pixmap;
+}
+
+GdkPixmap *
 create_pixmap (int	  w,
 	       int	  h,
 	       GtkWidget *parent_style_window)
@@ -102,5 +122,9 @@ create_pixmap (int	  w,
 	abort ();
 
     window = gtk_widget_get_window (parent_style_window);
-    return gdk_pixmap_new (GDK_DRAWABLE (window), w, h, -1 /* CopyFromParent */);
+    GdkPixmap *pixmap = gdk_pixmap_new (GDK_DRAWABLE (window), w, h, -1 /* CopyFromParent */);
+
+    GdkColormap *cmap = get_colormap_for_drawable (GDK_DRAWABLE (pixmap));
+    gdk_drawable_set_colormap (GDK_DRAWABLE (pixmap), cmap);
+    return pixmap;
 }

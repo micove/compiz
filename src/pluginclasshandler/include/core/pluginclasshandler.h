@@ -34,7 +34,7 @@
 #include <core/pluginclasses.h>
 
 /* Continuously increments every time a new
- * plugin class is added, guarunteed to be
+ * plugin class is added, guaranteed to be
  * the same as the pcIndex of the most up-to-date
  * PluginClassHandler index. Any index that
  * hold the same value this value is safe to
@@ -45,9 +45,50 @@
  */
 extern unsigned int pluginClassHandlerIndex;
 
-template<class Tp, class Tb, int ABI = 0>
-class PluginClassHandler {
+namespace compiz
+{
+namespace plugin
+{
+namespace internal
+{
+class PluginKey;
+/**
+ * LoadedPluginClassBridge
+ *
+ * This template essentially exists so that we can reduce the
+ * scope of functions which are allowed to mark plugin classes
+ * as instantiatable as we can't really inject the interface
+ * from PluginClassHandler to do that anywhere. We also can't
+ * forward declare a nested class declaration, but we can forward
+ * declare PluginKey, which users should inherit from and take
+ * it by reference. If the class we're depending on can only be
+ * defined in one other place along with a private constructor
+ * accessible only to a friend it means that we've effectively
+ * limited the scope of users of this class.
+ */
+template <class Tp, class Tb, int ABI = 0>
+class LoadedPluginClassBridge
+{
     public:
+
+	static void
+	allowInstantiations (const PluginKey &);
+
+	static void
+	disallowInstantiations (const PluginKey &);
+};
+}
+}
+}
+
+template<class Tp, class Tb, int ABI = 0>
+class PluginClassHandler
+{
+    public:
+
+	typedef Tp ClassPluginType;
+	typedef Tb ClassPluginBaseType;
+
 	PluginClassHandler (Tb *);
 	~PluginClassHandler ();
 
@@ -69,6 +110,7 @@ class PluginClassHandler {
 	 */
 	Tb * get () { return mBase; };
 	static Tp * get (Tb *);
+	static const Tp * get (const Tb *);
 
     private:
 	/**
@@ -89,15 +131,48 @@ class PluginClassHandler {
 	static bool initializeIndex (Tb *base);
 	static inline Tp * getInstance (Tb *base);
 
+	static void allowInstantiations ();
+	static void disallowInstantiations ();
+
+	template <class Plugin, class Base, int PluginABI>
+	friend class compiz::plugin::internal::LoadedPluginClassBridge;
+
     private:
 	bool mFailed;
 	Tb   *mBase;
 
 	static PluginClassIndex mIndex;
+	static bool             mPluginLoaded;
 };
+
+namespace compiz
+{
+namespace plugin
+{
+namespace internal
+{
+template <class Tp, class Tb, int ABI>
+void
+LoadedPluginClassBridge <Tp, Tb, ABI>::allowInstantiations (const PluginKey &)
+{
+    PluginClassHandler <Tp, Tb, ABI>::allowInstantiations ();
+}
+
+template <class Tp, class Tb, int ABI>
+void
+LoadedPluginClassBridge <Tp, Tb, ABI>::disallowInstantiations (const PluginKey &)
+{
+    PluginClassHandler <Tp, Tb, ABI>::disallowInstantiations ();
+}
+}
+}
+}
 
 template<class Tp, class Tb, int ABI>
 PluginClassIndex PluginClassHandler<Tp,Tb,ABI>::mIndex;
+
+template<class Tp, class Tb, int ABI>
+bool PluginClassHandler<Tp,Tb,ABI>::mPluginLoaded = false;
 
 /**
  * Attaches a unique instance of the specified plugin class to a
@@ -242,18 +317,33 @@ PluginClassHandler<Tp,Tb,ABI>::getInstance (Tb *base)
 }
 
 template<class Tp, class Tb, int ABI>
+const Tp *
+PluginClassHandler<Tp,Tb,ABI>::get (const Tb *base)
+{
+    return get (const_cast<Tb *> (base));
+}
+
+template<class Tp, class Tb, int ABI>
 Tp *
 PluginClassHandler<Tp,Tb,ABI>::get (Tb *base)
 {
+    /* Never instantiate an instance of this class
+     * if the relevant plugin has not been loaded
+     */
+    if (!mPluginLoaded)
+	return NULL;
+
     /* Always ensure that the index is initialized before
      * calls to ::get */
     if (!mIndex.initiated)
 	initializeIndex (base);
+
     /* If pluginClassHandlerIndex == mIndex.pcIndex it means that our
      * mIndex.index is fresh and can be used directly without needing
      * to fetch it from ValueHolder */
     if (mIndex.initiated && pluginClassHandlerIndex == mIndex.pcIndex)
 	return getInstance (base);
+
     /* If allocating or getting the updated index failed at any point
      * then just return NULL we don't know where our private data is stored */
     if (mIndex.failed && pluginClassHandlerIndex == mIndex.pcIndex)
@@ -275,6 +365,20 @@ PluginClassHandler<Tp,Tb,ABI>::get (Tb *base)
 	mIndex.pcIndex = pluginClassHandlerIndex;
 	return NULL;
     }
+}
+
+template<class Tp, class Tb, int ABI>
+void
+PluginClassHandler<Tp, Tb, ABI>::allowInstantiations ()
+{
+    mPluginLoaded = true;
+}
+
+template<class Tp, class Tb, int ABI>
+void
+PluginClassHandler<Tp, Tb, ABI>::disallowInstantiations ()
+{
+    mPluginLoaded = false;
 }
 
 #endif

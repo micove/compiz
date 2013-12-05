@@ -34,8 +34,8 @@
 #include <sys/shm.h>
 #include <sys/ipc.h>
 
-#define MAX_SUB_TEX 2048
-#define SHM_SIZE MAX_SUB_TEX * MAX_SUB_TEX * 4
+extern const int MAX_SUB_TEX;
+extern const unsigned int SHM_SIZE;
 
 class CopyTexture;
 
@@ -52,10 +52,11 @@ class CopyPixmap {
 
 	~CopyPixmap ();
 
-	static GLTexture::List bindPixmapToTexture (Pixmap pixmap,
-						    int width,
-						    int height,
-						    int depth);
+	static GLTexture::List bindPixmapToTexture (Pixmap                       pixmap,
+						    int                          width,
+						    int                          height,
+						    int                          depth,
+						    compiz::opengl::PixmapSource source);
 
     public:
 	Textures textures;

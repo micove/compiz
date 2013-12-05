@@ -11,8 +11,6 @@ target_link_libraries (compiz_test_place_screen_size_change
                        compiz_place_screen_size_change
                        ${GTEST_BOTH_LIBRARIES}
 		       ${GMOCK_LIBRARY}
-		       ${GMOCK_MAIN_LIBRARY}
-		       ${CMAKE_THREAD_LIBS_INIT} # Link in pthread. 
-                       )
+		       ${GMOCK_MAIN_LIBRARY})
 
-gtest_add_tests (compiz_test_place_screen_size_change "" ${CMAKE_CURRENT_SOURCE_DIR}/screen-size-change/src/test-place-screen-size-change.cpp)
+compiz_discover_tests (compiz_test_place_screen_size_change COVERAGE compiz_place_screen_size_change)

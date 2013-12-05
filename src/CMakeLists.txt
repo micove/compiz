@@ -1,5 +1,7 @@
-include (CompizBcop)
+set (COMPIZ_MAIN_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set (COMPIZ_MAIN_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
+include (CompizBcop)
 
 add_subdirectory( string )
 add_subdirectory( logmessage )
@@ -7,14 +9,16 @@ add_subdirectory( timer )
 add_subdirectory( pluginclasshandler )
 add_subdirectory( point )
 add_subdirectory( rect )
+add_subdirectory( region )
 add_subdirectory( window )
+add_subdirectory( servergrab )
 
 IF (COMPIZ_BUILD_TESTING)
 add_subdirectory( privatescreen/tests )
 add_subdirectory( wrapsystem/tests )
-add_subdirectory( region/tests )
 add_subdirectory( plugin )
 add_subdirectory( option/tests )
+add_subdirectory( tests )
 ENDIF (COMPIZ_BUILD_TESTING)
 
 compiz_add_bcop_targets (
@@ -57,6 +61,12 @@ include_directories (
     ${CMAKE_CURRENT_SOURCE_DIR}/rect/include
     ${CMAKE_CURRENT_SOURCE_DIR}/rect/src
 
+    ${CMAKE_CURRENT_SOURCE_DIR}/servergrab/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/servergrab/src
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/region/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/region/src
+
     ${CMAKE_CURRENT_SOURCE_DIR}/window/geometry/include
     ${CMAKE_CURRENT_SOURCE_DIR}/window/geometry/src
 
@@ -89,7 +99,6 @@ link_directories (
 
 add_library (compiz_core SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/global.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/region.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/atoms.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/actions.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/screen.cpp
@@ -100,8 +109,6 @@ add_library (compiz_core SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/event.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/plugin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/session.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/output.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/size.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/windowgeometry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/icon.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/modifierhandler.cpp
@@ -132,6 +139,33 @@ add_executable (compiz
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
 )
 
+add_library (compiz_size STATIC
+    size.cpp
+)
+add_library (compiz_output STATIC
+    output.cpp
+)
+
+add_library (compiz_outputdevices STATIC
+    outputdevices.cpp
+    outputdevices_x11.cpp
+)
+
+add_dependencies (compiz_outputdevices
+    core-options
+    compiz_size
+    compiz_output
+    compiz_rect
+    compiz_region
+    compiz_window_geometry
+)
+
+add_library (compiz_configurerequestbuffer STATIC
+             configurerequestbuffer.cpp)
+
+target_link_libraries (compiz_configurerequestbuffer
+                       compiz_window_geometry)
+
 # workaround for build race
 add_dependencies (compiz core-xml-file)
 
@@ -149,16 +183,22 @@ target_link_libraries (
     dl
     
     -Wl,-whole-archive
+    compiz_size
     compiz_string
     compiz_timer
     compiz_logmessage
     compiz_pluginclasshandler
     compiz_point
     compiz_rect
+    compiz_region
     compiz_window_geometry
     compiz_window_geometry_saver
     compiz_window_extents
     compiz_window_constrainment
+    compiz_servergrab
+    compiz_output
+    compiz_outputdevices
+    compiz_configurerequestbuffer
     -Wl,-no-whole-archive
 #    ${CORE_MOD_LIBRARIES}
 )
@@ -178,12 +218,12 @@ target_link_libraries (
 
 install (
     TARGETS compiz_core
-  	LIBRARY DESTINATION ${COMPIZ_DESTDIR}${libdir}
+  	LIBRARY DESTINATION ${libdir}
 )
 
 install (
     TARGETS compiz
-    RUNTIME DESTINATION ${COMPIZ_DESTDIR}${exec_prefix}
+    RUNTIME DESTINATION ${exec_prefix}
 )
 
 enable_coverage_report( TARGETS compiz )

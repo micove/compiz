@@ -475,6 +475,7 @@ inline void
 </xsl:text>
         <xsl:text>    action.setState (state | CompAction::StateInitKey);
 </xsl:text>
+        <xsl:call-template name="initTapDetection"/>
         <xsl:if test="default/text() and default/text() != 'disabled'">
             <xsl:text>    action.keyFromString ("</xsl:text>
             <xsl:value-of select="default/text()"/>
@@ -733,6 +734,15 @@ inline void
             <xsl:text>    state |= CompAction::StateInitEdgeDnd;
 </xsl:text>
         </xsl:if>
+    </xsl:template>
+
+    <xsl:template name="initTapDetection">
+        <xsl:choose>
+            <xsl:when test="./tap_detection/text() = 'false'">
+                <xsl:text>    action.setState (action.state() | CompAction::StateIgnoreTap);
+</xsl:text>
+            </xsl:when>
+        </xsl:choose>
     </xsl:template>
 
     <xsl:template name="initIntRestriction">
@@ -1128,8 +1138,7 @@ void
         <xsl:text>    unsigned int edge;
 </xsl:text>
     </xsl:if>
-<xsl:if test="/compiz/plugin[@name=$pName]/descendant-or-self::option[@type = 'color'] or
-                  /compiz/plugin[@name=$pName]/descendant-or-self::option[@type = 'list']/type/text() = 'color'">
+<xsl:if test="/compiz/plugin[@name=$pName]/descendant-or-self::option[@type = 'color']">
         <xsl:text>    unsigned short color[4];
 </xsl:text>
     </xsl:if>

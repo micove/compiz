@@ -1,11 +1,8 @@
-
-
-
 ################################################################################
 #
 # FindCompiz
 #
-# This module finds Compiz (www.compiz.org). It uses the FindPkgConfig to
+# This module finds Compiz (https://launchpad.net/compiz). It uses the FindPkgConfig to
 # locate Compiz and adds the Compiz CMake module path to the CMake module path.
 # It also loads the CompizDefaults that sets all variables to compile Compiz
 # modules.
@@ -15,6 +12,8 @@
 #                             is found
 #
 # Variables set by the FindPkgConfig macro for compiz
+#   COMPIZ_CMAKE_MODULE_PATH ... the path containing all other
+#				 compiz cmake modules
 #   COMPIZ_LIBRARY_DIRS   ... the paths of the libraries (w/o the '-L')
 #   COMPIZ_LDFLAGS        ... all required linker flags
 #   COMPIZ_LDFLAGS_OTHER  ... all other linker flags
@@ -74,13 +73,20 @@ if (NOT _COMPIZ_INTERNAL)
 	# look for compiz
 	pkg_check_modules (COMPIZ ${_req} "compiz${_comp_ver}")
 
+	# COMPIZ_PREFIX is not set by default on all machines. The CMake docs
+	# seem to vagely suggest this is normal in some cases for
+	# pkg_check_modules.
+	if (NOT COMPIZ_PREFIX)
+	    set (COMPIZ_PREFIX ${CMAKE_INSTALL_PREFIX})
+	endif ()
+
 	# is the CompizDefaults module installed?
 	find_path(_compiz_def_macro CompizDefaults.cmake ${COMPIZ_PREFIX}/share/compiz/cmake)
 
 	if (COMPIZ_FOUND AND _compiz_def_macro)
             # everything found. Set module path and include defaults module
 	    set (COMPIZ_CMAKE_MODULE_PATH ${COMPIZ_PREFIX}/share/compiz/cmake)
-	    set (CMAKE_MODULE_PATH  ${COMPIZ_CMAKE_MODULE_PATH})
+	    set (CMAKE_MODULE_PATH ${COMPIZ_CMAKE_MODULE_PATH} ${CMAKE_MODULE_PATH})
 	    include (CompizDefaults)
 	else ()
 	    set (COMPIZ_FOUND 0)

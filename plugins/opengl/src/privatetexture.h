@@ -1,6 +1,7 @@
 /*
  * Copyright © 2008 Dennis Kasprzyk
  * Copyright © 2007 Novell, Inc.
+ * Copyright © 2011 Linaro Ltd.
  *
  * Permission to use, copy, modify, distribute, and sell this software
  * and its documentation for any purpose is hereby granted without
@@ -23,13 +24,21 @@
  *
  * Authors: Dennis Kasprzyk <onestone@compiz-fusion.org>
  *          David Reveman <davidr@novell.com>
+ *          Travis Watkins <travis.watkins@linaro.org>
  */
 
 #ifndef _PRIVATETEXTURE_H
 #define _PRIVATETEXTURE_H
 
+#ifdef USE_GLES
+#define SUPPORT_X11
+#include <GLES2/gl2.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#else
 #include <GL/gl.h>
 #include <GL/glx.h>
+#endif
 #include <opengl/texture.h>
 #include <X11/extensions/Xdamage.h>
 
@@ -62,25 +71,54 @@ class PrivateTexture {
 	int               refCount;
 };
 
+#ifdef USE_GLES
+class EglTexture : public GLTexture {
+    public:
+	EglTexture ();
+	~EglTexture ();
+
+	void enable (Filter filter);
+
+	static List bindPixmapToTexture (Pixmap                       pixmap,
+					 int                          width,
+					 int                          height,
+					 int                          depth,
+					 compiz::opengl::PixmapSource source);
+
+    public:
+	bool        damaged;
+	Damage      damage;
+	bool        updateMipMap;
+};
+
+extern std::map<Damage, EglTexture*> boundPixmapTex;
+#else
+
 class TfpTexture : public GLTexture {
     public:
 	TfpTexture ();
 	~TfpTexture ();
 
 	void enable (Filter filter);
+	bool bindTexImage (const GLXPixmap &);
+	void releaseTexImage ();
 
-	static List bindPixmapToTexture (Pixmap pixmap,
-					 int width,
-					 int height,
-					 int depth);
+	static List bindPixmapToTexture (Pixmap                       pixmap,
+					 int                          width,
+					 int                          height,
+					 int                          depth,
+					 compiz::opengl::PixmapSource source);
 
     public:
-	GLXPixmap pixmap;
-	bool      damaged;
-	Damage    damage;
-	bool      updateMipMap;
+	Pixmap                       x11Pixmap;
+	GLXPixmap                    pixmap;
+	bool                         damaged;
+	Damage                       damage;
+	bool                         updateMipMap;
+	compiz::opengl::PixmapSource source;
 };
 
 extern std::map<Damage, TfpTexture*> boundPixmapTex;
+#endif
 
 #endif

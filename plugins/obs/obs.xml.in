@@ -2,14 +2,13 @@
 <compiz>
     <plugin name="obs" useBcop="true">
 	<_short>Opacity, Brightness and Saturation</_short>
-	<_long>Opacity, Brightness and Saturation adjustments</_long>
+	<_long>Per window adjustments of opacity, brightness and saturation</_long>
 	<category>Accessibility</category>
 	<deps>
 	    <requirement>
 		<plugin>opengl</plugin>
 	    </requirement>
 	    <relation type="after">
-		<plugin>decor</plugin>
 		<plugin>blur</plugin>
 	    </relation>
 	</deps>
@@ -17,43 +16,43 @@
 	    <group>
 		<_short>Opacity</_short>
 		<option name="opacity_increase_key" type="key">
-		    <_short>Increase Opacity</_short>
-		    <_long>Opacity Increase</_long>
+		    <_short>Increase Opacity Key</_short>
+		    <_long>Increase the opacity of the selected window.</_long>
 		    <default/>
 		</option>
 		<option name="opacity_increase_button" type="button">
-		    <_short>Increase Opacity</_short>
-		    <_long>Opacity Increase</_long>
+		    <_short>Increase Opacity Button</_short>
+		    <_long>Increase the opacity of the window the pointer hovers.</_long>
 		    <default>&lt;Alt&gt;Button4</default>
 		</option>
 		<option name="opacity_decrease_key" type="key">
-		    <_short>Decrease Opacity</_short>
-		    <_long>Opacity Decrease</_long>
+		    <_short>Decrease Opacity Key</_short>
+		    <_long>Decrease the opacity of the selected window.</_long>
 		    <default/>
 		</option>
 		<option name="opacity_decrease_button" type="button">
-		    <_short>Decrease Opacity</_short>
-		    <_long>Opacity Decrease</_long>
+		    <_short>Decrease Opacity Button</_short>
+		    <_long>Decrease the opacity of the window the pointer hovers.</_long>
 		    <default>&lt;Alt&gt;Button5</default>
 		</option>
 		<option name="opacity_step" type="int">
-		    <_short>Step</_short>
-		    <_long>Opacity Step</_long>
+		    <_short>Step Size</_short>
+		    <_long>Opacity increment and decrement amount (in percent).</_long>
 		    <min>1</min>
 		    <max>10</max>
 		    <default>5</default>
 		</option>
 		<subgroup>
-		    <_short>Window specific settings</_short>
+		    <_short>Window Specific Settings</_short>
 		    <option name="opacity_matches" type="list">
 			<_short>Windows</_short>
-			<_long>Windows that should have a different opacity by default</_long>
+			<_long>Windows that should have a specific default opacity.</_long>
 			<type>match</type>
 			<default/>
 		    </option>
 		    <option name="opacity_values" type="list">
 			<_short>Window values</_short>
-			<_long>Opacity values for windows</_long>
+			<_long>Opacity value for the windows (in percent).</_long>
 			<type>int</type>
 			<default>
 			    <value>90</value>
@@ -66,43 +65,43 @@
 	    <group>
 		<_short>Brightness</_short>
 		<option name="brightness_increase_key" type="key">
-		    <_short>Increase Brightness</_short>
-		    <_long>Brightness Increase</_long>
+		    <_short>Increase Brightness Key</_short>
+		    <_long>Increase the brightness of the selected window.</_long>
 		    <default/>
 		</option>
 		<option name="brightness_increase_button" type="button">
-		    <_short>Increase Brightness</_short>
-		    <_long>Brightness Increase</_long>
+		    <_short>Increase Brightness Button</_short>
+		    <_long>Increase the brightness of the window the pointer hovers.</_long>
 		    <default/>
 		</option>
 		<option name="brightness_decrease_key" type="key">
-		    <_short>Decrease Brightness</_short>
-		    <_long>Brightness Decrease</_long>
+		    <_short>Decrease Brightness Key</_short>
+		    <_long>Decrease the brightness of the selected window.</_long>
 		    <default/>
 		</option>
 		<option name="brightness_decrease_button" type="button">
-		    <_short>Decrease Brightness</_short>
-		    <_long>Brightness Decrease</_long>
+		    <_short>Decrease Brightness Button</_short>
+		    <_long>Decrease the brightness of the window the pointer hovers.</_long>
 		    <default/>
 		</option>
 		<option name="brightness_step" type="int">
-		    <_short>Step</_short>
-		    <_long>Brightness Step</_long>
+		    <_short>Step Size</_short>
+		    <_long>Brightness increment and decrement amount (in percent).</_long>
 		    <min>1</min>
 		    <max>10</max>
 		    <default>5</default>
 		</option>
 		<subgroup>
-		    <_short>Window specific settings</_short>
+		    <_short>Window Specific Settings</_short>
 		    <option name="brightness_matches" type="list">
 			<_short>Windows</_short>
-			<_long>Windows that should have a different brightness by default</_long>
+			<_long>Windows that should have a specific default brightness.</_long>
 			<type>match</type>
 			<default/>
 		    </option>
 		    <option name="brightness_values" type="list">
 			<_short>Window values</_short>
-			<_long>Brightness values for windows</_long>
+			<_long>Brightness value for windows (in percent).</_long>
 			<type>int</type>
 			<default>
 			    <value>90</value>
@@ -115,43 +114,43 @@
 	    <group>
 		<_short>Saturation</_short>
 		<option name="saturation_increase_key" type="key">
-		    <_short>Increase Saturation</_short>
-		    <_long>Saturation Increase</_long>
+		    <_short>Increase Saturation Key</_short>
+		    <_long>Increase the saturation of the selected window.</_long>
 		    <default/>
 		</option>
 		<option name="saturation_increase_button" type="button">
-		    <_short>Increase Saturation</_short>
-		    <_long>Saturation Increase</_long>
+		    <_short>Increase Saturation Button</_short>
+		    <_long>Increase the saturation of the window the pointer hovers.</_long>
 		    <default/>
 		</option>
 		<option name="saturation_decrease_key" type="key">
-		    <_short>Decrease Saturation</_short>
-		    <_long>Saturation Decrease</_long>
+		    <_short>Decrease Saturation Key</_short>
+		    <_long>Decrease the saturation of the selected window.</_long>
 		    <default/>
 		</option>
 		<option name="saturation_decrease_button" type="button">
-		    <_short>Decrease Saturation</_short>
-		    <_long>Saturation Decrease</_long>
+		    <_short>Decrease Saturation Button</_short>
+		    <_long>Decrease the saturation of the window the pointer hovers.</_long>
 		    <default/>
 		</option>
 		<option type="int" name="saturation_step">
-		    <_short>Step</_short>
-		    <_long>Saturation Step</_long>
+		    <_short>Step Size</_short>
+		    <_long>Saturation increment and decrement amount (in percent).</_long>
 		    <min>1</min>
 		    <max>10</max>
 		    <default>5</default>
 		</option>
 		<subgroup>
-		    <_short>Window specific settings</_short>
+		    <_short>Window Specific Settings</_short>
 		    <option name="saturation_matches" type="list">
 			<_short>Windows</_short>
-			<_long>Windows that should have a different saturation by default</_long>
+			<_long>Windows that should have a specific default saturation.</_long>
 			<type>match</type>
 			<default/>
 		    </option>
 		    <option name="saturation_values" type="list">
 			<_short>Window values</_short>
-			<_long>Saturation values for windows</_long>
+			<_long>Saturation value for the windows (in percent).</_long>
 			<type>int</type>
 			<default>
 			    <value>90</value>

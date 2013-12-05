@@ -53,7 +53,7 @@ main (int argc, char **argv)
     options.add ("blur <type>", ki18n ("Blur type (none,titlebar,all)"), "none");
     KAboutData about("kde-window-decorator", "kwin", ki18n ("KDE Window Decorator"),
                      "0.0.1", KLocalizedString(), KAboutData::License_GPL,
-                     KLocalizedString(), KLocalizedString(), "http://www.compiz.org", 
+                     KLocalizedString(), KLocalizedString(), "https://launchpad.net/compiz", 
 		     "dev@lists.compiz-fusion.org");
     KCmdLineArgs::init (argc, argv,
 			"kde-window-decorator",

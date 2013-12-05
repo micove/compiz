@@ -36,17 +36,18 @@ decor_frame_refresh (decor_frame_t *frame)
 {
     decor_shadow_options_t active_o, inactive_o;
     decor_shadow_info_t *info;
+    const gchar *titlebar_font = NULL;
 
     gwd_decor_frame_ref (frame);
 
     update_style (frame->style_window_rgba);
     update_style (frame->style_window_rgb);
 
-    gchar *str = settings->font;
+    g_object_get (settings, "titlebar-font", &titlebar_font, NULL);
 
-    set_frame_scale (frame, str);
+    set_frame_scale (frame, titlebar_font);
 
-    str = NULL;
+    titlebar_font = NULL;
 
     frame_update_titlebar_font (frame);
 
@@ -108,14 +109,14 @@ gwd_get_decor_frame (const gchar *frame_name)
 decor_frame_t *
 gwd_decor_frame_ref (decor_frame_t *frame)
 {
-    frame->refcount++;
+    ++frame->refcount;
     return frame;
 }
 
 decor_frame_t *
 gwd_decor_frame_unref (decor_frame_t *frame)
 {
-    frame->refcount--;
+    --frame->refcount;
 
     if (frame->refcount == 0)
     {
@@ -171,7 +172,7 @@ gwd_process_frames (GHFunc	foreach_func,
 {
     gint   i = 0;
 
-    for (; i < frame_keys_num; i++)
+    for (; i < frame_keys_num; ++i)
     {
 	gpointer frame = g_hash_table_lookup (frames_table, frame_keys[i]);
 
@@ -231,7 +232,6 @@ decor_frame_new (const gchar *type)
 
     gtk_widget_set_size_request (frame->style_window_rgba, 0, 0);
     gtk_window_move (GTK_WINDOW (frame->style_window_rgba), -100, -100);
-    gtk_widget_show_all (frame->style_window_rgba);
 
     frame->pango_context = gtk_widget_create_pango_context (frame->style_window_rgba);
 
@@ -249,7 +249,6 @@ decor_frame_new (const gchar *type)
 
     gtk_widget_set_size_request (frame->style_window_rgb, 0, 0);
     gtk_window_move (GTK_WINDOW (frame->style_window_rgb), -100, -100);
-    gtk_widget_show_all (frame->style_window_rgb);
 
     g_signal_connect_data (frame->style_window_rgb, "style-set",
 			   G_CALLBACK (style_changed),

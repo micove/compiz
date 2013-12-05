@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<compiz>
+    <plugin name="mock" useBcop="false">
+	<short>Mock</short>
+	<long>Mock plugin</long>
+	<category>Mocks</category>
+	<feature>mocking</feature>
+	<options>
+	    <group>
+		<short>A Mock Group</short>
+		<subgroup>
+		    <short>A Mock Subgroup</short>
+		    <option name="mock" type="string">
+			<short>Mock Setting</short>
+			<long>A Mock Setting</long>
+			<default>Mock Value</default>
+		    </option>
+		</subgroup>
+	    </group>
+	</options>
+    </plugin>
+</compiz>

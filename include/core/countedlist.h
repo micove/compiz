@@ -65,29 +65,29 @@ public:
     }
     void push_front (const value_type& __x)
     {
-	mCount++;
+	++mCount;
 	Base::push_front (__x);
     }
     void push_back (const value_type& __x)
     {
-	mCount++;
+	++mCount;
 	Base::push_back (__x);
     }
     void pop_front ()
     {
 	if (mCount > 0)
-	    mCount--;
+	    --mCount;
 	Base::pop_front ();
     }
     void pop_back ()
     {
 	if (mCount > 0)
-	    mCount--;
+	    --mCount;
 	Base::pop_back ();
     }
     iterator insert (iterator __position, const value_type& __x)
     {
-	mCount++;
+	++mCount;
 	return Base::insert (__position, __x);
     }
     void insert (iterator __position, size_type __n, const value_type& __x)
@@ -98,13 +98,13 @@ public:
     iterator erase (iterator __position)
     {
 	if (mCount > 0)
-	    mCount--;
+	    --mCount;
 	return Base::erase (__position);
     }
     void remove (const value_type& __value)
     {
 	if (mCount > 0)
-	    mCount--;
+	    --mCount;
 	Base::remove (__value);
     }
 

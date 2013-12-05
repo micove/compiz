@@ -25,6 +25,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/shared_array.hpp>
+#include <boost/make_shared.hpp>
 #include <core/window.h>
 #include <core/pluginclasshandler.h>
 
@@ -34,6 +35,7 @@
 #include <core/windowextents.h>
 
 #include <clip-groups.h>
+#include <pixmap-requests.h>
 
 #include "decor_options.h"
 
@@ -48,9 +50,9 @@ struct Vector {
 };
 
 /* FIXME: Remove */
-#define DECOR_BARE   0
-#define DECOR_ACTIVE 1
-#define DECOR_NUM    2
+#define DECOR_BARE	0
+#define DECOR_ACTIVE	1
+#define DECOR_NUM	2
 
 using namespace compiz::decor;
 
@@ -76,30 +78,36 @@ class MatchedDecorClipGroup :
 class DecorTexture {
 
     public:
-	DecorTexture (Pixmap pixmap);
+	DecorTexture (DecorPixmapInterface::Ptr pixmap);
 	~DecorTexture ();
 
     public:
 	bool            status;
 	int             refCount;
-        Pixmap          pixmap;
+	DecorPixmapInterface::Ptr pixmap;
 	Damage          damage;
 	GLTexture::List textures;
 };
 
 class DecorWindow;
 
-class Decoration {
+class Decoration :
+    public DecorationInterface
+{
 
     public:
 
 	typedef boost::shared_ptr <Decoration> Ptr;
 
+	static const unsigned int UpdateRequested = 1 << 0;
+	static const unsigned int UpdatesPending = 1 << 1;
+
 	static Decoration::Ptr create (Window        id,
 				       long          *prop,
 				       unsigned int  size,
 				       unsigned int  type,
-				       unsigned int  nOffset);
+				       unsigned int  nOffset,
+				       DecorPixmapRequestorInterface *requestor);
 
 	Decoration (int   type,
 		    const decor_extents_t &border,
@@ -113,9 +121,17 @@ class Decoration {
 		    unsigned int minHeight,
 		    Pixmap       pixmap,
 		    const boost::shared_array <decor_quad_t> &quad,
-		    unsigned int nQuad);
+		    unsigned int nQuad,
+		    Window owner,
+		    DecorPixmapRequestorInterface *);
 
 	~Decoration ();
+
+	DecorPixmapReceiverInterface & receiverInterface ();
+
+	unsigned int getFrameType () const;
+	unsigned int getFrameState () const;
+	unsigned int getFrameActions () const;
 
     public:
 	int                       refCount;
@@ -133,12 +149,27 @@ class Decoration {
 	boost::shared_array <decor_quad_t> quad;
 	int                       nQuad;
 	int                       type;
+
+	unsigned int              updateState;
+	X11DecorPixmapReceiver    mPixmapReceiver;
+
+    private:
+
+	bool            bareDecorationOnly ();
+        Decoration::Ptr findRealDecoration ();
+        Decoration::Ptr findBareDecoration ();
+        void            moveDecoratedWindowBy (const CompPoint &movement);
 };
 
-class DecorationList
+class DecorationList :
+    public DecorationListFindMatchingInterface
 {
     public:
-        bool updateDecoration  (Window id, Atom decorAtom);
+	bool updateDecoration  (Window id, Atom decorAtom, DecorPixmapRequestorInterface *requestor);
+	DecorationInterface::Ptr findMatchingDecoration (unsigned int frameType,
+							 unsigned int frameState,
+							 unsigned int frameActions) const;
+	DecorationInterface::Ptr findMatchingDecoration (Pixmap p) const;
 	const Decoration::Ptr & findMatchingDecoration (CompWindow *w, bool sizeCheck);
         void clear ()
         {
@@ -159,7 +190,7 @@ struct ScaledQuad {
 
 class WindowDecoration {
     public:
-	static WindowDecoration * create (const Decoration::Ptr &);
+	static WindowDecoration * create (const Decoration::Ptr &d);
 	static void destroy (WindowDecoration *);
 
     public:
@@ -197,6 +228,11 @@ class DecorScreen :
 	bool registerPaintHandler (compiz::composite::PaintHandler *pHnd);
 	void unregisterPaintHandler ();
 
+    private:
+
+	DecorPixmapRequestorInterface * findWindowRequestor (Window);
+	DecorationListFindMatchingInterface * findWindowDecorations (Window);
+
     public:
 
 	CompositeScreen *cScreen;
@@ -215,6 +251,8 @@ class DecorScreen :
 	Atom shadowColorAtom;
 	Atom shadowInfoAtom;
 	Atom decorSwitchWindowAtom;
+	Atom decorPendingAtom;
+	Atom decorRequestAtom;
 
 	Window dmWin;
 	int    dmSupports;
@@ -229,6 +267,11 @@ class DecorScreen :
 	CompTimer decoratorStart;
 
 	MatchedDecorClipGroup mMenusClipGroup;
+	X11DecorPixmapRequestor   mRequestor;
+	PixmapReleasePool::Ptr    mReleasePool;
+	PendingHandler            mPendingHandler;
+	UnusedHandler             mUnusedHandler;
+	protocol::Communicator    mCommunicator;
 };
 
 class DecorWindow :
@@ -250,11 +293,11 @@ class DecorWindow :
 
 	bool damageRect (bool, const CompRect &);
 
-	void computeShadowRegion ();
+	bool place (CompPoint &pos);
 
-	bool glDraw (const GLMatrix &, GLFragment::Attrib &,
+	bool glDraw (const GLMatrix &, const GLWindowPaintAttrib &,
 		     const CompRegion &, unsigned int);
-	void glDecorate (const GLMatrix &, GLFragment::Attrib &,
+	void glDecorate (const GLMatrix &, const GLWindowPaintAttrib &,
 		         const CompRegion &, unsigned int);
 
 	void windowNotify (CompWindowNotify n);
@@ -322,6 +365,7 @@ class DecorWindow :
 
 	CompRegion::Vector regions;
 	bool               updateReg;
+	bool		   updateMatrix;
 
 	CompTimer resizeUpdate;
 	CompTimer moveUpdate;
@@ -335,6 +379,18 @@ class DecorWindow :
 	DecorClipGroupInterface *mClipGroup;
 	CompRegion		mOutputRegion;
 	CompRegion              mInputRegion;
+
+	X11DecorPixmapRequestor   mRequestor;
+
+	unsigned int            lastMaximizedStateDecorated;
+
+    private:
+
+	bool            bareDecorationOnly ();
+	Decoration::Ptr findRealDecoration ();
+	Decoration::Ptr findBareDecoration ();
+	void            moveDecoratedWindowBy (const CompPoint &movement,
+					       const CompSize &sizeDelta);
 };
 
 class DecorPluginVTable :

@@ -29,6 +29,7 @@
 #include <core/string.h>
 #include <core/option.h>
 #include <core/privateunion.h>
+#include <core/pluginclasshandler.h>
 
 #include <string.h>
 
@@ -70,6 +71,37 @@ extern LoadPluginProc   loaderLoadPlugin;
 extern UnloadPluginProc loaderUnloadPlugin;
 extern ListPluginsProc  loaderListPlugins;
 
+namespace compiz
+{
+namespace plugin
+{
+namespace internal
+{
+class VTableBase;
+
+/**
+ * Provide a definition for PluginKey, with a protected
+ * constructor which is a friend of VTableBase */
+class PluginKey
+{
+    protected:
+
+	PluginKey () {}
+
+	friend class VTableBase;
+};
+
+class VTableBase :
+    public PluginKey
+{
+    public:
+
+	virtual ~VTableBase () {};
+};
+}
+}
+}
+
 /**
  * Base plug-in interface for Compiz. All plugins must implement this
  * interface, which provides basics for loading, unloading, options,
@@ -77,8 +109,11 @@ extern ListPluginsProc  loaderListPlugins;
  */
 class CompPlugin {
     public:
-	class VTable {
+	class VTable :
+	    public compiz::plugin::internal::VTableBase
+	{
 	    public:
+
 		VTable ();
 		virtual ~VTable ();
 
@@ -88,11 +123,16 @@ class CompPlugin {
 		/**
 		 * Gets the name of this compiz plugin
 		 */
-		const CompString name () const;
+		const CompString &name () const;
 
 		virtual bool init () = 0;
-
 		virtual void fini ();
+
+		/* Mark the plugin as ready to be instantiated */
+		virtual void markReadyToInstantiate () = 0;
+
+		/* Mark the plugin as disallowing further instantiation */
+		virtual void markNoFurtherInstantiation () = 0;
 
 		virtual bool initScreen (CompScreen *s);
 
@@ -111,50 +151,56 @@ class CompPlugin {
 		VTable       **mSelf;
         };
 
-    /**
-     * TODO (or not?)
-     */
-	template <typename T, typename T2>
-	class VTableForScreenAndWindow : public VTable {
-	    bool initScreen (CompScreen *s);
+	/**
+	 * TODO (or not?)
+	 */
+	template <typename T, typename T2, int ABI = 0>
+	class VTableForScreenAndWindow :
+	    public VTable
+	{
+	    public:
 
-	    void finiScreen (CompScreen *s);
+		bool initScreen (CompScreen *s);
+		void finiScreen (CompScreen *s);
+		bool initWindow (CompWindow *w);
+		void finiWindow (CompWindow *w);
+		CompOption::Vector & getOptions ();
+		bool setOption (const CompString &name,
+				CompOption::Value &value);
 
-	    bool initWindow (CompWindow *w);
+	    private:
 
-	    void finiWindow (CompWindow *w);
+		/* Mark the plugin as ready to be instantiated */
+		void markReadyToInstantiate ();
 
-	    CompOption::Vector & getOptions ();
-
-	    bool setOption (const CompString &name, CompOption::Value &value);
+		/* Mark the plugin as disallowing further instantiation */
+		void markNoFurtherInstantiation ();
 	};
 
-    /**
-     * TODO (or not?)
-     */
-	template <typename T>
-	class VTableForScreen : public VTable {
-	    bool initScreen (CompScreen *s);
+	/**
+	 * TODO (or not?)
+	 */
+	template <typename T, int ABI = 0>
+	class VTableForScreen :
+	    public VTable
+	{
+	    public:
 
-	    void finiScreen (CompScreen *s);
+		bool initScreen (CompScreen *s);
+		void finiScreen (CompScreen *s);
+		CompOption::Vector & getOptions ();
+		bool setOption (const CompString &name, CompOption::Value &value);
 
-	    CompOption::Vector & getOptions ();
+	    private:
 
-	    bool setOption (const CompString &name, CompOption::Value &value);
+		/* Mark the plugin as ready to be instantiated */
+		void markReadyToInstantiate ();
+
+		/* Mark the plugin as disallowing further instantiation */
+		void markNoFurtherInstantiation ();
 	};
 	
-	/**
-	 * Interface for matching plugins by name.
-	 */
-	struct cmpStr
-	{
-	    bool operator () (const char *a, const char *b) const
-	    {
-		return strcmp (a, b) < 0;
-	    }
-	};
-
-	typedef std::map<const char *, CompPlugin *, cmpStr> Map;
+	typedef std::map<CompString, CompPlugin *> Map;
 	typedef std::list<CompPlugin *> List;
 
     public:
@@ -209,12 +255,6 @@ class CompPlugin {
 	static List & getPlugins ();
 
 	/**
-	 * Gets a list of the names of all the known plugins, including plugins that may
-	 * have already been loaded.
-	 */
-	static std::list<CompString> availablePlugins ();
-	
-	/**
 	 * Gets the Application Binary Interface (ABI) version of a (un)loaded plugin.
 	 */
 	static int getPluginABI (const char *name);
@@ -228,9 +268,47 @@ class CompPlugin {
 
 };
 
+/**
+ * Mark the plugin class handlers as ready to be initialized
+ */
+template <typename T, typename T2, int ABI>
+void
+CompPlugin::VTableForScreenAndWindow<T, T2, ABI>::markReadyToInstantiate ()
+{
+    namespace cpi = compiz::plugin::internal;
 
-template <typename T, typename T2>
-bool CompPlugin::VTableForScreenAndWindow<T,T2>::initScreen (CompScreen *s)
+    typedef typename T::ClassPluginBaseType ScreenBase;
+    typedef typename T2::ClassPluginBaseType WindowBase;
+
+    typedef cpi::LoadedPluginClassBridge <T, ScreenBase, ABI> ScreenBridge;
+    typedef cpi::LoadedPluginClassBridge <T2, WindowBase, ABI> WindowBridge;
+
+    ScreenBridge::allowInstantiations (*this);
+    WindowBridge::allowInstantiations (*this);
+}
+
+/**
+ * Allow no further class handler initialization
+ */
+template <typename T, typename T2, int ABI>
+void
+CompPlugin::VTableForScreenAndWindow<T, T2, ABI>::markNoFurtherInstantiation ()
+{
+    namespace cpi = compiz::plugin::internal;
+
+    typedef typename T::ClassPluginBaseType ScreenBase;
+    typedef typename T2::ClassPluginBaseType WindowBase;
+
+    typedef cpi::LoadedPluginClassBridge <T, ScreenBase, ABI> ScreenBridge;
+    typedef cpi::LoadedPluginClassBridge <T2, WindowBase, ABI> WindowBridge;
+
+    ScreenBridge::disallowInstantiations (*this);
+    WindowBridge::disallowInstantiations (*this);
+}
+
+template <typename T, typename T2, int ABI>
+bool
+CompPlugin::VTableForScreenAndWindow<T, T2, ABI>::initScreen (CompScreen *s)
 {
     T * ps = T::get (s);
     if (!ps)
@@ -239,15 +317,17 @@ bool CompPlugin::VTableForScreenAndWindow<T,T2>::initScreen (CompScreen *s)
     return true;
 }
 
-template <typename T, typename T2>
-void CompPlugin::VTableForScreenAndWindow<T,T2>::finiScreen (CompScreen *s)
+template <typename T, typename T2, int ABI>
+void
+CompPlugin::VTableForScreenAndWindow<T, T2, ABI>::finiScreen (CompScreen *s)
 {
     T * ps = T::get (s);
     delete ps;
 }
 
-template <typename T, typename T2>
-bool CompPlugin::VTableForScreenAndWindow<T,T2>::initWindow (CompWindow *w)
+template <typename T, typename T2, int ABI>
+bool
+CompPlugin::VTableForScreenAndWindow<T, T2, ABI>::initWindow (CompWindow *w)
 {
     T2 * pw = T2::get (w);
     if (!pw)
@@ -256,15 +336,16 @@ bool CompPlugin::VTableForScreenAndWindow<T,T2>::initWindow (CompWindow *w)
     return true;
 }
 
-template <typename T, typename T2>
-void CompPlugin::VTableForScreenAndWindow<T,T2>::finiWindow (CompWindow *w)
+template <typename T, typename T2, int ABI>
+void
+CompPlugin::VTableForScreenAndWindow<T, T2, ABI>::finiWindow (CompWindow *w)
 {
     T2 * pw = T2::get (w);
     delete pw;
 }
 
-template <typename T, typename T2>
-CompOption::Vector & CompPlugin::VTableForScreenAndWindow<T,T2>::getOptions ()
+template <typename T, typename T2, int ABI>
+CompOption::Vector & CompPlugin::VTableForScreenAndWindow<T, T2, ABI>::getOptions ()
 {
     CompOption::Class *oc = dynamic_cast<CompOption::Class *> (T::get (screen));
     if (!oc)
@@ -272,9 +353,10 @@ CompOption::Vector & CompPlugin::VTableForScreenAndWindow<T,T2>::getOptions ()
     return oc->getOptions ();
 }
 
-template <typename T, typename T2>
-bool CompPlugin::VTableForScreenAndWindow<T,T2>::setOption (const CompString  &name,
-							    CompOption::Value &value)
+template <typename T, typename T2, int ABI>
+bool
+CompPlugin::VTableForScreenAndWindow<T, T2, ABI>::setOption (const CompString  &name,
+							     CompOption::Value &value)
 {
     CompOption::Class *oc = dynamic_cast<CompOption::Class *> (T::get (screen));
     if (!oc)
@@ -282,8 +364,39 @@ bool CompPlugin::VTableForScreenAndWindow<T,T2>::setOption (const CompString  &n
     return oc->setOption (name, value);
 }
 
-template <typename T>
-bool CompPlugin::VTableForScreen<T>::initScreen (CompScreen *s)
+/**
+ * Mark the plugin class handlers as ready to be initialized
+ */
+template <typename T, int ABI>
+void
+CompPlugin::VTableForScreen<T, ABI>::markReadyToInstantiate ()
+{
+    namespace cpi = compiz::plugin::internal;
+
+    typedef typename T::ClassPluginBaseType ScreenBase;
+    typedef cpi::LoadedPluginClassBridge <T, ScreenBase, ABI> ScreenBridge;
+
+    ScreenBridge::allowInstantiations (*this);
+}
+
+/**
+ * Allow no further class handler initialization
+ */
+template <typename T, int ABI>
+void
+CompPlugin::VTableForScreen<T, ABI>::markNoFurtherInstantiation ()
+{
+    namespace cpi = compiz::plugin::internal;
+
+    typedef typename T::ClassPluginBaseType ScreenBase;
+    typedef cpi::LoadedPluginClassBridge <T, ScreenBase, ABI> ScreenBridge;
+
+    ScreenBridge::disallowInstantiations (*this);
+}
+
+template <typename T, int ABI>
+bool
+CompPlugin::VTableForScreen<T, ABI>::initScreen (CompScreen *s)
 {
     T * ps = new T (s);
     if (ps->loadFailed ())
@@ -294,15 +407,16 @@ bool CompPlugin::VTableForScreen<T>::initScreen (CompScreen *s)
     return true;
 }
 
-template <typename T>
-void CompPlugin::VTableForScreen<T>::finiScreen (CompScreen *s)
+template <typename T, int ABI>
+void CompPlugin::VTableForScreen<T, ABI>::finiScreen (CompScreen *s)
 {
     T * ps = T::get (s);
     delete ps;
 }
 
-template <typename T>
-CompOption::Vector & CompPlugin::VTableForScreen<T>::getOptions ()
+template <typename T, int ABI>
+CompOption::Vector &
+CompPlugin::VTableForScreen<T, ABI>::getOptions ()
 {
     CompOption::Class *oc = dynamic_cast<CompOption::Class *> (T::get (screen));
     if (!oc)
@@ -310,8 +424,9 @@ CompOption::Vector & CompPlugin::VTableForScreen<T>::getOptions ()
     return oc->getOptions ();
 }
 
-template <typename T>
-bool CompPlugin::VTableForScreen<T>::setOption (const CompString  &name,
+template <typename T, int ABI>
+bool
+CompPlugin::VTableForScreen<T, ABI>::setOption (const CompString  &name,
 						CompOption::Value &value)
 {
     CompOption::Class *oc = dynamic_cast<CompOption::Class *> (T::get (screen));

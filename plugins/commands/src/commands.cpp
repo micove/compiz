@@ -37,20 +37,17 @@ CommandsScreen::runCommand (CompAction          *action,
 			    CompOption::Vector& options,
 			    int                 commandOption)
 {
-    CommandsScreen *cs;
-    Window         xid;
+    Window xid = CompOption::getIntOptionNamed (options, "root", 0);
 
-    xid = CompOption::getIntOptionNamed (options, "root", 0);
     if (xid != screen->root ())
 	return false;
 
-    cs = CommandsScreen::get (screen);
+    CommandsScreen *cs = CommandsScreen::get (screen);
 
     screen->runCommand (cs->mOptions[commandOption].value (). s ());
 
     return true;
 }
-
 
 CommandsScreen::CommandsScreen (CompScreen *s) :
     PluginClassHandler<CommandsScreen, CompScreen> (s)
@@ -128,9 +125,8 @@ CommandsScreen::CommandsScreen (CompScreen *s) :
 bool
 CommandsPluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
-	return false;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
+	return true;
 
-    return true;
+    return false;
 }
-

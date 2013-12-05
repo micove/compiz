@@ -29,6 +29,9 @@
 #include <core/abiversion.h>
 #include <core/propertywriter.h>
 
+const unsigned short ICON_SIZE     = 512;
+const unsigned short MAX_ICON_SIZE = 512;
+
 bool openGLAvailable;
 
 class CompizToolboxScreen :
@@ -209,7 +212,7 @@ BaseSwitchWindow::isSwitchWin (bool removing)
     {
 	if (!window->mapNum () || !window->isViewable ())
 	{
-	    CompWindow::Geometry &sg = window->serverGeometry ();
+	    const CompWindow::Geometry &sg = window->serverGeometry ();
 	    if (sg.x () + sg.width ()  <= 0    ||
 		sg.y () + sg.height () <= 0    ||
 		sg.x () >= (int) ::screen->width () ||
@@ -267,7 +270,7 @@ BaseSwitchScreen::switchToWindow (bool toNext,
     if (!grabIndex)
 	return NULL;
 
-    for (it = windows.begin (); it != windows.end (); it++, cur++)
+    for (it = windows.begin (); it != windows.end (); ++it, ++cur)
     {
 	if (*it == selectedWindow)
 	    break;
@@ -278,7 +281,7 @@ BaseSwitchScreen::switchToWindow (bool toNext,
 
     if (toNext)
     {
-	it++;
+	++it;
 	if (it == windows.end ())
 	    w = windows.front ();
 	else
@@ -411,7 +414,7 @@ BaseSwitchWindow::paintThumb (const GLWindowPaintAttrib &attrib,
     int                  wx, wy;
     float                width, height;
     GLTexture            *icon = NULL;
-    CompWindow::Geometry &g = window->geometry ();
+    const CompWindow::Geometry &g = window->geometry ();
 
     mask |= PAINT_WINDOW_TRANSFORMED_MASK;
 
@@ -465,9 +468,7 @@ BaseSwitchWindow::paintThumb (const GLWindowPaintAttrib &attrib,
 	sAttrib.yTranslate = wy - g.y () +
 			     window->border ().top  * sAttrib.yScale;
 
-	GLFragment::Attrib fragment (sAttrib);
-
-	if (window->alpha () || fragment.getOpacity () != OPAQUE)
+	if (window->alpha () || sAttrib.opacity != OPAQUE)
 	    mask |= PAINT_WINDOW_TRANSLUCENT_MASK;
 
 	wTransform.translate (g.x (), g.y (), 0.0f);
@@ -475,9 +476,6 @@ BaseSwitchWindow::paintThumb (const GLWindowPaintAttrib &attrib,
 	wTransform.translate (sAttrib.xTranslate / sAttrib.xScale - g.x (),
 			      sAttrib.yTranslate / sAttrib.yScale - g.y (),
 			      0.0f);
-
-	glPushMatrix ();
-	glLoadMatrixf (wTransform.getMatrix ());
 
 	filter = gScreen->textureFilter ();
 
@@ -488,12 +486,10 @@ BaseSwitchWindow::paintThumb (const GLWindowPaintAttrib &attrib,
 	   very ugly but necessary until the vertex stage has been made
 	   fully pluggable. */
 	gWindow->glAddGeometrySetCurrentIndex (MAXSHORT);
-	gWindow->glDraw (wTransform, fragment, infiniteRegion, mask);
+	gWindow->glDraw (wTransform, sAttrib, infiniteRegion, mask);
 	gWindow->glAddGeometrySetCurrentIndex (addWindowGeometryIndex);
 
 	gScreen->setTextureFilter (filter);
-
-	glPopMatrix ();
 
 	if (iconMode != HideIcon)
 	{
@@ -535,15 +531,14 @@ BaseSwitchWindow::paintThumb (const GLWindowPaintAttrib &attrib,
 	sAttrib.xTranslate = wx - g.x ();
 	sAttrib.yTranslate = wy - g.y ();
 
-	gWindow->geometry ().reset ();
+	gWindow->vertexBuffer ()->begin ();
 
 	gWindow->glAddGeometrySetCurrentIndex (MAXSHORT);
 	gWindow->glAddGeometry (matrix, iconReg, infiniteRegion);
 	gWindow->glAddGeometrySetCurrentIndex (addWindowGeometryIndex);
 
-	if (gWindow->geometry ().vCount)
+	if (gWindow->vertexBuffer ()->end ())
 	{
-	    GLFragment::Attrib fragment (sAttrib);
 	    GLMatrix           wTransform (transform);
 
 	    wTransform.translate (g.x (), g.y (), 0.0f);
@@ -552,12 +547,7 @@ BaseSwitchWindow::paintThumb (const GLWindowPaintAttrib &attrib,
 				  sAttrib.yTranslate / sAttrib.yScale - g.y (),
 				  0.0f);
 
-	    glPushMatrix ();
-	    glLoadMatrixf (wTransform.getMatrix ());
-
-	    gWindow->glDrawTexture (icon, fragment, mask);
-
-	    glPopMatrix ();
+	    gWindow->glDrawTexture (icon, wTransform, sAttrib, mask);
 	}
     }
 }
@@ -725,20 +715,21 @@ CompizToolboxScreen::CompizToolboxScreen (CompScreen *screen) :
 bool
 CompizToolboxPluginVTable::init ()
 {
-    openGLAvailable = true;
-
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
-	return false;
-
-    if (!CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI) ||
-        !CompPlugin::checkPluginABI ("opengl", COMPIZ_OPENGL_ABI))
+    if (CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI) &&
+	CompPlugin::checkPluginABI ("opengl", COMPIZ_OPENGL_ABI))
+	openGLAvailable = true;
+    else
 	openGLAvailable = false;
 
-    CompPrivate p;
-    p.uval = COMPIZ_COMPIZTOOLBOX_ABI;
-    screen->storeValue ("compiztoolbox_ABI", p);
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
+    {
+	CompPrivate p;
+	p.uval = COMPIZ_COMPIZTOOLBOX_ABI;
+	screen->storeValue ("compiztoolbox_ABI", p);
+	return true;
+    }
 
-    return true;
+    return false;
 }
 
 void

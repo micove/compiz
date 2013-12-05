@@ -50,7 +50,7 @@ protected:
     {
 	for (std::list<CompTimer *>::iterator it =
 		TimeoutHandler::Default()->timers().begin();
-		it != TimeoutHandler::Default()->timers().end(); it++)
+        	it != TimeoutHandler::Default()->timers().end(); ++it)
 	{
 	    CompTimer *t = (*it);
 	    RecordProperty("minLeft", t->minLeft());

@@ -47,16 +47,47 @@
 #define COMPIZ_DBUS_GET_MEMBER_NAME                 "get"
 #define COMPIZ_DBUS_GET_METADATA_MEMBER_NAME	    "getMetadata"
 #define COMPIZ_DBUS_LIST_MEMBER_NAME		    "list"
-#define COMPIZ_DBUS_GET_PLUGINS_MEMBER_NAME	    "getPlugins"
 #define COMPIZ_DBUS_GET_PLUGIN_METADATA_MEMBER_NAME "getPluginMetadata"
 
 #define COMPIZ_DBUS_CHANGED_SIGNAL_NAME		    "changed"
 #define COMPIZ_DBUS_PLUGINS_CHANGED_SIGNAL_NAME	    "pluginsChanged"
 
-#define DBUS_FILE_WATCH_CURRENT 0
-#define DBUS_FILE_WATCH_PLUGIN  1
-#define DBUS_FILE_WATCH_HOME    2
-#define DBUS_FILE_WATCH_NUM     3
+#define DBUS_FILE_WATCH_CURRENT	0
+#define DBUS_FILE_WATCH_PLUGIN	1
+#define DBUS_FILE_WATCH_HOME	2
+#define DBUS_FILE_WATCH_NUM	3
+
+class IntrospectionResponse
+{
+    public:
+	IntrospectionResponse ();
+	~IntrospectionResponse ();
+
+	void
+	addArgument (const char *type,
+		     const char *direction);
+
+	void
+	addMethod (const char *name,
+		   int        nArgs,
+		   ...);
+
+	void
+	addSignal (const char *name,
+		   int        nArgs,
+		   ...);
+
+	void addNode (const char *name);
+
+	void startInterface ();
+	void endInterface ();
+
+	const char* finishAndGetXml ();
+
+    private:
+	xmlBufferPtr xmlBuf;
+	xmlTextWriterPtr xmlWriter;
+};
 
 class DbusScreen :
     public PluginClassHandler <DbusScreen, CompScreen>,
@@ -82,6 +113,29 @@ class DbusScreen :
 
 	CompOption::Vector &
 	getOptionsFromPath (const std::vector<CompString>& path);
+
+	static bool
+	sendIntrospectResponse (DBusConnection        *connection,
+				DBusMessage           *message,
+				IntrospectionResponse &response);
+
+	bool
+	handleRootIntrospectMessage (DBusConnection *connection,
+				     DBusMessage    *message);
+
+	bool
+	handlePluginIntrospectMessage (DBusConnection *connection,
+				       DBusMessage    *message);
+
+	bool
+	handleScreenIntrospectMessage (DBusConnection           *connection,
+				       DBusMessage              *message,
+				       std::vector<CompString>& path);
+
+	bool
+	handleOptionIntrospectMessage (DBusConnection           *connection,
+				       DBusMessage              *message,
+				       std::vector<CompString>& path);
 
 	bool
 	handleActionMessage (DBusConnection                 *connection,
@@ -128,10 +182,6 @@ class DbusScreen :
 	handleListMessage (DBusConnection                 *connection,
 			   DBusMessage                    *message,
 			   const std::vector<CompString>& path);
-
-	bool
-	handleGetPluginsMessage (DBusConnection *connection,
-			     	 DBusMessage    *message);
 
 	DBusHandlerResult
 	handleMessage (DBusConnection *connection,

@@ -30,7 +30,7 @@
 # GNU General Public License for more details.
 #
 
-INCLUDE(ParseArguments)
+INCLUDE(CompizCommon)
 
 FIND_PACKAGE(Lcov)
 FIND_PACKAGE(gcovr)
@@ -150,4 +150,21 @@ FUNCTION(ENABLE_COVERAGE_REPORT)
                           
     ENDIF()
 
-ENDFUNCTION()   
+ENDFUNCTION()
+
+function (compiz_generate_coverage_report)
+
+    get_property (COMPIZ_COVERAGE_REPORT_TARGETS_SET
+		  GLOBAL PROPERTY COMPIZ_COVERAGE_REPORT_TARGETS
+		  ${TARGET})
+
+    if (NOT COMPIZ_COVERAGE_REPORT_TARGETS_SET)
+	message (STATUS "No coverage report targets set, not generating coverage report")
+    else (NOT COMPIZ_COVERAGE_REPORT_TARGETS_SET)
+	get_property (COMPIZ_COVERAGE_REPORT_TARGETS
+		      GLOBAL PROPERTY COMPIZ_COVERAGE_REPORT_TARGETS)
+
+	enable_coverage_report (TARGETS ${COMPIZ_COVERAGE_REPORT_TARGETS})
+    endif (NOT COMPIZ_COVERAGE_REPORT_TARGETS_SET)
+
+endfunction ()

@@ -36,7 +36,7 @@ TEST_F(CompTimerTest, TimerSetValues)
     usleep (100000);
 
     /* minLeft and maxLeft are now
-     * real-time, so wait the guarunteed
+     * real-time, so wait the guaranteed
      * expiry time in order to check them
      * for an accurate value of zero */
 

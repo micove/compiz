@@ -11,8 +11,6 @@ target_link_libraries (compiz_test_point
                        compiz_point 
                        ${GTEST_BOTH_LIBRARIES}
 		       ${GMOCK_LIBRARY}
-		       ${GMOCK_MAIN_LIBRARY}
-		       ${CMAKE_THREAD_LIBS_INIT} # Link in pthread. 
-                       )
+		       ${GMOCK_MAIN_LIBRARY})
 
-gtest_add_tests (compiz_test_point "" ${CMAKE_CURRENT_SOURCE_DIR}/point/src/test-point.cpp)
+compiz_discover_tests (compiz_test_point COVERAGE compiz_point)

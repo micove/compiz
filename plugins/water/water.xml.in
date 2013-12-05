@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <compiz>
     <plugin name="water" useBcop="true">
 	<_short>Water Effect</_short>
@@ -37,9 +38,9 @@
 	    <option name="offset_scale" type="float">
 		<_short>Offset Scale</_short>
 		<_long>Water offset scale</_long>
-		<default>1</default>
+		<default>10</default>
 		<min>0</min>
-		<max>10</max>
+		<max>1000</max>
 		<precision>0.1</precision>
 	    </option>
 	    <option name="rain_delay" type="int">
@@ -48,6 +49,30 @@
 		<default>250</default>
 		<min>1</min>
 		<max>3600000</max>
+	    </option>
+	    <option name="light_vec_x" type="float">
+		<_short>lightVec X</_short>
+		<_long>Light vector X coordinate</_long>
+		<default>-1.0</default>
+		<min>-1</min>
+		<max>1</max>
+		<precision>0.1</precision>
+	    </option>
+	    <option name="light_vec_y" type="float">
+		<_short>lightVec Y</_short>
+		<_long>Light vector Y coordinate</_long>
+		<default>1.0</default>
+		<min>-1</min>
+		<max>1</max>
+		<precision>0.1</precision>
+	    </option>
+	    <option name="light_vec_z" type="float">
+		<_short>lightVec Z</_short>
+		<_long>Light vector Z coordinate</_long>
+		<default>0.0</default>
+		<min>-1</min>
+		<max>1</max>
+		<precision>0.1</precision>
 	    </option>
 	    <option name="title_wave" type="bell">
 		<_short>Title wave</_short>

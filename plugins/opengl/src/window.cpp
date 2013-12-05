@@ -27,6 +27,10 @@
 
 #include "privates.h"
 
+template class WrapableInterface<GLWindow, GLWindowInterface>;
+
+template class PluginClassHandler<GLWindow, CompWindow, COMPIZ_OPENGL_ABI>;
+
 GLWindow::GLWindow (CompWindow *w) :
     PluginClassHandler<GLWindow, CompWindow, COMPIZ_OPENGL_ABI> (w),
     priv (new PrivateGLWindow (w, this))
@@ -46,6 +50,28 @@ GLWindow::~GLWindow ()
     delete priv;
 }
 
+
+/**
+ * Callback object to create GLPrograms automatically when using GLVertexBuffer.
+ */
+class GLWindowAutoProgram : public GLVertexBuffer::AutoProgram
+{
+public:
+    GLWindowAutoProgram (PrivateGLWindow *pWindow) : pWindow(pWindow) {}
+
+    GLProgram *getProgram (GLShaderParameters &params)
+    {
+	GLScreen *gScreen = pWindow->gScreen;
+
+	const GLShaderData *shaderData = gScreen->getShaderData (params);
+	pWindow->shaders.push_back (shaderData);
+	return gScreen->getProgram (pWindow->shaders);
+    }
+
+    PrivateGLWindow *pWindow;
+
+};
+
 PrivateGLWindow::PrivateGLWindow (CompWindow *w,
 				  GLWindow   *gw) :
     window (w),
@@ -54,11 +80,14 @@ PrivateGLWindow::PrivateGLWindow (CompWindow *w,
     gScreen (GLScreen::get (screen)),
     textures (),
     regions (),
-    updateReg (true),
+    updateState (UpdateRegion | UpdateMatrix),
+    needsRebind (true),
     clip (),
     bindFailed (false),
-    geometry (),
-    icons ()
+    vertexBuffer (new GLVertexBuffer ()),
+    autoProgram(new GLWindowAutoProgram(this)),
+    icons (),
+    configureLock (w->obtainLockOnConfigureRequests ())
 {
     paint.xScale	= 1.0f;
     paint.yScale	= 1.0f;
@@ -67,10 +96,17 @@ PrivateGLWindow::PrivateGLWindow (CompWindow *w,
 
     WindowInterface::setHandler (w);
     CompositeWindowInterface::setHandler (cWindow);
+
+    vertexBuffer->setAutoProgram(autoProgram);
+
+    cWindow->setNewPixmapReadyCallback (boost::bind (&PrivateGLWindow::clearTextures, this));
 }
 
 PrivateGLWindow::~PrivateGLWindow ()
 {
+    delete vertexBuffer;
+    delete autoProgram;
+    cWindow->setNewPixmapReadyCallback (boost::function <void ()> ());
 }
 
 void
@@ -87,28 +123,82 @@ PrivateGLWindow::setWindowMatrix ()
 	matrices[i].x0 -= (input.x () * matrices[i].xx);
 	matrices[i].y0 -= (input.y () * matrices[i].yy);
     }
+
+    updateState &= ~(UpdateMatrix);
+}
+
+void
+PrivateGLWindow::clearTextures ()
+{
+    textures.clear ();
 }
 
 bool
 GLWindow::bind ()
 {
-    if ((!priv->cWindow->pixmap () && !priv->cWindow->bind ()))
-	return false;
-
-    priv->textures =
-	GLTexture::bindPixmapToTexture (priv->cWindow->pixmap (),
-					priv->cWindow->size ().width (),
-					priv->cWindow->size ().height (),
-					priv->window->depth ());
-    if (priv->textures.empty ())
+    if (priv->needsRebind)
     {
-	compLogMessage ("opengl", CompLogLevelInfo,
-			"Couldn't bind redirected window 0x%x to "
-			"texture\n", (int) priv->window->id ());
-    }
+	if (!priv->cWindow->bind ())
+	{
+	    if (!priv->textures.empty ())
+	    {
+		/* Getting a new pixmap failed, recycle the old texture */
+		priv->needsRebind = false;
+		return true;
+	    }
+	    else
+		return false;
+	}
 
-    priv->setWindowMatrix ();
-    priv->updateReg = true;
+	GLTexture::List textures =
+	    GLTexture::bindPixmapToTexture (priv->cWindow->pixmap (),
+					    priv->cWindow->size ().width (),
+					    priv->cWindow->size ().height (),
+					    priv->window->depth ());
+	if (textures.empty ())
+	{
+	    compLogMessage ("opengl", CompLogLevelInfo,
+			    "Couldn't bind redirected window 0x%x to "
+			    "texture\n", (int) priv->window->id ());
+
+	    if (priv->cWindow->size ().width () > GL::maxTextureSize ||
+		priv->cWindow->size ().height ()  > GL::maxTextureSize)
+	    {
+		compLogMessage ("opengl", CompLogLevelWarn,
+				"Bug in window 0x%x (identifying as %s)", (int) priv->window->id (), priv->window->resName ().size () ? priv->window->resName ().c_str () : "(none available)");
+		compLogMessage ("opengl", CompLogLevelWarn,
+				"This window tried to create an absurdly large window %i x %i\n", priv->cWindow->size ().width (), priv->cWindow->size ().height ());
+		compLogMessage ("opengl", CompLogLevelWarn,
+				"Unforunately, that's not supported on your hardware, because you have a maximum texture size of %i", GL::maxTextureSize);
+		compLogMessage ("opengl", CompLogLevelWarn, "you should probably file a bug against that application");
+		compLogMessage ("opengl", CompLogLevelWarn, "for now, we're going to hide tht window so that it doesn't break your desktop\n");
+
+		XReparentWindow (screen->dpy (), priv->window->id (), GLScreen::get (screen)->priv->saveWindow, 0, 0);
+	    }
+	    return false;
+	}
+	else
+	{
+	    bool immediatelyUpdateMatricesAndRegions =
+		priv->textures.size () != textures.size ();
+
+	    priv->textures = textures;
+	    priv->needsRebind = false;
+
+	    /* If the number of textures changed, we should immediately
+	     * update the matrices and regions so that they are at least
+	     * initialized, but we'll queue another update just before
+	     * glPaint too in case the window moved or changed size */
+	    if (immediatelyUpdateMatricesAndRegions)
+	    {
+		priv->setWindowMatrix ();
+		priv->updateWindowRegions ();
+
+		priv->updateState |= PrivateGLWindow::UpdateMatrix |
+				     PrivateGLWindow::UpdateRegion;
+	    }
+	}
+    }
 
     return true;
 }
@@ -116,12 +206,8 @@ GLWindow::bind ()
 void
 GLWindow::release ()
 {
-    priv->textures.clear ();
-
-    if (priv->cWindow->pixmap ())
-    {
-	priv->cWindow->release ();
-    }
+    if (!priv->cWindow->frozen ())
+	priv->needsRebind = true;
 }
 
 bool
@@ -133,10 +219,10 @@ GLWindowInterface::glPaint (const GLWindowPaintAttrib &attrib,
 
 bool
 GLWindowInterface::glDraw (const GLMatrix     &transform,
-			   GLFragment::Attrib &fragment,
+			   const GLWindowPaintAttrib &attrib,
 			   const CompRegion   &region,
 			   unsigned int       mask)
-    WRAPABLE_DEF (glDraw, transform, fragment, region, mask)
+    WRAPABLE_DEF (glDraw, transform, attrib, region, mask)
 
 void
 GLWindowInterface::glAddGeometry (const GLTexture::MatrixList &matrix,
@@ -149,13 +235,10 @@ GLWindowInterface::glAddGeometry (const GLTexture::MatrixList &matrix,
 
 void
 GLWindowInterface::glDrawTexture (GLTexture          *texture,
-				  GLFragment::Attrib &fragment,
+                                  const GLMatrix            &transform,
+				  const GLWindowPaintAttrib &attrib,
 				  unsigned int       mask)
-    WRAPABLE_DEF (glDrawTexture, texture, fragment, mask)
-
-void
-GLWindowInterface::glDrawGeometry ()
-    WRAPABLE_DEF (glDrawGeometry)
+    WRAPABLE_DEF (glDrawTexture, texture, transform, attrib, mask)
 
 const CompRegion &
 GLWindow::clip () const
@@ -180,18 +263,18 @@ void
 PrivateGLWindow::resizeNotify (int dx, int dy, int dwidth, int dheight)
 {
     window->resizeNotify (dx, dy, dwidth, dheight);
-    setWindowMatrix ();
-    updateReg = true;
-    if (!window->hasUnmapReference ())
-	gWindow->release ();
+    updateState |= PrivateGLWindow::UpdateMatrix | PrivateGLWindow::UpdateRegion;
+    gWindow->release ();
 }
 
 void
 PrivateGLWindow::moveNotify (int dx, int dy, bool now)
 {
     window->moveNotify (dx, dy, now);
-    updateReg = true;
-    setWindowMatrix ();
+    updateState |= PrivateGLWindow::UpdateMatrix;
+
+    foreach (CompRegion &r, regions)
+	r.translate (dx, dy);
 }
 
 void
@@ -203,8 +286,7 @@ PrivateGLWindow::windowNotify (CompWindowNotify n)
 	case CompWindowNotifyReparent:
 	case CompWindowNotifyUnreparent:
 	case CompWindowNotifyFrameUpdate:
-	    if (!window->hasUnmapReference ())
-		gWindow->release ();
+	    gWindow->release ();
 	    break;
 	default:
 	    break;
@@ -223,81 +305,22 @@ GLWindow::updatePaintAttribs ()
     priv->paint.saturation = cw->saturation ();
 }
 
-GLWindow::Geometry &
-GLWindow::geometry ()
+GLVertexBuffer *
+GLWindow::vertexBuffer ()
 {
-    return priv->geometry;
-}
-
-GLWindow::Geometry::Geometry () :
-    vertices (NULL),
-    vertexSize (0),
-    vertexStride (0),
-    indices (NULL),
-    indexSize (0),
-    vCount (0),
-    texUnits (0),
-    texCoordSize (0),
-    indexCount (0)
-{
-}
-
-GLWindow::Geometry::~Geometry ()
-{
-    if (vertices)
-	free (vertices);
-
-    if (indices)
-	free (indices);
-}
-
-void
-GLWindow::Geometry::reset ()
-{
-    vCount = indexCount = 0;
-}
-
-bool
-GLWindow::Geometry::moreVertices (int newSize)
-{
-    if (newSize > vertexSize)
-    {
-	GLfloat *nVertices;
-
-	nVertices = (GLfloat *)
-	    realloc (vertices, sizeof (GLfloat) * newSize);
-	if (!nVertices)
-	    return false;
-
-	vertices = nVertices;
-	vertexSize = newSize;
-    }
-
-    return true;
-}
-
-bool
-GLWindow::Geometry::moreIndices (int newSize)
-{
-    if (newSize > indexSize)
-    {
-	GLushort *nIndices;
-
-	nIndices = (GLushort *)
-	    realloc (indices, sizeof (GLushort) * newSize);
-	if (!nIndices)
-	    return false;
-
-	indices = nIndices;
-	indexSize = newSize;
-    }
-
-    return true;
+    return priv->vertexBuffer;
 }
 
 const GLTexture::List &
 GLWindow::textures () const
 {
+    static const GLTexture::List emptyList;
+
+    /* No pixmap backs this window, let
+     * users know that the window needs rebinding */
+    if (priv->needsRebind)
+	return emptyList;
+
     return priv->textures;
 }
 
@@ -335,16 +358,29 @@ GLWindow::getIcon (int width, int height)
 }
 
 void
+GLWindow::addShaders (std::string name,
+                      std::string vertex_shader,
+                      std::string fragment_shader)
+{
+    GLShaderData *data = new GLShaderData;
+    data->name = name;
+    data->vertexShader = vertex_shader;
+    data->fragmentShader = fragment_shader;
+
+    priv->shaders.push_back(data);
+}
+
+void
 PrivateGLWindow::updateFrameRegion (CompRegion &region)
 {
     window->updateFrameRegion (region);
-    updateReg = true;
+    updateState |= PrivateGLWindow::UpdateRegion;
 }
 
 void
 PrivateGLWindow::updateWindowRegions ()
 {
-    CompRect input (window->inputRect ());
+    CompRect input (window->serverInputRect ());
 
     if (regions.size () != textures.size ())
 	regions.resize (textures.size ());
@@ -354,7 +390,7 @@ PrivateGLWindow::updateWindowRegions ()
 	regions[i].translate (input.x (), input.y ());
 	regions[i] &= window->region ();
     }
-    updateReg = false;
+    updateState &= ~(UpdateRegion);
 }
 
 unsigned int

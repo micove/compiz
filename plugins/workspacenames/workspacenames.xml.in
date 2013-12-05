@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<compiz>
+	<plugin name="workspacenames" useBcop="true">
+		<_short>Workspace Naming</_short>
+		<_long>Assign names to viewports and display them upon viewport switches</_long>
+		<category>Window Management</category>
+		<deps>
+			<relation type="after">
+				<plugin>opengl</plugin>
+				<plugin>composite</plugin>
+				<plugin>text</plugin>
+			</relation>
+			<requirement>
+				<plugin>opengl</plugin>
+				<plugin>text</plugin>
+			</requirement>
+		</deps>
+		<options>
+			<group>
+				<_short>Names</_short>
+				<subgroup>
+					<_short>Workspace Names</_short>
+					<option name="viewports" type="list">
+						<_short>Viewport</_short>
+						<_long>Number of viewport to be named.</_long>
+						<type>int</type>
+						<min>1</min>
+						<max>50</max>
+						<default>
+							<value>1</value>
+							<value>2</value>
+							<value>3</value>
+							<value>4</value>
+						</default>
+					</option>
+					<option name="names" type="list">
+						<_short>Name</_short>
+						<_long>The name of the workspace.</_long>
+						<type>string</type>
+						<default>
+							<value>Viewport 1</value>
+							<value>Viewport 2</value>
+							<value>Viewport 3</value>
+							<value>Viewport 4</value>
+						</default>
+					</option>
+				</subgroup>
+			</group>
+			<group>
+				<_short>Appearance</_short>
+				<option name="display_time" type="float">
+					<_short>Display Time</_short>
+					<_long>Timeout of the workspacename display (in seconds).</_long>
+					<min>0.1</min>
+					<max>5.0</max>
+					<precision>0.05</precision>
+					<default>1.5</default>
+				</option>
+				<option name="fade_time" type="float">
+					<_short>Fade Time</_short>
+					<_long>Time the workspacename display uses for the fade-out (in seconds).</_long>
+					<min>0.0</min>
+					<max>5.0</max>
+					<precision>0.05</precision>
+					<default>0.25</default>
+				</option>
+				<subgroup>
+					<_short>Text Display</_short>
+					<option name="bold_text" type="bool">
+						<_short>Bold Font</_short>
+						<_long>Render the workspacename using a bold font.</_long>
+						<default>true</default>
+					</option>
+					<option name="text_font_size" type="int">
+						<_short>Font Size</_short>
+						<_long>Font size for the text display (in pixels).</_long>
+						<default>24</default>
+						<min>6</min>
+						<max>96</max>
+					</option>
+					<option name="text_placement" type="int">
+						<_short>Text Placement</_short>
+						<_long>Selects where to place the text.</_long>
+						<default>0</default>
+						<min>0</min>
+						<max>2</max>
+						<desc>
+							<value>0</value>
+							<_name>Centered on screen</_name>
+						</desc>
+						<desc>
+							<value>1</value>
+							<_name>Top of screen minus offset</_name>
+						</desc>
+						<desc>
+							<value>2</value>
+							<_name>Bottom of screen plus offset</_name>
+						</desc>
+					</option>
+					<option name="vertical_offset" type="int">
+						<_short>Vertical Offset</_short>
+						<_long>Vertical offset from top or bottom of the screen (in pixels).</_long>
+						<default>50</default>
+						<min>0</min>
+						<max>500</max>
+					</option>
+				</subgroup>
+				<subgroup>
+					<_short>Colors</_short>
+					<option name="back_color" type="color">
+						<_short>Background Color</_short>
+						<_long>Background color and opacity of the workspacename display.</_long>
+						<default>
+							<red>0x0000</red>
+							<green>0x0000</green>
+							<blue>0x0000</blue>
+							<alpha>0x9999</alpha>
+						</default>
+					</option>
+					<option name="font_color" type="color">
+						<_short>Font Color</_short>
+						<_long>Font color and opacity of the workspacename display.</_long>
+						<default>
+							<red>0xffff</red>
+							<green>0xffff</green>
+							<blue>0xffff</blue>
+							<alpha>0xffff</alpha>
+						</default>
+					</option>
+				</subgroup>
+			</group>
+		</options>	
+	</plugin>
+</compiz>

@@ -52,8 +52,12 @@ decor_update_meta_window_property (decor_t	  *d,
     gint	    bottom_stretch_offset;
     gint	    left_stretch_offset;
     gint	    right_stretch_offset;
+    gint	    mutter_draggable_border_width = 0;
+
     win_extents = frame_win_extents = d->frame->win_extents;
     max_win_extents = frame_max_win_extents = d->frame->max_win_extents;
+
+    g_object_get (settings, "draggable-border-width", &mutter_draggable_border_width, NULL);
 
     /* Add the invisible grab area padding, but only for
      * pixmap type decorations */
@@ -61,16 +65,18 @@ decor_update_meta_window_property (decor_t	  *d,
     {
 	if (flags & META_FRAME_ALLOWS_HORIZONTAL_RESIZE)
 	{
-	    frame_win_extents.left += settings->mutter_draggable_border_width;
-	    frame_win_extents.right += settings->mutter_draggable_border_width;
-	    frame_max_win_extents.left += settings->mutter_draggable_border_width;
-	    frame_max_win_extents.right += settings->mutter_draggable_border_width;
+	    frame_win_extents.left += mutter_draggable_border_width;
+	    frame_win_extents.right += mutter_draggable_border_width;
+	    frame_max_win_extents.left += mutter_draggable_border_width;
+	    frame_max_win_extents.right += mutter_draggable_border_width;
 	}
 
 	if (flags & META_FRAME_ALLOWS_VERTICAL_RESIZE)
 	{
-	    frame_win_extents.bottom += settings->mutter_draggable_border_width;
-	    frame_max_win_extents.bottom += settings->mutter_draggable_border_width;
+	    frame_win_extents.bottom += mutter_draggable_border_width;
+	    frame_win_extents.top += mutter_draggable_border_width;
+	    frame_max_win_extents.bottom += mutter_draggable_border_width;
+	    frame_max_win_extents.top += mutter_draggable_border_width;
 	}
     }
 
@@ -198,7 +204,7 @@ meta_get_top_border_region (const MetaFrameGeometry *fgeom,
 
     if (top_left_radius)
     {
-	for (i = 0; i < top_left_radius; i++)
+	for (i = 0; i < top_left_radius; ++i)
 	{
 	    w = radius_to_width (top_left_radius, i);
 
@@ -213,7 +219,7 @@ meta_get_top_border_region (const MetaFrameGeometry *fgeom,
 
     if (top_right_radius)
     {
-	for (i = 0; i < top_right_radius; i++)
+	for (i = 0; i < top_right_radius; ++i)
 	{
 	    w = radius_to_width (top_right_radius, i);
 
@@ -264,7 +270,7 @@ meta_get_bottom_border_region (const MetaFrameGeometry *fgeom,
 
     if (bottom_left_radius)
     {
-	for (i = 0; i < bottom_left_radius; i++)
+	for (i = 0; i < bottom_left_radius; ++i)
 	{
 	    w = radius_to_width (bottom_left_radius, i);
 
@@ -279,7 +285,7 @@ meta_get_bottom_border_region (const MetaFrameGeometry *fgeom,
 
     if (bottom_right_radius)
     {
-	for (i = 0; i < bottom_right_radius; i++)
+	for (i = 0; i < bottom_right_radius; ++i)
 	{
 	    w = radius_to_width (bottom_right_radius, i);
 
@@ -401,22 +407,22 @@ meta_button_state_for_button_type (decor_t	  *d,
 {
     switch (type) {
     case META_BUTTON_TYPE_LEFT_LEFT_BACKGROUND:
-	type = meta_function_to_type (settings->meta_button_layout.left_buttons[0]);
+	type = meta_function_to_type (meta_button_layout.left_buttons[0]);
 	break;
     case META_BUTTON_TYPE_LEFT_MIDDLE_BACKGROUND:
-	type = meta_function_to_type (settings->meta_button_layout.left_buttons[1]);
+	type = meta_function_to_type (meta_button_layout.left_buttons[1]);
 	break;
     case META_BUTTON_TYPE_LEFT_RIGHT_BACKGROUND:
-	type = meta_function_to_type (settings->meta_button_layout.left_buttons[2]);
+	type = meta_function_to_type (meta_button_layout.left_buttons[2]);
 	break;
     case META_BUTTON_TYPE_RIGHT_LEFT_BACKGROUND:
-	type = meta_function_to_type (settings->meta_button_layout.right_buttons[0]);
+	type = meta_function_to_type (meta_button_layout.right_buttons[0]);
 	break;
     case META_BUTTON_TYPE_RIGHT_MIDDLE_BACKGROUND:
-	type = meta_function_to_type (settings->meta_button_layout.right_buttons[1]);
+	type = meta_function_to_type (meta_button_layout.right_buttons[1]);
 	break;
     case META_BUTTON_TYPE_RIGHT_RIGHT_BACKGROUND:
-	type = meta_function_to_type (settings->meta_button_layout.right_buttons[2]);
+	type = meta_function_to_type (meta_button_layout.right_buttons[2]);
     default:
 	break;
     }
@@ -467,9 +473,9 @@ meta_get_decoration_geometry (decor_t		*d,
     if (!(frame_type < META_FRAME_TYPE_LAST))
 	frame_type = META_FRAME_TYPE_NORMAL;
 
-    if (settings->meta_button_layout_set)
+    if (meta_button_layout_set)
     {
-	*button_layout = settings->meta_button_layout;
+	*button_layout = meta_button_layout;
     }
     else
     {
@@ -477,14 +483,14 @@ meta_get_decoration_geometry (decor_t		*d,
 
 	button_layout->left_buttons[0] = META_BUTTON_FUNCTION_MENU;
 
-	for (i = 1; i < MAX_BUTTONS_PER_CORNER; i++)
+	for (i = 1; i < MAX_BUTTONS_PER_CORNER; ++i)
 	    button_layout->left_buttons[i] = META_BUTTON_FUNCTION_LAST;
 
 	button_layout->right_buttons[0] = META_BUTTON_FUNCTION_MINIMIZE;
 	button_layout->right_buttons[1] = META_BUTTON_FUNCTION_MAXIMIZE;
 	button_layout->right_buttons[2] = META_BUTTON_FUNCTION_CLOSE;
 
-	for (i = 3; i < MAX_BUTTONS_PER_CORNER; i++)
+	for (i = 3; i < MAX_BUTTONS_PER_CORNER; ++i)
 	    button_layout->right_buttons[i] = META_BUTTON_FUNCTION_LAST;
     }
 
@@ -593,9 +599,17 @@ meta_draw_window_decoration (decor_t *d)
     Region	      bottom_region = NULL;
     Region	      left_region = NULL;
     Region	      right_region = NULL;
-    double	      alpha = (d->active) ? settings->meta_active_opacity : settings->meta_opacity;
-    gboolean	      shade_alpha = (d->active) ? settings->meta_active_shade_opacity :
-						  settings->meta_shade_opacity;
+    gdouble	      meta_active_opacity, meta_inactive_opacity;
+    gboolean	      meta_active_shade_opacity, meta_inactive_shade_opacity;
+
+    g_object_get (settings, "metacity-active-opacity", &meta_active_opacity, NULL);
+    g_object_get (settings, "metacity-inactive-opacity", &meta_inactive_opacity, NULL);
+    g_object_get (settings, "metacity-active-shade-opacity", &meta_active_shade_opacity, NULL);
+    g_object_get (settings, "metacity-inactive-shade-opacity", &meta_inactive_shade_opacity, NULL);
+
+    double	      alpha = (d->active) ? meta_active_opacity : meta_inactive_opacity;
+    gboolean	      shade_alpha = (d->active) ? meta_active_shade_opacity :
+						  meta_inactive_shade_opacity;
     MetaFrameStyle    *frame_style;
     GtkWidget	      *style_window;
     GdkColor	      bg_color;
@@ -604,16 +618,7 @@ meta_draw_window_decoration (decor_t *d)
     if (!d->pixmap || !d->picture)
 	return;
 
-    if (d->frame_window)
-    {
-	GdkColormap *cmap;
-	
-	cmap = get_colormap_for_drawable (GDK_DRAWABLE (d->pixmap));
-	gdk_drawable_set_colormap (GDK_DRAWABLE (d->pixmap), cmap);
-	gdk_drawable_set_colormap (GDK_DRAWABLE (d->buffer_pixmap), cmap);
-    }
-
-    if (settings->decoration_alpha == 1.0)
+    if (decoration_alpha == 1.0)
 	alpha = 1.0;
 
     if (gdk_drawable_get_depth (GDK_DRAWABLE (d->pixmap)) == 32)
@@ -646,7 +651,7 @@ meta_draw_window_decoration (decor_t *d)
     if ((d->prop_xid || !d->buffer_pixmap) && !d->frame_window)
 	draw_shadow_background (d, cr, d->shadow, d->context);
 
-    for (i = 0; i < META_BUTTON_TYPE_LAST; i++)
+    for (i = 0; i < META_BUTTON_TYPE_LAST; ++i)
 	button_states[i] = meta_button_state_for_button_type (d, i);
 
     frame_style = meta_theme_get_frame_style (theme,
@@ -680,13 +685,7 @@ meta_draw_window_decoration (decor_t *d)
 	XRenderPictFormat *format;
 
 	if (d->frame_window)
-	{
-	    GdkColormap *cmap;
-
-	    cmap   = get_colormap_for_drawable (GDK_DRAWABLE (d->pixmap));
 	    pixmap = create_pixmap (rect.width, size, d->frame->style_window_rgb);
-	    gdk_drawable_set_colormap (GDK_DRAWABLE (pixmap), cmap);
-	}
 	else
 	    pixmap = create_pixmap (rect.width, size, d->frame->style_window_rgba);
 
@@ -954,7 +953,7 @@ meta_calc_button_size (decor_t *d)
 	    d->context->left_space - d->context->right_space;
     min_x = width;
 
-    for (i = 0; i < 3; i++)
+    for (i = 0; i < 3; ++i)
     {
 	static guint button_actions[3] = {
 	    WNCK_WINDOW_ACTION_CLOSE,
@@ -998,6 +997,10 @@ meta_get_button_position (decor_t	 *d,
 #else
     GdkRectangle      *space;
 #endif
+
+    gint mutter_draggable_border_width = 0;
+
+    g_object_get (settings, "draggable-border-width", &mutter_draggable_border_width, NULL);
 
     if (!d->context)
     {
@@ -1105,9 +1108,15 @@ meta_get_button_position (decor_t	 *d,
 	*x += d->frame->win_extents.left + 4;
 	*y += d->frame->win_extents.top + 2;
     }
-    else if (flags & META_FRAME_ALLOWS_HORIZONTAL_RESIZE)
+    
+    if (flags & META_FRAME_ALLOWS_HORIZONTAL_RESIZE)
     {
-	*x += settings->mutter_draggable_border_width;
+	*x += mutter_draggable_border_width;
+    }
+
+    if (flags & META_FRAME_ALLOWS_VERTICAL_RESIZE)
+    {
+	*y += mutter_draggable_border_width;
     }
 
     return TRUE;
@@ -1141,6 +1150,9 @@ meta_calc_decoration_size (decor_t *d,
     decor_layout_t  layout;
     decor_context_t *context;
     decor_shadow_t  *shadow;
+
+    if (!d->decorated)
+	return FALSE;
 
     if ((d->state & META_MAXIMIZED) == META_MAXIMIZED)
     {
@@ -1235,11 +1247,11 @@ meta_button_present (MetaButtonLayout   *button_layout,
 {
     int i;
 
-    for (i = 0; i < MAX_BUTTONS_PER_CORNER; i++)
+    for (i = 0; i < MAX_BUTTONS_PER_CORNER; ++i)
 	if (button_layout->left_buttons[i] == function)
 	    return TRUE;
 
-    for (i = 0; i < MAX_BUTTONS_PER_CORNER; i++)
+    for (i = 0; i < MAX_BUTTONS_PER_CORNER; ++i)
 	if (button_layout->right_buttons[i] == function)
 	    return TRUE;
 
@@ -1265,6 +1277,10 @@ meta_get_event_window_position (decor_t *d,
     MetaFrameFlags    flags;
     MetaTheme	      *theme;
     GdkRectangle      clip;
+
+    gint mutter_draggable_border_width = 0;
+
+    g_object_get (settings, "draggable-border-width", &mutter_draggable_border_width, NULL);
 
     theme = meta_theme_get_current ();
 
@@ -1296,9 +1312,10 @@ meta_get_event_window_position (decor_t *d,
 
 	    if (!d->frame_window)
 	    {
-		*x += settings->mutter_draggable_border_width;
-		*w += settings->mutter_draggable_border_width;
-		*h += settings->mutter_draggable_border_width;
+		*x += mutter_draggable_border_width;
+		*y += mutter_draggable_border_width;
+		*w += mutter_draggable_border_width;
+		*h += mutter_draggable_border_width;
 	    }
 
 	    break;
@@ -1313,9 +1330,10 @@ meta_get_event_window_position (decor_t *d,
 
 	    if (!d->frame_window)
 	    {
-		*x -= settings->mutter_draggable_border_width;
-		*h += settings->mutter_draggable_border_width;
-		*w += settings->mutter_draggable_border_width * 2;
+		*x -= mutter_draggable_border_width;
+		*y += mutter_draggable_border_width;
+		*h += mutter_draggable_border_width;
+		*w += mutter_draggable_border_width * 2;
 	    }
 
 	    break;
@@ -1333,8 +1351,9 @@ meta_get_event_window_position (decor_t *d,
 
 	    if (!d->frame_window)
 	    {
-		*w += settings->mutter_draggable_border_width;
-		*h += settings->mutter_draggable_border_width;
+		*y += mutter_draggable_border_width;
+		*w += mutter_draggable_border_width;
+		*h += mutter_draggable_border_width;
 	    }
 
 	    break;
@@ -1353,9 +1372,10 @@ meta_get_event_window_position (decor_t *d,
 
 	   if (!d->frame_window)
 	   {
-	       *x += settings->mutter_draggable_border_width;
-	       *w += settings->mutter_draggable_border_width;
-	       *h += settings->mutter_draggable_border_width;
+	       *x += mutter_draggable_border_width;
+	       *y += mutter_draggable_border_width;	      
+	       *w += mutter_draggable_border_width;
+	       *h += mutter_draggable_border_width;
 	   }
 
 
@@ -1368,7 +1388,8 @@ meta_get_event_window_position (decor_t *d,
 
 	    if (!d->frame_window)
 	    {
-		*x += settings->mutter_draggable_border_width;
+		*x += mutter_draggable_border_width;
+		*y += mutter_draggable_border_width;
 	    }
 
 	    break;
@@ -1384,8 +1405,9 @@ meta_get_event_window_position (decor_t *d,
 
 	    if (!d->frame_window)
 	    {
-		*h += settings->mutter_draggable_border_width;
-		*w += settings->mutter_draggable_border_width;
+		*y += mutter_draggable_border_width;
+		*h += mutter_draggable_border_width;
+		*w += mutter_draggable_border_width;
 	    }
 
 
@@ -1408,8 +1430,9 @@ meta_get_event_window_position (decor_t *d,
 
 	    if (!d->frame_window)
 	    {
-		*x += settings->mutter_draggable_border_width;
-		*w += settings->mutter_draggable_border_width;
+		*x += mutter_draggable_border_width;
+		*w += mutter_draggable_border_width;
+		*h += mutter_draggable_border_width;
 	    }
 	    break;
 	case 1: /* top */
@@ -1423,8 +1446,9 @@ meta_get_event_window_position (decor_t *d,
 
 	    if (!d->frame_window)
 	    {
-		*x -= settings->mutter_draggable_border_width;
-		*w += settings->mutter_draggable_border_width * 2;
+		*x -= mutter_draggable_border_width;
+		*w += mutter_draggable_border_width * 2;
+		*h += mutter_draggable_border_width;
 	    }
 
 	    break;
@@ -1441,7 +1465,10 @@ meta_get_event_window_position (decor_t *d,
 	    *h = fgeom.top_height + RESIZE_EXTENDS;
 
 	    if (!d->frame_window)
-		*w += settings->mutter_draggable_border_width;
+	    {
+		*w += mutter_draggable_border_width;
+		*h += mutter_draggable_border_width;
+	    }
 
 	    break;
 	}
@@ -1526,7 +1553,7 @@ meta_initialize_button_layout (MetaButtonLayout *layout)
 {
     int	i;
 
-    for (i = 0; i < MAX_BUTTONS_PER_CORNER; i++)
+    for (i = 0; i < MAX_BUTTONS_PER_CORNER; ++i)
     {
 	layout->left_buttons[i] = META_BUTTON_FUNCTION_LAST;
 	layout->right_buttons[i] = META_BUTTON_FUNCTION_LAST;
@@ -1555,7 +1582,7 @@ meta_update_button_layout (const char *value)
 	int	 b;
 	gboolean used[META_BUTTON_FUNCTION_LAST];
 
-	for (i = 0; i < META_BUTTON_FUNCTION_LAST; i++)
+	for (i = 0; i < META_BUTTON_FUNCTION_LAST; ++i)
 	   used[i] = FALSE;
 
 	buttons = g_strsplit (sides[0], ",", -1);
@@ -1593,7 +1620,7 @@ meta_update_button_layout (const char *value)
 			   "button name \"%s\"\n", program_name, buttons[b]);
 	       }
 	    }
-	    b++;
+	    ++b;
 	}
 
 	new_layout.left_buttons[i] = META_BUTTON_FUNCTION_LAST;
@@ -1602,7 +1629,7 @@ meta_update_button_layout (const char *value)
 
 	if (sides[1] != NULL)
 	{
-	    for (i = 0; i < META_BUTTON_FUNCTION_LAST; i++)
+	    for (i = 0; i < META_BUTTON_FUNCTION_LAST; ++i)
 		used[i] = FALSE;
 
 	    buttons = g_strsplit (sides[1], ",", -1);
@@ -1639,7 +1666,7 @@ meta_update_button_layout (const char *value)
 				program_name, buttons[b]);
 		   }
 	       }
-	       b++;
+	       ++b;
 	    }
 	    new_layout.right_buttons[i] = META_BUTTON_FUNCTION_LAST;
 
@@ -1659,9 +1686,9 @@ meta_update_button_layout (const char *value)
 
 	i = 0;
 	while (new_layout.left_buttons[i] != META_BUTTON_FUNCTION_LAST)
-	    i++;
+	    ++i;
 
-	for (j = 0; j < i; j++)
+	for (j = 0; j < i; ++j)
 	{
 	    rtl_layout.right_buttons[j] = new_layout.left_buttons[i - j - 1];
 #ifdef HAVE_METACITY_2_23_2
@@ -1676,9 +1703,9 @@ meta_update_button_layout (const char *value)
 
 	i = 0;
 	while (new_layout.right_buttons[i] != META_BUTTON_FUNCTION_LAST)
-	    i++;
+	    ++i;
 
-	for (j = 0; j < i; j++)
+	for (j = 0; j < i; ++j)
 	{
 	    rtl_layout.left_buttons[j] = new_layout.right_buttons[i - j - 1];
 #ifdef HAVE_METACITY_2_23_2
@@ -1694,7 +1721,7 @@ meta_update_button_layout (const char *value)
 	new_layout = rtl_layout;
     }
 
-    settings->meta_button_layout = new_layout;
+    meta_button_layout = new_layout;
 }
 
 void

@@ -50,34 +50,42 @@ class PrivateCubeScreen :
 	void paint (CompOutput::ptrList &outputs, unsigned int);
 
         bool glPaintOutput (const GLScreenPaintAttrib &,
-			    const GLMatrix &, const CompRegion &,
-			    CompOutput *, unsigned int);
+			    const GLMatrix            &,
+			    const CompRegion          &,
+			    CompOutput                *,
+			    unsigned int                );
 	
 	void glPaintTransformedOutput (const GLScreenPaintAttrib &,
-				       const GLMatrix &, const CompRegion &,
-				       CompOutput *, unsigned int);
+				       const GLMatrix            &,
+				       const CompRegion          &,
+				       CompOutput                *,
+				       unsigned int                );
 
 
-	void glEnableOutputClipping (const GLMatrix &, const CompRegion &,
-				     CompOutput *);
+	void glEnableOutputClipping (const GLMatrix   &,
+				     const CompRegion &,
+				     CompOutput       *);
 
 	void glApplyTransform (const GLScreenPaintAttrib &,
-			       CompOutput *, GLMatrix *);
+			       CompOutput                *,
+			       GLMatrix                  *);
 
-	bool setOptionForPlugin (const char *plugin,
-                                 const char *name,
-                                 CompOption::Value &v);
+	bool setOptionForPlugin (const char        *plugin,
+				 const char        *name,
+				 CompOption::Value &v);
 
 	void outputChangeNotify ();
 
 	const CompWindowList & getWindowPaintList ();
 
-	bool updateGeometry (int sides, int invert);
+	bool updateGeometry (int sides,
+			     int invert);
 	void updateOutputs ();
 	void updateSkydomeTexture ();
 	void updateSkydomeList (GLfloat fRadius);
 
-	bool setOption (const CompString &name, CompOption::Value &value);
+	bool setOption (const CompString  &name,
+			CompOption::Value &value);
 
 	bool adjustVelocity ();
 
@@ -108,58 +116,64 @@ class PrivateCubeScreen :
 
     public:
 
-	int       mInvert;
-	int       mXRotations;
-	PaintOrder mPaintOrder;
+	int                       mInvert;
+	int                       mXRotations;
+	PaintOrder                mPaintOrder;
 
 	CubeScreen::RotationState mRotationState;
 
-	bool mPaintAllViewports;
+	bool                      mPaintAllViewports;
 
-	GLfloat  mDistance;
-	GLfloat  mTc[12];
+	GLfloat                   mDistance;
+	GLfloat                   mTc[12];
 
-	CompScreen::GrabHandle mGrabIndex;
+	CompScreen::GrabHandle    mGrabIndex;
 
-	int mSrcOutput;
+	int                       mSrcOutput;
 
-	bool    mUnfolded;
-	GLfloat mUnfold, mUnfoldVelocity;
+	bool                      mUnfolded;
+	GLfloat                   mUnfold;
+	GLfloat                   mUnfoldVelocity;
 
-	GLfloat  *mVertices;
-	int      mNVertices;
+	GLfloat                   *mVertices;
+	int                       mNVertices;
 
-	GLuint mSkyListId;
+	GLuint                    mSkyListId;
 
-	int		 mPw, mPh;
-	CompSize mSkySize;
-	GLTexture::List mTexture, mSky;
+	int                       mPw;
+	int                       mPh;
+	CompSize                  mSkySize;
+	GLTexture::List           mTexture;
+	GLTexture::List           mSky;
 
-	int	mImgCurFile;
+	int                       mImgCurFile;
 
-	int mNOutput;
-	int mOutput[64];
-	int mOutputMask[64];
+	int                       mNOutput;
+	int                       mOutput[64];
+	int                       mOutputMask[64];
 
-	bool mCleared[64];
+	bool                      mCleared[64];
 
-	bool mCapsPainted[64];
+	bool                      mCapsPainted[64];
 
-	bool mFullscreenOutput;
+	bool                      mFullscreenOutput;
 
-	float mOutputXScale;
-	float mOutputYScale;
-	float mOutputXOffset;
-	float mOutputYOffset;
+	float                     mOutputXScale;
+	float                     mOutputYScale;
+	float                     mOutputXOffset;
+	float                     mOutputYOffset;
 
-	float mDesktopOpacity;
-	float mToOpacity;
-	int   mLastOpacityIndex;
+	float                     mDesktopOpacity;
+	float                     mToOpacity;
+	int                       mLastOpacityIndex;
 
-	bool mRecalcOutput;
+	bool                      mRecalcOutput;
 	
-	CompWindowList mReversedWindowList;
+	CompWindowList            mReversedWindowList;
 };
+
+class PrivateCubeWindow;
+extern template class PluginClassHandler<PrivateCubeWindow, CompWindow, COMPIZ_CUBE_ABI>;
 
 class PrivateCubeWindow :
     public PluginClassHandler<PrivateCubeWindow, CompWindow, COMPIZ_CUBE_ABI>,
@@ -170,8 +184,10 @@ class PrivateCubeWindow :
 	PrivateCubeWindow (CompWindow *w);
 	~PrivateCubeWindow ();
 
-	bool glPaint (const GLWindowPaintAttrib &, const GLMatrix &,
-                      const CompRegion &, unsigned int);
+	bool glPaint (const GLWindowPaintAttrib &,
+		      const GLMatrix            &,
+		      const CompRegion          &,
+		      unsigned int                );
 
 	CompWindow      *window;
 	CompositeWindow *cWindow;

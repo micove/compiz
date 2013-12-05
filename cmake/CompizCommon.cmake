@@ -1,5 +1,7 @@
 cmake_minimum_required (VERSION 2.6)
 
+include (FindPkgConfig)
+
 if ("${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_BINARY_DIR}")
     message (SEND_ERROR "Building in the source directory is not supported.")
     message (FATAL_ERROR "Please remove the created \"CMakeCache.txt\" file, the \"CMakeFiles\" directory and create a build directory and call \"${CMAKE_COMMAND} <path to the sources>\".")
@@ -18,15 +20,18 @@ cmake_policy (SET CMP0011 OLD)
 
 set (CMAKE_SKIP_RPATH FALSE)
 
+pkg_check_modules (GL QUIET gl)
+set (BUILD_GLES_DEFAULT OFF)
+if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm.*" OR NOT GL_FOUND)
+    set (BUILD_GLES_DEFAULT ON)
+endif ()
+option (BUILD_GLES "Build against GLESv2 instead of GL" ${BUILD_GLES_DEFAULT})
+
 option (COMPIZ_BUILD_WITH_RPATH "Leave as ON unless building packages" ON)
 option (COMPIZ_RUN_LDCONFIG "Leave OFF unless you need to run ldconfig after install")
 option (COMPIZ_PACKAGING_ENABLED "Enable to manually set prefix, exec_prefix, libdir, includedir, datadir" OFF)
 option (COMPIZ_BUILD_TESTING "Build Unit Tests" ON)
-set (COMPIZ_DESTDIR "${DESTDIR}" CACHE STRING "Leave blank unless building packages")
-
-if (NOT COMPIZ_DESTDIR)
-    set (COMPIZ_DESTDIR $ENV{DESTDIR})
-endif ()
+option (BUILD_XORG_GTEST "Build Xorg GTest integration tests" ON)
 
 set (COMPIZ_DATADIR ${CMAKE_INSTALL_PREFIX}/share)
 set (COMPIZ_METADATADIR ${CMAKE_INSTALL_PREFIX}/share/compiz)
@@ -45,6 +50,16 @@ set (
 
 # Almost everything is a shared library now, so almost everything needs -fPIC
 set (COMMON_FLAGS "-fPIC -Wall")
+
+option (COMPIZ_UNUSED_PRIVATE_FIELD_WARNINGS "Warn unused private fields" OFF)
+if (NOT COMPIZ_UNUSED_PRIVATE_FIELD_WARNINGS)
+    set (COMMON_FLAGS "${COMMON_FLAGS} -Wno-unused-private-field")
+endif ()
+
+option (COMPIZ_UNUSED_LOCAL_TYPEDEFS_WARNINGS "Warn about unused local typedefs" OFF)
+if (NOT COMPIZ_UNUSED_LOCAL_TYPEDEFS_WARNINGS)
+    set (COMMON_FLAGS "${COMMON_FLAGS} -Wno-unused-local-typedefs")
+endif (NOT COMPIZ_UNUSED_LOCAL_TYPEDEFS_WARNINGS)
 
 option (COMPIZ_DEPRECATED_WARNINGS "Warn about declarations marked deprecated" OFF)
 if (NOT COMPIZ_DEPRECATED_WARNINGS)
@@ -69,11 +84,197 @@ endif ()
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAGS}")
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAGS}")
 
+set (COMMON_LINKER_FLAGS "-Wl,-zdefs")
+set (CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${COMMON_LINKER_FLAGS}")
+set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${COMMON_LINKER_FLAGS}")
+set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${COMMON_LINKER_FLAGS}")
+
 if (IS_DIRECTORY ${CMAKE_SOURCE_DIR}/.bzr)
     set(IS_BZR_REPO 1)
 elseif (IS_DIRECTORY ${CMAKE_SOURCE_DIR}/.bzr)
     set(IS_BZR_REPO 0)
 endif (IS_DIRECTORY ${CMAKE_SOURCE_DIR}/.bzr)
+
+set (USE_GLES ${BUILD_GLES})
+
+if (USE_GLES)
+    find_package(OpenGLES2)
+
+    if (NOT OPENGLES2_FOUND)
+	set (USE_GLES 0)
+	message (SEND_ERROR "OpenGLESv2 not found")
+    endif (NOT OPENGLES2_FOUND)
+endif (USE_GLES)
+
+# Parse arguments passed to a function into several lists separated by
+# upper-case identifiers and options that do not have an associated list e.g.:
+#
+# SET(arguments
+#   hello OPTION3 world
+#   LIST3 foo bar
+#   OPTION2
+#   LIST1 fuz baz
+#   )
+# PARSE_ARGUMENTS(ARG "LIST1;LIST2;LIST3" "OPTION1;OPTION2;OPTION3" ${arguments})
+#
+# results in 7 distinct variables:
+#  * ARG_DEFAULT_ARGS: hello;world
+#  * ARG_LIST1: fuz;baz
+#  * ARG_LIST2:
+#  * ARG_LIST3: foo;bar
+#  * ARG_OPTION1: FALSE
+#  * ARG_OPTION2: TRUE
+#  * ARG_OPTION3: TRUE
+#
+# taken from http://www.cmake.org/Wiki/CMakeMacroParseArguments 
+
+MACRO(PARSE_ARGUMENTS prefix arg_names option_names)
+    SET(DEFAULT_ARGS)
+    FOREACH(arg_name ${arg_names})    
+        SET(${prefix}_${arg_name})
+    ENDFOREACH(arg_name)
+    FOREACH(option ${option_names})
+        SET(${prefix}_${option} FALSE)
+    ENDFOREACH(option)
+    
+    SET(current_arg_name DEFAULT_ARGS)
+    SET(current_arg_list)
+    FOREACH(arg ${ARGN})            
+        SET(larg_names ${arg_names})    
+        LIST(FIND larg_names "${arg}" is_arg_name)                   
+        IF (is_arg_name GREATER -1)
+            SET(${prefix}_${current_arg_name} ${current_arg_list})
+            SET(current_arg_name ${arg})
+            SET(current_arg_list)
+        ELSE (is_arg_name GREATER -1)
+            SET(loption_names ${option_names})    
+            LIST(FIND loption_names "${arg}" is_option)            
+            IF (is_option GREATER -1)
+                SET(${prefix}_${arg} TRUE)
+            ELSE (is_option GREATER -1)
+                SET(current_arg_list ${current_arg_list} ${arg})
+            ENDIF (is_option GREATER -1)
+        ENDIF (is_arg_name GREATER -1)
+    ENDFOREACH(arg)
+    SET(${prefix}_${current_arg_name} ${current_arg_list})
+ENDMACRO(PARSE_ARGUMENTS)
+
+function (compiz_add_to_coverage_report TARGET TEST)
+
+    set_property (GLOBAL APPEND PROPERTY
+		  COMPIZ_COVERAGE_REPORT_TARGETS
+		  ${TARGET})
+
+    set_property (GLOBAL APPEND PROPERTY
+		  COMPIZ_COVERAGE_REPORT_TESTS
+		  ${TARGET})
+
+endfunction ()
+
+function (compiz_add_test_to_testfile CURRENT_BINARY_DIR TEST)
+
+    message (STATUS "Will discover tests in ${TEST}")
+
+    set (INCLUDE_STR "INCLUDE (${CURRENT_BINARY_DIR}/${TEST}_test.cmake) \n")
+    set_property (GLOBAL
+		  APPEND
+		  PROPERTY COMPIZ_TEST_INCLUDE_FILES
+		  ${INCLUDE_STR})
+
+endfunction (compiz_add_test_to_testfile)
+
+function (compiz_generate_testfile_target)
+
+    # Adding a rule for the toplevel CTestTestfile.cmake
+    # will cause enable_testing not to generate the file
+    # for this directory, so we need to do some of the work
+    # that command did for us
+
+    file (WRITE ${CMAKE_BINARY_DIR}/CompizCTestTestfile.cmake "")
+
+    file (GLOB ALL_DIRS "*")
+
+    foreach (DIR ${ALL_DIRS})
+	if (IS_DIRECTORY ${DIR} AND NOT ${DIR} STREQUAL ${CMAKE_BINARY_DIR})
+	    file (RELATIVE_PATH RDIR ${CMAKE_CURRENT_SOURCE_DIR} ${DIR})
+	    file (APPEND ${compiz_BINARY_DIR}/CompizCTestTestfile.cmake
+	          "SUBDIRS (${RDIR})\n")
+	endif (IS_DIRECTORY ${DIR} AND NOT ${DIR} STREQUAL ${CMAKE_BINARY_DIR})
+    endforeach ()
+
+    get_property (COMPIZ_TEST_INCLUDE_FILES_SET
+		  GLOBAL PROPERTY COMPIZ_TEST_INCLUDE_FILES
+		  SET)
+
+    if (NOT COMPIZ_TEST_INCLUDE_FILES_SET)
+	message (WARNING "No tests were added for discovery, not generating CTestTestfile.cmake rule")
+    endif (NOT COMPIZ_TEST_INCLUDE_FILES_SET)
+
+    get_property (COMPIZ_TEST_INCLUDE_FILES
+		  GLOBAL PROPERTY COMPIZ_TEST_INCLUDE_FILES)
+
+    foreach (INCLUDEFILE ${COMPIZ_TEST_INCLUDE_FILES})
+	file (APPEND ${compiz_BINARY_DIR}/CompizCTestTestfile.cmake ${INCLUDEFILE})
+    endforeach ()
+
+    # Overwrite any existing CTestTestfile.cmake - we cannot use
+    # configure_file as enable_testing () will clobber the result
+
+    add_custom_command (OUTPUT ${CMAKE_BINARY_DIR}/CTestTestfileValid
+		        COMMAND cat ${CMAKE_BINARY_DIR}/CompizCTestTestfile.cmake > ${CMAKE_BINARY_DIR}/CTestTestfile.cmake && touch ${CMAKE_BINARY_DIR}/CTestTestfileValid
+		        COMMENT "Generating CTestTestfile.cmake"
+		        VERBATIM)
+
+    add_custom_target (compiz_generate_ctest_testfile ALL
+		       DEPENDS ${CMAKE_BINARY_DIR}/CTestTestfileValid)
+
+    # Invalidate the CTestTestfile.cmake
+    if (EXISTS ${CMAKE_BINARY_DIR}/CTestTestfileValid)
+	execute_process (COMMAND rm ${CMAKE_BINARY_DIR}/CTestTestfileValid)
+    endif (EXISTS ${CMAKE_BINARY_DIR}/CTestTestfileValid)
+endfunction (compiz_generate_testfile_target)
+
+# Create target to discover tests
+function (compiz_discover_tests EXECUTABLE)
+
+    string (TOLOWER "${CMAKE_BUILD_TYPE}" COVERAGE_BUILD_TYPE)
+    if (${COVERAGE_BUILD_TYPE} MATCHES "coverage")
+	parse_arguments (ARG "COVERAGE" "" ${ARGN})
+
+	foreach (COVERAGE ${ARG_COVERAGE})
+	    compiz_add_to_coverage_report (${COVERAGE} ${EXECUTABLE})
+	endforeach ()
+    endif (${COVERAGE_BUILD_TYPE} MATCHES "coverage")
+
+    set (XORG_GTEST_WRAPPER_REQUIRED 0)
+
+    foreach (ARG ${ARGN})
+	if (${ARG} STREQUAL "WITH_XORG_GTEST")
+	    set (XORG_GTEST_WRAPPER_REQUIRED 1)
+	endif (${ARG} STREQUAL "WITH_XORG_GTEST")
+    endforeach ()
+
+    set (COMPIZ_DISCOVER_TESTS_CMD
+	 ${CMAKE_BINARY_DIR}/compiz_gtest/compiz_discover_gtest_tests ${CMAKE_CURRENT_BINARY_DIR}/${EXECUTABLE})
+
+    if (XORG_GTEST_WRAPPER_REQUIRED)
+	set (COMPIZ_DISCOVER_TESTS_CMD ${COMPIZ_DISCOVER_TESTS_CMD} --wrapper ${COMPIZ_XORG_GTEST_WRAPPER})
+    endif (XORG_GTEST_WRAPPER_REQUIRED)
+
+    add_custom_command (TARGET ${EXECUTABLE}
+			POST_BUILD
+			COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${EXECUTABLE}
+			--gtest_list_tests | ${COMPIZ_DISCOVER_TESTS_CMD}
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+			COMMENT "Discovering Tests in ${EXECUTABLE}"
+			VERBATIM)
+
+    add_dependencies (${EXECUTABLE}
+		      compiz_discover_gtest_tests)
+
+    compiz_add_test_to_testfile (${CMAKE_CURRENT_BINARY_DIR} ${EXECUTABLE})
+
+endfunction (compiz_discover_tests)
 
 function (compiz_ensure_linkage)
     find_program (LDCONFIG_EXECUTABLE ldconfig)
@@ -282,8 +483,12 @@ macro (compiz_add_plugins_in_folder folder)
     )
 
     foreach (_plugin ${_plugins_in})
-        get_filename_component (_plugin_dir ${_plugin} PATH)
-        add_subdirectory (${folder}/${_plugin_dir})
+	get_filename_component (_plugin_dir ${_plugin} PATH)
+	string (TOUPPER ${_plugin_dir} _plugin_upper)
+	if (NOT COMPIZ_DISABLE_PLUGIN_${_plugin_upper})
+	    add_subdirectory (${folder}/${_plugin_dir})
+	    set (COMPIZ_ENABLED_PLUGIN_${_plugin_upper} Y CACHE INTERNAL "")
+	endif ()
     endforeach ()
 endmacro ()
 
@@ -308,14 +513,29 @@ function (compiz_translate_xml _src _dst)
     find_program (INTLTOOL_MERGE_EXECUTABLE intltool-merge)
     mark_as_advanced (FORCE INTLTOOL_MERGE_EXECUTABLE)
 
+    set (_additional_arg
+	 -x
+	 -u
+	 ${COMPIZ_I18N_DIR})
+
+    foreach (_arg ${ARGN})
+	if ("${_arg}" STREQUAL "NOTRANSLATIONS")
+	    set (_additional_arg
+		 --no-translations
+		 -x
+		 -u)
+	endif ("${_arg}" STREQUAL "NOTRANSLATIONS")
+    endforeach (_arg ${ARGN})
+
     if (INTLTOOL_MERGE_EXECUTABLE
 	AND COMPIZ_I18N_DIR
 	AND EXISTS ${COMPIZ_I18N_DIR})
 	add_custom_command (
 	    OUTPUT ${_dst}
-	    COMMAND ${INTLTOOL_MERGE_EXECUTABLE} -x -u -c
+	    COMMAND ${INTLTOOL_MERGE_EXECUTABLE}
+		    -c
 		    ${CMAKE_BINARY_DIR}/.intltool-merge-cache
-		    ${COMPIZ_I18N_DIR}
+		    ${_additional_arg}
 		    ${_src}
 		    ${_dst}
 	    DEPENDS ${_src}
@@ -324,7 +544,7 @@ function (compiz_translate_xml _src _dst)
     	add_custom_command (
 	    OUTPUT ${_dst}
 	    COMMAND cat ${_src} |
-		    sed -e 's;<_;<;g' -e 's;</_;</;g' > 
+		    sed -e 's:<_:<:g' -e 's:</_:</:g' > 
 		    ${_dst}
 	    DEPENDS ${_src}
 	)
@@ -351,7 +571,7 @@ function (compiz_translate_desktop_file _src _dst)
     	add_custom_command (
 	    OUTPUT ${_dst}
 	    COMMAND cat ${_src} |
-		    sed -e 's;^_;;g' >
+		    sed -e 's:^_::g' >
 		    ${_dst}
 	    DEPENDS ${_src}
 	)
@@ -492,7 +712,7 @@ function (_build_compiz_module _prefix _name _full_prefix)
 
 	install (
 	    FILES ${_file}
-	    DESTINATION ${COMPIZ_DESTDIR}${includedir}/compiz/${_prefix}
+	    DESTINATION ${includedir}/compiz/${_prefix}
 	)
 
     endforeach (_file)
@@ -738,7 +958,7 @@ function (compiz_opt_install_file _src _dst)
     install (CODE
         "message (\"-- Installing: ${_dst}\")
          execute_process (
-	    COMMAND ${CMAKE_COMMAND} -E copy_if_different \"${_src}\" \"${COMPIZ_DESTDIR}${_dst}\"
+	    COMMAND ${CMAKE_COMMAND} -E copy_if_different \"${_src}\" \"$ENV{DESTDIR}${_dst}\"
 	    RESULT_VARIABLE _result
 	    OUTPUT_QUIET ERROR_QUIET
 	 )
@@ -751,13 +971,76 @@ endfunction ()
 
 #### uninstall
 
+function (compiz_add_code_to_uninstall_target CODE WORKING_DIRECTORY)
+
+    set_property (GLOBAL
+		  APPEND
+		  PROPERTY COMPIZ_UNINSTALL_CODE_TARGETS
+		  ${CODE})
+
+    set_property (GLOBAL
+		  APPEND
+		  PROPERTY COMPIZ_UNINSTALL_WORKING_DIRECTORY_TARGETS
+		  ${WORKING_DIRECTORY})
+
+endfunction ()
+
 macro (compiz_add_uninstall)
+
    if (NOT _compiz_uninstall_rule_created)
 	compiz_set(_compiz_uninstall_rule_created TRUE)
 
 	set (_file "${CMAKE_BINARY_DIR}/cmake_uninstall.cmake")
 
-	file (WRITE  ${_file} "if (NOT EXISTS \"${CMAKE_BINARY_DIR}/install_manifest.txt\")\n")
+	file (WRITE ${_file} "message (STATUS \"Uninstalling\")\n")
+
+	get_property (COMPIZ_UNINSTALL_CODE_TARGETS_SET
+		      GLOBAL
+		      PROPERTY COMPIZ_UNINSTALL_CODE_TARGETS
+		      SET)
+
+	get_property (COMPIZ_UNINSTALL_WORKING_DIRECTORY_TARGETS_SET
+		      GLOBAL
+		      PROPERTY COMPIZ_UNINSTALL_WORKING_DIRECTORY_TARGETS
+		      SET)
+
+	if (COMPIZ_UNINSTALL_CODE_TARGETS_SET AND
+	    COMPIZ_UNINSTALL_WORKING_DIRECTORY_TARGETS_SET)
+
+	    get_property (COMPIZ_UNINSTALL_CODE_TARGETS
+			  GLOBAL
+			  PROPERTY COMPIZ_UNINSTALL_CODE_TARGETS)
+
+	    get_property (COMPIZ_UNINSTALL_WORKING_DIRECTORY_TARGETS
+			  GLOBAL
+			  PROPERTY COMPIZ_UNINSTALL_WORKING_DIRECTORY_TARGETS)
+
+	    list (LENGTH COMPIZ_UNINSTALL_CODE_TARGETS COMPIZ_UNINSTALL_CODE_TARGETS_LEN)
+	    math (EXPR COMPIZ_UNINSTALL_CODE_TARGETS_RANGE "${COMPIZ_UNINSTALL_CODE_TARGETS_LEN} - 1")
+
+	    foreach (ITER RANGE ${COMPIZ_UNINSTALL_CODE_TARGETS_RANGE})
+
+		list (GET COMPIZ_UNINSTALL_CODE_TARGETS ${ITER} CODE_TARGET)
+		list (GET COMPIZ_UNINSTALL_WORKING_DIRECTORY_TARGETS ${ITER} WORKING_DIRECTORY_TARGET)
+
+		file (APPEND ${_file} "message (STATUS \"Executing custom uninstall script ${CODE_TARGET}\")\n")
+		file (APPEND ${_file} "execute_process (COMMAND ${CODE_TARGET}\n")
+		file (APPEND ${_file} "                 WORKING_DIRECTORY \"${WORKING_DIRECTORY_TARGET}\"\n")
+		file (APPEND ${_file} "                 OUTPUT_VARIABLE cmd_output\n")
+		file (APPEND ${_file} "                 RESULT_VARIABLE cmd_ret)\n")
+		file (APPEND ${_file} "message (\"\${cmd_output}\")\n")
+		file (APPEND ${_file} "if (NOT \"\${cmd_ret}\" STREQUAL 0)\n")
+		file (APPEND ${_file} "    message (FATAL_ERROR \"Problem executing uninstall script ${CODE_TARGET} : \${cmd_ret}\")\n")
+		file (APPEND ${_file} "endif (NOT \"\${cmd_ret}\" STREQUAL 0)\n")
+
+	    endforeach ()
+
+	endif (COMPIZ_UNINSTALL_CODE_TARGETS_SET AND
+	       COMPIZ_UNINSTALL_WORKING_DIRECTORY_TARGETS_SET)
+
+	# Get the code that we need to uninstall, and write it out to the file
+
+	file (APPEND ${_file} "if (NOT EXISTS \"${CMAKE_BINARY_DIR}/install_manifest.txt\")\n")
 	file (APPEND ${_file} "  message (FATAL_ERROR \"Cannot find install manifest: \\\"${CMAKE_BINARY_DIR}/install_manifest.txt\\\"\")\n")
 	file (APPEND ${_file} "endif (NOT EXISTS \"${CMAKE_BINARY_DIR}/install_manifest.txt\")\n\n")
 	file (APPEND ${_file} "file (READ \"${CMAKE_BINARY_DIR}/install_manifest.txt\" files)\n")

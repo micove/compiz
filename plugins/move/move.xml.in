@@ -1,7 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <compiz>
     <plugin name="move" useBcop="true">
 	<_short>Move Window</_short>
-	<_long>Move window</_long>
+	<_long>Move your windows around</_long>
 	<category>Window Management</category>
 	<deps>
 	    <relation type="after">
@@ -22,26 +23,52 @@
 		<default>&lt;Alt&gt;F7</default>
 	    </option>
 	    <option name="opacity" type="int">
-		<_short>Opacity</_short>
-		<_long>Opacity level of moving windows</_long>
+		<_short>Moving Window Opacity</_short>
+		<_long>Opacity level of moving windows (in percent).</_long>
 		<default>100</default>
 		<min>1</min>
 		<max>100</max>
 	    </option>
+	    <option name="key_move_inc" type="int">
+		<_short>Keyboard Move Increment</_short>
+		<_long>Move the window by this amount of pixels for every press on one of the cursor keys.</_long>
+		<default>24</default>
+		<min>1</min>
+		<max>250</max>
+	    </option>
 	    <option name="constrain_y" type="bool">
 		<_short>Constrain Y</_short>
-		<_long>Constrain Y coordinate to workspace area</_long>
+		<_long>Constrain y-coordinate to workspace area.</_long>
 		<default>true</default>
 	    </option>
-	    <option name="snapoff_maximized" type="bool">
-		<_short>Snapoff maximized windows</_short>
-		<_long>Snapoff and auto unmaximized maximized windows when dragging</_long>
+	    <option name="snapoff_semimaximized" type="bool">
+		<_short>Snapoff Semimaximized Windows</_short>
+		<_long>Snapoff and auto-restore semimaximized windows when dragging them.</_long>
 		<default>true</default>
+	    </option>
+	    <option name="snapoff_distance" type="int">
+		<_short>Snapoff Distance</_short>
+		<_long>Distance of pixels you have to drag a snapped semimaximized window to unsnap it.</_long>
+		<default>100</default>
+		<min>0</min>
+		<max>500</max>
+	    </option>
+	    <option name="snapback_semimaximized" type="bool">
+		<_short>Snapback Semimaximized Windows</_short>
+		<_long>Snapback and re-maximize semimaximized windows when dragging them back.</_long>
+		<default>true</default>
+	    </option>
+	    <option name="snapback_distance" type="int">
+		<_short>Snapback Distance</_short>
+		<_long>Number of pixels from top or sides to snap back semimaximized windows.</_long>
+		<default>20</default>
+		<min>0</min>
+		<max>250</max>
 	    </option>
 	    <option name="lazy_positioning" type="bool">
 		<_short>Lazy Positioning</_short>
-		<_long>Do not update the server-side position of windows until finished moving</_long>
-		<default>true</default>
+		<_long>Do not update the server-side position of windows until finished moving.</_long>
+		<default>false</default>
 	    </option>
 	</options>
     </plugin>

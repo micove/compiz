@@ -1,0 +1,23 @@
+COMPIZ AUTOPILOT ACCEPTANCE TESTS
+=================================
+
+compiz_autopilot_acceptance_tests is a simple Google Test wrapper around
+a suite of Unity Autopilot tests which effectively validate window manager
+functionality by actually interacting with a running instance.
+
+Note: These tests are very sensitive. There's a high chance of false-positives
+unless your session is set up exactly as indicated below:
+
+  1. Use a session with a completely default configuration. This might
+     include an Ubuntu guest session, or a new user.
+  2. Do not have any external monitors plugged in, even in mirror mode.
+     Gdk will detect any plugged in monitors and report them as
+     part of the monitors available - autopilot assumes that the monitors
+     are always in xinerama mode, which may cause tests to fail in very
+     non-obvious ways.
+  3. Do not have any other windows open at the time the test binary is
+     launched. It is suggested to launch the test binary from another
+     session with the same environment variables present in the
+     guest session.
+
+Do not add this binary to the auto-test discovery.

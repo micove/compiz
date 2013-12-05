@@ -1,0 +1,16 @@
+[general]
+backend = ini
+plugin_list_autosort = true
+
+[gnome_session]
+backend = gsettings
+integration = true
+plugin_list_autosort = true
+profile = Default
+
+[general_ubuntu]
+backend = gsettings
+integration = true
+plugin_list_autosort = true
+profile = unity
+

@@ -28,6 +28,16 @@
 #include <core/pluginclasshandler.h>
 #include "privates.h"
 
+const float DEFAULT_Z_CAMERA = 0.866025404f;
+
+const float RED_SATURATION_WEIGHT   = 0.30f;
+const float GREEN_SATURATION_WEIGHT = 0.59f;
+const float BLUE_SATURATION_WEIGHT  = 0.11f;
+
+const unsigned short NOTHING_TRANS_FILTER = 0;
+const unsigned short SCREEN_TRANS_FILTER  = 1;
+const unsigned short WINDOW_TRANS_FILTER  = 2;
+
 CompOption::Vector &
 GLScreen::getOptions ()
 {
@@ -69,7 +79,7 @@ PrivateGLScreen::setOption (const CompString  &name,
 }
 
 class OpenglPluginVTable :
-    public CompPlugin::VTableForScreenAndWindow<GLScreen, GLWindow>
+    public CompPlugin::VTableForScreenAndWindow<GLScreen, GLWindow, COMPIZ_OPENGL_ABI>
 {
     public:
 
@@ -82,15 +92,16 @@ COMPIZ_PLUGIN_20090315 (opengl, OpenglPluginVTable)
 bool
 OpenglPluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION) ||
-        !CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI))
-	return false;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION) &&
+	CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI))
+    {
+	CompPrivate p;
+	p.uval = COMPIZ_OPENGL_ABI;
+	screen->storeValue ("opengl_ABI", p);
+	return true;
+    }
 
-    CompPrivate p;
-    p.uval = COMPIZ_OPENGL_ABI;
-    screen->storeValue ("opengl_ABI", p);
-
-    return true;
+    return false;
 }
 
 void

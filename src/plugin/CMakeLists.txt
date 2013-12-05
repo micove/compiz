@@ -9,10 +9,12 @@ INCLUDE_DIRECTORIES(
   ${compiz_SOURCE_DIR}/src/timer/src
 
   ${compiz_SOURCE_DIR}/src/rect/include
+  ${compiz_SOURCE_DIR}/src/region/include
   ${compiz_SOURCE_DIR}/src/window/geometry/include
   ${compiz_SOURCE_DIR}/src/window/extents/include
 
   ${compiz_SOURCE_DIR}/src/pluginclasshandler/include
+  ${compiz_SOURCE_DIR}/src/servergrab/include
 
   ${COMPIZ_INCLUDE_DIRS}
 
@@ -38,6 +40,11 @@ ADD_LIBRARY(
   
   ${PUBLIC_HEADERS}
   ${PRIVATE_HEADERS}
+)
+
+TARGET_LINK_LIBRARIES(
+  compiz_plugin
+  dl
 )
 
 add_dependencies (compiz_plugin core-options)

@@ -17,9 +17,11 @@ endmacro (compiz_data_prepare_dirs)
 # install plugin data files
 if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/data)
     compiz_data_prepare_dirs ()
-    install (
-	DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data
-	DESTINATION ${COMPIZ_DESTDIR}${PLUGIN_DATADIR}
-    )
+    if (_install_plugin_${COMPIZ_CURRENT_PLUGIN})
+	install (
+	    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data
+	    DESTINATION ${PLUGIN_DATADIR}
+	)
+    endif (_install_plugin_${COMPIZ_CURRENT_PLUGIN})
     list (APPEND COMPIZ_DEFINITIONS_ADD "-DDATADIR='\"${PLUGIN_DATADIR}\"'")
 endif ()

@@ -62,15 +62,18 @@ class CubeScreenInterface :
 	virtual void cubePaintTop (const GLScreenPaintAttrib &sAttrib,
 				   const GLMatrix            &transform,
 				   CompOutput                *output,
-				   int                       size);
+				   int                       size,
+				   const GLVector            &normal);
 	virtual void cubePaintBottom (const GLScreenPaintAttrib &sAttrib,
 				      const GLMatrix            &transform,
 				      CompOutput                *output,
-				      int                       size);
+				      int                       size,
+				      const GLVector            &normal);
 	virtual void cubePaintInside (const GLScreenPaintAttrib &sAttrib,
 				      const GLMatrix            &transform,
 				      CompOutput                *output,
-				      int                       size);
+				      int                       size,
+				      const GLVector            &normal);
 	virtual bool cubeCheckOrientation (const GLScreenPaintAttrib &sAttrib,
 					   const GLMatrix            &transform,
 					   CompOutput                *output,
@@ -87,6 +90,8 @@ class CubeScreenInterface :
 	virtual bool cubeShouldPaintAllViewports ();
 
 };
+
+extern template class PluginClassHandler<CubeScreen, CompScreen, COMPIZ_CUBE_ABI>;
 
 class CubeScreen :
     public WrapableHandler<CubeScreenInterface, 9>,
@@ -120,13 +125,13 @@ class CubeScreen :
 		      float, float);
 	WRAPABLE_HND (2, CubeScreenInterface, void, cubePaintTop,
 		      const GLScreenPaintAttrib &, const GLMatrix &,
-		      CompOutput *, int);
+		      CompOutput *, int, const GLVector &);
 	WRAPABLE_HND (3, CubeScreenInterface, void, cubePaintBottom,
 		      const GLScreenPaintAttrib &, const GLMatrix &,
-		      CompOutput *, int);
+		      CompOutput *, int, const GLVector &);
 	WRAPABLE_HND (4, CubeScreenInterface, void, cubePaintInside,
 		      const GLScreenPaintAttrib &, const GLMatrix &,
-		      CompOutput *, int);
+		      CompOutput *, int, const GLVector &);
 	WRAPABLE_HND (5, CubeScreenInterface, bool, cubeCheckOrientation,
 		      const GLScreenPaintAttrib &, const GLMatrix &,
 		      CompOutput *, std::vector<GLVector> &);

@@ -1,5 +1,9 @@
 #include <test-pluginclasshandler.h>
 
+namespace cpi = compiz::plugin::internal;
+
+using ::testing::IsNull;
+
 class GetPlugin :
     public Plugin,
     public PluginClassHandler <GetPlugin, Base>
@@ -14,7 +18,26 @@ GetPlugin::GetPlugin (Base *base):
 {
 }
 
-TEST_F( CompizPCHTest, TestGet)
+class PluginClassHandlerGet :
+    public CompizPCHTest
+{
+    public:
+
+	PluginClassHandlerGet ();
+	~PluginClassHandlerGet ();
+};
+
+PluginClassHandlerGet::PluginClassHandlerGet ()
+{
+    cpi::LoadedPluginClassBridge <GetPlugin, Base>::allowInstantiations (key);
+}
+
+PluginClassHandlerGet::~PluginClassHandlerGet ()
+{
+    cpi::LoadedPluginClassBridge <GetPlugin, Base>::disallowInstantiations (key);
+}
+
+TEST_F (PluginClassHandlerGet, TestGet)
 {
     Plugin *p;
 
@@ -48,4 +71,18 @@ TEST_F( CompizPCHTest, TestGet)
     {
 	FAIL() << "Returned Plugin * is not the plugin for bases.back ()";
     }
+}
+
+TEST_F (PluginClassHandlerGet, TestGetNoInstantiationsAllowed)
+{
+    cpi::LoadedPluginClassBridge <GetPlugin, Base>::disallowInstantiations (key);
+
+    Plugin *p;
+
+    bases.push_back (new Base ());
+    plugins.push_back (new GetPlugin (bases.back ()));
+
+    p = GetPlugin::get (bases.front ());
+
+    EXPECT_THAT (p, IsNull ());
 }

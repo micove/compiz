@@ -1,10 +1,12 @@
 set (_headers
     action.h
     atoms.h
+    configurerequestbuffer.h
     core.h
     countedlist.h
     global.h
     icon.h
+    logmessage.h
     match.h
     modifierhandler.h
     option.h
@@ -12,12 +14,11 @@ set (_headers
     plugin.h
     propertywriter.h
     privateunion.h
-    region.h
     screen.h
-    serialization.h
     session.h
     size.h
     string.h
+    templates.h
     window.h
     wrapsystem.h
     abiversion.h

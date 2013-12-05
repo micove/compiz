@@ -46,13 +46,24 @@
 
 #include <stdio.h>
 
-#define SHADOW_RADIUS      8.0
-#define SHADOW_OPACITY     0.5
-#define SHADOW_OFFSET_X    1
-#define SHADOW_OFFSET_Y    1
+const unsigned int ROOT_OFF_X = 8192;
+const unsigned int ROOT_OFF_Y = 8192;
+
+const unsigned short BLUR_TYPE_NONE     = 0;
+const unsigned short BLUR_TYPE_TITLEBAR = 1;
+const unsigned short BLUR_TYPE_ALL      = 2;
+
+static const float SHADOW_RADIUS    = 8.0f;
+static const float SHADOW_OPACITY   = 0.5f;
+static const unsigned short  SHADOW_OFFSET_X = 1;
+static const unsigned short  SHADOW_OFFSET_Y = 1;
 #define SHADOW_COLOR_RED   0x0000
 #define SHADOW_COLOR_GREEN 0x0000
 #define SHADOW_COLOR_BLUE  0x0000
+
+static const char *KDED_SERVICE = "org.kde.kded";
+static const char *KDED_APPMENU_PATH = "/modules/appmenu";
+static const char *KDED_INTERFACE = "org.kde.kded";
 
 int    blurType = BLUR_TYPE_NONE;
 
@@ -105,7 +116,7 @@ KWD::Decorator::Decorator () :
 
     Atoms::init ();
 
-    (void *) new KWinAdaptor (this);
+    new KWinAdaptor (this);
 
     mConfig = new KConfig ("kwinrc");
 
@@ -130,9 +141,9 @@ KWD::Decorator::Decorator () :
 
     updateShadowProperties (QX11Info::appRootWindow ());
 
-    for (i = 0; i < 3; i++)
+    for (i = 0; i < 3; ++i)
     {
-	for (j = 0; j < 3; j++)
+	for (j = 0; j < 3; ++j)
 	{
 	    if (cursors[i][j].shape != XC_left_ptr)
 		cursors[i][j].cursor =
@@ -159,13 +170,23 @@ KWD::Decorator::Decorator () :
 				  CompositeRedirectManual);
 
     XMapWindow (QX11Info::display (), mCompositeWindow);
+
+    QDBusConnection dbus = QDBusConnection::sessionBus ();
+    dbus.connect (KDED_SERVICE, KDED_APPMENU_PATH, KDED_INTERFACE, "showRequest",
+		 this, SIGNAL (showRequest (qulonglong)));
+    dbus.connect (KDED_SERVICE, KDED_APPMENU_PATH, KDED_INTERFACE, "menuAvailable",
+		 this, SLOT (menuAvailable (qulonglong)));
+    dbus.connect (KDED_SERVICE, KDED_APPMENU_PATH, KDED_INTERFACE, "clearMenus",
+		 this, SLOT (clearMenus ()));
+    dbus.connect (KDED_SERVICE, KDED_APPMENU_PATH, KDED_INTERFACE, "menuHidden",
+		 this, SIGNAL (menuHidden ()));
 }
 
 KWD::Decorator::~Decorator (void)
 {
     QMap <WId, KWD::Window *>::ConstIterator it;
 
-    for (it = mClients.begin (); it != mClients.end (); it++)
+    for (it = mClients.begin (); it != mClients.end (); ++it)
 	delete (*it);
 
     if (mDecorNormal)
@@ -239,7 +260,7 @@ KWD::Decorator::enableDecorations (Time timestamp)
     XQueryTree (QX11Info::display (), QX11Info::appRootWindow (),
                 &root, &parent, &children, &nchildren);
 
-    for (unsigned int i = 0; i < nchildren; i++)
+    for (unsigned int i = 0; i < nchildren; ++i)
     {
         if (KWD::readWindowProperty (children[i],
                                      Atoms::switchSelectWindow, &select))
@@ -669,7 +690,7 @@ KWD::Decorator::reconfigure (void)
 	mDecorNormal->reloadDecoration ();
 	mDecorActive->reloadDecoration ();
 
-	for (it = mClients.constBegin (); it != mClients.constEnd (); it++)
+	for (it = mClients.constBegin (); it != mClients.constEnd (); ++it)
 	    it.value ()->reloadDecoration ();
 
 	mPlugins->destroyPreviousPlugin ();
@@ -783,6 +804,9 @@ KWD::Decorator::handleWindowAdded (WId id)
 
 	    client->updateFrame (frame);
 	}
+
+	if (mWindowsMenu.removeOne (id))
+	    mClients[id]->setAppMenuAvailable ();
     }
     else
     {
@@ -995,3 +1019,38 @@ KWD::Decorator::plasmaThemeChanged ()
 	mSwitcher = new Switcher (mCompositeWindow, win);
     }
 }
+
+void
+KWD::Decorator::showRequest (qulonglong id)
+{
+    if (mClients.contains (id))
+	mClients[id]->emitShowRequest ();
+}
+
+void
+KWD::Decorator::menuAvailable (qulonglong id)
+{
+    if (mClients.contains (id))
+	mClients[id]->setAppMenuAvailable ();
+    else
+	mWindowsMenu.append (id);
+}
+
+void
+KWD::Decorator::clearMenus ()
+{
+    QMap < WId, KWD::Window * >::ConstIterator it;
+
+    for (it = mClients.constBegin (); it != mClients.constEnd (); ++it)
+	it.value ()->setAppMenuUnavailable ();
+
+    mWindowsMenu.clear ();
+}
+
+void
+KWD::Decorator::menuHidden (qulonglong id)
+{
+    if (mClients.contains (id))
+	mClients[id]->emitMenuHidden ();
+}
+

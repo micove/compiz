@@ -48,10 +48,12 @@ class RotateScreen :
     public RotateOptions
 {
     public:
+
 	RotateScreen (CompScreen *s);
 	~RotateScreen () {};
 	
-	bool setOption (const CompString &name, CompOption::Value &value);
+	bool setOption (const CompString  &name,
+			CompOption::Value &value);
 
 	void handleEvent (XEvent *event);
 	
@@ -59,12 +61,18 @@ class RotateScreen :
 	void donePaint ();
 
 	bool glPaintOutput (const GLScreenPaintAttrib &,
-			    const GLMatrix &, const CompRegion &, CompOutput *,
-			    unsigned int);
+			    const GLMatrix            &,
+			    const CompRegion          &,
+			    CompOutput                *,
+			    unsigned int                );
 
-	void cubeGetRotation (float &x, float &v, float &progress);
+	void cubeGetRotation (float &x,
+			      float &v,
+			      float &progress);
 	
-	bool adjustVelocity (int size, int invert);
+	bool adjustVelocity (int size,
+			     int invert);
+
 	void releaseMoveWindow ();
 	
 	bool initiate (CompAction         *action,
@@ -104,12 +112,11 @@ class RotateScreen :
 		       int                face,
 		       bool               withWindow);
 
-
     public:
 	
-	GLScreen        *gScreen;
-	CompositeScreen *cScreen;
-	CubeScreen      *cubeScreen;
+	GLScreen               *gScreen;
+	CompositeScreen        *cScreen;
+	CubeScreen             *cubeScreen;
 
 	float                  mPointerSensitivity;
 	
@@ -143,22 +150,26 @@ class RotateScreen :
 	GLfloat                mZoomTranslate;
 };
 
-
 class RotateWindow :
     public PluginClassHandler<RotateWindow,CompWindow>,
     public WindowInterface
 {
     public:
+
 	RotateWindow (CompWindow *w);
 	~RotateWindow () {};
 	
-	void grabNotify (int x, int y, unsigned int state, unsigned int mask);
+	void grabNotify (int          x,
+			 int          y,
+			 unsigned int state,
+			 unsigned int mask);
 	void ungrabNotify ();
 	
 	void activate ();
 	
     public:
-	CompWindow *window;
+
+	CompWindow   *window;
 	RotateScreen *rScreen;
 };
 
@@ -166,8 +177,8 @@ class RotatePluginVTable :
     public CompPlugin::VTableForScreenAndWindow<RotateScreen, RotateWindow>
 {
     public:
+
 	bool init ();
 };
-
 
 #endif

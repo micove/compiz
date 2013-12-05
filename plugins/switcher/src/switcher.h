@@ -108,7 +108,7 @@ class SwitchWindow :
     public:
 	SwitchWindow (CompWindow *window);
 
-	bool managed ();
+	bool managed () const;
 
 	bool damageRect (bool initial, const CompRect &rect);
 
@@ -154,11 +154,11 @@ typedef struct {
     unsigned long decorations;
 } MwmHints;
 
-#define WIDTH  212
-#define HEIGHT 192
-#define SPACE  10
+extern const unsigned short WIDTH;
+extern const unsigned short HEIGHT;
+extern const unsigned short SPACE;
 
-#define BOX_WIDTH 3
+extern const unsigned short BOX_WIDTH;
 
 #define WINDOW_WIDTH(count) (WIDTH * (count) + (SPACE << 1))
 #define WINDOW_HEIGHT (HEIGHT + (SPACE << 1))

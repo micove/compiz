@@ -248,7 +248,7 @@ KWD::Switcher::updateWindowProperties ()
     decor_quads_to_property (data, nOffset - 1, mPixmap.handle (),
 			     &mBorder, &mBorder, &mBorder, &mBorder,
 			     0, 0,
-			     quads, nQuad);
+			     quads, nQuad, frameType, frameState, frameActions);
 #endif
     KWD::trapXError ();
     XChangeProperty (QX11Info::display (), mId, Atoms::netWindowDecor,

@@ -4,7 +4,7 @@ set (_headers
 
 install (
     FILES ${_headers}
-    DESTINATION ${COMPIZ_DESTDIR}${includedir}/compiz
+    DESTINATION ${includedir}/compiz
 )
 
 add_subdirectory (core)

@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <compiz>
     <plugin name="opengl" useBcop="true">
 	<_short>OpenGL</_short>
@@ -42,6 +43,26 @@
 		<_short>Texture Compression</_short>
 		<_long>If available use compression for textures converted from images</_long>
 		<default>false</default>
+	    </option>
+	    <option name="framebuffer_object" type="bool">
+		<_short>Framebuffer object</_short>
+		<_long>Render all frames indirectly using framebuffer objects (GL_EXT_framebuffer_object), if supported by the driver. Pros: Might be faster than the default buffer swapping method in some cases. Cons: This will come at the cost of (1) usually reduced graphics benchmark performance; (2) increased GPU resource consumption; and (3) possibly higher visible lag. Note: This feature is always on in OpenGL|ES builds such as ARM platforms.</_long>
+		<default>true</default>
+	    </option>
+	    <option name="vertex_buffer_object" type="bool">
+		<_short>Vertex buffer object</_short>
+		<_long>Render all graphics primitives using vertex buffer objects (GL_ARB_vertex_buffer_object), if supported by the driver. Pros: This provides higher graphics performance for some drivers. Cons: This is a new feature and may cause graphical problems. Note: This feature is always on in OpenGL|ES builds such as ARM platforms.</_long>
+		<default>true</default>
+	    </option>
+	    <option name="always_swap_buffers" type="bool">
+		<_short>Always use buffer swapping</_short>
+		<_long>Use glXSwapBuffers to display every frame. This eliminates visible tearing with most drivers and dramatically improves visual smoothness. Automatically enabled when framebuffer_object is on.</_long>
+		<default>true</default>
+	    </option>
+	    <option name="unredirect_driver_blacklist" type="string">
+		<_short>Unredirect Driver Blacklist</_short>
+		<_long>If non-empty, specifies a POSIX (extended) regular expression to match against the OpenGL driver strings (newline separated): "GL_VENDOR\nGL_RENDERER\nGL_VERSION". If the regular expression matches a substring of that concatenation then no windows will ever be unredirected while using that particular graphics driver.</_long>
+		<default>(nouveau|Intel).*Mesa 8.0</default>
 	    </option>
 	</options>
     </plugin>

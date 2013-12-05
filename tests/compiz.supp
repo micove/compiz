@@ -1,0 +1,163 @@
+#
+# Valgrind suppression file for running compiz
+#
+# Copyright (C) 2013  Canonical Ltd.
+# Author: Daniel van Vugt <daniel.van.vugt@canonical.com>
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA  02110-1301, USA.
+#
+
+{
+   Google protobuf leaks in operator new(unsigned long)
+   Memcheck:Leak
+   fun:_Znwm
+   ...
+   fun:_ZN6google8protobuf25EncodedDescriptorDatabase3AddEPKvi
+   fun:_ZN6google8protobuf14DescriptorPool24InternalAddGeneratedFileEPKvi
+   fun:*protobuf_AddDesc_*
+}
+
+{
+    g_spawn_check_exit_status
+    Memcheck:Cond
+    fun:g_spawn_check_exit_status
+}
+
+{
+    drmIoctl
+    Memcheck:Param
+    ioctl(generic)
+    fun:ioctl
+    fun:drmIoctl
+}
+
+{
+    drm_intel_bufmgr_gem_init
+    Memcheck:Cond
+    fun:drm_intel_bufmgr_gem_init
+}
+
+{
+    Mesa i965 x64
+    Memcheck:Cond
+    obj:/usr/lib/x86_64-linux-gnu/dri/i965_dri.so
+}
+
+{
+    Mesa libdrm_intel x64
+    Memcheck:Cond
+    obj:/usr/lib/x86_64-linux-gnu/libdrm_intel.so.1.0.0
+}
+
+{
+    _mesa_TexImage2D bad write 4
+    Memcheck:Addr4
+    fun:*
+    ...
+    fun:_mesa_TexImage2D
+}
+
+{
+    _mesa_TexImage2D bad write 1
+    Memcheck:Addr1
+    fun:*
+    ...
+    fun:_mesa_TexImage2D
+}
+
+{
+    _mesa_TexImage2D bad memcpy 8
+    Memcheck:Addr8
+    fun:memcpy*
+    ...
+    fun:_mesa_TexImage2D
+}
+
+{
+    Mesa, how do you get glClear wrong?
+    Memcheck:Addr1
+    fun:bcmp
+    ...
+    fun:_mesa_meta_glsl_Clear
+}
+
+{
+    Mesa glLinkProgram off by 1
+    Memcheck:Addr1
+    fun:bcmp
+    ...
+    fun:_mesa_glsl_link_shader
+}
+
+{
+    g_type_init leaks by design, at least up to glib 2.35
+    Memcheck:Leak
+    fun:*alloc
+    ...
+    fun:g_type_init_with_debug_flags
+}
+
+{
+    g_bus_get_sync
+    Memcheck:Leak
+    fun:*alloc
+    ...
+    fun:g_bus_get_sync
+}
+
+{
+    g_bus_get_sync memalign
+    Memcheck:Leak
+    fun:memalign
+    ...
+    fun:g_bus_get_sync
+}
+
+{
+    dbus *alloc leaks
+    Memcheck:Leak
+    fun:*alloc
+    ...
+    fun:g_dbus_*
+}
+
+{
+    dbus memalign leaks
+    Memcheck:Leak
+    fun:memalign
+    ...
+    fun:g_dbus_*
+}
+
+{
+    compizBinPath needs to leak env vars
+    Memcheck:Leak
+    fun:malloc
+    fun:strdup
+    fun:*detectCompizBinPath*
+}
+
+{
+    g_settings_class_init intentionally leaks signals
+    Memcheck:Leak
+    fun:*alloc
+    ...
+    fun:g_signal_new
+    ...
+    fun:g_type_class_ref
+    ...
+    fun:g_object_new
+}

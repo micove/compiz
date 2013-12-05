@@ -41,6 +41,37 @@ void clampGeometryToWorkArea (compiz::window::Geometry &g,
 			      const CompWindowExtents &border,
 			      unsigned int flags,
 			      const CompSize &screenSize);
+
+CompPoint & constrainPositionToWorkArea (CompPoint                      &pos,
+				         const compiz::window::Geometry &serverGeometry,
+                                         const CompWindowExtents        &border,
+					 const CompRect                 &workArea);
+
+
+CompPoint getViewportRelativeCoordinates (const compiz::window::Geometry &geom,
+					  const CompSize                 &screen);
+
+CompWindowExtents getWindowEdgePositions (const CompPoint                &position,
+					  const compiz::window::Geometry &geom,
+					  const CompWindowExtents        &border);
+
+void clampHorizontalEdgePositionsToWorkArea (CompWindowExtents &edgePositions,
+					    const CompRect    &workArea);
+void clampVerticalEdgePositionsToWorkArea (CompWindowExtents &edgePositions,
+					   const CompRect    &workArea);
+
+void subtractBordersFromEdgePositions (CompWindowExtents       &edgePositions,
+				       const CompWindowExtents &border,
+				       unsigned int            legacyBorder);
+
+bool onlySizeChanged (unsigned int mask);
+bool applyWidthChange (const CompWindowExtents &edgePositions,
+		       XWindowChanges          &xwc,
+		       unsigned int            &mask);
+
+bool applyHeightChange (const CompWindowExtents &edgePositions,
+			XWindowChanges          &xwc,
+			unsigned int            &mask);
 }
 }
 

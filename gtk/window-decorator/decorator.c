@@ -118,7 +118,11 @@ destroy_bare_frame (decor_frame_t *frame)
 static const PangoFontDescription *
 get_titlebar_font (decor_frame_t *frame)
 {
-    if (settings->use_system_font)
+    const gchar *titlebar_font;
+    g_object_get (settings, "titlebar-font", &titlebar_font, NULL);
+
+    /* Using system font */
+    if (!titlebar_font)
 	return NULL;
     else
 	return frame->titlebar_font;
@@ -256,7 +260,7 @@ update_event_windows (WnckWindow *win)
     gdk_error_trap_push ();
 
     /* [rtl, ru, rtr], [rl, mv, rr], [rbl, rb, rbr] */
-    for (i = 0; i < 3; i++)
+    for (i = 0; i < 3; ++i)
     {
 	static guint event_window_actions[3][3] = {
 	    {
@@ -274,7 +278,7 @@ update_event_windows (WnckWindow *win)
 	    }
 	};
 
-	for (j = 0; j < 3; j++)
+	for (j = 0; j < 3; ++j)
 	{
 	    w = 0;
 	    h = 0;
@@ -312,7 +316,7 @@ update_event_windows (WnckWindow *win)
 	actions = 0;
 
     /* Above, stick, unshade and unstick are only available in wnck => 2.18.1 */
-    for (i = 0; i < BUTTON_NUM; i++)
+    for (i = 0; i < BUTTON_NUM; ++i)
     {
 	static guint button_actions[BUTTON_NUM] = {
 	    WNCK_WINDOW_ACTION_CLOSE,
@@ -554,16 +558,62 @@ update_window_decoration_icon (WnckWindow *win)
 	/* 32 bit pixmap on pixmap mode, 24 for reparenting */
 	if (d->frame_window)
 	    d->icon_pixmap = pixmap_new_from_pixbuf (d->icon_pixbuf,
-						     d->frame->style_window_rgba);
+						     d->frame->style_window_rgb);
 	else
 	    d->icon_pixmap = pixmap_new_from_pixbuf (d->icon_pixbuf,
-						     d->frame->style_window_rgb);
+						     d->frame->style_window_rgba);
 	cr = gdk_cairo_create (GDK_DRAWABLE (d->icon_pixmap));
 	d->icon = cairo_pattern_create_for_surface (cairo_get_target (cr));
 	cairo_destroy (cr);
     }
 }
 
+/*
+ * request_update_window_decoration_size
+ * Description: asks the rendering process to allow a size update
+ * for pixmap synchronization */
+
+
+gboolean
+request_update_window_decoration_size (WnckWindow *win)
+{
+    decor_t           *d;
+    gint              width, height;
+    gint              x, y, w, h, name_width;
+
+    if (win == NULL)
+	return FALSE;
+
+    d = g_object_get_data (G_OBJECT (win), "decor");
+
+    if (!d->decorated)
+	return FALSE;
+
+    /* Get the geometry of the window, we'll need it later */
+    wnck_window_get_client_window_geometry (win, &x, &y, &w, &h);
+
+    /* Get the width of the name */
+    name_width = max_window_name_width (win);
+
+    /* Ask the theme to tell us how much space it needs. If this is not successful
+     * update the decoration name and return false */
+    if (!(*theme_calc_decoration_size) (d, w, h, name_width, &width, &height))
+    {
+	update_window_decoration_name (win);
+	return FALSE;
+    }
+
+    d->width  = width;
+    d->height = height;
+
+    decor_post_pending (gdk_x11_display_get_xdisplay (gdk_display_get_default ()),
+			wnck_window_get_xid (win),
+			populate_frame_type (d),
+			populate_frame_state (d),
+			populate_frame_actions (d));
+
+    return TRUE;
+}
 
 /*
  * update_window_decoration_size
@@ -581,8 +631,6 @@ update_window_decoration_size (WnckWindow *win)
     decor_t           *d;
     GdkPixmap         *pixmap, *buffer_pixmap = NULL;
     Picture           picture;
-    gint              width, height;
-    gint              x, y, w, h, name_width;
     Display           *xdisplay;
     XRenderPictFormat *format;
 
@@ -591,53 +639,42 @@ update_window_decoration_size (WnckWindow *win)
 
     d = g_object_get_data (G_OBJECT (win), "decor");
 
-    xdisplay = GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
-
-    /* Get the geometry of the window, we'll need it later */
-    wnck_window_get_client_window_geometry (win, &x, &y, &w, &h);
-
-    /* Get the width of the name */
-    name_width = max_window_name_width (win);
-
-    /* Ask the theme to tell us how much space it needs. If this is not successful
-     * update the decoration name and return false */
-    if (!(*theme_calc_decoration_size) (d, w, h, name_width, &width, &height))
-    {
-	update_window_decoration_name (win);
+    if (!d->decorated)
 	return FALSE;
-    }
+
+    xdisplay = GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
 
     gdk_error_trap_push ();
 
     /* Get the correct depth for the frame window in reparenting mode, otherwise
      * enforce 32 */
     if (d->frame_window)
-	pixmap = create_pixmap (width, height, d->frame->style_window_rgb);
+	pixmap = create_native_pixmap_and_wrap (d->width, d->height, d->frame->style_window_rgb);
     else
-	pixmap = create_pixmap (width, height, d->frame->style_window_rgba);
+	pixmap = create_native_pixmap_and_wrap (d->width, d->height, d->frame->style_window_rgba);
 
     gdk_flush ();
 
     /* Handle failure */
     if (!pixmap || gdk_error_trap_pop ())
     {
-	memset (pixmap, 0, sizeof (pixmap));
+	memset (pixmap, 0, sizeof (*pixmap));
 	return FALSE;
     }
 
     gdk_error_trap_push ();
 
     if (d->frame_window)
-	buffer_pixmap = create_pixmap (width, height, d->frame->style_window_rgb);
+	buffer_pixmap = create_pixmap (d->width, d->height, d->frame->style_window_rgb);
     else
-	buffer_pixmap = create_pixmap (width, height, d->frame->style_window_rgba);
+	buffer_pixmap = create_pixmap (d->width, d->height, d->frame->style_window_rgba);
 
     gdk_flush ();
 
     /* Handle failure */
     if (!buffer_pixmap || gdk_error_trap_pop ())
     {
-	memset (buffer_pixmap, 0, sizeof (buffer_pixmap));
+	memset (buffer_pixmap, 0, sizeof (*buffer_pixmap));
 	g_object_unref (G_OBJECT (pixmap));
 	return FALSE;
     }
@@ -649,7 +686,12 @@ update_window_decoration_size (WnckWindow *win)
 
     /* Destroy the old pixmaps and pictures */
     if (d->pixmap)
-	g_object_unref (G_OBJECT (d->pixmap));
+	g_object_unref (d->pixmap);
+
+    if (d->x11Pixmap)
+	decor_post_delete_pixmap (xdisplay,
+				  wnck_window_get_xid (d->win),
+				  d->x11Pixmap);
 
     if (d->buffer_pixmap)
 	g_object_unref (G_OBJECT (d->buffer_pixmap));
@@ -662,13 +704,11 @@ update_window_decoration_size (WnckWindow *win)
 
     /* Assign new pixmaps and pictures */
     d->pixmap	     = pixmap;
+    d->x11Pixmap     = GDK_PIXMAP_XID (d->pixmap);
     d->buffer_pixmap = buffer_pixmap;
     d->cr	     = gdk_cairo_create (pixmap);
 
     d->picture = picture;
-
-    d->width  = width;
-    d->height = height;
 
     d->prop_xid = wnck_window_get_xid (win);
 
@@ -743,12 +783,12 @@ draw_border_shape (Display	   *xdisplay,
     /* create shadow from opaque decoration
      * FIXME: Should not modify settings value
      * like this */
-    save_decoration_alpha = settings->decoration_alpha;
-    settings->decoration_alpha = 1.0;
+    save_decoration_alpha = decoration_alpha;
+    decoration_alpha = 1.0;
 
     (*d.draw) (&d);
 
-    settings->decoration_alpha = save_decoration_alpha;
+    decoration_alpha = save_decoration_alpha;
 
     XRenderFillRectangle (xdisplay, PictOpSrc, picture, &white,
 			  c->left_space,
@@ -868,6 +908,12 @@ decor_frame_update_shadow (Display		  *xdisplay,
 	*shadow_normal = NULL;
     }
 
+    /*
+     * Warning: decor_shadow_create does more than return a decor_shadow_t*
+     *          It also has to be called to populate the context parameter
+     *          (third last parameter). So even if you don't want a shadow
+     *          then you still need to call decor_shadow_create :(
+     */
     *shadow_normal = decor_shadow_create (xdisplay,
 						 screen,
 						 1, 1,
@@ -911,7 +957,7 @@ decor_frame_update_shadow (Display		  *xdisplay,
 			     frame->max_win_extents.top + frame->max_titlebar_height -
 			     TRANSLUCENT_CORNER_SIZE,
 			     frame->max_win_extents.bottom - TRANSLUCENT_CORNER_SIZE,
-			     opt_shadow,
+			     opt_no_shadow,  /* No shadow when maximized */
 			     context_max,
 			     draw_border_shape,
 			     (void *) info);
@@ -933,6 +979,7 @@ frame_update_shadow (decor_frame_t	    *frame,
 		     decor_shadow_options_t *opt_active_shadow,
 		     decor_shadow_options_t *opt_inactive_shadow)
 {
+    static decor_shadow_options_t no_shadow = {0.0, 0.0, {0, 0, 0}, 0, 0};
     gwd_decor_frame_ref (frame);
 
     info->active = TRUE;
@@ -943,7 +990,7 @@ frame_update_shadow (decor_frame_t	    *frame,
 			     &frame->window_context_active,
 			     &frame->max_border_shadow_active,
 			     &frame->max_window_context_active,
-			     info, opt_active_shadow, opt_inactive_shadow);
+			     info, opt_active_shadow, &no_shadow);
 
     info->active = FALSE;
 
@@ -953,7 +1000,7 @@ frame_update_shadow (decor_frame_t	    *frame,
                              &frame->window_context_inactive,
                              &frame->max_border_shadow_inactive,
                              &frame->max_window_context_inactive,
-                             info, opt_inactive_shadow, opt_active_shadow);
+                             info, opt_inactive_shadow, &no_shadow);
 
     gwd_decor_frame_unref (frame);
 }
@@ -983,7 +1030,10 @@ update_frames_shadows (gpointer key,
     decor_shadow_info_t *info = malloc (sizeof (decor_shadow_info_t));
 
     if (!info)
+    {
+	free (opts);
 	return;
+    }
 
     info->frame = frame;
     info->state = 0;
@@ -1000,49 +1050,32 @@ update_frames_shadows (gpointer key,
 
 }
 
-void
-cairo_get_shadow (decor_frame_t *d, decor_shadow_options_t *opts, gboolean active)
+static void
+get_shadow_common (decor_frame_t *d, decor_shadow_options_t *opts, gboolean active)
 {
+    decor_shadow_options_t *setting_opts = NULL;
+
     if (active)
-    {
-	memcpy (opts->shadow_color, settings->active_shadow_color, sizeof (settings->active_shadow_color));
-	opts->shadow_radius = settings->active_shadow_radius;
-	opts->shadow_offset_x = settings->active_shadow_offset_x;
-	opts->shadow_offset_y = settings->active_shadow_offset_y;
-	opts->shadow_opacity = settings->active_shadow_opacity;
-    }
-    /* TODO: Inactive shadows */
+	g_object_get (settings, "active-shadow", &setting_opts, NULL);
     else
+	g_object_get (settings, "inactive-shadow", &setting_opts, NULL);
+
+    if (setting_opts)
     {
-	memcpy (opts->shadow_color, settings->inactive_shadow_color, sizeof (settings->inactive_shadow_color));
-	opts->shadow_radius = settings->inactive_shadow_radius;
-	opts->shadow_offset_x = settings->inactive_shadow_offset_x;
-	opts->shadow_offset_y = settings->inactive_shadow_offset_y;
-	opts->shadow_opacity = settings->inactive_shadow_opacity;
+	memcpy (opts, setting_opts, sizeof (decor_shadow_options_t));
     }
+}
+
+void
+cairo_get_shadow (decor_frame_t *frame, decor_shadow_options_t *opts, gboolean active)
+{
+    get_shadow_common (frame, opts, active);
 }
 
 void
 meta_get_shadow (decor_frame_t *frame, decor_shadow_options_t *opts, gboolean active)
 {
-    if (active)
-    {
-	memcpy (opts->shadow_color, settings->active_shadow_color, sizeof (settings->active_shadow_color));
-	opts->shadow_radius = settings->active_shadow_radius;
-	opts->shadow_offset_x = settings->active_shadow_offset_x;
-	opts->shadow_offset_y = settings->active_shadow_offset_y;
-	opts->shadow_opacity = settings->active_shadow_opacity;
-    }
-    /* TODO: Inactive shadows */
-    else
-    {
-	memcpy (opts->shadow_color, settings->inactive_shadow_color, sizeof (settings->inactive_shadow_color));
-	opts->shadow_radius = settings->inactive_shadow_radius;
-	opts->shadow_offset_x = settings->inactive_shadow_offset_x;
-	opts->shadow_offset_y = settings->inactive_shadow_offset_y;
-	opts->shadow_opacity = settings->inactive_shadow_opacity;
-    }
-
+    get_shadow_common (frame, opts, active);
 }
 
 int
@@ -1083,7 +1116,7 @@ populate_frame_type (decor_t *d)
         {"utility", DECOR_WINDOW_TYPE_UTILITY}
     };
 
-    for (i = 0; i < n_type_strings; i++)
+    for (i = 0; i < n_type_strings; ++i)
     {
         if (strcmp (d->frame->type, type_strings[i].type) == 0)
             frame_type |= type_strings[i].flag;
@@ -1128,7 +1161,7 @@ populate_frame_state (decor_t *d)
 
     win_state = wnck_window_get_state (d->win);
 
-    for (i = 0; i < n_state_bits; i++)
+    for (i = 0; i < n_state_bits; ++i)
     {
         if (win_state & state_bits[i].wnck_flag)
             frame_state |= state_bits[i].decor_flag;
@@ -1178,7 +1211,7 @@ populate_frame_actions (decor_t *d)
         { DECOR_WINDOW_ACTION_BELOW, WNCK_WINDOW_ACTION_BELOW },
     };
 
-    for (i = 0; i < n_action_bits; i++)
+    for (i = 0; i < n_action_bits; ++i)
     {
         if (win_actions & action_bits[i].wnck_flag)
             frame_actions |= action_bits[i].decor_flag;
@@ -1205,7 +1238,7 @@ update_window_decoration (WnckWindow *win)
 	d->context = NULL;
 	d->width = d->height = 0;
 
-	update_window_decoration_size (win);
+	request_update_window_decoration_size (win);
 	update_event_windows (win);
     }
 }
@@ -1369,7 +1402,7 @@ update_default_decorations (GdkScreen *screen)
     data = decor_alloc_property (WINDOW_TYPE_FRAMES_NUM * 2, WINDOW_DECORATION_TYPE_PIXMAP);
 
     /* All active states and all inactive states */
-    for (i = 0; i < WINDOW_TYPE_FRAMES_NUM * 2; i++)
+    for (i = 0; i < WINDOW_TYPE_FRAMES_NUM * 2; ++i)
     {
         frame = gwd_get_decor_frame (default_frames[i].name);
         extents = frame->win_extents;
@@ -1399,11 +1432,13 @@ update_default_decorations (GdkScreen *screen)
         extents.top += frame->titlebar_height;
 
         default_frames[i].d->draw = theme_draw_window_decoration;
-        default_frames[i].d->pixmap = create_pixmap (default_frames[i].d->width, default_frames[i].d->height, frame->style_window_rgba);
+	default_frames[i].d->pixmap = create_native_pixmap_and_wrap (default_frames[i].d->width,
+								     default_frames[i].d->height,
+								     frame->style_window_rgba);
 
 	unsigned int j, k;
 
-	for (j = 0; j < 3; j++)
+	for (j = 0; j < 3; ++j)
 	{
 	    for (k = 0; k < 3; k++)
 	    {
@@ -1411,7 +1446,7 @@ update_default_decorations (GdkScreen *screen)
 	    }
 	}
 
-	for (j = 0; j < BUTTON_NUM; j++)
+	for (j = 0; j < BUTTON_NUM; ++j)
 	{
 	    default_frames[i].d->button_windows[j].window = None;
 	    default_frames[i].d->button_states[j] = 0;

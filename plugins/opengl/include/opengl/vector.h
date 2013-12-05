@@ -40,7 +40,7 @@ class GLVector {
 	} VectorCoordsEnum;
 
 	GLVector ();
-	GLVector (float x, float y, float z, float w);
+	GLVector (float x, float y, float z, float w = 0.0f);
 
 	/**
 	 * Returns a reference to the x, y, z or w value by using
@@ -58,13 +58,13 @@ class GLVector {
 	 * Returns a readonly x, y, z or w value by using
 	 * 0, 1, 2, 3 as array-access items
 	 */
-	const float operator[] (int item) const;
+	const float & operator[] (int item) const;
 
 	/**
 	 * Returns a readonly x, y, z or w value by using
 	 * x, y, z, w as array-access items
 	 */
-	const float operator[] (VectorCoordsEnum coord) const;
+	const float & operator[] (VectorCoordsEnum coord) const;
 
 	/**
 	 * Adds all elements in a GLVector

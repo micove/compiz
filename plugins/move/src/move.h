@@ -27,6 +27,7 @@
 
 #include <core/screen.h>
 #include <core/pluginclasshandler.h>
+#include <core/configurerequestbuffer.h>
 
 #include <composite/composite.h>
 #include <opengl/opengl.h>
@@ -34,16 +35,13 @@
 
 #define NUM_KEYS (sizeof (mKeys) / sizeof (mKeys[0]))
 
-#define KEY_MOVE_INC 24
-
-#define SNAP_BACK 20
-#define SNAP_OFF  100
-
-struct _MoveKeys {
+struct _MoveKeys
+{
     const char *name;
     int        dx;
     int        dy;
-} mKeys[] = {
+} mKeys[] =
+{
     { "Left",  -1,  0 },
     { "Right",  1,  0 },
     { "Up",     0, -1 },
@@ -88,6 +86,9 @@ class MoveScreen :
 
 	unsigned int origState;
 
+	int	snapOffX;
+	int	snapBackX;
+
 	int	snapOffY;
 	int	snapBackY;
 
@@ -117,6 +118,7 @@ class MoveWindow :
 	CompWindow      *window;
 	GLWindow        *gWindow;
 	CompositeWindow *cWindow;
+	compiz::window::configure_buffers::Releasable::Ptr releasable;
 };
 
 #define MOVE_SCREEN(s) \

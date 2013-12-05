@@ -21,6 +21,7 @@
  * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  * Author: David Reveman <davidr@novell.com>
+ *         Frederic Plourde <frederic.plourde@collabora.co.uk>
  */
 
 #include "water_options.h"
@@ -29,36 +30,33 @@
 
 #include <composite/composite.h>
 #include <opengl/opengl.h>
+#include <opengl/framebufferobject.h>
+#include "shaders.h"
 
 
 #define WATER_SCREEN(s) \
     WaterScreen *ws = WaterScreen::get (s)
 
-#define TEXTURE_SIZE 256
+extern const unsigned int TEXTURE_SIZE;
 
-#define K 0.1964f
+extern const float K;
 
 #define TEXTURE_NUM 3
+#define PROG_NUM 3
 
-#define TINDEX(ws, i) (((ws)->tIndex + (i)) % TEXTURE_NUM)
+#define INDEX(ws, i) (((ws)->fboIndex + (i)) % TEXTURE_NUM)
 
-#define WATER_INITIATE_MODIFIERS_DEFAULT (ControlMask | CompSuperMask)
-
-struct WaterFunction {
-    GLFragment::FunctionId id;
-
-    int target;
-    int param;
-    int unit;
-};
+enum programTypes { SET, UPDATE, PAINT};
 
 class WaterScreen :
     public ScreenInterface,
+    public GLScreenInterface,
     public CompositeScreenInterface,
     public PluginClassHandler<WaterScreen,CompScreen>,
     public WaterOptions
 {
     public:
+
 	WaterScreen (CompScreen *screen);
 	~WaterScreen ();
 
@@ -66,34 +64,23 @@ class WaterScreen :
 
 	void handleEvent (XEvent *);
 
+	void glPaintCompositedOutput (const CompRegion    &region,
+				      GLFramebufferObject *fbo,
+				      unsigned int         mask);
 	void preparePaint (int);
 	void donePaint ();
 
-	GLFragment::FunctionId
-	getBumpMapFragmentFunction (GLTexture *texture,
-				    int       unit,
-				    int       param);
-
-	void allocTexture (int index);
-
-	bool fboPrologue (int tIndex);
+	bool fboPrologue (int fboIndex);
 	void fboEpilogue ();
 	bool fboUpdate (float dt, float fade);
-	bool fboVertices (GLenum type, XPoint *p, int n, float v);
-
-	void softwareUpdate (float dt, float fade);
-	void softwarePoints (XPoint *p, int n, float add);
-	void softwareLines (XPoint *p, int n, float v);
-	void softwareVertices (GLenum type, XPoint *p, int n, float v);
 
 	void waterUpdate (float dt);
-	void scaleVertices (XPoint *p, int n);
 	void waterVertices (GLenum type, XPoint *p, int n, float v);
 
 	bool rainTimeout ();
 	bool wiperTimeout ();
 
-	void waterReset ();
+	void waterSetup ();
 
 	void handleMotionEvent ();
 
@@ -104,19 +91,25 @@ class WaterScreen :
 
 	CompScreen::GrabHandle grabIndex;
 
-	int width, height;
+	GLProgram      *program[PROG_NUM];
+	GLVertexBuffer *vertexBuffer[PROG_NUM];
 
-	GLuint program;
-	GLuint texture[TEXTURE_NUM];
+	static GLfloat vertexData[18];
 
-	int     tIndex;
+	static GLfloat textureData[12];
+
+	GLFramebufferObject *waterFbo[TEXTURE_NUM];
+
+	GLFramebufferObject *oldFbo;
+	GLint oldViewport[4];
+	int    fboIndex;
+	bool   useFbo;
+
+	int texWidth, texHeight;
 	GLenum  target;
 	GLfloat tx, ty;
 
 	int count;
-
-	GLuint fbo;
-	GLint  fboStatus;
 
 	void          *data;
 	float         *d0;
@@ -129,37 +122,14 @@ class WaterScreen :
 	float wiperAngle;
 	float wiperSpeed;
 
-	std::vector<WaterFunction> bumpMapFunctions;
-};
-
-class WaterWindow :
-    public GLWindowInterface,
-    public PluginClassHandler<WaterWindow,CompWindow>
-{
-    public:
-	WaterWindow (CompWindow *window) :
-	    PluginClassHandler<WaterWindow,CompWindow> (window),
-	    window (window),
-	    gWindow (GLWindow::get (window)),
-	    wScreen (WaterScreen::get (screen)),
-	    gScreen (GLScreen::get (screen))
-	{
-	    GLWindowInterface::setHandler (gWindow, false);
-	}
-
-	void glDrawTexture (GLTexture *texture, GLFragment::Attrib &,
-			    unsigned int);
-
-	CompWindow  *window;
-	GLWindow    *gWindow;
-	WaterScreen *wScreen;
-	GLScreen    *gScreen;
+	GLVector lightVec;
 };
 
 class WaterPluginVTable :
-    public CompPlugin::VTableForScreenAndWindow<WaterScreen,WaterWindow>
+    public CompPlugin::VTableForScreen<WaterScreen>
 {
     public:
 
 	bool init ();
 };
+

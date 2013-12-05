@@ -30,7 +30,7 @@
 CompOutput::CompOutput ()
 {
     mName = "";
-    mId = ~0;
+    mId   = ~0;
 }
 
 CompString
@@ -52,20 +52,20 @@ CompOutput::workArea () const
 }
 
 void
-CompOutput::setWorkArea (const CompRect& workarea)
+CompOutput::setWorkArea (const CompRect &workarea)
 {
     mWorkArea = workarea;
 
-    if (workarea.x () < (int) x1 ())
+    if (workarea.x ()  < static_cast <int> (x1 ()))
 	mWorkArea.setX (x1 ());
 
-    if (workarea.y () < (int) y1 ())
+    if (workarea.y ()  < static_cast <int> (y1 ()))
 	mWorkArea.setY (y1 ());
 
-    if (workarea.x2 () > (int) x2 ())
-	mWorkArea.setWidth (x2 () - mWorkArea.x ());
+    if (workarea.x2 () > static_cast <int> (x2 ()))
+	mWorkArea.setWidth (x2 ()  - mWorkArea.x ());
 
-    if (workarea.y2 () > (int) y2 ())
+    if (workarea.y2 () > static_cast <int> (y2 ()))
 	mWorkArea.setHeight (y2 () - mWorkArea.y ());
 }
 
@@ -81,9 +81,9 @@ CompOutput::setGeometry (int x,
 }
 
 void
-CompOutput::setId (CompString name, unsigned int id)
+CompOutput::setId (CompString   name,
+		   unsigned int id)
 {
     mName = name;
-    mId = id;
+    mId   = id;
 }
-

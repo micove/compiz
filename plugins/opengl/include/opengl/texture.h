@@ -32,11 +32,18 @@
 #include "core/string.h"
 
 #include <X11/Xlib-xcb.h>
+
+#ifdef USE_GLES
+#include <GLES2/gl2.h>
+#else
 #include <GL/gl.h>
+#endif
 
 #include <boost/function.hpp>
 
 #include <vector>
+
+#include <opengl/pixmapsource.h>
 
 
 #define POWER_OF_TWO(v) ((v & (v - 1)) == 0)
@@ -99,7 +106,7 @@ class GLTexture : public CompRect {
 		void clear ();
 	};
 
-	typedef boost::function<List (Pixmap, int, int, int)> BindPixmapProc;
+	typedef boost::function<List (Pixmap, int, int, int, compiz::opengl::PixmapSource)> BindPixmapProc;
 	typedef unsigned int BindPixmapHandle;
 
     public:
@@ -176,11 +183,14 @@ class GLTexture : public CompRect {
 	 * @param width Specifies the width of the texture
 	 * @param height Specifies the height of the texture
 	 * @param depth Specifies the color depth of the texture
+	 * @param source Whether the pixmap lifecycle is managed externall
 	 */
-	static List bindPixmapToTexture (Pixmap pixmap,
-					 int width,
-					 int height,
-					 int depth);
+	static List bindPixmapToTexture (Pixmap                       pixmap,
+					 int                          width,
+					 int                          height,
+					 int                          depth,
+					 compiz::opengl::PixmapSource source
+					     = compiz::opengl::InternallyManaged);
 
 	/**
 	 * Returns a GLTexture::List with the contents of of

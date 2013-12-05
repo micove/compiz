@@ -1,7 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <compiz>
     <plugin name="screenshot" useBcop="true">
 	<_short>Screenshot</_short>
-	<_long>Screenshot plugin</_long>
+	<_long>Easily capture parts of your screen and save them as .png image</_long>
 	<category>Extras</category>
 	<deps>
 	    <requirement>
@@ -16,18 +17,43 @@
 	<options>
 	    <option name="initiate_button" type="button">
 		<_short>Initiate</_short>
-		<_long>Initiate rectangle screenshot</_long>
+		<_long>Initiate the capture, release the button to take the shot.</_long>
 		<default>&lt;Super&gt;Button1</default>
 	    </option>
+		<option name="draw_selection_indicator" type="bool">
+			<_short>Draw Screenshot Selection Indicator</_short>
+			<_long>Draw a rectangle outline indicating the screenshot selection.</_long>
+			<default>true</default>
+		</option>
+		<option name="selection_outline_color" type="color">
+			<_short>Selection Indicator Outline Color</_short>
+			<_long>Color and opacity of the screenshot selection rectangle outline.</_long>
+			<default>
+			    <red>0x2fff</red>
+			    <green>0x2fff</green>
+			    <blue>0x4fff</blue>
+			    <alpha>0x9f9f</alpha>
+			</default>
+		</option>
+		<option name="selection_fill_color" type="color">
+			<_short>Selection Indicator Fill Color</_short>
+			<_long>Fill color and opacity of the screenshot selection rectangle.</_long>
+			<default>
+			    <red>0x2fff</red>
+			    <green>0x2fff</green>
+			    <blue>0x4fff</blue>
+			    <alpha>0x4fff</alpha>
+			</default>
+		</option>
 	    <option name="directory" type="string">
-		<_short>Directory</_short>
-		<_long>Put screenshot images in this directory. If empty, the desktop directory will be used.</_long>
+		<_short>Save Directory</_short>
+		<_long>Save screenshot images in this directory. If empty, the desktop directory will be used.</_long>
 		<hints>directory;</hints>
 		<default></default>
 	    </option>
 	    <option name="launch_app" type="string">
 		<_short>Launch Application</_short>
-		<_long>Automatically open screenshot in this application</_long>
+		<_long>Automatically open the screenshot in this application.</_long>
 		<default></default>
 	    </option>
 	</options>

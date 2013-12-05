@@ -24,18 +24,20 @@
  */
 
 #include "core/plugin.h"
+
+/* XXX: This dependency needs to go away */
 #include "privatescreen.h"
 
 #include <boost/scoped_array.hpp>
 #include <boost/foreach.hpp>
 
+#include <boost/algorithm/string.hpp>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dlfcn.h>
-#include <dirent.h>
 #include <errno.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 
 #include <algorithm>
@@ -43,6 +45,7 @@
 
 #define foreach BOOST_FOREACH
 
+static const char here[] = "core";
 
 CompPlugin::Map pluginsMap;
 CompPlugin::List plugins;
@@ -52,6 +55,9 @@ class CorePluginVTable : public CompPlugin::VTable
     public:
 
 	bool init ();
+
+	void markReadyToInstantiate ();
+	void markNoFurtherInstantiation ();
 
 	CompOption::Vector & getOptions ();
 
@@ -75,6 +81,16 @@ bool
 CorePluginVTable::init ()
 {
     return true;
+}
+
+void
+CorePluginVTable::markReadyToInstantiate ()
+{
+}
+
+void
+CorePluginVTable::markNoFurtherInstantiation ()
+{
 }
 
 CompOption::Vector &
@@ -114,17 +130,6 @@ cloaderUnloadPlugin (CompPlugin *p)
     delete p->vTable;
 }
 
-static CompStringList
-cloaderListPlugins (const char *path)
-{
-    CompStringList rv;
-
-    if (!path)
-	rv.push_back (CompString (getCoreVTable ()->name ()));
-
-    return rv;
-}
-
 static bool
 dlloaderLoadPlugin (CompPlugin *p,
 		    const char *path,
@@ -133,7 +138,6 @@ dlloaderLoadPlugin (CompPlugin *p,
     CompString  file;
     void        *dlhand;
     bool        loaded = false;
-    struct stat fileInfo;
 
     if (cloaderLoadPlugin (p, path, name))
 	return true;
@@ -148,15 +152,9 @@ dlloaderLoadPlugin (CompPlugin *p,
     file += name;
     file += ".so";
 
-    if (stat (file.c_str (), &fileInfo) != 0)
-    {
-	/* file likely not present */
-	compLogMessage ("core", CompLogLevelDebug,
-			"Could not stat() file %s : %s",
-			file.c_str (), strerror (errno));
-	return false;
-    }
-
+    compLogMessage (here, CompLogLevelDebug,
+                    "Trying to load %s from: %s", name, file.c_str ());
+    
     int open_flags = RTLD_NOW;
 #ifdef DEBUG
     // Do not unload the library during dlclose.
@@ -171,6 +169,8 @@ dlloaderLoadPlugin (CompPlugin *p,
 	char		  *error;
 	char              sym[1024];
 
+	compLogMessage (here, CompLogLevelDebug,
+	                "Opened library: %s", file.c_str ());
 	dlerror ();
 
 	snprintf (sym, 1024, "getCompPluginVTable20090315_%s", name);
@@ -179,7 +179,7 @@ dlloaderLoadPlugin (CompPlugin *p,
 	error = dlerror ();
 	if (error)
 	{
-	    compLogMessage ("core", CompLogLevelError, "dlsym: %s", error);
+	    compLogMessage (here, CompLogLevelError, "dlsym: %s", error);
 	    getInfo = 0;
 	}
 
@@ -188,7 +188,7 @@ dlloaderLoadPlugin (CompPlugin *p,
 	    p->vTable = (*getInfo) ();
 	    if (!p->vTable)
 	    {
-		compLogMessage ("core", CompLogLevelError,
+		compLogMessage (here, CompLogLevelError,
 				"Couldn't get vtable from '%s' plugin",
 				file.c_str ());
 	    }
@@ -197,14 +197,16 @@ dlloaderLoadPlugin (CompPlugin *p,
 		p->devPrivate.ptr = dlhand;
 		p->devType	  = "dlloader";
 		loaded            = true;
+		compLogMessage (here, CompLogLevelDebug,
+		                "Loaded plugin %s from: %s",
+		                name, file.c_str ());
 	    }
 	}
     }
     else
     {
-	compLogMessage ("core", CompLogLevelError,
-			"Couldn't load plugin '%s' : %s",
-			file.c_str (), dlerror ());
+	compLogMessage (here, CompLogLevelDebug,
+			"dlopen failed: %s", dlerror ());
     }
 
     if (!loaded && dlhand)
@@ -218,6 +220,8 @@ dlloaderUnloadPlugin (CompPlugin *p)
 {
     if (p->devType == "dlloader")
     {
+	const char *name = p->vTable->name ().c_str ();
+	compLogMessage (here, CompLogLevelDebug, "Closing library: %s", name);
 	delete p->vTable;
 	dlclose (p->devPrivate.ptr);
     }
@@ -225,73 +229,35 @@ dlloaderUnloadPlugin (CompPlugin *p)
 	cloaderUnloadPlugin (p);
 }
 
-static int
-dlloaderFilter (const struct dirent *name)
-{
-    int length = strlen (name->d_name);
-
-    if (length < 7)
-	return 0;
-
-    if (strncmp (name->d_name, "lib", 3) ||
-	strncmp (name->d_name + length - 3, ".so", 3))
-	return 0;
-
-    return 1;
-}
-
-static CompStringList
-dlloaderListPlugins (const char *path)
-{
-    CompStringList rv (cloaderListPlugins (path));
-
-    if (!path)
-	path = ".";
-
-    struct dirent **nameList;
-    int nFile = scandir (path, &nameList, dlloaderFilter, alphasort);
-    if (nFile < 0)
-	return rv;
-
-    for (int i = 0; i < nFile; i++)
-    {
-	int length = strlen (nameList[i]->d_name);
-
-	rv.push_back (CompString (nameList[i]->d_name + 3, nameList[i]->d_name + length - 3));
-	free (nameList[i]);
-    }
-
-    free (nameList);
-    return rv;
-}
-
 LoadPluginProc   loaderLoadPlugin   = dlloaderLoadPlugin;
 UnloadPluginProc loaderUnloadPlugin = dlloaderUnloadPlugin;
-ListPluginsProc  loaderListPlugins  = dlloaderListPlugins;
-
 
 bool
 CompManager::initPlugin (CompPlugin *p)
 {
-
+    const char *name = p->vTable->name ().c_str ();
     if (!p->vTable->init ())
     {
-	compLogMessage ("core", CompLogLevelError,
-			"InitPlugin '%s' failed", p->vTable->name ().c_str ());
+	compLogMessage (here, CompLogLevelError,
+	                "Plugin init failed: %s", name);
 	return false;
     }
+
+    p->vTable->markReadyToInstantiate ();
 
     if (screen && screen->displayInitialised())
     {
 	if (!p->vTable->initScreen (screen))
 	{
-	    compLogMessage (p->vTable->name ().c_str (), CompLogLevelError,
-                            "initScreen failed");
+	    compLogMessage (here, CompLogLevelError,
+	                    "Plugin initScreen failed: %s", name);
 	    p->vTable->fini ();
 	    return false;
 	}
 	if (!screen->initPluginForScreen (p))
 	{
+	    compLogMessage (here, CompLogLevelError,
+	                    "initPluginForScreen failed: %s", name);
 	    p->vTable->fini ();
 	    return false;
 	}
@@ -303,7 +269,6 @@ CompManager::initPlugin (CompPlugin *p)
 void
 CompManager::finiPlugin (CompPlugin *p)
 {
-
     if (screen)
     {
 	screen->finiPluginForScreen (p);
@@ -311,6 +276,7 @@ CompManager::finiPlugin (CompPlugin *p)
     }
 
     p->vTable->fini ();
+    p->vTable->markNoFurtherInstantiation ();
 }
 
 bool
@@ -323,25 +289,29 @@ CompScreen::initPluginForScreen (CompPlugin *p)
 bool
 CompScreenImpl::_initPluginForScreen (CompPlugin *p)
 {
+    using compiz::private_screen::WindowManager;
+
     bool status               = true;
-    CompWindowList::iterator it, fail;
+    WindowManager::iterator it, fail;
     CompWindow               *w;
 
-    it = fail = priv->windows.begin ();
-    for (;it != priv->windows.end (); it++)
+    it = fail = windowManager.begin ();
+    for (;it != windowManager.end (); ++it)
     {
 	w = *it;
 	if (!p->vTable->initWindow (w))
 	{
-	    compLogMessage (p->vTable->name ().c_str (), CompLogLevelError,
-                            "initWindow failed");
+	    const char *name = p->vTable->name ().c_str ();
+	    compLogMessage (here, CompLogLevelError,
+	                    "initWindow failed for %s", name);
             fail   = it;
             status = false;
+            break;
 	}
     }
 
-    it = priv->windows.begin ();
-    for (;it != fail; it++)
+    it = windowManager.begin ();
+    for (;it != fail; ++it)
     {
 	w = *it;
 	p->vTable->finiWindow (w);
@@ -360,8 +330,7 @@ CompScreen::finiPluginForScreen (CompPlugin *p)
 void
 CompScreenImpl::_finiPluginForScreen (CompPlugin *p)
 {
-    foreach (CompWindow *w, priv->windows)
-	p->vTable->finiWindow (w);
+    windowManager.forEachWindow(boost::bind(&CompPlugin::VTable::finiWindow, p->vTable, _1));
 }
 
 bool
@@ -379,7 +348,7 @@ CompPlugin::screenInitPlugins (CompScreen *s)
 	if (p->vTable->initScreen (s))
 	    s->initPluginForScreen (p);
 
-	it++;
+	++it;
     }
 
     return true;
@@ -434,6 +403,11 @@ CompPlugin::find (const char *name)
 void
 CompPlugin::unload (CompPlugin *p)
 {
+    if (p->vTable)
+    {
+	const char *name = p->vTable->name ().c_str ();
+	compLogMessage (here, CompLogLevelInfo, "Unloading plugin: %s", name);
+    }
     loaderUnloadPlugin (p);
     delete p;
 }
@@ -441,12 +415,31 @@ CompPlugin::unload (CompPlugin *p)
 CompPlugin *
 CompPlugin::load (const char *name)
 {
+    char *compiz_plugin_dir_override = getenv ("COMPIZ_PLUGIN_DIR");
     std::auto_ptr<CompPlugin>p(new CompPlugin ());
 
     p->devPrivate.uval = 0;
     p->devType	       = "";
     p->vTable	       = 0;
 
+    compLogMessage (here, CompLogLevelInfo, "Loading plugin: %s", name);
+
+    if (compiz_plugin_dir_override)
+    {
+	std::vector <std::string> paths;
+	boost::split (paths,
+		      compiz_plugin_dir_override,
+		      boost::is_any_of (":"));
+
+	foreach (const std::string &path, paths)
+	{
+	    if (path.empty ())
+		continue;
+
+	    if (loaderLoadPlugin (p.get (), path.c_str (), name))
+		return p.release ();
+	}
+    }
 
     if (char* home = getenv ("HOME"))
     {
@@ -463,8 +456,7 @@ CompPlugin::load (const char *name)
     if (loaderLoadPlugin (p.get(), NULL, name))
         return p.release();
 
-    compLogMessage ("core", CompLogLevelError,
-		    "Couldn't load plugin '%s'", name);
+    compLogMessage (here, CompLogLevelError, "Failed to load plugin: %s", name);
 
     return 0;
 }
@@ -472,26 +464,30 @@ CompPlugin::load (const char *name)
 bool
 CompPlugin::push (CompPlugin *p)
 {
-    const char *name = p->vTable->name ().c_str ();
-
+    const CompString &name = p->vTable->name ();
     std::pair<CompPlugin::Map::iterator, bool> insertRet =
-        pluginsMap.insert (std::pair<const char *, CompPlugin *> (name, p));
+        pluginsMap.insert (std::make_pair (name, p));
 
     if (!insertRet.second)
     {
-	compLogMessage ("core", CompLogLevelWarn,
+	compLogMessage (here, CompLogLevelWarn,
 			"Plugin '%s' already active",
-			p->vTable->name ().c_str ());
+			name.c_str ());
 
 	return false;
     }
 
     plugins.push_front (p);
 
-    if (!CompManager::initPlugin (p))
+    compLogMessage (here, CompLogLevelInfo, "Starting plugin: %s", name.c_str ());
+    if (CompManager::initPlugin (p))
     {
-	compLogMessage ("core", CompLogLevelError,
-			"Couldn't activate plugin '%s'", name);
+	compLogMessage (here, CompLogLevelDebug, "Started plugin: %s", name.c_str ());
+    }
+    else
+    {
+	compLogMessage (here, CompLogLevelError,
+	    "Failed to start plugin: %s", name.c_str ());
 
         pluginsMap.erase (name);
 	plugins.pop_front ();
@@ -513,9 +509,12 @@ CompPlugin::pop (void)
     if (!p)
 	return 0;
 
-    pluginsMap.erase (p->vTable->name ().c_str ());
+    const CompString &name = p->vTable->name ();
+    pluginsMap.erase (name);
 
+    compLogMessage (here, CompLogLevelInfo, "Stopping plugin: %s", name.c_str ());
     CompManager::finiPlugin (p);
+    compLogMessage (here, CompLogLevelDebug, "Stopped plugin: %s", name.c_str ());
 
     plugins.pop_front ();
 
@@ -526,31 +525,6 @@ CompPlugin::List &
 CompPlugin::getPlugins (void)
 {
     return plugins;
-}
-
-CompStringList
-CompPlugin::availablePlugins ()
-{
-    CompStringList homeList;
-
-    if (char* home = getenv ("HOME"))
-    {
-        boost::scoped_array<char> plugindir(new char [strlen (home) + strlen (HOME_PLUGINDIR) + 3]);
-        sprintf (plugindir.get(), "%s/%s", home, HOME_PLUGINDIR);
-
-	homeList = loaderListPlugins (plugindir.get());
-    }
-
-    std::set<CompString> set;
-
-    CompStringList pluginList  = loaderListPlugins (PLUGINDIR);
-    CompStringList currentList = loaderListPlugins (0);
-
-    std::copy(homeList.begin(), homeList.end(), std::inserter(set, set.end()));
-    std::copy(pluginList.begin(), pluginList.end(), std::inserter(set, set.end()));
-    std::copy(currentList.begin(), currentList.end(), std::inserter(set, set.end()));
-
-    return CompStringList(set.begin(), set.end());
 }
 
 int
@@ -579,13 +553,13 @@ CompPlugin::checkPluginABI (const char *name,
     pluginABI = getPluginABI (name);
     if (!pluginABI)
     {
-	compLogMessage ("core", CompLogLevelError,
+	compLogMessage (here, CompLogLevelError,
 			"Plugin '%s' not loaded.\n", name);
 	return false;
     }
     else if (pluginABI != abi)
     {
-	compLogMessage ("core", CompLogLevelError,
+	compLogMessage (here, CompLogLevelError,
 			"Plugin '%s' has ABI version '%d', expected "
 			"ABI version '%d'.\n",
 			name, pluginABI, abi);
@@ -619,7 +593,7 @@ CompPlugin::VTable::initVTable (CompString         name,
     }
 }
 
-const CompString
+const CompString&
 CompPlugin::VTable::name () const
 {
     return mName;

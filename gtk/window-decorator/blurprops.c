@@ -20,6 +20,7 @@
  */
 
 #include "gtk-window-decorator.h"
+#include "gwd-settings-interface.h"
 
 void
 decor_update_blur_property (decor_t *d,
@@ -37,14 +38,17 @@ decor_update_blur_property (decor_t *d,
     Display *xdisplay = GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
     long    *data = NULL;
     int     size = 0;
+    gint    blur_type;
+
+    g_object_get (settings, "blur", &blur_type, NULL);
     
-    if (settings->blur_type != BLUR_TYPE_ALL)
+    if (blur_type != BLUR_TYPE_ALL)
     {
 	bottom_region = NULL;
 	left_region   = NULL;
 	right_region  = NULL;
 	
-	if (settings->blur_type != BLUR_TYPE_TITLEBAR)
+	if (blur_type != BLUR_TYPE_TITLEBAR)
 	    top_region = NULL;
     }
 

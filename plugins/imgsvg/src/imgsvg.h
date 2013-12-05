@@ -33,9 +33,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <imgsvg-config.h>
+
 #include <cairo/cairo-xlib.h>
 #include <librsvg/rsvg.h>
+ 
+#ifndef HAVE_RSVG_2_36_2
 #include <librsvg/rsvg-cairo.h>
+#endif
 
 #include <X11/Xatom.h>
 #include <X11/extensions/shape.h>
@@ -53,18 +58,26 @@ class SvgScreen :
     public ImgsvgOptions
 {
     public:
+
 	SvgScreen (CompScreen *screen);
 	~SvgScreen ();
 
-	bool fileToImage (CompString &path, CompSize &size,
-			  int &stride, void *&data);
-	void handleCompizEvent (const char *plugin, const char *event,
+	bool fileToImage (CompString &path,
+			  CompSize   &size,
+			  int        &stride,
+			  void       *&data);
+
+	void handleCompizEvent (const char         *plugin,
+				const char         *event,
 				CompOption::Vector &options);
 
 	CompRect zoom;
 
     private:
-	bool readSvgToImage (const char *file, CompSize &size, void *& data);
+
+	bool readSvgToImage (const char *file,
+			     CompSize   &size,
+			     void       *&data);
 };
 
 class SvgWindow :
@@ -73,34 +86,48 @@ class SvgWindow :
     public PluginClassHandler<SvgWindow, CompWindow>
 {
     public:
+
 	SvgWindow (CompWindow *window);
 	~SvgWindow ();
 
-	bool glDraw (const GLMatrix &transform, GLFragment::Attrib &fragment,
-		     const CompRegion &region, unsigned int mask);
-	void moveNotify (int dx, int dy, bool immediate);
-	void resizeNotify (int dx, int dy, int dwidth, int dheight);
+	bool glDraw (const GLMatrix            &transform,
+		     const GLWindowPaintAttrib &attrib,
+		     const CompRegion          &region,
+		     unsigned int              mask);
 
-	void setSvg (CompString &data, decor_point_t p[2]);
+	void moveNotify (int  dx,
+			 int  dy,
+			 bool immediate);
+
+	void resizeNotify (int dx,
+			   int dy,
+			   int dwidth,
+			   int dheight);
+
+	void setSvg (CompString    &data,
+		     decor_point_t p[2]);
 
     private:
-	typedef struct {
-	    decor_point_t p1;
-	    decor_point_t p2;
+	typedef struct
+	{
+	    decor_point_t     p1;
+	    decor_point_t     p2;
 
-	    RsvgHandle	      *svg;
+	    RsvgHandle        *svg;
 	    RsvgDimensionData dimension;
 	} SvgSource;
 
-	typedef struct {
+	typedef struct
+	{
 	    GLTexture::List       textures;
 	    GLTexture::MatrixList matrices;
-	    cairo_t           *cr;
-	    Pixmap            pixmap;
-	    CompSize          size;
+	    cairo_t               *cr;
+	    Pixmap                pixmap;
+	    CompSize              size;
 	} SvgTexture;
 
-	typedef struct {
+	typedef struct
+	{
 	    SvgSource  *source;
 	    CompRegion box;
 	    SvgTexture texture[2];
@@ -120,9 +147,18 @@ class SvgWindow :
 	void updateSvgMatrix ();
 	void updateSvgContext ();
 
-	void renderSvg (SvgSource *source, SvgTexture &texture, CompSize size,
-			float x1, float y1, float x2, float y2);
-	bool initTexture (SvgSource *source, SvgTexture &texture, CompSize size);
+	void renderSvg (SvgSource  *source,
+			SvgTexture &texture,
+			CompSize   size,
+			float      x1,
+			float      y1,
+			float      x2,
+			float      y2);
+
+	bool initTexture (SvgSource *source,
+			  SvgTexture &texture,
+			  CompSize size);
+
 	void finiTexture (SvgTexture &texture);
 };
 

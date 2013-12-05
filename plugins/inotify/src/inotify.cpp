@@ -94,7 +94,7 @@ InotifyScreen::processEvents ()
 
 	    if (iter != watches.end ())
 	    {
-		for (wIter = list.begin (); wIter != list.end (); ++iter)
+		for (wIter = list.begin (); wIter != list.end (); ++wIter)
 		    if ((*iter).handle == (*wIter)->handle)
 			break;
 
@@ -167,9 +167,8 @@ InotifyScreen::fileWatchRemoved (CompFileWatch *fileWatch)
 bool
 InotifyPluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
-	return false;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
+	return true;
 
-    return true;
+    return false;
 }
-

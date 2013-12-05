@@ -1,0 +1,3 @@
+These tests are acceptance tests and may take a while to run. As such
+please do not add them to the compiz_discover_tests list. Use them to
+check that startup and shutdown work correctly

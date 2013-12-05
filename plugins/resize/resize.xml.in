@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <compiz>
     <plugin name="resize" useBcop="true">
 	<_short>Resize Window</_short>
@@ -53,6 +53,11 @@
 		<long>Same as setting 'any' for resize_from_center_match</long>
 		<default>false</default>
 		</option>
+	    <option name="maximize_vertically" type="bool">
+	        <short>Maximize Vertically if screen edge hit</short>
+	        <long>Maximizes the window vertically if the top or bottom screen edge is hit while resizing</long>
+	        <default>false</default>
+	    </option>
 	    <option name="border_color" type="color">
 		<_short>Border Color</_short>
 		<_long>Border color used for outline and rectangle resize modes</_long>

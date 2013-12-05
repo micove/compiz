@@ -60,7 +60,15 @@
 #include <QStyle>
 #include <QPainter>
 
+#include <QDBusMessage>
+#include <QDBusConnection>
+#include <QDBusPendingCall>
+
 #include "paintredirector.h"
+
+static const char *KDED_SERVICE = "org.kde.kded";
+static const char *KDED_APPMENU_PATH = "/modules/appmenu";
+static const char *KDED_INTERFACE = "org.kde.kded";
 
 KWD::Window::Window (WId  parentId,
 		     WId  clientId,
@@ -80,6 +88,7 @@ KWD::Window::Window (WId  parentId,
     mAdvancedMenu (0),
     mOpacityMenu (0),
     mDesktopMenu (0),
+    mAppMenuAvailable (false),
     mProcessKiller (this),
     mKeys (this),
     mResizeOpAction (0),
@@ -217,6 +226,12 @@ KWD::Window::isMaximizable (void) const
     return wInfo.actionSupported (NET::ActionMax);
 }
 
+KDecoration::QuickTileMode
+KWD::Window::quickTileMode (void) const
+{
+    return QuickTileNone;
+}
+
 KDecoration::MaximizeMode
 KWD::Window::maximizeMode (void) const
 {
@@ -346,10 +361,70 @@ KWD::Window::icon (void) const
     return icon;
 }
 
+QIcon
+KWD::Window::icon (int idx) const
+{
+    return icon ();
+}
+
 QString
 KWD::Window::caption (void) const
 {
     return mName;
+}
+
+QString
+KWD::Window::caption (int idx) const
+{
+    return caption ();
+}
+
+int
+KWD::Window::tabCount () const
+{
+    return 1;
+}
+
+long
+KWD::Window::tabId (int idx) const
+{
+    return 0;
+}
+
+long
+KWD::Window::currentTabId () const
+{
+    return 0;
+}
+
+void
+KWD::Window::setCurrentTab (long id)
+{
+}
+
+void
+KWD::Window::tab_A_before_B (long A, long B)
+{
+}
+
+void
+KWD::Window::tab_A_behind_B (long A, long B)
+{
+}
+
+void
+KWD::Window::untab (long id, const QRect& newGeom)
+{
+}
+
+void
+KWD::Window::closeTab (long id)
+{
+}
+
+void
+KWD::Window::closeTabGroup ()
+{
 }
 
 /* TODO: We should use libtaskmanager, which is part of kdebase to create
@@ -483,9 +558,50 @@ KWD::Window::showWindowMenu (const QPoint &pos)
 }
 
 void
+KWD::Window::showWindowMenu (const QPoint &pos, long id)
+{
+    showWindowMenu (pos);
+}
+
+void
 KWD::Window::showWindowMenu (const QRect &pos)
 {
     showWindowMenu (pos.bottomLeft ());
+}
+
+void
+KWD::Window::showApplicationMenu (const QPoint &p)
+{
+    QPoint pnt = mDecor->widget ()->mapFromGlobal (p);
+
+    pnt += QPoint (mGeometry.x () - mBorder.left - mPadding.left,
+		   mGeometry.y () - mBorder.top - mPadding.top);
+
+    QList<QVariant> args = QList<QVariant> () << pnt.x () << pnt.y () << qulonglong (mClientId);
+    QDBusMessage method = QDBusMessage::createMethodCall (
+		    KDED_SERVICE, KDED_APPMENU_PATH, KDED_INTERFACE, "showMenu");
+    method.setArguments (args);
+    QDBusConnection::sessionBus ().asyncCall (method);
+}
+
+bool
+KWD::Window::menuAvailable () const
+{
+    return mAppMenuAvailable;
+}
+
+void
+KWD::Window::setAppMenuAvailable ()
+{
+    mAppMenuAvailable = true;
+    emit appMenuAvailable ();
+}
+
+void
+KWD::Window::setAppMenuUnavailable ()
+{
+    mAppMenuAvailable = false;
+    emit appMenuUnavailable ();
 }
 
 KWD::Options::MouseCommand
@@ -855,15 +971,17 @@ KWD::Window::buttonToWindowOperation(Qt::MouseButtons button)
 void
 KWD::Window::createDecoration (void)
 {
-    KDecoration *decor;
-
     if (mDecor)
 	return;
 
-    decor = Decorator::pluginManager ()->createDecoration (this);
-    decor->init ();
+    mDecor = Decorator::pluginManager ()->createDecoration (this);
 
-    mDecor = decor;
+    connect(this, SIGNAL(showRequest()), mDecor, SIGNAL(showRequest()));
+    connect(this, SIGNAL(appMenuAvailable()), mDecor, SIGNAL(appMenuAvailable()));
+    connect(this, SIGNAL(appMenuUnavailable()), mDecor, SIGNAL(appMenuUnavailable()));
+    connect(this, SIGNAL(menuHidden()), mDecor, SIGNAL(menuHidden()));
+
+    mDecor->init ();
     mDecor->widget ()->installEventFilter (this);
 
     if (mType != Normal2D)
@@ -875,7 +993,7 @@ KWD::Window::createDecoration (void)
 
     mPadding.top = mPadding.bottom = mPadding.left = mPadding.right = 0;
 
-    if (KDecorationUnstable *deco2 = dynamic_cast<KDecorationUnstable*>(decor))
+    if (KDecorationUnstable *deco2 = dynamic_cast<KDecorationUnstable*>(mDecor))
         deco2->padding (mPadding.left, mPadding.right, mPadding.top, mPadding.bottom);
 
     if (mType == Normal2D && mFrame)
@@ -1150,7 +1268,6 @@ KWD::Window::updateProperty (long         *data,
     unsigned int    frameType = 0xffffff;
     unsigned int    frameState = 0;
     unsigned int    frameActions = 0;
-    int		    nQuad = 0;
     int             left, right, top, bottom, width, height;
     unsigned int    saveState;
     bool            allocated = false;
@@ -1204,6 +1321,7 @@ KWD::Window::updateProperty (long         *data,
 
     if (mType != Normal2D)
     {
+      int nQuad = 0;
       if (!data)
       {
           allocated = true;
@@ -1463,9 +1581,7 @@ KWD::Window::getWindowProtocols (void)
 
     if (status)
     {
-	int i;
-
-	for (i = 0; i < n; i++)
+	for (int i = 0; i < n; ++i)
 	{
 	    if (p[i] == Atoms::wmTakeFocus)
 		mSupportTakeFocus = true;
@@ -1520,7 +1636,6 @@ KWD::Window::handlePopupAboutToShow (void)
     {
 	NETRootInfo *rootInfo = Decorator::rootInfo ();
 	QString	    name;
-	int	    i;
 	int	    winDesktop = desktop ();
 	QAction     *action;
 	const int   BASE = 10;
@@ -1535,7 +1650,7 @@ KWD::Window::handlePopupAboutToShow (void)
 	action->setChecked (winDesktop == NET::OnAllDesktops);
 	mDesktopMenu->addSeparator ();
 
-	for (i = 1; i <= numberOfDesktops; i++)
+	for (int i = 1; i <= numberOfDesktops; ++i)
 	{
 	    QString basic_name ("%1 %2");
 	    if (i < BASE)

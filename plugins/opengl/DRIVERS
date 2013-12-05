@@ -1,0 +1,76 @@
+Notes on Graphics Drivers
+=========================
+
+Please amend this file as you discover undocumented behaviour in various
+graphics drivers as it will assist other developers who may face similar
+problems in future.
+
+fglrx
+=====
+
+ 1. fglrx is currently detecting the binary name "compiz" and forcing
+    indirect mode rendering. This causes certain opengl functionality
+    such as GLSL, framebuffer objects and vertex buffer objects to
+    not work correctly even if they are advertised.
+
+ RESOLVED. WORKAROUND: Distributions should change the binary name
+ to something other than "compiz", either at ship time or execution time.
+
+nvidia
+======
+
+ 1. nvidia does not permit vertex array client states and vertex buffer
+    objects to be active at the same time. Eg, the following code has
+    undefined behaviour and will crash.
+
+    glEnableClientState (GL_VERTEX_ARRAY);
+    ...
+    glBindBufferARB (GL_ARRAY_BUFFER_ARB, vertexBuffer);
+    glDrawArrays (GL_TRIANGLES, 0, vertexBufferSize);
+
+ 2. nvidia does not permit mixing of extension and core functionality
+    tokens with extension entry points and core functionality entry
+    points. The following is undefined:
+
+    glBindFramebufferEXT (GL_FRAMEBUFFER, fboId);
+
+mesa
+====
+
+ 1. Mesa does not advertise GLX_BIND_TO_MIPMAP_TEXTURE_EXT even though
+    mipmap storage for GLXPixmaps are supported.
+
+ RESOLVED. WORKAROUND: Until this bug is fixed, detect when a Mesa driver
+ is running and force the usage of GLX_BIND_TO_MIPMAP_TEXTURE on all
+ 24 and 32 bit depth fbconfigs
+
+llvmpipe
+========
+
+ 1. llvmpipe does not support using glXSwapBuffers and glXCopySubBufferMESA
+    on the same front buffer
+
+ RESOLVED. WORKAROUND: detect when llvmpipe is active and force the usage
+ of glXSwapBuffers on every frame
+
+ 2. llvmpipe will crash when a pixmap does not exist on the server
+ side and glXBindTexImageEXT is used on it.
+
+ RESOLVED. WORKAROUND: grab the server, query the server as to
+ whether or not the pixmap exists, call glXBindTexImageEXT and
+ then release the server grab. This will ensure we never call
+ glXBindTexImageEXT on a destroyed pixmap.
+
+virtualbox
+==========
+
+ 1. vboxdrv requires the usage of a second X Server connection
+    inside of glXBindTexImageEXT. If compiz requires a server
+    grab at this time (eg, the pixmap may not have its lifetime
+    managed by us, see issue #2 in llvmpipe), then the driver
+    will hang in glXBindTexImageEXT as it must use this connection
+    in order to listen for any new damage events.
+
+ RESOLVED. WORKAROUND: force the usage of the copy-to-texture path
+ when using this driver ("Chromium") and binding an externally
+ managed pixmap to a texture

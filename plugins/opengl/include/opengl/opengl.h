@@ -28,25 +28,61 @@
 #ifndef _COMPIZ_OPENGL_H
 #define _COMPIZ_OPENGL_H
 
+#ifdef USE_GLES
+#define SUPPORT_X11
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#else
 #include <GL/gl.h>
 #include <GL/glx.h>
+#endif
+
+#include <core/size.h>
+#include <core/pluginclasshandler.h>
 
 #include <opengl/matrix.h>
 #include <opengl/texture.h>
-#include <opengl/fragment.h>
+#include <opengl/framebufferobject.h>
+#include <opengl/vertexbuffer.h>
+#include <opengl/program.h>
+#include <opengl/programcache.h>
+#include <opengl/shadercache.h>
 
-#define COMPIZ_OPENGL_ABI 4
+#define COMPIZ_OPENGL_ABI 6
 
-#include <core/pluginclasshandler.h>
+/*
+ * Some plugins check for #ifdef USE_MODERN_COMPIZ_GL. Support it for now, but
+ * but the offending code should be changed to:  #if COMPIZ_OPENGL_ABI >= 5
+ * Or the preprocessor checks should be removed altogether.
+ */
+#define USE_MODERN_COMPIZ_GL 1
+
+#if !defined(GL_BGRA)
+    #if !defined(GL_BGRA_EXT)
+	#error GL_BGRA support is required
+    #else
+	#define GL_BGRA GL_BGRA_EXT
+    #endif
+#endif
+
+#if !defined(GL_BGRA)
+    #if !defined(GL_BGRA_EXT)
+	#error GL_BGRA support is required
+    #else
+	#define GL_BGRA GL_BGRA_EXT
+    #endif
+#endif
 
 /**
  * camera distance from screen, 0.5 * tan (FOV)
  */
-#define DEFAULT_Z_CAMERA 0.866025404f
+extern const float DEFAULT_Z_CAMERA;
 
-#define RED_SATURATION_WEIGHT   0.30f
-#define GREEN_SATURATION_WEIGHT 0.59f
-#define BLUE_SATURATION_WEIGHT  0.11f
+extern const float RED_SATURATION_WEIGHT;
+extern const float GREEN_SATURATION_WEIGHT;
+extern const float BLUE_SATURATION_WEIGHT;
 
 class PrivateGLScreen;
 class PrivateGLWindow;
@@ -75,8 +111,26 @@ extern GLushort   defaultColor[4];
 #endif
 
 namespace GL {
+    #ifdef USE_GLES
+    typedef EGLImageKHR (*EGLCreateImageKHRProc)  (EGLDisplay dpy,
+                                                   EGLContext ctx,
+                                                   EGLenum target,
+                                                   EGLClientBuffer buffer,
+                                                   const EGLint *attrib_list);
+    typedef EGLBoolean  (*EGLDestroyImageKHRProc) (EGLDisplay dpy,
+                                                   EGLImageKHR image);
 
+    typedef void (*GLEGLImageTargetTexture2DOESProc) (GLenum target,
+                                                      GLeglImageOES image);
+
+    typedef EGLBoolean (*EGLPostSubBufferNVProc) (EGLDisplay dpy,
+						  EGLSurface surface,
+						  EGLint x, EGLint y,
+						  EGLint width, EGLint height);
+
+    #else
     typedef void (*FuncPtr) (void);
+
     typedef FuncPtr (*GLXGetProcAddressProc) (const GLubyte *procName);
 
     typedef void    (*GLXBindTexImageProc)    (Display	 *display,
@@ -122,11 +176,6 @@ namespace GL {
 					      const int   *attribList);
     typedef void      (*GLXDestroyPixmapProc) (Display *display,
     					       GLXPixmap pixmap);
-
-    typedef void (*GLActiveTextureProc) (GLenum texture);
-    typedef void (*GLClientActiveTextureProc) (GLenum texture);
-    typedef void (*GLMultiTexCoord2fProc) (GLenum, GLfloat, GLfloat);
-
     typedef void (*GLGenProgramsProc) (GLsizei n,
 				       GLuint  *programs);
     typedef void (*GLDeleteProgramsProc) (GLsizei n,
@@ -146,11 +195,16 @@ namespace GL {
     typedef void (*GLGetProgramivProc) (GLenum target,
 					GLenum pname,
 					int    *params);
+    #endif
+
+    typedef void (*GLActiveTextureProc) (GLenum texture);
+    typedef void (*GLClientActiveTextureProc) (GLenum texture);
+    typedef void (*GLMultiTexCoord2fProc) (GLenum, GLfloat, GLfloat);
 
     typedef void (*GLGenFramebuffersProc) (GLsizei n,
 					   GLuint  *framebuffers);
     typedef void (*GLDeleteFramebuffersProc) (GLsizei n,
-					      GLuint  *framebuffers);
+					      const GLuint  *framebuffers);
     typedef void (*GLBindFramebufferProc) (GLenum target,
 					   GLuint framebuffer);
     typedef GLenum (*GLCheckFramebufferStatusProc) (GLenum target);
@@ -161,6 +215,136 @@ namespace GL {
 						GLint  level);
     typedef void (*GLGenerateMipmapProc) (GLenum target);
 
+    typedef void (*GLBindBufferProc) (GLenum target,
+                                      GLuint buffer);
+    typedef void (*GLDeleteBuffersProc) (GLsizei n,
+                                         const GLuint *buffers);
+    typedef void (*GLGenBuffersProc) (GLsizei n,
+                                      GLuint *buffers);
+    typedef void (*GLBufferDataProc) (GLenum target,
+                                      GLsizeiptr size,
+                                      const GLvoid *data,
+                                      GLenum usage);
+    typedef void (*GLBufferSubDataProc) (GLenum target,
+                                         GLintptr offset,
+                                         GLsizeiptr size,
+                                         const GLvoid *data);
+
+    typedef void (*GLGetShaderivProc) (GLuint shader,
+                                       GLenum pname,
+                                       GLint *params);
+    typedef void (*GLGetShaderInfoLogProc) (GLuint shader,
+                                            GLsizei bufsize,
+                                            GLsizei *length,
+                                            GLchar *infoLog);
+    typedef void (*GLGetProgramivProc) (GLuint program,
+                                        GLenum pname,
+                                        GLint* params);
+    typedef void (*GLGetProgramInfoLogProc) (GLuint program,
+                                             GLsizei bufsize,
+                                             GLsizei *length,
+                                             GLchar *infoLog);
+    typedef GLuint (*GLCreateShaderProc) (GLenum type);
+    typedef void (*GLShaderSourceProc) (GLuint shader,
+                                        GLsizei count,
+                                        const GLchar **string,
+                                        const GLint* length);
+    typedef void (*GLCompileShaderProc) (GLuint shader);
+    typedef GLuint (*GLCreateProgramProc) ();
+    typedef void (*GLAttachShaderProc) (GLuint program,
+                                        GLuint shader);
+    typedef void (*GLLinkProgramProc) (GLuint program);
+    typedef void (*GLValidateProgramProc) (GLuint program);
+    typedef void (*GLDeleteShaderProc) (GLuint shader);
+    typedef void (*GLDeleteProgramProc) (GLuint program);
+    typedef void (*GLUseProgramProc) (GLuint program);
+    typedef int  (*GLGetUniformLocationProc) (GLuint program,
+                                              const GLchar* name);
+    typedef void (*GLUniform1fProc) (GLint location, GLfloat x);
+    typedef void (*GLUniform1iProc) (GLint location, GLint x);
+    typedef void (*GLUniform2fProc) (GLint location, GLfloat x, GLfloat y);
+    typedef void (*GLUniform3fProc) (GLint location,
+                                     GLfloat x,
+                                     GLfloat y,
+                                     GLfloat z);
+    typedef void (*GLUniform4fProc) (GLint location,
+                                     GLfloat x,
+                                     GLfloat y,
+                                     GLfloat z,
+                                     GLfloat w);
+    typedef void (*GLUniform2iProc) (GLint location, GLint x, GLint y);
+    typedef void (*GLUniform3iProc) (GLint location,
+                                     GLint x,
+                                     GLint y,
+                                     GLint z);
+    typedef void (*GLUniform4iProc) (GLint location,
+                                     GLint x,
+                                     GLint y,
+                                     GLint z,
+                                     GLint w);
+    typedef void (*GLUniformMatrix4fvProc) (GLint location,
+                                            GLsizei count,
+                                            GLboolean transpose,
+                                            const GLfloat *value);
+    typedef int (*GLGetAttribLocationProc) (GLuint program,
+                                            const GLchar *name);
+
+    typedef void (*GLEnableVertexAttribArrayProc) (GLuint index);
+    typedef void (*GLDisableVertexAttribArrayProc) (GLuint index);
+    typedef void (*GLVertexAttribPointerProc) (GLuint index,
+                                               GLint size,
+                                               GLenum type,
+                                               GLboolean normalized,
+                                               GLsizei stride,
+                                               const GLvoid *ptr);
+
+    typedef void (*GLGenRenderbuffersProc) (GLsizei n,
+					GLuint  *rb);
+    typedef void (*GLDeleteRenderbuffersProc) (GLsizei n,
+					   const GLuint  *rb);
+    typedef void (*GLBindRenderbufferProc) (GLenum target,
+					GLuint renderbuffer);
+    typedef void (*GLFramebufferRenderbufferProc) (GLenum target,
+					       GLenum attachment,
+					       GLenum renderbuffertarget,
+					       GLuint renderbuffer);
+    typedef void (*GLRenderbufferStorageProc) (GLenum target,
+					   GLenum internalformat,
+					   GLsizei width,
+					   GLsizei height);
+
+
+    /* GL_ARB_shader_objects */
+    #ifndef USE_GLES
+    typedef GLhandleARB (*GLCreateShaderObjectARBProc) (GLenum type);
+    typedef GLhandleARB (*GLCreateProgramObjectARBProc) ();
+    typedef void (*GLShaderSourceARBProc) (GLhandleARB shader,
+                                        GLsizei count,
+                                        const GLchar **string,
+                                        const GLint* length);
+    typedef void (*GLCompileShaderARBProc) (GLhandleARB shader);
+    typedef void (*GLValidateProgramARBProc) (GLhandleARB program);
+    typedef void (*GLDeleteObjectARBProc) (GLhandleARB object);
+    typedef void (*GLAttachObjectARBProc) (GLhandleARB program,
+                                        GLhandleARB shader);
+    typedef void (*GLLinkProgramARBProc) (GLhandleARB program);
+    typedef void (*GLUseProgramObjectARBProc) (GLhandleARB program);
+    typedef int  (*GLGetUniformLocationARBProc) (GLhandleARB program,
+                                              const GLchar* name);
+    typedef int (*GLGetAttribLocationARBProc) (GLhandleARB program,
+                                            const GLchar *name);
+
+    typedef void (*GLGetObjectParameterivProc) (GLhandleARB object, GLenum type, int *param);
+    typedef void (*GLGetInfoLogProc) (GLhandleARB object, int maxLen, int *len, char *log);
+    #endif
+
+    #ifdef USE_GLES
+    extern EGLCreateImageKHRProc  createImage;
+    extern EGLDestroyImageKHRProc destroyImage;
+
+    extern GLEGLImageTargetTexture2DOESProc eglImageTargetTexture;
+
+    #else
     extern GLXBindTexImageProc      bindTexImage;
     extern GLXReleaseTexImageProc   releaseTexImage;
     extern GLXQueryDrawableProc     queryDrawable;
@@ -172,11 +356,6 @@ namespace GL {
     extern GLXGetFBConfigAttribProc getFBConfigAttrib;
     extern GLXCreatePixmapProc      createPixmap;
     extern GLXDestroyPixmapProc     destroyPixmap;
-
-    extern GLActiveTextureProc       activeTexture;
-    extern GLClientActiveTextureProc clientActiveTexture;
-    extern GLMultiTexCoord2fProc     multiTexCoord2f;
-
     extern GLGenProgramsProc        genPrograms;
     extern GLDeleteProgramsProc     deletePrograms;
     extern GLBindProgramProc        bindProgram;
@@ -184,6 +363,11 @@ namespace GL {
     extern GLProgramParameter4fProc programEnvParameter4f;
     extern GLProgramParameter4fProc programLocalParameter4f;
     extern GLGetProgramivProc       getProgramiv;
+    #endif
+
+    extern GLActiveTextureProc       activeTexture;
+    extern GLClientActiveTextureProc clientActiveTexture;
+    extern GLMultiTexCoord2fProc     multiTexCoord2f;
 
     extern GLGenFramebuffersProc        genFramebuffers;
     extern GLDeleteFramebuffersProc     deleteFramebuffers;
@@ -192,20 +376,181 @@ namespace GL {
     extern GLFramebufferTexture2DProc   framebufferTexture2D;
     extern GLGenerateMipmapProc         generateMipmap;
 
+    extern GLBindBufferProc    bindBuffer;
+    extern GLDeleteBuffersProc deleteBuffers;
+    extern GLGenBuffersProc    genBuffers;
+    extern GLBufferDataProc    bufferData;
+    extern GLBufferSubDataProc bufferSubData;
+
+
+    extern GLGetShaderivProc        getShaderiv;
+    extern GLGetShaderInfoLogProc   getShaderInfoLog;
+    extern GLGetProgramivProc       getProgramiv;
+    extern GLGetProgramInfoLogProc  getProgramInfoLog;
+    extern GLCreateShaderProc       createShader;
+    extern GLShaderSourceProc       shaderSource;
+    extern GLCompileShaderProc      compileShader;
+    extern GLCreateProgramProc      createProgram;
+    extern GLAttachShaderProc       attachShader;
+    extern GLLinkProgramProc        linkProgram;
+    extern GLValidateProgramProc    validateProgram;
+    extern GLDeleteShaderProc       deleteShader;
+    extern GLDeleteProgramProc      deleteProgram;
+    extern GLUseProgramProc         useProgram;
+    extern GLGetUniformLocationProc getUniformLocation;
+    extern GLUniform1fProc          uniform1f;
+    extern GLUniform1iProc          uniform1i;
+    extern GLUniform2fProc          uniform2f;
+    extern GLUniform2iProc          uniform2i;
+    extern GLUniform3fProc          uniform3f;
+    extern GLUniform3iProc          uniform3i;
+    extern GLUniform4fProc          uniform4f;
+    extern GLUniform4iProc          uniform4i;
+    extern GLUniformMatrix4fvProc   uniformMatrix4fv;
+    extern GLGetAttribLocationProc  getAttribLocation;
+
+    extern GLEnableVertexAttribArrayProc  enableVertexAttribArray;
+    extern GLDisableVertexAttribArrayProc disableVertexAttribArray;
+    extern GLVertexAttribPointerProc      vertexAttribPointer;
+
+    extern GLGenRenderbuffersProc genRenderbuffers;
+    extern GLDeleteRenderbuffersProc deleteRenderbuffers;
+    extern GLBindRenderbufferProc    bindRenderbuffer;
+    extern GLFramebufferRenderbufferProc framebufferRenderbuffer;
+    extern GLRenderbufferStorageProc renderbufferStorage;
+
+    #ifndef USE_GLES
+    extern GLCreateShaderObjectARBProc createShaderObjectARB;
+    extern GLCreateProgramObjectARBProc createProgramObjectARB;
+    extern GLShaderSourceARBProc shaderSourceARB;
+    extern GLCompileShaderARBProc compileShaderARB;
+    extern GLValidateProgramARBProc validateProgramARB;
+    extern GLDeleteObjectARBProc deleteObjectARB;
+    extern GLAttachObjectARBProc attachObjectARB;
+    extern GLLinkProgramARBProc linkProgramARB;
+    extern GLUseProgramObjectARBProc useProgramObjectARB;
+    extern GLGetUniformLocationARBProc getUniformLocationARB;
+    extern GLGetAttribLocationARBProc getAttribLocationARB;
+
+    extern GLGetObjectParameterivProc   getObjectParameteriv;
+    extern GLGetInfoLogProc	    getInfoLog;
+    #endif
+
+#ifdef USE_GLES
+
+    static const GLenum 		    FRAMEBUFFER_BINDING = GL_FRAMEBUFFER_BINDING;
+    static const GLenum 		    FRAMEBUFFER = GL_FRAMEBUFFER;
+    static const GLenum			    RENDERBUFFER = GL_RENDERBUFFER;
+    static const GLenum 		    COLOR_ATTACHMENT0 = GL_COLOR_ATTACHMENT0;
+    static const GLenum 		    DEPTH_ATTACHMENT = GL_DEPTH_ATTACHMENT;
+    static const GLenum			    STENCIL_ATTACHMENT = GL_STENCIL_ATTACHMENT;
+    static const GLenum			    DEPTH24_STENCIL8 = GL_DEPTH24_STENCIL8_OES;
+
+    /* OpenGL|ES does not support different draw/read framebuffers */
+    static const GLenum 		    DRAW_FRAMEBUFFER = GL_FRAMEBUFFER;
+    static const GLenum 		    READ_FRAMEBUFFER = GL_FRAMEBUFFER;
+    static const GLenum	                    DRAW_FRAMEBUFFER_BINDING = FRAMEBUFFER_BINDING;
+    static const GLenum	                    READ_FRAMEBUFFER_BINDING = FRAMEBUFFER_BINDING;
+
+    static const GLenum 		    FRAMEBUFFER_COMPLETE = GL_FRAMEBUFFER_COMPLETE;
+    static const GLenum 		    FRAMEBUFFER_UNDEFINED = 0;
+    static const GLenum 		    FRAMEBUFFER_INCOMPLETE_ATTACHMENT = GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
+    static const GLenum 		    FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT = GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT;
+    static const GLenum 		    FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER = 0;
+    static const GLenum 		    FRAMEBUFFER_INCOMPLETE_READ_BUFFER = 0;
+    static const GLenum 		    FRAMEBUFFER_UNSUPPORTED = GL_FRAMEBUFFER_UNSUPPORTED;
+    static const GLenum 		    FRAMEBUFFER_INCOMPLETE_MULTISAMPLE = 0;
+    static const GLenum 		    FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS = 0;
+    static const GLenum 		    FRAMEBUFFER_INCOMPLETE_DIMENSIONS = GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS;
+
+    static const GLenum 		    ARRAY_BUFFER = GL_ARRAY_BUFFER;
+    static const GLenum 		    STATIC_DRAW = GL_STATIC_DRAW;
+    static const GLenum 		    STREAM_DRAW = GL_STREAM_DRAW;
+    static const GLenum 		    DYNAMIC_DRAW = GL_DYNAMIC_DRAW;
+
+    static const GLenum 		    INFO_LOG_LENGTH = GL_INFO_LOG_LENGTH;
+    static const GLenum 		    COMPILE_STATUS = GL_COMPILE_STATUS;
+    static const GLenum 		    LINK_STATUS = GL_LINK_STATUS;
+    static const GLenum 		    FRAGMENT_SHADER = GL_FRAGMENT_SHADER;
+    static const GLenum 		    VERTEX_SHADER = GL_VERTEX_SHADER;
+
+#else
+
+    static const GLenum 		  FRAMEBUFFER_BINDING = GL_FRAMEBUFFER_BINDING_EXT;
+    static const GLenum 		  FRAMEBUFFER = GL_FRAMEBUFFER_EXT;
+    static const GLenum			  RENDERBUFFER = GL_RENDERBUFFER;
+    static const GLenum 		  COLOR_ATTACHMENT0 = GL_COLOR_ATTACHMENT0_EXT;
+    static const GLenum 		  DEPTH_ATTACHMENT = GL_DEPTH_ATTACHMENT_EXT;
+    static const GLenum			  STENCIL_ATTACHMENT = GL_STENCIL_ATTACHMENT_EXT;
+    static const GLenum			  DEPTH24_STENCIL8 = GL_DEPTH24_STENCIL8_EXT;
+
+    static const GLenum 		  DRAW_FRAMEBUFFER = GL_DRAW_FRAMEBUFFER_EXT;
+    static const GLenum 		  READ_FRAMEBUFFER = GL_READ_FRAMEBUFFER_EXT;
+    static const GLenum	                  DRAW_FRAMEBUFFER_BINDING = GL_DRAW_FRAMEBUFFER_BINDING_EXT;
+    static const GLenum	                  READ_FRAMEBUFFER_BINDING = GL_READ_FRAMEBUFFER_BINDING_EXT;
+    static const GLenum 		  FRAMEBUFFER_COMPLETE = GL_FRAMEBUFFER_COMPLETE_EXT;
+    static const GLenum 		  FRAMEBUFFER_UNDEFINED = GL_FRAMEBUFFER_UNDEFINED;
+    static const GLenum 		  FRAMEBUFFER_INCOMPLETE_ATTACHMENT = GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT;
+    static const GLenum 		  FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT = GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT;
+    static const GLenum 		  FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER = GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT;
+    static const GLenum 		  FRAMEBUFFER_INCOMPLETE_READ_BUFFER = GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER_EXT;
+    static const GLenum 		  FRAMEBUFFER_UNSUPPORTED = GL_FRAMEBUFFER_UNSUPPORTED_EXT;
+    static const GLenum 		  FRAMEBUFFER_INCOMPLETE_MULTISAMPLE = GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE_EXT;
+    static const GLenum 		  FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS = GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS_EXT;
+    static const GLenum 		  FRAMEBUFFER_INCOMPLETE_DIMENSIONS = 0;
+
+    static const GLenum 		  ARRAY_BUFFER = GL_ARRAY_BUFFER_ARB;
+    static const GLenum 		  STATIC_DRAW = GL_STATIC_DRAW_ARB;
+    static const GLenum 		  STREAM_DRAW = GL_STREAM_DRAW_ARB;
+    static const GLenum 		  DYNAMIC_DRAW = GL_DYNAMIC_DRAW_ARB;
+
+    static const GLenum 		  INFO_LOG_LENGTH = GL_OBJECT_INFO_LOG_LENGTH_ARB;
+    static const GLenum 		  COMPILE_STATUS = GL_OBJECT_COMPILE_STATUS_ARB;
+    static const GLenum 		  LINK_STATUS = GL_OBJECT_LINK_STATUS_ARB;
+    static const GLenum 		  FRAGMENT_SHADER = GL_FRAGMENT_SHADER_ARB;
+    static const GLenum 		  VERTEX_SHADER = GL_VERTEX_SHADER_ARB;
+
+#endif
+
     extern bool  textureFromPixmap;
     extern bool  textureRectangle;
     extern bool  textureNonPowerOfTwo;
+    extern bool  textureNonPowerOfTwoMipmap;
     extern bool  textureEnvCombine;
     extern bool  textureEnvCrossbar;
     extern bool  textureBorderClamp;
     extern bool  textureCompression;
     extern GLint maxTextureSize;
-    extern bool  fbo;
-    extern bool  fragmentProgram;
+    extern bool  fboSupported;
+    extern bool  fboStencilSupported;
+    extern bool  fboEnabled;
+    extern bool  vboSupported;
+    extern bool  vboEnabled;
+    extern bool  shaders;
+    extern bool  stencilBuffer;
     extern GLint maxTextureUnits;
 
     extern bool canDoSaturated;
     extern bool canDoSlightlySaturated;
+
+#ifndef USE_GLES
+    void getProgramInfoLogARBWrapper (GLuint object, int maxLen, int *len, char *log);
+    void getShaderInfoLogARBWrapper (GLuint object, int maxLen, int *len, char *log);
+    void getShaderivARBWrapper (GLuint object, GLenum type, int *param);
+    void getProgramivARBWrapper (GLuint object, GLenum type, int *param);
+    GLuint createShaderARBWrapper (GLenum type);
+    GLuint createProgramARBWrapper (GLenum type);
+    void shaderSourceARBWrapper (GLuint shader, GLsizei count, const GLchar **string, const GLint *length);
+    void compileShaderARBWrapper (GLuint shader);
+    void validateProgramARBWrapper (GLuint program);
+    void deleteShaderARBWrapper (GLuint shader);
+    void deleteProgramARBWrapper (GLuint program);
+    void attachShaderARBWrapper (GLuint program, GLuint shader);
+    void linkProgramARBWrapper (GLuint program);
+    void useProgramARBWrapper (GLuint program);
+    int getUniformLocationARBWrapper (GLuint program, const GLchar *name);
+    int getAttribLocationARBWrapper (GLuint program, const GLchar *name);
+#endif
 };
 
 struct GLScreenPaintAttrib {
@@ -220,6 +565,7 @@ struct GLScreenPaintAttrib {
 
 #define MAX_DEPTH 32
 
+#ifndef USE_GLES
 struct GLFBConfig {
     GLXFBConfig fbConfig;
     int         yInverted;
@@ -227,15 +573,19 @@ struct GLFBConfig {
     int         textureFormat;
     int         textureTargets;
 };
+#endif
 
-#define NOTHING_TRANS_FILTER 0
-#define SCREEN_TRANS_FILTER  1
-#define WINDOW_TRANS_FILTER  2
+extern const unsigned short NOTHING_TRANS_FILTER;
+extern const unsigned short SCREEN_TRANS_FILTER;
+extern const unsigned short WINDOW_TRANS_FILTER;
 
 
 extern GLScreenPaintAttrib defaultScreenPaintAttrib;
 
 class GLScreen;
+class GLFramebufferObject;
+class GLScreenInterface;
+extern template class WrapableInterface<GLScreen, GLScreenInterface>;
 
 class GLScreenInterface :
     public WrapableInterface<GLScreen, GLScreenInterface>
@@ -302,11 +652,33 @@ class GLScreenInterface :
 					     CompOutput *);
 	virtual void glDisableOutputClipping ();
 
+	virtual GLMatrix *projectionMatrix ();
+
+	/**
+	 * Hookable function used by plugins to shade the final composited
+	 * Output.
+	 *
+	 * @param tmpRegion Describes the final composited output region
+	 * @param scratchFbo Describes the final composited FBO that is
+	 * to be rendered.
+	 */
+	virtual void glPaintCompositedOutput (const CompRegion    &region,
+					      GLFramebufferObject *fbo,
+					      unsigned int         mask);
+
+	/**
+	 * Hookable function used by plugins to determine stenciling mask
+	 */
+	virtual void glBufferStencil (const GLMatrix       &matrix,
+				      GLVertexBuffer       &vertexBuffer,
+				      CompOutput           *output);
+
 };
 
+extern template class PluginClassHandler<GLScreen, CompScreen, COMPIZ_OPENGL_ABI>;
 
 class GLScreen :
-    public WrapableHandler<GLScreenInterface, 6>,
+    public WrapableHandler<GLScreenInterface, 8>,
     public PluginClassHandler<GLScreen, CompScreen, COMPIZ_OPENGL_ABI>,
     public CompOption::Class
 {
@@ -332,7 +704,9 @@ class GLScreen :
 	/**
 	 * Gets the libGL address of a particular openGL functor
 	 */
+	#ifndef USE_GLES
 	GL::FuncPtr getProcAddress (const char *name);
+	#endif
 
 	void updateBackground ();
 
@@ -346,8 +720,6 @@ class GLScreen :
 	 */
 	void setFilter (int, GLTexture::Filter);
 
-	GLFragment::Storage * fragmentStorage ();
-
 	/**
 	 * Sets a new compiz-wid openGL texture environment mode
 	 */
@@ -356,7 +728,6 @@ class GLScreen :
 	/**
 	 * Turns lighting on and off
 	 */
-
 	void setLighting (bool lighting);
 
 	/**
@@ -371,7 +742,28 @@ class GLScreen :
 	GLTexture::BindPixmapHandle registerBindPixmap (GLTexture::BindPixmapProc);
 	void unregisterBindPixmap (GLTexture::BindPixmapHandle);
 
+	#ifndef USE_GLES
 	GLFBConfig * glxPixmapFBConfig (unsigned int depth);
+	#endif
+
+	#ifdef USE_GLES
+	EGLContext getEGLContext ();
+	#endif
+
+	/**
+	 * Returns a GLProgram from the cache or creates one and caches it
+	 */
+	GLProgram *getProgram (std::list<const GLShaderData*>);
+
+	/**
+	 * Returns a GLShaderData from the cache or creates one and caches it
+	 */
+	const GLShaderData *getShaderData (GLShaderParameters &params);
+
+	/**
+	 * Returns the FBO compiz is using for the screen
+	 */
+	GLFramebufferObject *fbo ();
 
 	/**
 	 * Returns a default icon texture
@@ -379,12 +771,6 @@ class GLScreen :
 	GLTexture *defaultIcon ();
 
 	void resetRasterPos ();
-
-	/**
-	 * Returns a 4x4 const float array which
-	 * represents the current projection matrix
-	 */
-	const float * projectionMatrix ();
 
 	bool glInitContext (XVisualInfo *);
 
@@ -402,7 +788,16 @@ class GLScreen :
 		      const GLMatrix &, const CompRegion &, CompOutput *);
 	WRAPABLE_HND (4, GLScreenInterface, void, glDisableOutputClipping);
 
+	WRAPABLE_HND (5, GLScreenInterface, GLMatrix *, projectionMatrix);
+	WRAPABLE_HND (6, GLScreenInterface, void, glPaintCompositedOutput,
+		      const CompRegion &, GLFramebufferObject *, unsigned int);
+
+	WRAPABLE_HND (7, GLScreenInterface, void, glBufferStencil, const GLMatrix &,
+		      GLVertexBuffer &,
+		      CompOutput *);
+
 	friend class GLTexture;
+	friend class GLWindow;
 
     private:
 	PrivateGLScreen *priv;
@@ -419,6 +814,8 @@ struct GLWindowPaintAttrib {
 };
 
 class GLWindow;
+class GLWindowInterface;
+extern template class WrapableInterface<GLWindow, GLWindowInterface>;
 
 class GLWindowInterface :
     public WrapableInterface<GLWindow, GLWindowInterface>
@@ -454,7 +851,7 @@ class GLWindowInterface :
 	 * @param mask   Bitmask which describes how this window is drawn
 	 */
 	virtual bool glDraw (const GLMatrix 	&matrix,
-			     GLFragment::Attrib &attrib,
+			     const GLWindowPaintAttrib &attrib,
 			     const CompRegion 	&region,
 			     unsigned int	mask);
 
@@ -479,51 +876,20 @@ class GLWindowInterface :
 				    const CompRegion 		&clipRegion,
 				    unsigned int		min = MAXSHORT,
 				    unsigned int		max = MAXSHORT);
-	virtual void glDrawTexture (GLTexture *texture, GLFragment::Attrib &,
-				    unsigned int);
-	virtual void glDrawGeometry ();
+	virtual void glDrawTexture (GLTexture *texture, const GLMatrix &,
+	                            const GLWindowPaintAttrib &, unsigned int);
 };
 
+extern template class PluginClassHandler<GLWindow, CompWindow, COMPIZ_OPENGL_ABI>;
+
 class GLWindow :
-    public WrapableHandler<GLWindowInterface, 5>,
+    public WrapableHandler<GLWindowInterface, 4>,
     public PluginClassHandler<GLWindow, CompWindow, COMPIZ_OPENGL_ABI>
 {
     public:
 
-	/**
-	 * Class which describes the texture geometry and transformation points
-	 * of a window
-	 */
-	class Geometry {
-	    public:
-		Geometry ();
-		~Geometry ();
-
-		void reset ();
-
-		/**
-		 * Set the number of vertices in the texture geometry
-		 */
-		bool moreVertices (int newSize);
-
-		/**
-		 * Set the number of indices in the texture geometry
-		 */
-		bool moreIndices (int newSize);
-
-	    public:
-		GLfloat  *vertices;
-		int      vertexSize;
-		int      vertexStride;
-		GLushort *indices;
-		int      indexSize;
-		int      vCount;
-		int      texUnits;
-		int      texCoordSize;
-		int      indexCount;
-	};
-
 	static GLWindowPaintAttrib defaultPaintAttrib;
+
     public:
 
 	GLWindow (CompWindow *w);
@@ -566,9 +932,20 @@ class GLWindow :
 	void updatePaintAttribs ();
 
 	/**
-	 * Returns the window texture geometry
+	 * Returns the window vertex buffer object
 	 */
-	Geometry & geometry ();
+	GLVertexBuffer * vertexBuffer ();
+
+	/**
+	 * Add a vertex and/or fragment shader function to the pipeline.
+	 *
+	 * @param name Name of the plugin adding the functions
+	 * @param vertex_shader Function to add to the vertex shader
+	 * @param fragment_shader Function to add to the fragment shader
+	 */
+	void addShaders (std::string name,
+	                 std::string vertex_shader,
+	                 std::string fragment_shader);
 
 	GLTexture *getIcon (int width, int height);
 
@@ -576,14 +953,15 @@ class GLWindow :
 		      const GLWindowPaintAttrib &, const GLMatrix &,
 		      const CompRegion &, unsigned int);
 	WRAPABLE_HND (1, GLWindowInterface, bool, glDraw, const GLMatrix &,
-		      GLFragment::Attrib &, const CompRegion &, unsigned int);
+		      const GLWindowPaintAttrib &, const CompRegion &,
+	              unsigned int);
 	WRAPABLE_HND (2, GLWindowInterface, void, glAddGeometry,
 		      const GLTexture::MatrixList &, const CompRegion &,
 		      const CompRegion &,
 		      unsigned int = MAXSHORT, unsigned int = MAXSHORT);
 	WRAPABLE_HND (3, GLWindowInterface, void, glDrawTexture,
-		      GLTexture *texture, GLFragment::Attrib &, unsigned int);
-	WRAPABLE_HND (4, GLWindowInterface, void, glDrawGeometry);
+		      GLTexture *texture, const GLMatrix &,
+	              const GLWindowPaintAttrib &, unsigned int);
 
 	friend class GLScreen;
 	friend class PrivateGLScreen;
@@ -593,3 +971,4 @@ class GLWindow :
 };
 
 #endif
+

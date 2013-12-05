@@ -6,9 +6,9 @@
 #endif
 
 /* overlap types */
-#define NONE    0
-#define H_WRONG -1
-#define W_WRONG -2
+static const unsigned short NONE = 0;
+static const short H_WRONG = -1;
+static const short W_WRONG = -2;
 
 namespace compiz
 {

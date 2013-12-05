@@ -25,7 +25,6 @@
 
 #include "test-timer.h"
 #include <ctime>
-#include <pthread.h>
 #include <boost/noncopyable.hpp>
 
 using ::testing::InSequence;
@@ -56,8 +55,6 @@ class MockCompTimerTestCallbackDispatchTable :
     boost::noncopyable
 {
 public:
-
-    static const unsigned int MaxAllowedCalls = 10;
 
     MOCK_METHOD1 (callback1, bool (unsigned int));
     MOCK_METHOD1 (callback2, bool (unsigned int));
@@ -127,18 +124,6 @@ protected:
     unsigned int    mLastAdded;
     MockCompTimerTestCallbackDispatchTable *mDispatchTable;
 
-    static void * runThread (void * cb)
-    {
-	if (cb == NULL)
-	{
-	    return NULL;
-	}
-	static_cast <CompTimerTestCallback *> (cb)->ml->run ();
-	return NULL;
-    }
-
-    pthread_t mMainLoopThread;
-
     void AddTimer (unsigned int min,
 		   unsigned int max,
 		   const boost::function <bool ()> &callback,
@@ -161,7 +146,7 @@ protected:
     void Run ()
     {
 	for (std::deque <CompTimer *>::iterator it = timers.begin ();
-	     it != timers.end (); it++)
+	     it != timers.end (); ++it)
 	    (*it)->start ();
 
 	/* TimeoutHandler::timers should have the timer that
@@ -195,11 +180,7 @@ protected:
 	    FAIL () << "timer with the most time is not at the back";
 	}
 
-	ASSERT_EQ (0,
-		   pthread_create (&mMainLoopThread, NULL,
-				   CompTimerTestCallback::runThread, this));
-
-	pthread_join (mMainLoopThread, NULL);
+	ml->run ();
     }
 
     void SetUp ()
@@ -217,8 +198,8 @@ protected:
 
 TEST_F(CompTimerTestCallback, TimerOrder)
 {
-    AddTimer (100, 110, boost::bind (&MockCompTimerTestCallbackDispatchTable::callback1, mDispatchTable, 0), 10);
-    AddTimer (50, 90, boost::bind (&MockCompTimerTestCallbackDispatchTable::callback2, mDispatchTable, 1), 10);
+    AddTimer (1000, 1100, boost::bind (&MockCompTimerTestCallbackDispatchTable::callback1, mDispatchTable, 0), 3);
+    AddTimer (500, 900, boost::bind (&MockCompTimerTestCallbackDispatchTable::callback2, mDispatchTable, 1), 6);
     AddTimer (0, 0, boost::bind (&MockCompTimerTestCallbackDispatchTable::callback3, mDispatchTable, 2), 10);
 
     /* TimeoutHandler::timers should be empty since no timers have started */
@@ -235,18 +216,7 @@ TEST_F(CompTimerTestCallback, TimerOrder)
     EXPECT_CALL (*mDispatchTable, callback1 (0)).Times (1);
     EXPECT_CALL (*mDispatchTable, callback2 (1)).Times (1);
     EXPECT_CALL (*mDispatchTable, callback2 (1)).Times (1);
-    EXPECT_CALL (*mDispatchTable, callback1 (0)).Times (1);
     EXPECT_CALL (*mDispatchTable, callback2 (1)).Times (1);
-    EXPECT_CALL (*mDispatchTable, callback1 (0)).Times (1);
-    EXPECT_CALL (*mDispatchTable, callback2 (1)).Times (1);
-    EXPECT_CALL (*mDispatchTable, callback1 (0)).Times (1);
-    EXPECT_CALL (*mDispatchTable, callback2 (1)).Times (1);
-    EXPECT_CALL (*mDispatchTable, callback2 (1)).Times (1);
-    EXPECT_CALL (*mDispatchTable, callback1 (0)).Times (1);
-    EXPECT_CALL (*mDispatchTable, callback2 (1)).Times (1);
-    EXPECT_CALL (*mDispatchTable, callback1 (0)).Times (1);
-    EXPECT_CALL (*mDispatchTable, callback1 (0)).Times (1);
-    EXPECT_CALL (*mDispatchTable, callback1 (0)).Times (1);
 
     Run ();
 }

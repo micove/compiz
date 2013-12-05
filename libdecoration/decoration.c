@@ -225,7 +225,7 @@ decor_quads_to_property (long		 *data,
 	*data++ = quad->m.x0;
 	*data++ = quad->m.y0;
 
-	quad++;
+	++quad;
     }
 }
 
@@ -336,7 +336,7 @@ decor_pixmap_property_to_quads (long		 *data,
 
     n = *data++;
 
-    for (i = 0; i < n; i++)
+    for (i = 0; i < n; ++i)
     {
 	flags = *data++;
 
@@ -363,7 +363,7 @@ decor_pixmap_property_to_quads (long		 *data,
 	quad->m.x0 = *data++;
 	quad->m.y0 = *data++;
 
-	quad++;
+	++quad;
     }
 
     return n;
@@ -374,6 +374,17 @@ decor_point_cmp (const decor_point_t *a, const decor_point_t *b)
 {
     /* Use binary | to avoid branch prediction slow-downs */
     return (a->x - b->x) | (a->y - b->y) | (a->gravity - b->gravity);
+}
+
+int
+decor_shadow_options_cmp (const decor_shadow_options_t *a,
+			  const decor_shadow_options_t *b)
+{
+    return (a->shadow_radius != b->shadow_radius) ||
+	   (a->shadow_opacity != b->shadow_opacity) ||
+	   (a->shadow_offset_x != b->shadow_offset_x) ||
+	   (a->shadow_offset_y != b->shadow_offset_y) ||
+	   memcmp (a->shadow_color, b->shadow_color, sizeof (unsigned short) * 3);
 }
 
 static int
@@ -402,7 +413,7 @@ decor_quad_cmp (const decor_quad_t *a, const decor_quad_t *b)
            );
 }
 
-static int
+int
 decor_extents_cmp (const decor_extents_t *a, const decor_extents_t *b)
 {
     /* Use binary | to avoid branch prediction slow-downs */
@@ -433,7 +444,7 @@ decor_match_pixmap (long		 *data,
     int n = decor_property_get_num (data);
     unsigned int i = 0;
 
-    for (; i < n; i++)
+    for (; i < n; ++i)
     {
 	Pixmap cPixmap;
 	decor_extents_t cFrame, cBorder, cMax_frame, cMax_border;
@@ -466,7 +477,7 @@ decor_match_pixmap (long		 *data,
 
 	q = 0;
 	while (q < n_quad && !decor_quad_cmp (&cQuad[q], &quad[q]))
-	    q++;
+	    ++q;
 
 	if (q < n_quad)
 	    continue;
@@ -598,7 +609,7 @@ add_blur_boxes (long   *data,
 	*data++ = x2;
 	*data++ = y2;
 
-	box++;
+	++box;
     }
 
     return n_box * 6;
@@ -746,7 +757,8 @@ decor_set_vert_quad_row (decor_quad_t *q,
 	q->m.yy	= 1.0;
     }
 
-    q++; nQuad++;
+    ++q;
+    ++nQuad;
 
     q->p1.x	  = left;
     q->p1.y	  = top_corner;
@@ -779,7 +791,8 @@ decor_set_vert_quad_row (decor_quad_t *q,
 	q->m.y0	= y0 + top + top_corner;
     }
 
-    q++; nQuad++;
+    ++q;
+    ++nQuad;
 
     q->p1.x	  = left;
     q->p1.y	  = splitY;
@@ -812,7 +825,7 @@ decor_set_vert_quad_row (decor_quad_t *q,
 	q->m.y0	= y0 + height;
     }
 
-    nQuad++;
+    ++nQuad;
 
     return nQuad;
 }
@@ -852,7 +865,8 @@ decor_set_horz_quad_line (decor_quad_t *q,
     q->m.x0	  = x0;
     q->m.y0	  = y0;
 
-    q++; nQuad++;
+    ++q;
+    ++nQuad;
 
     q->p1.x	  = left_corner;
     q->p1.y	  = top;
@@ -872,7 +886,8 @@ decor_set_horz_quad_line (decor_quad_t *q,
     q->m.x0	  = x0 + left + left_corner;
     q->m.y0	  = y0;
 
-    q++; nQuad++;
+    ++q;
+    ++nQuad;
 
     q->p1.x	  = splitX;
     q->p1.y	  = top;
@@ -892,7 +907,7 @@ decor_set_horz_quad_line (decor_quad_t *q,
     q->m.x0	  = x0 + width;
     q->m.y0	  = y0;
 
-    nQuad++;
+    ++nQuad;
 
     return nQuad;
 }
@@ -1240,7 +1255,7 @@ static int
 error_handler (Display *xdisplay,
 	       XErrorEvent *event)
 {
-    errors++;
+    ++errors;
     return 0;
 }
 
@@ -1270,7 +1285,7 @@ XRenderSetPictureFilter_wrapper (Display *dpy,
 	long *long_params = malloc (sizeof (long) * nparams);
 	int  i;
 
-	for (i = 0; i < nparams; i++)
+	for (i = 0; i < nparams; ++i)
 	    long_params[i] = params[i];
 
 	XRenderSetPictureFilter (dpy, picture, filter,
@@ -1388,7 +1403,7 @@ create_gaussian_kernel (double radius,
     i   = 0;
     sum = 0.0f;
 
-    for (x = 0; x < size; x++)
+    for (x = 0; x < size; ++x)
     {
 	fx = x_scale * (x - half_size);
 
@@ -1396,7 +1411,7 @@ create_gaussian_kernel (double radius,
 
 	sum += amp[i];
 
-	i++;
+	++i;
     }
 
     /* normalize */
@@ -1405,7 +1420,7 @@ create_gaussian_kernel (double radius,
 
     params[0] = params[1] = 0;
 
-    for (i = 2; i < n; i++)
+    for (i = 2; i < n; ++i)
 	params[i] = XDoubleToFixed (amp[i - 2] * sum);
 
     free (amp);
@@ -1538,7 +1553,7 @@ decor_shadow_create (Display		    *xdisplay,
     {
 	int i;
 
-	for (i = 0; i < filters->nfilter; i++)
+	for (i = 0; i < filters->nfilter; ++i)
 	{
 	    if (strcmp (filters->filter[i], FilterConvolution) == 0)
 	    {
@@ -1707,7 +1722,8 @@ void
 decor_shadow_destroy (Display	     *xdisplay,
 		      decor_shadow_t *shadow)
 {
-    shadow->ref_count--;
+    --shadow->ref_count;
+
     if (shadow->ref_count)
 	return;
 
@@ -1723,7 +1739,7 @@ decor_shadow_destroy (Display	     *xdisplay,
 void
 decor_shadow_reference (decor_shadow_t *shadow)
 {
-    shadow->ref_count++;
+    ++shadow->ref_count;
 }
 
 void
@@ -2295,7 +2311,7 @@ _decor_pad_border_picture (Display     *xdisplay,
 			  x1, y1 - 1,
 			  x2 - x1, 1);
 
-	y1--;
+	--y1;
     }
 
     if (box->pad & PAD_BOTTOM)
@@ -2306,7 +2322,7 @@ _decor_pad_border_picture (Display     *xdisplay,
 			  x1, y2,
 			  x2 - x1, 1);
 
-	y2++;
+	++y2;
     }
 
     if (box->pad & PAD_LEFT)
@@ -2579,7 +2595,7 @@ _decor_blend_vert_border_picture (Display	  *xdisplay,
 
 	    XUnionRectWithRegion (&rect, rotated_region, rotated_region);
 
-	    pBox++;
+	    ++pBox;
 	}
 
 	XRenderSetPictureClipRegion (xdisplay, dst, rotated_region);
@@ -2877,6 +2893,94 @@ decor_blend_border_picture (Display	    *xdisplay,
 }
 
 int
+decor_post_pending (Display *xdisplay,
+		    Window  client,
+		    unsigned int frame_type,
+		    unsigned int frame_state,
+		    unsigned int frame_actions)
+{
+    XEvent event;
+
+    Atom   decor_pending  = XInternAtom (xdisplay, DECOR_PIXMAP_PENDING_ATOM_NAME, FALSE);
+
+    /* Send a client message indicating that a new
+     * decoration can be generated for this window
+     */
+    event.xclient.type	       = ClientMessage;
+    event.xclient.window       = client;
+    event.xclient.message_type = decor_pending;
+    event.xclient.format       = 32;
+    event.xclient.data.l[0]    = frame_type;
+    event.xclient.data.l[1]    = frame_state;
+    event.xclient.data.l[2]    = frame_actions;
+    event.xclient.data.l[3]    = 0;
+    event.xclient.data.l[4]    = 0;
+
+    XSendEvent (xdisplay, DefaultRootWindow (xdisplay), 0,
+		StructureNotifyMask, &event);
+
+    return 1;
+}
+
+int
+decor_post_generate_request (Display *xdisplay,
+			     Window  client,
+			     unsigned int frame_type,
+			     unsigned int frame_state,
+			     unsigned int frame_actions)
+{
+    XEvent event;
+
+    Atom   decor_request  = XInternAtom (xdisplay, DECOR_REQUEST_PIXMAP_ATOM_NAME, FALSE);
+
+    /* Send a client message indicating that a new
+     * decoration can be generated for this window
+     */
+    event.xclient.type	       = ClientMessage;
+    event.xclient.window       = client;
+    event.xclient.message_type = decor_request;
+    event.xclient.format       = 32;
+    event.xclient.data.l[0]    = frame_type;
+    event.xclient.data.l[1]    = frame_state;
+    event.xclient.data.l[2]    = frame_actions;
+    event.xclient.data.l[3]    = 0;
+    event.xclient.data.l[4]    = 0;
+
+    XSendEvent (xdisplay, DefaultRootWindow (xdisplay), 0,
+		StructureNotifyMask, &event);
+
+    return 1;
+}
+
+int
+decor_post_delete_pixmap (Display *xdisplay,
+			  Window window,
+			  Pixmap  pixmap)
+{
+    XEvent event;
+
+    Atom   decor_delete_pixmap  = XInternAtom (xdisplay, DECOR_DELETE_PIXMAP_ATOM_NAME, FALSE);
+
+    /* Send a client message indicating that this
+     * pixmap is no longer in use and can be removed
+     */
+    event.xclient.type	       = ClientMessage;
+    event.xclient.window       = window;
+    event.xclient.message_type = decor_delete_pixmap;
+    event.xclient.format       = 32;
+    event.xclient.data.l[0]    = pixmap;
+    event.xclient.data.l[1]    = 0;
+    event.xclient.data.l[2]    = 0;
+    event.xclient.data.l[3]    = 0;
+    event.xclient.data.l[4]    = 0;
+
+    XSendEvent (xdisplay, DefaultRootWindow (xdisplay), 0,
+		StructureNotifyMask, &event);
+
+    return 1;
+}
+
+int
 decor_acquire_dm_session (Display    *xdisplay,
 			  int	     screen,
 			  const char *name,
@@ -2898,7 +3002,7 @@ decor_acquire_dm_session (Display    *xdisplay,
 
     utf8_string_atom = XInternAtom (xdisplay, "UTF8_STRING", 0);
 
-    sprintf (buf, "_COMPIZ_DM_S%d", screen);
+    snprintf (buf, 128, "_COMPIZ_DM_S%d", screen);
     dm_sn_atom = XInternAtom (xdisplay, buf, 0);
 
     current_dm_sn_owner = XGetSelectionOwner (xdisplay, dm_sn_atom);
@@ -3016,12 +3120,12 @@ decor_set_dm_check_hint (Display *xdisplay,
     if (supports & WINDOW_DECORATION_TYPE_PIXMAP)
     {
 	supported_deco_atoms[i] = type_pixmap_atom;
-	i++;
+	++i;
     }
     if (supports & WINDOW_DECORATION_TYPE_WINDOW)
     {
 	supported_deco_atoms[i] = type_window_atom;
-	i++;
+	++i;
     }
     XChangeProperty (xdisplay,
 		     data,
@@ -3048,10 +3152,9 @@ convert_property (Display *xdisplay,
 		  Time    dm_sn_timestamp)
 {
 
-#define N_TARGETS 4
+static const unsigned short N_TARGETS = 4;
 
     Atom conversion_targets[N_TARGETS];
-    long icccm_version[] = { 2, 0 };
 
     conversion_targets[0] = XInternAtom (xdisplay, "TARGETS", 0);
     conversion_targets[1] = XInternAtom (xdisplay, "MULTIPLE", 0);
@@ -3067,9 +3170,12 @@ convert_property (Display *xdisplay,
 			 XA_INTEGER, 32, PropModeReplace,
 			 (unsigned char *) &dm_sn_timestamp, 1);
     else if (target == conversion_targets[3])
+    {
+	long icccm_version[] = { 2, 0 };
 	XChangeProperty (xdisplay, w, property,
 			 XA_INTEGER, 32, PropModeReplace,
 			 (unsigned char *) icccm_version, 2);
+    }
     else
 	return 0;
 
@@ -3169,7 +3275,7 @@ decor_handle_selection_clear (Display *xdisplay,
     Atom dm_sn_atom;
     char buf[128];
 
-    sprintf (buf, "_COMPIZ_DM_S%d", screen);
+    snprintf (buf, 128, "_COMPIZ_DM_S%d", screen);
     dm_sn_atom = XInternAtom (xdisplay, buf, 0);
 
     if (xevent->xselectionclear.selection == dm_sn_atom)

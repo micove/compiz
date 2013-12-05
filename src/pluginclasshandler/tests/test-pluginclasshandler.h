@@ -2,6 +2,7 @@
 #include <core/pluginclasses.h>
 
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 #include <list>
 
@@ -44,6 +45,21 @@ class Plugin
 	Base *b;
 };
 
+namespace compiz
+{
+namespace plugin
+{
+namespace internal
+{
+/* The version available in the tests is
+ * readily constructed */
+class PluginKey
+{
+};
+}
+}
+}
+
 class CompizPCHTest : public ::testing::Test
 {
 public:
@@ -54,4 +70,6 @@ public:
      Global *global;
      std::list <Base *> bases;
      std::list <Plugin *> plugins;
+
+     compiz::plugin::internal::PluginKey key;
 };

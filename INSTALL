@@ -7,6 +7,12 @@ compiz uses out-of-tree builds with cmake, in order to generate the Makefiles fo
 	$ cd build
 	$ cmake ..
 
+If you have multiple versions of Python installed, you will need to specify the version like this:
+
+	$ cmake .. \
+	    -DPYTHON_INCLUDE_DIR=/usr/include/python2.7 \
+	    -DPYTHON_LIBRARY=/usr/lib/libpython2.7.so
+
 After that, standard build procedures apply:
 
 	$ make

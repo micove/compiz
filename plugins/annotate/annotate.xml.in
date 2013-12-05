@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <compiz>
     <plugin name="annotate" useBcop="true">
 	<_short>Annotate</_short>
@@ -42,14 +43,14 @@
 		<_long>Initiate annotate erasing</_long>
 		<default>&lt;Super&gt;&lt;Alt&gt;Button3</default>
 	    </option>
+	    <option name="clear_button" type="button">
+		<_short>Clear</_short>
+		<_long>Clear</_long>
+	    </option>
 	    <option name="clear_key" type="key">
 		<_short>Clear</_short>
 		<_long>Clear</_long>
 		<default>&lt;Super&gt;&lt;Alt&gt;k</default>
-	    </option>
-	    <option name="clear_button" type="button">
-		<_short>Clear</_short>
-		<_long>Clear</_long>
 	    </option>
 	    <option name="draw_shapes_from_center" type="bool">
 		    <_short>Draw shapes from center</_short>

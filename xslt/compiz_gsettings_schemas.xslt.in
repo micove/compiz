@@ -28,7 +28,7 @@
 <xsl:stylesheet version='1.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform' >
   <xsl:output method="xml" indent="yes"/>
 
-  <xsl:param name="appName">/apps/compiz-1</xsl:param>
+  <xsl:param name="appName">/org/compiz</xsl:param>
 
   <xsl:template  match="/compiz">
     <xsl:element name="schemalist">
@@ -408,7 +408,7 @@
 
   <!-- prints the schema id (in d-bus style) -->
   <xsl:template name="printId">
-    <xsl:text>org.freedesktop.compiz</xsl:text>
+    <xsl:text>org.compiz</xsl:text>
     <xsl:choose>
       <xsl:when test="ancestor::plugin">
         <xsl:text>.</xsl:text>
@@ -419,10 +419,10 @@
 
   <!-- prints the key name -->
   <xsl:template name="printKeyName">
-    <!-- not allowed to have underscores, key names > 32 chars and upper case characters -->
+    <!-- not allowed to have underscores, key names > 1024 chars and upper case characters -->
     <xsl:param name="ASCIIUpper" >ABCDEFGHIJKLMNOPQRSTUVWXYZ</xsl:param>
     <xsl:param name="ASCIILower" >abcdefghijklmnopqrstuvwxyz</xsl:param>
-    <xsl:value-of select="translate(substring(translate(@name, '_', '-'), 0, 32), $ASCIIUpper, $ASCIILower)"/>
+    <xsl:value-of select="translate(substring(translate(@name, '_', '-'), 0, 1024), $ASCIIUpper, $ASCIILower)"/>
   </xsl:template>
 
   <!-- converts a decimal number to a hex number -->
