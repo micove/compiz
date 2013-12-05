@@ -34,11 +34,10 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
       + Change kdebase-workspace-dev to kde-workspace-dev.
       + Change libpng12-dev | libpng-dev to libpng-dev.
       + Change libgnome-window-settings-dev to gnome-control-center-dev.
-      + Add lcov, libgtest-dev and google-mock for building the tests.
-      + Add libgnome-desktop-dev, libgtk-3-dev, libjpeg-dev, libnotify-dev,
-        libprotobuf-dev, libxi-dev, pkg-config, protobuf-compiler,
-        python-all-dev and python-pyrex since all of the compiz project got
-        merged into a single source.
+      + Add gsettings-desktop-schemas-dev, libgnome-desktop-dev, libgtk-3-dev,
+        libjpeg-dev, libnotify-dev, libprotobuf-dev, libxi-dev, pkg-config,
+        protobuf-compiler, python-all-dev and python-pyrex since all of the
+        compiz project got merged into a single source.
     - Add X-Python-Version: >= 2.6 since compizconfig-settings-manager and
       python-compizconfig are now here.
     - Update the dependencies of compiz.
