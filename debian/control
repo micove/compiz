@@ -334,7 +334,7 @@ Package: python-compizconfig
 Section: python
 Architecture: any
 Depends:
- libcompizconfig0 (>= ${source:Version}),
+ libcompizconfig0 (= ${binary:Version}),
  ${misc:Depends},
  ${python:Depends},
  ${shlibs:Depends}
