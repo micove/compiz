@@ -1,4 +1,4 @@
 001_ubuntu-config_adapted_to_debian.patch
 002_valid_ccsm_desktop_file.patch
 003_ccsm_remove_redundant_sliders.patch
-100_fix_compiztoolbox_pc_file.patch
+100_fix_pc_files.patch

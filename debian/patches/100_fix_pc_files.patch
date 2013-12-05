@@ -12,3 +12,11 @@ Last-Update: 2012-03-10
  libdir=@libdir@
  includedir=@includedir@
  
+--- compiz-fusion-plugins-extra-0.9.7.0.orig/plugins/animationaddon/compiz-animationaddon.pc.in
++++ compiz-fusion-plugins-extra-0.9.7.0/plugins/animationaddon/compiz-animationaddon.pc.in
+@@ -1,5 +1,5 @@
+ prefix=@prefix@
+-exec_prefix=@prefix@
++exec_prefix=@exec_prefix@
+ libdir=@libdir@
+ includedir=@includedir@
