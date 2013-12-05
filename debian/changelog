@@ -41,7 +41,7 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
     - Integrate the files from libcompizconfig.
       + Add the .install files.
     - Add libcompiz_core to libcompiz-core.install and compiz-dev.install.
-    - Update the libdecoration0 files.
+    - Update the libdecoration0 and libdecoration0-dev files.
       + Remove TODO from the docs file.
       + Include a libdecoration0.symbols based on the file from Ubuntu.
     - Update the watch file to find the tarball in launchpad.
