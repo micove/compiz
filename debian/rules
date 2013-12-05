@@ -13,7 +13,7 @@ DEFAULT_PLUGINS = "core composite opengl decor mousepoll snap compiztoolbox resi
 
 override_dh_auto_configure:
 	# currently, segfault if CMAKE_BUILD_TYPE=Release
-	dh_auto_configure -- \
+	dh_auto_configure -- -Wno-dev \
 			-DCOMPIZ_BUILD_WITH_RPATH=FALSE \
 			-DCOMPIZ_DEFAULT_PLUGINS=\"$(DEFAULT_PLUGINS)\" \
 			-DCMAKE_BUILD_TYPE=RelWithDebInfo \
