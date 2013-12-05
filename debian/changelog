@@ -58,6 +58,7 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
     - Update the clean routine.
     - Disable gsettings support.
     - Disable the "File Watcher" and "D-Bus" plugins since they are broken.
+    - Disable xorg-gtest due to missing build dependencies (libxorg-gtest-dev).
     - Add a get-orig-source routine to repack the tarball. Upstream now includes
       a debian folder.
   * Add Multiarch Support.

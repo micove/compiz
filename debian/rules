@@ -21,6 +21,7 @@ override_dh_auto_configure:
 			-Dlibdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
 			-DUSE_GSETTINGS=OFF \
 			-DUSE_GCONF=ON \
+			-DBUILD_XORG_GTEST=OFF \
 			-DCOMPIZ_DISABLE_PLUGIN_INOTIFY=ON \
 			-DCOMPIZ_DISABLE_PLUGIN_DBUS=ON
 
