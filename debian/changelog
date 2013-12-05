@@ -57,6 +57,8 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
     - Update the clean routine.
     - Disable gsettings support.
     - Disable the "File Watcher" and "D-Bus" plugins since they are broken.
+    - Add a get-orig-source routine to repack the tarball. Upstream now includes
+      a debian folder.
   * Add Multiarch Support.
     - Mark compiz-{dev,plugins}, libcompiz-core and libdecoration{-dev} as M-A:
       same.
