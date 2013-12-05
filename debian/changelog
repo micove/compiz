@@ -29,6 +29,10 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
       + 001_ubuntu-config_adapted_to_debian.patch. Some of the compiz defaults
         cause bugs and crashes. Remove Ubuntu related configurations and use
         their sane defaults.
+      + 002_valid_ccsm_desktop_file.patch. Remove invalid entries from the
+        desktop file.
+      + 003_ccsm_remove_redundant_sliders.patch. Remove potentially dangerous
+        sliders.
     - Add a patch to fix the exec_prefix entries in some pc files.
   * debian/control:
     - Bump debhelper to (>= 9.20120419) and the compatibility level to 9.
