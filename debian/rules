@@ -5,10 +5,6 @@
 #export DH_VERBOSE=1
 
 CORE_ABIVERSION := $(shell sed -rn 's/^\#define[[:space:]]+CORE_ABIVERSION[[:space:]]+//p' include/core/abiversion.h )
-
-# http://bazaar.launchpad.net/~compiz-team/compiz-core/0.9.7/revision/3075
-# TODO: Pass the default plugin list to each of the backends (ini, gconf, etc).
-# DEFAULT_PLUGINS = "ccp"
 DEFAULT_PLUGINS = "core composite opengl decor mousepoll snap compiztoolbox resize gnomecompat wall grid regex vpswitch place move session animation expo workarounds ezoom staticswitcher fade scale"
 
 override_dh_auto_configure:
@@ -22,9 +18,6 @@ override_dh_auto_configure:
 			-DUSE_GSETTINGS=ON \
 			-DUSE_GCONF=ON \
 			-DBUILD_XORG_GTEST=OFF
-
-override_dh_clean:
-	dh_clean .AUTHORS.sed po/compiz.pot
 
 override_dh_gencontrol:
 	dh_gencontrol -- -Vcoreabiversion=$(CORE_ABIVERSION)
@@ -40,7 +33,7 @@ override_dh_install:
 	dh_install --fail-missing
 
 %:
-	dh $@
+	dh $@ --parallel --with python2
 
 
 # Based on http://wiki.debian.org/onlyjob/get-orig-source
