@@ -1,1 +1,1 @@
-usr/lib/*/compiz/lib[!k]*.so
+usr/lib/*/compiz/lib*.so

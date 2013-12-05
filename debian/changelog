@@ -28,6 +28,10 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
       + Install the gsettings files.
     - Update the compiz-kde files.
       + Remove TODO from the docs file.
+    - Update the compiz-plugins files.
+      + Remove TODO from the docs file.
+      + Update the .install file so it includes all the plugins. Move the
+        package below libcompizconfig0 so it runs after libcompizconfig0.
     - Update the gbp.conf file for compression = xz.
     - Update the watch file to find the tarball in launchpad.
     - Add libcompiz_core to libcompiz-core.install and compiz-dev.install.

@@ -225,35 +225,6 @@ Description: OpenGL window and compositing manager - KDE window decorator
  This package contains a window decorator that uses KDE to provide a look and
  feel similar to that of the default KDE window manager.
 
-Package: compiz-plugins
-Architecture: any
-Multi-Arch: same
-Depends:
- compiz-core (= ${binary:Version}),
- libcompiz-core (= ${binary:Version}),
- libdecoration0 (= ${binary:Version}),
- ${misc:Depends},
- ${shlibs:Depends}
-Breaks:
- compiz-core (<< 0.9.10.0),
- compiz-fusion-plugins-extra (<< 0.9.10.0),
- compiz-fusion-plugins-main (<< 0.9.10.0),
- compiz-fusion-plugins-unsupported (<< 0.9.10.0),
- compiz-gtk (<< 0.9.10.0)
-Replaces:
- compiz-core (<< 0.9.10.0),
- compiz-fusion-plugins-extra (<< 0.9.10.0),
- compiz-fusion-plugins-main (<< 0.9.10.0),
- compiz-fusion-plugins-unsupported (<< 0.9.10.0),
- compiz-gtk (<< 0.9.10.0)
-Description: OpenGL window and compositing manager - plugins
- Compiz brings to life a variety of visual effects that make the Linux desktop
- easier to use, more powerful and intuitive, and more accessible for users
- with special needs.
- .
- This package contains the standard plugins that come with compiz. Compiz
- without these plugins is not very useful.
-
 Package: libdecoration0
 Section: libs
 Architecture: any
@@ -328,6 +299,35 @@ Description: Configuration settings library for compiz-fusion - development file
  .
  This package provides the development files for the compiz-fusion
  configuration system.
+
+Package: compiz-plugins
+Architecture: any
+Multi-Arch: same
+Depends:
+ compiz-core (= ${binary:Version}),
+ libcompiz-core (= ${binary:Version}),
+ libdecoration0 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends}
+Breaks:
+ compiz-core (<< 0.9.10.0),
+ compiz-fusion-plugins-extra (<< 0.9.10.0),
+ compiz-fusion-plugins-main (<< 0.9.10.0),
+ compiz-fusion-plugins-unsupported (<< 0.9.10.0),
+ compiz-gtk (<< 0.9.10.0)
+Replaces:
+ compiz-core (<< 0.9.10.0),
+ compiz-fusion-plugins-extra (<< 0.9.10.0),
+ compiz-fusion-plugins-main (<< 0.9.10.0),
+ compiz-fusion-plugins-unsupported (<< 0.9.10.0),
+ compiz-gtk (<< 0.9.10.0)
+Description: OpenGL window and compositing manager - plugins
+ Compiz brings to life a variety of visual effects that make the Linux desktop
+ easier to use, more powerful and intuitive, and more accessible for users
+ with special needs.
+ .
+ This package contains the standard plugins that come with compiz. Compiz
+ without these plugins is not very useful.
 
 Package: python-compizconfig
 Section: python
