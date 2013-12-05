@@ -74,7 +74,7 @@ Provides:
  x-window-manager
 Depends:
  compiz-core (>= ${source:Version}),
- compiz-gnome | compiz-kde,
+ compiz-gtk (>= ${source:Version}) | compiz-kde (>= ${source:Version}),
  compiz-plugins (>= ${source:Version}),
  libcompizconfig0 (>= ${source:Version}),
  ${misc:Depends}
@@ -177,7 +177,7 @@ Description: OpenGL window and compositing manager - core library
  .
  This package contains the core library of compiz.
 
-Package: compiz-gnome
+Package: compiz-gtk
 Architecture: any
 Depends:
  compiz-core (= ${binary:Version}),
@@ -189,21 +189,21 @@ Depends:
 Recommends:
  python-gconf
 Breaks:
- compiz-gtk (<< 0.9.10.0),
+ compiz-gnome (<< 0.9.10.0),
  compiz-plugins (<< 0.9.10.0),
  compizconfig-backend-gconf (<< 0.9.10.0),
  libcompizconfig0 (<< 0.9.10.0)
 Replaces:
- compiz-gtk (<< 0.9.10.0),
+ compiz-gnome (<< 0.9.10.0),
  compiz-plugins (<< 0.9.10.0)
  compizconfig-backend-gconf (<< 0.9.10.0)
-Description: OpenGL window and compositing manager - GNOME window decorator
+Description: OpenGL window and compositing manager - Gtk window decorator
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
  with special needs.
  .
- This package contains files needed to integrate compiz with the GNOME desktop
- environment.
+ This package contains a window decorator that uses Gtk to provide a look and
+ feel similar to that of the metacity window manager.
 
 Package: compiz-kde
 Architecture: any
@@ -399,11 +399,11 @@ Description: transitional dummy package.
  This package ensures a clean upgrade path, and can be safely removed
  after the upgrade.
 
-Package: compiz-gtk
+Package: compiz-gnome
 Section: oldlibs
 Architecture: all
 Depends:
- compiz-gnome,
+ compiz-gtk,
  ${misc:Depends}
 Description: transitional dummy package.
  This package ensures a clean upgrade path, and can be safely removed
@@ -413,7 +413,7 @@ Package: compizconfig-backend-gconf
 Section: oldlibs
 Architecture: all
 Depends:
- compiz-gnome,
+ compiz-gtk,
  ${misc:Depends}
 Description: transitional dummy package.
  This package ensures a clean upgrade path, and can be safely removed

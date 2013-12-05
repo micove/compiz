@@ -44,7 +44,6 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
       python-compizconfig are now here.
     - Update the dependencies of compiz.
       + Remove compiz-fusion-plugins-main.
-      + Change compiz-gtk for compiz-gnome.
       + Update the versions.
     - Update the compiz-dev stanza.
       + Add libgtk-3-dev and libdecoration0-dev to the dependencies.
@@ -56,15 +55,14 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
       + Remove suggests nvidia-glx (>= 1.0.9625-1)
     - Add the libcompiz-core package.
       + Add a Breaks: compiz-core (<< 0.9.10.0).
-    - Rename compiz-gtk to compiz-gnome since they are the same now.
+    - Update the compiz-gtk stanza.
       + Add compiz-plugins, gnome-settings-daemon and gsettings-desktop-schemas
         to the dependencies.
       + Add python-gconf to the recommendations.
       + Breaks/replaces compiz-plugins (<< 0.9.10.0). The gconf schemas folder
         is now here. Changes Conflicts/Replaces to Breaks/Replaces.
-      + Breaks/replaces compiz-gtk (<< 0.9.10.0) since the package got renamed.
-      + Breaks/replaces compizconfig-backend-gconf (<< 0.9.10.0) to transition
-        to this package.
+      + Breaks/replaces compiz-gnome and compizconfig-backend-gconf to
+        transition to this package.
       + Break libcompizconfig0 (<< 0.9.10.0) due to old ABI breakage.
     - Update the compiz-kde stanza.
       + Remove the dependency on compizconfig-backend-kconfig4.
@@ -91,13 +89,12 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
     - Add the compizconfig-settings-manager stanza from the ccsm source.
       + Add python-compizconfig and ${shlibs:Depends} to the dependencies.
     - Add transitional packages for compizconfig-backend-{gconf,kconfig}, 
-      compiz-fusion-plugins-{main,extra,unsupported} and compiz-gtk.
+      compiz-fusion-plugins-{main,extra,unsupported} and compiz-gnome.
   * debian/rules:
     - Find CORE_ABIVERSION in abiversion.h.
     - Update and reorder the DEFAULT_PLUGINS list.
     - Update the clean routine.
     - Disable gsettings support.
-    - Disable the "File Watcher" and "D-Bus" plugins since they are broken.
     - Disable xorg-gtest due to missing build dependencies (libxorg-gtest-dev).
     - Add a get-orig-source routine to repack the tarball. Upstream now includes
       a debian folder.
