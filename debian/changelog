@@ -23,6 +23,9 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
     - Update the compiz-dev files.
       + Remove TODO from the docs file.
       + Specify which .pc and .cmake to install.
+    - Update the compiz-gtk files.
+      + Remove TODO from the docs file.
+      + Install the gsettings files.
     - Update the gbp.conf file for compression = xz.
     - Update the watch file to find the tarball in launchpad.
     - Add libcompiz_core to libcompiz-core.install and compiz-dev.install.
