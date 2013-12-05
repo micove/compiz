@@ -91,7 +91,7 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
         is now here. Changes Conflicts/Replaces to Breaks/Replaces.
       + Breaks/replaces compiz-gnome and compizconfig-backend-gconf to
         transition to this package.
-      + Break libcompizconfig0 (<< 0.9.10.0) due to old ABI breakage.
+      + Break/replaces libcompizconfig0 (<< 0.9.10.0) due to moving schemas.
     - Update the compiz-kde stanza.
       + Remove the dependency on compizconfig-backend-kconfig4.
       + Breaks/replaces compizconfig-backend-kconfig (<< 0.9.10.0) to transition

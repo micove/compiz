@@ -195,8 +195,9 @@ Breaks:
  libcompizconfig0 (<< 0.9.10.0)
 Replaces:
  compiz-gnome (<< 0.9.10.0),
- compiz-plugins (<< 0.9.10.0)
- compizconfig-backend-gconf (<< 0.9.10.0)
+ compiz-plugins (<< 0.9.10.0),
+ compizconfig-backend-gconf (<< 0.9.10.0),
+ libcompizconfig0 (<< 0.9.10.0)
 Description: OpenGL window and compositing manager - Gtk window decorator
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
