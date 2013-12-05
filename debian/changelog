@@ -44,6 +44,8 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
     - Update the libdecoration0 and libdecoration0-dev files.
       + Remove TODO from the docs file.
       + Include a libdecoration0.symbols based on the file from Ubuntu.
+    - Integrate the files from compizconfig-python.
+      + Add the .install file.
     - Update the watch file to find the tarball in launchpad.
   * debian/patches:
     - Drop the deprecated Ubuntu patches.
