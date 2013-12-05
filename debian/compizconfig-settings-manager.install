@@ -1,0 +1,5 @@
+usr/bin/ccsm
+usr/lib/python*/*/cc*
+usr/share/applications/ccsm.desktop
+usr/share/ccsm
+usr/share/icons/hicolor/*/apps/ccsm.*

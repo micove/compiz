@@ -15,6 +15,7 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
   * debian/*:
     - Integrate the file from ccsm.
       + Add the ccsm.1 and compizconfig-settings-manager.manpages files.
+      + Add th compizconfig-settings-manager.install file.
     - Update the gbp.conf file for compression = xz.
     - Update the watch file to find the tarball in launchpad.
     - Add libcompiz_core to libcompiz-core.install and compiz-dev.install.
