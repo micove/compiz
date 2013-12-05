@@ -23,13 +23,10 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
     - Drop the deprecated Ubuntu patches.
     - Rename and refresh the remaining patches.
     - Introduce remaining patches from Ubuntu:
-      + 002_workaround_broken_drivers.patch. Workaround broken drivers that do
-        binary detection.
-      + 003_ubuntu-config_adapted_to_debian.patch. Some of the compiz defaults
+      + 001_ubuntu-config_adapted_to_debian.patch. Some of the compiz defaults
         cause bugs and crashes. Remove Ubuntu related configurations and use
         their sane defaults.
     - Add a patch to fix the exec_prefix entries in some pc files.
-    - Add a patch to add some missing library links to the plugins.
   * debian/control:
     - Bump debhelper to (>= 9.20120419) and the compatibility level to 9.
       + debhelper (>= 9.20120419) enables hardening support with cmake.

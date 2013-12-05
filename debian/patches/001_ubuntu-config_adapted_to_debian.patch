@@ -5,7 +5,7 @@ Index: compiz-0.9.7.0~bzr2995/metadata/core.xml.in
 ===================================================================
 --- compiz-0.9.7.0~bzr2995.orig/metadata/core.xml.in	2012-02-09 16:32:07.000000000 +0100
 +++ compiz-0.9.7.0~bzr2995/metadata/core.xml.in	2012-02-22 17:50:56.282923343 +0100
-@@ -138,7 +138,7 @@
+@@ -139,7 +139,7 @@
  			<option name="focus_prevention_match" type="match">
  			<_short>Focus Prevention Windows</_short>
  			<_long>Focus prevention windows</_long>
@@ -18,7 +18,7 @@ Index: compiz-0.9.7.0~bzr2995/plugins/fade/fade.xml.in
 ===================================================================
 --- compiz-0.9.7.0~bzr2995.orig/plugins/fade/fade.xml.in	2012-02-09 16:32:07.000000000 +0100
 +++ compiz-0.9.7.0~bzr2995/plugins/fade/fade.xml.in	2012-02-22 17:47:03.465768869 +0100
-@@ -9,6 +9,7 @@
+@@ -10,6 +10,7 @@
  	    </requirement>
  	    <relation type="after">
  		<plugin>decor</plugin>
@@ -26,7 +26,7 @@ Index: compiz-0.9.7.0~bzr2995/plugins/fade/fade.xml.in
  	    </relation>
  	    <relation type="before">
  		<plugin>cube</plugin>
-@@ -49,7 +50,7 @@
+@@ -50,7 +51,7 @@
  	    <option name="window_match" type="match">
  		<_short>Fade windows</_short>
  		<_long>Windows that should be fading</_long>
@@ -39,7 +39,7 @@ Index: compiz-0.9.7.0~bzr2995/plugins/place/place.xml.in
 ===================================================================
 --- compiz-0.9.7.0~bzr2995.orig/plugins/place/place.xml.in	2012-02-09 16:32:07.000000000 +0100
 +++ compiz-0.9.7.0~bzr2995/plugins/place/place.xml.in	2012-02-22 17:47:03.473768903 +0100
-@@ -19,8 +19,8 @@
+@@ -20,8 +20,8 @@
  	    <option name="mode" type="int">
  		<_short>Placement Mode</_short>
  		<_long>Algorithm to use for window placement</_long>
@@ -54,11 +54,12 @@ Index: compiz-0.9.7.0~bzr2995/plugins/decor/decor.xml.in
 ===================================================================
 --- compiz-0.9.7.0~bzr2995.orig/plugins/decor/decor.xml.in	2012-02-09 16:32:07.000000000 +0100
 +++ compiz-0.9.7.0~bzr2995/plugins/decor/decor.xml.in	2012-02-22 17:47:03.473768903 +0100
-@@ -100,6 +100,7 @@
+@@ -101,7 +101,7 @@
  	    <option name="command" type="string">
  		<_short>Command</_short>
- 		<_long>Decorator command line that is executed if no decorator is already running</_long>
-+		<default>/usr/bin/compiz-decorator</default>
+ 		<_long>Decorator command line that is executed if no decorator is already running.</_long>
+-		<default>exec \"${COMPIZ_BIN_PATH}compiz-decorator\"</default>
++		<default>/usr/bin/gtk-window-decorator</default>
  	    </option>
  	    <option name="mipmap" type="bool">
  		<_short>Mipmap</_short>
@@ -66,7 +67,7 @@ Index: compiz-0.9.7.0~bzr2995/plugins/gnomecompat/gnomecompat.xml.in
 ===================================================================
 --- compiz-0.9.7.0~bzr2995.orig/plugins/gnomecompat/gnomecompat.xml.in	2012-02-09 16:32:07.000000000 +0100
 +++ compiz-0.9.7.0~bzr2995/plugins/gnomecompat/gnomecompat.xml.in	2012-02-22 17:47:03.473768903 +0100
-@@ -52,6 +52,7 @@
+@@ -53,6 +53,7 @@
  		<option name="run_command_terminal_key" type="key">
  		    <_short>Open a terminal</_short>
  		    <_long>Open a terminal</_long>
