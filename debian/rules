@@ -42,3 +42,35 @@ override_dh_install:
 
 %:
 	dh $@
+
+
+# Based on http://wiki.debian.org/onlyjob/get-orig-source
+# For a specific bzr revision like bzr3811 use:
+# REV=3811 debian/rules get-orig-source
+
+PKD   = $(abspath $(dir $(MAKEFILE_LIST)))
+PKG   = $(word 2,$(shell dpkg-parsechangelog -l$(PKD)/changelog | grep ^Source))
+UVER  = $(shell dpkg-parsechangelog -l$(PKD)/changelog | perl -ne 'print $$1 if m{^Version:\s+(?:\d+:)?(\d.*)(?:\-\d+.*)};')
+DTYPE = +repack
+VER   = $(subst $(DTYPE),,$(UVER))
+UURL ?= lp:compiz/0.9.10
+REV  ?= tag:v$(VER)
+
+get-orig-source:
+	@echo "# Downloading..."
+	$(if $(wildcard $(PKG)-$(VER)),$(error $(PKG)-$(VER) exist, aborting..))
+	bzr export --per-file-timestamps -r $(REV) $(PKG)-$(VER) $(UURL) \
+	|| $(RM) -r $(PKG)-$(VER)
+	@echo "# Cleaning-up..."
+	cd $(PKG)-$(VER) \
+	&& mv debian debian-upstream
+	@echo "# Updating time stamps of directories..."
+	BZR_TIME=$$(bzr version-info -r $(REV) $(UURL) | \
+		sed -rne 's,^date: (.*),\1,p') ;\
+	find $(PKG)-$(VER) -type d | xargs -r touch -d "$$BZR_TIME"
+	@echo "# Packing..."
+	XZ_OPT="-6v" tar -caf "$(PKG)_$(VER)$(DTYPE).orig.tar.xz" \
+		--numeric-owner --owner 0 --group 0 $(PKG)-$(VER) \
+	&& $(RM) -r "$(PKG)-$(VER)"
+
+.PHONY: get-orig-source
