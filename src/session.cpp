@@ -45,31 +45,31 @@
 
 #define SM_DEBUG(x)
 
-static SmcConn		 smcConnection;
+static SmcConn           smcConnection;
 static CompWatchFdHandle iceWatchFdHandle;
-static bool		 connected = false;
-static bool		 iceConnected = false;
+static bool              connected    = false;
+static bool              iceConnected = false;
 static char              *smClientId, *smPrevClientId;
 
 static void iceInit (void);
 
 static void
-setStringListProperty (SmcConn	  connection,
+setStringListProperty (SmcConn    connection,
 		       const char *name,
 		       const char **values,
-		       int	  nValues)
+		       int        nValues)
 {
     SmProp prop, *pProp;
-    int	   i;
 
     prop.name = (char *) name;
     prop.type = const_cast<char *> (SmLISTofARRAY8);
 
     prop.vals = (SmPropValue *) malloc (nValues * sizeof (SmPropValue));
+
     if (!prop.vals)
 	return;
 
-    for (i = 0; i < nValues; i++)
+    for (int i = 0; i < nValues; ++i)
     {
 	prop.vals[i].value = (char *) values[i];
 	prop.vals[i].length = strlen (values[i]);
@@ -87,19 +87,19 @@ setStringListProperty (SmcConn	  connection,
 static void
 setCloneRestartCommands (SmcConn connection)
 {
-    const char **args;
-    int        i, count = 0;
-
     /* at maximum, we pass our old arguments + our new client id
        to the SM, so allocate for that case */
-    args = (const char **) malloc ((programArgc + 2) * sizeof (char *));
+    const char **args = (const char **) malloc ((programArgc + 2) * sizeof (char *));
+
     if (!args)
 	return;
 
-    for (i = 0; i < programArgc; i++)
+    int i, count = 0;
+
+    for (i = 0; i < programArgc; ++i)
     {
 	if (strcmp (programArgv[i], "--sm-client-id") == 0)
-	    i++; /* skip old client id, we'll add the new one later */
+	    ++i; /* skip old client id, we'll add the new one later */
 	else if (strcmp (programArgv[i], "--replace") == 0)
 	    continue; /* there's nothing to replace when starting session */
 	else
@@ -112,9 +112,10 @@ setCloneRestartCommands (SmcConn connection)
        position 0 is the executable name */
     for (i = count - 1; i >= 1; i--)
 	args[i + 2] = args[i];
+
     args[1] = "--sm-client-id";
     args[2] = smClientId;
-    count += 2;
+    count  += 2;
 
     setStringListProperty (connection, SmRestartCommand, args, count);
 
@@ -125,14 +126,14 @@ static void
 setRestartStyle (SmcConn connection,
 		 char    hint)
 {
-    SmProp	prop, *pProp;
+    SmProp      prop, *pProp;
     SmPropValue propVal;
 
-    prop.name = const_cast<char *> (SmRestartStyleHint);
-    prop.type = const_cast<char *> (SmCARD8);
-    prop.num_vals = 1;
-    prop.vals = &propVal;
-    propVal.value = &hint;
+    prop.name      = const_cast<char *> (SmRestartStyleHint);
+    prop.type      = const_cast<char *> (SmCARD8);
+    prop.num_vals  = 1;
+    prop.vals      = &propVal;
+    propVal.value  = &hint;
     propVal.length = 1;
 
     pProp = &prop;
@@ -141,9 +142,9 @@ setRestartStyle (SmcConn connection,
 }
 
 static void
-setProgramInfo (SmcConn    connection,
-		pid_t      pid,
-		uid_t      uid)
+setProgramInfo (SmcConn connection,
+		pid_t   pid,
+		uid_t   uid)
 {
     SmProp        progProp, pidProp, userProp;
     SmPropValue   progVal, pidVal, userVal;
@@ -173,6 +174,7 @@ setProgramInfo (SmcConn    connection,
     props[count++] = &pidProp;
 
     pw = getpwuid (uid);
+
     if (pw)
     {
 	userProp.name     = const_cast<char *> (SmUserID);
@@ -189,19 +191,19 @@ setProgramInfo (SmcConn    connection,
 }
 
 static void
-saveYourselfCallback (SmcConn	connection,
+saveYourselfCallback (SmcConn   connection,
 		      SmPointer client_data,
-		      int	saveType,
-		      Bool	shutdown,
-		      int	interact_Style,
-		      Bool	fast)
+		      int       saveType,
+		      Bool      shutdown,
+		      int       interact_Style,
+		      Bool      fast)
 {
     CompOption::Vector args;
 
-    args.push_back (CompOption ("save_type", CompOption::TypeInt));
-    args.push_back (CompOption ("shutdown", CompOption::TypeBool));
+    args.push_back (CompOption ("save_type",      CompOption::TypeInt));
+    args.push_back (CompOption ("shutdown",       CompOption::TypeBool));
     args.push_back (CompOption ("interact_style", CompOption::TypeInt));
-    args.push_back (CompOption ("fast", CompOption::TypeBool));
+    args.push_back (CompOption ("fast",           CompOption::TypeBool));
 
     args[0].value ().set (saveType);
     args[1].value ().set ((bool) shutdown);
@@ -254,13 +256,13 @@ CompSession::init (char *prevClientId)
 	callbacks.save_yourself.callback    = saveYourselfCallback;
 	callbacks.save_yourself.client_data = NULL;
 
-	callbacks.die.callback	  = dieCallback;
+	callbacks.die.callback    = dieCallback;
 	callbacks.die.client_data = NULL;
 
 	callbacks.save_complete.callback    = saveCompleteCallback;
 	callbacks.save_complete.client_data = NULL;
 
-	callbacks.shutdown_cancelled.callback	 = shutdownCancelledCallback;
+	callbacks.shutdown_cancelled.callback    = shutdownCancelledCallback;
 	callbacks.shutdown_cancelled.client_data = NULL;
 
 	smcConnection = SmcOpenConnection (NULL,
@@ -268,7 +270,7 @@ CompSession::init (char *prevClientId)
 					   SmProtoMajor,
 					   SmProtoMinor,
 					   SmcSaveYourselfProcMask |
-					   SmcDieProcMask	   |
+					   SmcDieProcMask          |
 					   SmcSaveCompleteProcMask |
 					   SmcShutdownCancelledProcMask,
 					   &callbacks,
@@ -283,10 +285,11 @@ CompSession::init (char *prevClientId)
 	else
 	{
 	    connected = true;
+
 	    if (prevClientId)
 		smPrevClientId = strdup (prevClientId);
+
 	    setRestartStyle (smcConnection, SmRestartImmediately);
-	    
 	}
     }
 }
@@ -306,6 +309,7 @@ CompSession::close ()
 	    free (smClientId);
 	    smClientId = NULL;
 	}
+
 	if (smPrevClientId)
 	{
 	    free (smPrevClientId);
@@ -320,13 +324,22 @@ CompSession::getClientId (CompSession::ClientIdType type)
     if (!connected)
 	return "";
 
-    switch (type) {
+    switch (type)
+    {
 	case CompSession::ClientId:
 	    if (smClientId)
 		return smClientId;
+
+	    break;
+
 	case CompSession::PrevClientId:
 	    if (smPrevClientId)
 		return smPrevClientId;
+
+	    break;
+
+	default:
+	    break;
     }
 
     return "";
@@ -339,11 +352,9 @@ CompSession::getClientId (CompSession::ClientIdType type)
 static bool
 iceProcessMessages (IceConn connection)
 {
-    IceProcessMessagesStatus status;
-
     SM_DEBUG (printf ("ICE connection process messages\n"));
 
-    status = IceProcessMessages (connection, NULL, NULL);
+    IceProcessMessagesStatus status = IceProcessMessages (connection, NULL, NULL);
 
     if (status == IceProcessMessagesIOError)
     {

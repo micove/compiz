@@ -1,0 +1,17 @@
+include (FindPkgConfig)
+
+pkg_check_modules (COMPIZ_XORG_GTEST_COMMUNICATOR x11)
+
+if (COMPIZ_XORG_GTEST_COMMUNICATOR_FOUND)
+
+    include_directories (${COMPIZ_XORG_GTEST_COMMUNICATOR_INCLUDE_DIRS}
+			 ${CMAKE_CURRENT_SOURCE_DIR})
+    link_directories (${COMPIZ_XORG_GTEST_COMMUNICATOR_LIBRARY_DIRS})
+
+    add_library (${COMPIZ_XORG_GTEST_COMMUNICATOR_LIBRARY} STATIC
+                 ${CMAKE_CURRENT_SOURCE_DIR}/compiz_xorg_gtest_communicator.cpp)
+
+    target_link_libraries (${COMPIZ_XORG_GTEST_COMMUNICATOR_LIBRARY}
+                           ${COMPIZ_XORG_GTEST_COMMUNICATOR_LIBRARIES})
+
+endif (COMPIZ_XORG_GTEST_COMMUNICATOR_FOUND)

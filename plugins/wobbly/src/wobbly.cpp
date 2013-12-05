@@ -21,9 +21,7 @@
  * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  * Author: David Reveman <davidr@novell.com>
- */
-
-/*
+ * Ported to GLVertexBuffer by Daniel van Vugt <daniel.van.vugt@canonical.com>
  * Spring model implemented by Kristian Hogsberg.
  */
 
@@ -31,31 +29,32 @@
 
 COMPIZ_PLUGIN_20090315 (wobbly, WobblyPluginVTable)
 
+
+const float MASS = 15.0f;
+
+const unsigned short EDGE_DISTANCE = 25;
+const unsigned short EDGE_VELOCITY = 13;
+
 void
 WobblyWindow::findNextWestEdge (Object *object)
 {
-    int v, v1, v2;
-    int s, start;
-    int e, end;
-    int x;
-    int output;
-    int workAreaEdge;
+    int start = -65535;
+    int end   =  65535;
 
-    start = -65535.0f;
-    end   =  65535.0f;
+    int v1 = -65535;
+    int v2 =  65535;
 
-    v1 = -65535.0f;
-    v2 =  65535.0f;
+    int x = object->position.x + window->output ().left - window->border ().left;
 
-    x = object->position.x + window->output ().left - window->border ().left;
-
-    output = ::screen->outputDeviceForPoint (x, object->position.y);
+    int output = ::screen->outputDeviceForPoint (x, object->position.y);
     const CompRect &workArea =
 	::screen->outputDevs ()[(unsigned) output].workArea ();
-    workAreaEdge = workArea.x1 ();
+
+    int workAreaEdge = workArea.x1 ();
 
     if (x >= workAreaEdge)
     {
+	int v, s, e;
 	v1 = workAreaEdge;
 
 	foreach (CompWindow *p, ::screen->windows ())
@@ -77,9 +76,7 @@ WobblyWindow::findNextWestEdge (Object *object)
 		    window->output ().bottom;
 	    }
 	    else
-	    {
 		continue;
-	    }
 
 	    if (s > object->position.y)
 	    {
@@ -110,18 +107,13 @@ WobblyWindow::findNextWestEdge (Object *object)
 		    if (v > v1)
 			v1 = v;
 		}
-		else
-		{
-		    if (v < v2)
-			v2 = v;
-		}
+		else if (v < v2)
+		    v2 = v;
 	    }
 	}
     }
     else
-    {
 	v2 = workAreaEdge;
-    }
 
     v1 = v1 - window->output ().left + window->border ().left;
     v2 = v2 - window->output ().left + window->border ().left;
@@ -142,28 +134,22 @@ WobblyWindow::findNextWestEdge (Object *object)
 void
 WobblyWindow::findNextEastEdge (Object *object)
 {
-    int v, v1, v2;
-    int s, start;
-    int e, end;
-    int x;
-    int output;
-    int workAreaEdge;
+    int start = -65535;
+    int end   =  65535;
 
-    start = -65535.0f;
-    end   =  65535.0f;
+    int v1 =  65535;
+    int v2 = -65535;
 
-    v1 =  65535.0f;
-    v2 = -65535.0f;
+    int x = object->position.x - window->output ().right + window->border ().right;
 
-    x = object->position.x - window->output ().right + window->border ().right;
-
-    output = ::screen->outputDeviceForPoint (x, object->position.y);
+    int output = ::screen->outputDeviceForPoint (x, object->position.y);
     const CompRect &workArea =
-	::screen->outputDevs ()[(unsigned) output].workArea ();
-    workAreaEdge = workArea.x2 ();
+	    ::screen->outputDevs ()[(unsigned) output].workArea ();
+    int workAreaEdge = workArea.x2 ();
 
     if (x <= workAreaEdge)
     {
+	int v, s, e;
 	v1 = workAreaEdge;
 
 	foreach (CompWindow *p, ::screen->windows ())
@@ -185,9 +171,7 @@ WobblyWindow::findNextEastEdge (Object *object)
 		    window->output ().bottom;
 	    }
 	    else
-	    {
 		continue;
-	    }
 
 	    if (s > object->position.y)
 	    {
@@ -217,18 +201,13 @@ WobblyWindow::findNextEastEdge (Object *object)
 		    if (v < v1)
 			v1 = v;
 		}
-		else
-		{
-		    if (v > v2)
-			v2 = v;
-		}
+		else if (v > v2)
+		    v2 = v;
 	    }
 	}
     }
     else
-    {
 	v2 = workAreaEdge;
-    }
 
     v1 = v1 + window->output ().right - window->border ().right;
     v2 = v2 + window->output ().right - window->border ().right;
@@ -249,28 +228,22 @@ WobblyWindow::findNextEastEdge (Object *object)
 void
 WobblyWindow::findNextNorthEdge (Object *object)
 {
-    int v, v1, v2;
-    int s, start;
-    int e, end;
-    int y;
-    int output;
-    int workAreaEdge;
+    int start = -65535;
+    int end   =  65535;
 
-    start = -65535.0f;
-    end   =  65535.0f;
+    int v1 = -65535;
+    int v2 =  65535;
 
-    v1 = -65535.0f;
-    v2 =  65535.0f;
+    int y = object->position.y + window->output ().top - window->border ().top;
 
-    y = object->position.y + window->output ().top - window->border ().top;
-
-    output = ::screen->outputDeviceForPoint (object->position.x, y);
+    int output = ::screen->outputDeviceForPoint (object->position.x, y);
     const CompRect &workArea =
 	::screen->outputDevs ()[(unsigned) output].workArea ();
-    workAreaEdge = workArea.y1 ();
+    int workAreaEdge = workArea.y1 ();
 
     if (y >= workAreaEdge)
     {
+	int v, s, e;
 	v1 = workAreaEdge;
 
 	foreach (CompWindow *p, ::screen->windows ())
@@ -292,9 +265,7 @@ WobblyWindow::findNextNorthEdge (Object *object)
 		    window->output ().right;
 	    }
 	    else
-	    {
 		continue;
-	    }
 
 	    if (s > object->position.x)
 	    {
@@ -324,18 +295,13 @@ WobblyWindow::findNextNorthEdge (Object *object)
 		    if (v > v1)
 			v1 = v;
 		}
-		else
-		{
-		    if (v < v2)
-			v2 = v;
-		}
+		else if (v < v2)
+		    v2 = v;
 	    }
 	}
     }
     else
-    {
 	v2 = workAreaEdge;
-    }
 
     v1 = v1 - window->output ().top + window->border ().top;
     v2 = v2 - window->output ().top + window->border ().top;
@@ -356,28 +322,22 @@ WobblyWindow::findNextNorthEdge (Object *object)
 void
 WobblyWindow::findNextSouthEdge (Object *object)
 {
-    int v, v1, v2;
-    int s, start;
-    int e, end;
-    int y;
-    int output;
-    int workAreaEdge;
+    int start = -65535;
+    int end   =  65535;
 
-    start = -65535.0f;
-    end   =  65535.0f;
+    int v1 =  65535;
+    int v2 = -65535;
 
-    v1 =  65535.0f;
-    v2 = -65535.0f;
+    int y = object->position.y - window->output ().bottom + window->border ().bottom;
 
-    y = object->position.y - window->output ().bottom + window->border ().bottom;
-
-    output = ::screen->outputDeviceForPoint (object->position.x, y);
+    int output = ::screen->outputDeviceForPoint (object->position.x, y);
     const CompRect &workArea =
 	::screen->outputDevs ()[(unsigned) output].workArea ();
-    workAreaEdge = workArea.y2 ();
+    int workAreaEdge = workArea.y2 ();
 
     if (y <= workAreaEdge)
     {
+	int v, s, e;
 	v1 = workAreaEdge;
 
 	foreach (CompWindow *p, ::screen->windows ())
@@ -399,9 +359,7 @@ WobblyWindow::findNextSouthEdge (Object *object)
 		    window->output ().right;
 	    }
 	    else
-	    {
 		continue;
-	    }
 
 	    if (s > object->position.x)
 	    {
@@ -431,18 +389,13 @@ WobblyWindow::findNextSouthEdge (Object *object)
 		    if (v < v1)
 			v1 = v;
 		}
-		else
-		{
-		    if (v > v2)
-			v2 = v;
-		}
+		else if (v > v2)
+		    v2 = v;
 	    }
 	}
     }
     else
-    {
 	v2 = workAreaEdge;
-    }
 
     v1 = v1 + window->output ().bottom - window->border ().bottom;
     v2 = v2 + window->output ().bottom - window->border ().bottom;
@@ -508,7 +461,8 @@ Model::calcBounds ()
     bottomRight.y = MINSHORT;
 
     Object *object = objects;
-    for (int i = 0; i < numObjects; i++, object++)
+
+    for (int i = 0; i < numObjects; ++i, ++object)
     {
 	if (topLeft.x > object->position.x)
 	    topLeft.x = object->position.x;
@@ -531,7 +485,7 @@ Model::addSpring (Object *a,
     Spring *spring;
 
     spring = &springs[numSprings];
-    numSprings++;
+    ++numSprings;
 
     spring->init (a, b, offsetX, offsetY);
 }
@@ -542,10 +496,8 @@ Model::setMiddleAnchor (int   x,
 			int   width,
 			int   height)
 {
-    float gx, gy;
-
-    gx = ((GRID_WIDTH  - 1) / 2 * width)  / (float) (GRID_WIDTH  - 1);
-    gy = ((GRID_HEIGHT - 1) / 2 * height) / (float) (GRID_HEIGHT - 1);
+    float gx = ((GRID_WIDTH  - 1) / 2 * width)  / (float) (GRID_WIDTH  - 1);
+    float gy = ((GRID_HEIGHT - 1) / 2 * height) / (float) (GRID_HEIGHT - 1);
 
     if (anchorObject)
 	anchorObject->immobile = false;
@@ -563,9 +515,7 @@ Model::setTopAnchor (int x,
 		     int y,
 		     int width)
 {
-    float gx;
-
-    gx = ((GRID_WIDTH - 1) / 2 * width)  / (float) (GRID_WIDTH - 1);
+    float gx = ((GRID_WIDTH - 1) / 2 * width)  / (float) (GRID_WIDTH - 1);
 
     if (anchorObject)
 	anchorObject->immobile = false;
@@ -620,24 +570,28 @@ Model::removeEdgeAnchors (int x,
     o = &objects[0];
     o->position.x = x;
     o->position.y = y;
+
     if (o != anchorObject)
 	o->immobile = false;
 
     o = &objects[GRID_WIDTH - 1];
     o->position.x = x + width;
     o->position.y = y;
+
     if (o != anchorObject)
 	o->immobile = false;
 
     o = &objects[GRID_WIDTH * (GRID_HEIGHT - 1)];
     o->position.x = x;
     o->position.y = y + height;
+
     if (o != anchorObject)
 	o->immobile = false;
 
     o = &objects[numObjects - 1];
     o->position.x = x + width;
     o->position.y = y + height;
+
     if (o != anchorObject)
 	o->immobile = false;
 }
@@ -650,13 +604,14 @@ Model::adjustObjectPosition (Object *object,
 			     int    height)
 {
     Object *o;
-    int	   gridX, gridY, i = 0;
+    int	   i = 0;
 
-    for (gridY = 0; gridY < GRID_HEIGHT; gridY++)
+    for (int gridY = 0; gridY < GRID_HEIGHT; ++gridY)
     {
-	for (gridX = 0; gridX < GRID_WIDTH; gridX++, i++)
+	for (int gridX = 0; gridX < GRID_WIDTH; ++gridX, ++i)
 	{
 	    o = &objects[i];
+
 	    if (o == object)
 	    {
 		o->position.x = x + (gridX * width) / (GRID_WIDTH - 1);
@@ -674,15 +629,14 @@ Model::initObjects (int	x,
 		    int	width,
 		    int	height)
 {
-    float gw, gh;
-
-    gw = GRID_WIDTH  - 1;
-    gh = GRID_HEIGHT - 1;
+    float gw = GRID_WIDTH  - 1;
+    float gh = GRID_HEIGHT - 1;
 
     Object *object = objects;
-    for (int gridY = 0; gridY < GRID_HEIGHT; gridY++)
+
+    for (int gridY = 0; gridY < GRID_HEIGHT; ++gridY)
     {
-	for (int gridX = 0; gridX < GRID_WIDTH; gridX++, object++)
+	for (int gridX = 0; gridX < GRID_WIDTH; ++gridX, ++object)
 	{
 	    object->init (x + (gridX * width) / gw,
 			  y + (gridY * height) / gh,
@@ -696,9 +650,9 @@ Model::initObjects (int	x,
 void
 WobblyWindow::updateModelSnapping ()
 {
-    unsigned int edgeMask, gridMask, mask;
+    unsigned int gridMask, mask;
 
-    edgeMask = model->edgeMask;
+    unsigned int edgeMask = model->edgeMask;
 
     if (model->snapCnt[North])
 	edgeMask &= ~SouthEdgeMask;
@@ -711,7 +665,8 @@ WobblyWindow::updateModelSnapping ()
 	edgeMask &= ~WestEdgeMask;
 
     Object *object = model->objects;
-    for (int gridY = 0; gridY < GRID_HEIGHT; gridY++)
+
+    for (int gridY = 0; gridY < GRID_HEIGHT; ++gridY)
     {
 	if (gridY == 0)
 	    gridMask = edgeMask & NorthEdgeMask;
@@ -720,7 +675,7 @@ WobblyWindow::updateModelSnapping ()
 	else
 	    gridMask = 0;
 
-	for (int gridX = 0; gridX < GRID_WIDTH; gridX++, object++)
+	for (int gridX = 0; gridX < GRID_WIDTH; ++gridX, ++object)
 	{
 	    mask = gridMask;
 
@@ -767,9 +722,10 @@ void
 Model::reduceEdgeEscapeVelocity ()
 {
     Object *object = objects;
-    for (int gridY = 0; gridY < GRID_HEIGHT; gridY++)
+
+    for (int gridY = 0; gridY < GRID_HEIGHT; ++gridY)
     {
-	for (int gridX = 0; gridX < GRID_WIDTH; gridX++, object++)
+	for (int gridX = 0; gridX < GRID_WIDTH; ++gridX, ++object)
 	{
 	    if (object->vertEdge.snapped)
 		object->vertEdge.velocity *= drand48 () * 0.25f;
@@ -786,9 +742,10 @@ Model::disableSnapping ()
     bool snapped = false;
 
     Object *object = objects;
-    for (int gridY = 0; gridY < GRID_HEIGHT; gridY++)
+
+    for (int gridY = 0; gridY < GRID_HEIGHT; ++gridY)
     {
-	for (int gridX = 0; gridX < GRID_WIDTH; gridX++, object++)
+	for (int gridX = 0; gridX < GRID_WIDTH; ++gridX, ++object)
 	{
 	    if (object->vertEdge.snapped ||
 		object->horzEdge.snapped)
@@ -813,16 +770,16 @@ Model::adjustObjectsForShiver (int   x,
 			       int   height)
 {
     float vX, vY;
-    float w, h;
     float scale;
 
-    w = width;
-    h = height;
+    float w = width;
+    float h = height;
 
     Object *object = objects;
-    for (int gridY = 0; gridY < GRID_HEIGHT; gridY++)
+
+    for (int gridY = 0; gridY < GRID_HEIGHT; ++gridY)
     {
-	for (int gridX = 0; gridX < GRID_WIDTH; gridX++, object++)
+	for (int gridX = 0; gridX < GRID_WIDTH; ++gridX, ++object)
 	{
 	    if (!object->immobile)
 	    {
@@ -848,16 +805,15 @@ Model::initSprings (int   x,
 		    int   height)
 {
     int   i = 0;
-    float hpad, vpad;
 
     numSprings = 0;
 
-    hpad = ((float) width) / (GRID_WIDTH  - 1);
-    vpad = ((float) height) / (GRID_HEIGHT - 1);
+    float hpad = ((float) width) / (GRID_WIDTH  - 1);
+    float vpad = ((float) height) / (GRID_HEIGHT - 1);
 
-    for (int gridY = 0; gridY < GRID_HEIGHT; gridY++)
+    for (int gridY = 0; gridY < GRID_HEIGHT; ++gridY)
     {
-	for (int gridX = 0; gridX < GRID_WIDTH; gridX++, i++)
+	for (int gridX = 0; gridX < GRID_WIDTH; ++gridX, ++i)
 	{
 	    if (gridX > 0)
 		addSpring (&objects[i - 1],
@@ -877,7 +833,7 @@ Model::move (float tx,
 	     float ty)
 {
     Object *object = objects;
-    for (int i = 0; i < numObjects; i++, object++)
+    for (int i = 0; i < numObjects; ++i, ++object)
     {
 	object->position.x += tx;
 	object->position.y += ty;
@@ -938,7 +894,7 @@ WobblyWindow::objectReleaseWestEastEdge (Object	*object,
     {
 	object->position.x += object->velocity.x * 2.0f;
 
-	model->snapCnt[dir]--;
+	--model->snapCnt[dir];
 
 	object->vertEdge.snapped = false;
 	object->edgeMask = 0;
@@ -961,7 +917,7 @@ WobblyWindow::objectReleaseNorthSouthEdge (Object    *object,
     {
 	object->position.y += object->velocity.y * 2.0f;
 
-	model->snapCnt[dir]--;
+	--model->snapCnt[dir];
 
 	object->horzEdge.snapped = false;
 	object->edgeMask = 0;
@@ -1025,7 +981,7 @@ WobblyWindow::modelStepObject (Object *object,
 			    object->position.x = object->vertEdge.next;
 			    object->velocity.x = 0.0f;
 
-			    model->snapCnt[West]++;
+			    ++model->snapCnt[West];
 
 			    updateModelSnapping ();
 			}
@@ -1060,7 +1016,7 @@ WobblyWindow::modelStepObject (Object *object,
 			    object->position.x = object->vertEdge.next;
 			    object->velocity.x = 0.0f;
 
-			    model->snapCnt[East]++;
+			    ++model->snapCnt[East];
 
 			    updateModelSnapping ();
 			}
@@ -1098,7 +1054,7 @@ WobblyWindow::modelStepObject (Object *object,
 			    object->position.y = object->horzEdge.next;
 			    object->velocity.y = 0.0f;
 
-			    model->snapCnt[North]++;
+			    ++model->snapCnt[North];
 
 			    updateModelSnapping ();
 			}
@@ -1133,7 +1089,7 @@ WobblyWindow::modelStepObject (Object *object,
 			    object->position.y = object->horzEdge.next;
 			    object->velocity.y = 0.0f;
 
-			    model->snapCnt[South]++;
+			    ++model->snapCnt[South];
 
 			    updateModelSnapping ();
 			}
@@ -1172,23 +1128,22 @@ WobblyWindow::modelStep (float friction,
 			 float time)
 {
     unsigned int wobbly = 0;
-    int          steps;
     float        velocitySum = 0.0f;
     float        force, forceSum = 0.0f;
 
     model->steps += time / 15.0f;
-    steps = floor (model->steps);
+    int steps = floor (model->steps);
     model->steps -= steps;
 
     if (!steps)
 	return WobblyInitialMask;
 
-    for (int j = 0; j < steps; j++)
+    for (int j = 0; j < steps; ++j)
     {
-	for (int i = 0; i < model->numSprings; i++)
+	for (int i = 0; i < model->numSprings; ++i)
 	    model->springs[i].exertForces (k);
 
-	for (int i = 0; i < model->numObjects; i++)
+	for (int i = 0; i < model->numObjects; ++i)
 	{
 	    velocitySum += modelStepObject (&model->objects[i],
 					    friction,
@@ -1215,8 +1170,6 @@ Model::bezierPatchEvaluate (float u,
 			    float *patchY)
 {
     float coeffsU[4], coeffsV[4];
-    float x, y;
-    int   i, j;
 
     coeffsU[0] = (1 - u) * (1 - u) * (1 - u);
     coeffsU[1] = 3 * u * (1 - u) * (1 - u);
@@ -1228,11 +1181,12 @@ Model::bezierPatchEvaluate (float u,
     coeffsV[2] = 3 * v * v * (1 - v);
     coeffsV[3] = v * v * v;
 
-    x = y = 0.0f;
+    float x = 0.0f;
+    float y = 0.0f;
 
-    for (i = 0; i < 4; i++)
+    for (int i = 0; i < 4; ++i)
     {
-	for (j = 0; j < 4; j++)
+	for (int j = 0; j < 4; ++j)
 	{
 	    x += coeffsU[i] * coeffsV[j] *
 		objects[j * GRID_WIDTH + i].position.x;
@@ -1286,9 +1240,8 @@ Model::findNearestObject (float x,
 {
     Object *object = &objects[0];
     float  distance, minDistance = 0.0;
-    int    i;
 
-    for (i = 0; i < numObjects; i++)
+    for (int i = 0; i < numObjects; ++i)
     {
 	distance = objects[i].distanceToPoint (x, y);
 	if (i == 0 || distance < minDistance)
@@ -1311,7 +1264,7 @@ WobblyWindow::isWobblyWin ()
     if (window->width () == 1 && window->height () == 1)
 	return false;
 
-    CompWindow::Geometry &geom = window->geometry ();
+    const CompWindow::Geometry &geom = window->geometry ();
 
     /* avoid fullscreen windows */
     if (geom.x () <= 0 &&
@@ -1373,10 +1326,8 @@ WobblyScreen::preparePaint (int msSinceLastPaint)
 			{
 			    float topmostYPos    = MAXSHORT;
 			    float bottommostYPos = MINSHORT;
-			    int   decorTop;
-			    int   decorTitleBottom;
 
-			    for (int i = 0; i < GRID_WIDTH; i++)
+			    for (int i = 0; i < GRID_WIDTH; ++i)
 			    {
 				int modelY = model->objects[i].position.y;
 
@@ -1387,9 +1338,9 @@ WobblyScreen::preparePaint (int msSinceLastPaint)
 				topmostYPos = MIN (modelY, topmostYPos);
 			    }
 
-			    decorTop = bottommostYPos +
-				       w->output ().top - w->border ().top;
-			    decorTitleBottom = topmostYPos + w->output ().top;
+			    int decorTop = bottommostYPos +
+					   w->output ().top - w->border ().top;
+			    int decorTitleBottom = topmostYPos + w->output ().top;
 
 			    if (constraintBox->y () > decorTop)
 			    {
@@ -1420,7 +1371,6 @@ WobblyScreen::preparePaint (int msSinceLastPaint)
 				     w->output ().top -
 				     w->geometry ().y (),
 				     true);
-			    w->syncPosition ();
 			}
 
 			ww->model = model;
@@ -1471,10 +1421,8 @@ WobblyScreen::preparePaint (int msSinceLastPaint)
 		    }
 		}
 		if (!ww->wobblingMask)
-		{
 		    // Wobbling just finished for this window
 		    ww->enableWobbling (false);
-		}
 
 		wobblingWindowsMask |= ww->wobblingMask;
 	    }
@@ -1504,91 +1452,26 @@ WobblyScreen::donePaint ()
 }
 
 void
-WobblyWindow::glDrawGeometry ()
-{
-    GLWindow::Geometry &geom = gWindow->geometry ();
-    int     texUnit = geom.texUnits;
-    int     currentTexUnit = 0;
-    int     stride = geom.vertexStride;
-    GLfloat *vertices = geom.vertices + (stride - 3);
-
-    stride *= (int) sizeof (GLfloat);
-
-    glVertexPointer (3, GL_FLOAT, stride, vertices);
-
-    while (texUnit--)
-    {
-	if (texUnit != currentTexUnit)
-	{
-	    (*GL::clientActiveTexture) ((GLenum) (GL_TEXTURE0_ARB + texUnit));
-	    glEnableClientState (GL_TEXTURE_COORD_ARRAY);
-	    currentTexUnit = texUnit;
-	}
-	vertices -= geom.texCoordSize;
-	glTexCoordPointer (geom.texCoordSize, GL_FLOAT, stride,
-			   vertices);
-    }
-
-    glDrawElements (GL_QUADS, geom.indexCount,
-		    GL_UNSIGNED_SHORT, geom.indices);
-
-    /* disable all texture coordinate arrays except 0 */
-    texUnit = geom.texUnits;
-    if (texUnit > 1)
-    {
-	while (--texUnit)
-	{
-	    (*GL::clientActiveTexture) ((GLenum) (GL_TEXTURE0_ARB + texUnit));
-	    glDisableClientState (GL_TEXTURE_COORD_ARRAY);
-	}
-
-	(*GL::clientActiveTexture) (GL_TEXTURE0_ARB);
-    }
-}
-
-void
 WobblyWindow::glAddGeometry (const GLTexture::MatrixList &matrix,
 			     const CompRegion            &region,
 			     const CompRegion            &clip,
 			     unsigned int                maxGridWidth,
 			     unsigned int                maxGridHeight)
 {
-    GLWindow::Geometry &geom = gWindow->geometry ();
-
-    int      nVertices, nIndices;
-    GLushort *i;
-    GLfloat  *v;
-    int      x1, y1, x2, y2;
-    float    width, height;
-    float    deformedX, deformedY;
-    int      x, y, iw, ih, wx, wy;
-    int      vSize;
-    int      gridW, gridH;
-    bool     rect = true;
-
-    unsigned int nMatrix = matrix.size ();
-
-    for (unsigned int it = 0; it < nMatrix; it++)
-    {
-	if (matrix[it].xy != 0.0f ||
-	    matrix[it].yx != 0.0f)
-	{
-	    rect = false;
-	    break;
-	}
-    }
-
     CompRect outRect (window->outputRect ());
-    wx     = outRect.x ();
-    wy     = outRect.y ();
-    width  = outRect.width ();
-    height = outRect.height ();
 
-    gridW = width / wScreen->optionGetGridResolution ();
+    int wx     = outRect.x ();
+    int wy     = outRect.y ();
+    int width  = outRect.width ();
+    int height = outRect.height ();
+
+    int gridW = width / wScreen->optionGetGridResolution ();
+
     if (gridW < wScreen->optionGetMinGridSize ())
 	gridW = wScreen->optionGetMinGridSize ();
 
-    gridH = height / wScreen->optionGetGridResolution ();
+    int gridH = height / wScreen->optionGetGridResolution ();
+
     if (gridH < wScreen->optionGetMinGridSize ())
 	gridH = wScreen->optionGetMinGridSize ();
 
@@ -1598,113 +1481,26 @@ WobblyWindow::glAddGeometry (const GLTexture::MatrixList &matrix,
     if (gridH > (int) maxGridHeight)
 	gridH = (int) maxGridHeight;
 
-    geom.texUnits = (int) nMatrix;
+    GLVertexBuffer *vb = gWindow->vertexBuffer ();
 
-    vSize = 3 + (int) nMatrix * 2;
+    int oldCount = vb->countVertices ();
+    gWindow->glAddGeometry (matrix, region, clip, gridW, gridH);
+    int newCount = vb->countVertices ();
 
-    nVertices = geom.vCount;
-    nIndices  = geom.indexCount;
+    int stride = vb->getVertexStride ();
+    GLfloat *v = vb->getVertices () + oldCount * stride;
+    GLfloat *vMax = vb->getVertices () + newCount * stride;
 
-    v = geom.vertices + (nVertices * vSize);
-    i = geom.indices  + nIndices;
-
-    foreach (const CompRect &pClip, region.rects ())
+    for (; v < vMax; v += stride)
     {
-	x1 = pClip.x1 ();
-	y1 = pClip.y1 ();
-	x2 = pClip.x2 ();
-	y2 = pClip.y2 ();
-
-	iw = ((x2 - x1 - 1) / gridW) + 1;
-	ih = ((y2 - y1 - 1) / gridH) + 1;
-
-	// Allocate indices
-	int newIndexSize = nIndices + (iw * ih * 4);
-	if (newIndexSize > geom.indexSize)
-	{
-	    if (!geom.moreIndices (newIndexSize))
-		return;
-
-	    i = geom.indices + nIndices;
-	}
-
-	iw++;
-	ih++;
-
-	for (y = 0; y < ih - 1; y++)
-	{
-	    for (x = 0; x < iw - 1; x++)
-	    {
-		*i++ = nVertices + iw * (y + 1) + x;
-		*i++ = nVertices + iw * (y + 1) + x + 1;
-		*i++ = nVertices + iw * y + x + 1;
-		*i++ = nVertices + iw * y + x;
-
-		nIndices += 4;
-	    }
-	}
-
-	// Allocate vertices
-	int newVertexSize = (nVertices + iw * ih) * vSize;
-	if (newVertexSize > geom.vertexSize)
-	{
-	    if (!geom.moreVertices (newVertexSize))
-		return;
-
-	    v = geom.vertices + (nVertices * vSize);
-	}
-
-	for (y = y1;; y += gridH)
-	{
-	    if (y > y2)
-		y = y2;
-
-	    for (x = x1;; x += gridW)
-	    {
-		if (x > x2)
-		    x = x2;
-
-		model->bezierPatchEvaluate ((x - wx) / width,
-						(y - wy) / height,
-						&deformedX,
-						&deformedY);
-
-		if (rect)
-		{
-		    for (unsigned int it = 0; it < nMatrix; it++)
-		    {
-			*v++ = COMP_TEX_COORD_X (matrix[it], x);
-			*v++ = COMP_TEX_COORD_Y (matrix[it], y);
-		    }
-		}
-		else
-		{
-		    for (unsigned int it = 0; it < nMatrix; it++)
-		    {
-			*v++ = COMP_TEX_COORD_XY (matrix[it], x, y);
-			*v++ = COMP_TEX_COORD_YX (matrix[it], x, y);
-		    }
-		}
-
-		*v++ = deformedX;
-		*v++ = deformedY;
-		*v++ = 0.0;
-
-		nVertices++;
-
-		if (x == x2)
-		    break;
-	    }
-
-	    if (y == y2)
-		break;
-	}
+	float deformedX, deformedY;
+	GLfloat normalizedX = (v[0] - wx) / width;
+	GLfloat normalizedY = (v[1] - wy) / height;
+	model->bezierPatchEvaluate (normalizedX, normalizedY,
+				    &deformedX, &deformedY);
+	v[0] = deformedX;
+	v[1] = deformedY;
     }
-
-    geom.vCount	  = nVertices;
-    geom.vertexStride = vSize;
-    geom.texCoordSize = 2;
-    geom.indexCount   = nIndices;
 }
 
 bool
@@ -1745,13 +1541,9 @@ WobblyScreen::disableSnapping ()
     {
 	WobblyWindow *ww = WobblyWindow::get (w);
 
-	if (ww->grabbed && ww->model)
-	{
-	    if (ww->model->disableSnapping ())
-	    {
-		startWobbling (ww);
-	    }
-	}
+	if (ww->grabbed && ww->model &&
+	    ww->model->disableSnapping ())
+	    startWobbling (ww);
     }
 
     snapping = false;
@@ -1772,7 +1564,7 @@ WobblyScreen::shiver (CompOption::Vector &options)
 
 	if (ww->isWobblyWin () && ww->ensureModel ())
 	{
-	    CompRect outRect (w->outputRect ());
+	    CompRect outRect (w->serverOutputRect ());
 
 	    ww->model->setMiddleAnchor (outRect.x (), outRect.y (),
 					outRect.width (), outRect.height ());
@@ -1794,6 +1586,7 @@ WobblyWindow::windowNotify (CompWindowNotify n)
 	    if (model && isWobblyWin ())
 		initiateMapEffect ();
 	    break;
+
 	default:
 	    break;
     }
@@ -1815,11 +1608,10 @@ WobblyScreen::handleEvent (XEvent *event)
 	{
 	    XkbStateNotifyEvent *stateEvent = (XkbStateNotifyEvent *) event;
 	    CompAction	        *action;
-	    bool		inverted;
 	    unsigned int	mods = 0xffffffff;
 
-	    action   = &optionGetSnapKey ();
-	    inverted = optionGetSnapInverted ();
+	    action	  = &optionGetSnapKey ();
+	    bool inverted = optionGetSnapInverted ();
 
 	    if (action->type () & CompAction::BindingTypeKey)
 		mods = action->key ().modifiers ();
@@ -1876,6 +1668,8 @@ WobblyScreen::handleEvent (XEvent *event)
 		}
 	    }
 	}
+	break;
+
     default:
 	break;
     }
@@ -1890,26 +1684,27 @@ WobblyScreen::handleEvent (XEvent *event)
 
 	if (ww->isWobblyWin ())
 	{
-	    int focusEffect;
-
-	    focusEffect = optionGetFocusEffect ();
+	    int focusEffect = optionGetFocusEffect ();
 
 	    if ((focusEffect != WobblyOptions::FocusEffectNone) &&
 		optionGetFocusWindowMatch ().evaluate (w) &&
 		ww->ensureModel ())
 	    {
-		switch (focusEffect) {
-		case WobblyOptions::FocusEffectShiver:
+		switch (focusEffect)
+		{
+		    case WobblyOptions::FocusEffectShiver:
 		    {
-			CompRect outRect (w->outputRect ());
+			CompRect outRect (w->serverOutputRect ());
 
 			ww->model->adjustObjectsForShiver (outRect.x (),
 							   outRect.y (),
 							   outRect.width (),
 							   outRect.height ());
 		    }
-		default:
-		    break;
+			break;
+
+		    default:
+			break;
 		}
 
 		startWobbling (ww);
@@ -1923,7 +1718,6 @@ WobblyWindow::enableWobbling (bool enabling)
 {
     gWindow->glPaintSetEnabled (this, enabling);
     gWindow->glAddGeometrySetEnabled (this, enabling);
-    gWindow->glDrawGeometrySetEnabled (this, enabling);
     cWindow->damageRectSetEnabled (this, enabling);
 }
 
@@ -1939,6 +1733,7 @@ WobblyScreen::startWobbling (WobblyWindow *ww)
 	cScreen->donePaintSetEnabled (this, true);
 	gScreen->glPaintOutputSetEnabled (this, true);
     }
+
     ww->wobblingMask |= WobblyInitialMask;
     wobblingWindowsMask |= ww->wobblingMask;
 
@@ -1950,7 +1745,6 @@ WobblyWindow::damageRect (bool initial,
 			  const CompRect &rect)
 {
     if (!initial)
-    {
 	if (wobblingMask == WobblyForceMask)
 	{
 	    int x1 = model->topLeft.x;
@@ -1963,7 +1757,6 @@ WobblyWindow::damageRect (bool initial,
 
 	    return true;
 	}
-    }
 
     return cWindow->damageRect (initial, rect);
 }
@@ -1992,6 +1785,7 @@ WobblyWindow::initiateMapEffect ()
 					   outRect.width (),
 					   outRect.height ());
 	    break;
+
 	default:
 	    break;
 	}
@@ -2048,17 +1842,13 @@ WobblyWindow::resizeNotify (int dx,
     }
     else if (model)
     {
-	if (wobblingMask)
-	{
-	    if (!(state & MAXIMIZE_STATE))
-		model->setTopAnchor (outRect.x (), outRect.y (),
-				     outRect.width ());
-	}
+	if (wobblingMask &&
+	    !(state & MAXIMIZE_STATE))
+	    model->setTopAnchor (outRect.x (), outRect.y (),
+				 outRect.width ());
 	else
-	{
 	    model->initObjects (outRect.x (), outRect.y (),
 				outRect.width (), outRect.height ());
-	}
 
 	model->initSprings (outRect.x (), outRect.y (),
 			    outRect.width (), outRect.height ());
@@ -2094,7 +1884,8 @@ WobblyWindow::moveNotify (int  dx,
 	    if (state & MAXIMIZE_STATE)
 	    {
 		Object *object = model->objects;
-		for (int i = 0; i < model->numObjects; i++, object++)
+
+		for (int i = 0; i < model->numObjects; ++i, ++object)
 		{
 		    if (object->immobile)
 		    {
@@ -2129,10 +1920,12 @@ WobblyWindow::grabNotify (int          x,
 	wScreen->grabMask   = mask;
 	wScreen->grabWindow = window;
     }
+
     wScreen->moveWindow = false;
 
-    if ((mask & CompWindowGrabButtonMask) &&
-	wScreen->optionGetMoveWindowMatch ().evaluate (window) &&
+    if (mask & (CompWindowGrabButtonMask)			&&
+	mask & (CompWindowGrabMoveMask)				&&
+	wScreen->optionGetMoveWindowMatch ().evaluate (window)	&&
 	isWobblyWin ())
     {
 	wScreen->moveWindow = true;
@@ -2140,17 +1933,14 @@ WobblyWindow::grabNotify (int          x,
 	if (ensureModel ())
 	{
 	    Spring *s;
-	    int	   i;
 
 	    if (wScreen->optionGetMaximizeEffect ())
 	    {
 		CompRect outRect (window->outputRect ());
 
 		if (window->state () & MAXIMIZE_STATE)
-		{
 		    model->addEdgeAnchors (outRect.x (), outRect.y (),
 					   outRect.width (), outRect.height ());
-		}
 		else
 		{
 		    model->removeEdgeAnchors (outRect.x (), outRect.y (),
@@ -2160,11 +1950,8 @@ WobblyWindow::grabNotify (int          x,
 			model->anchorObject->immobile = false;
 		}
 	    }
-	    else
-	    {
-		if (model->anchorObject)
-		    model->anchorObject->immobile = false;
-	    }
+	    else if (model->anchorObject)
+		model->anchorObject->immobile = false;
 
 	    model->anchorObject = model->findNearestObject (x, y);
 	    model->anchorObject->immobile = true;
@@ -2192,7 +1979,7 @@ WobblyWindow::grabNotify (int          x,
 	    if (wScreen->yConstrained)
 	    {
 		int output =
-		    ::screen->outputDeviceForGeometry (window->geometry ());
+		    ::screen->outputDeviceForGeometry (window->serverGeometry ());
 		wScreen->constraintBox =
 		    &::screen->outputDevs ()[output].workArea ();
 	    }
@@ -2206,7 +1993,7 @@ WobblyWindow::grabNotify (int          x,
 
 	    if (wScreen->optionGetGrabWindowMatch ().evaluate (window))
 	    {
-		for (i = 0; i < model->numSprings; i++)
+		for (int i = 0; i < model->numSprings; ++i)
 		{
 		    s = &model->springs[i];
 
@@ -2338,12 +2125,10 @@ WobblyWindow::WobblyWindow (CompWindow *w) :
     grabbed (false),
     state (w->state ())
 {
-    if ((w->mapNum () && wScreen->optionGetMaximizeEffect ()) ||
-	wScreen->optionGetMapEffect () != WobblyOptions::MapEffectNone)
-    {
-	if (isWobblyWin ())
-	    ensureModel ();
-    }
+    if (((w->mapNum () && wScreen->optionGetMaximizeEffect ()) ||
+	wScreen->optionGetMapEffect () != WobblyOptions::MapEffectNone) &&
+	isWobblyWin ())
+	ensureModel ();
 
     WindowInterface::setHandler (window);
     CompositeWindowInterface::setHandler (cWindow, false);
@@ -2370,11 +2155,10 @@ Model::~Model ()
 bool
 WobblyPluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION) |
-        !CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI) |
-        !CompPlugin::checkPluginABI ("opengl", COMPIZ_OPENGL_ABI))
-	 return false;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION)		&&
+	CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI)	&&
+	CompPlugin::checkPluginABI ("opengl", COMPIZ_OPENGL_ABI))
+	return true;
 
-    return true;
+    return false;
 }
-

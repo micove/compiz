@@ -37,10 +37,8 @@ FadeScreen::bell (CompAction         *action,
     {
 	foreach (CompWindow *w, screen->windows ())
 	{
-	    if (w->destroyed ())
-		continue;
-
-	    if (!w->isViewable ())
+	    if (w->destroyed () ||
+		!w->isViewable ())
 		continue;
 
 	    FadeWindow::get (w)->dim (false);
@@ -62,14 +60,13 @@ FadeScreen::bell (CompAction         *action,
 void
 FadeScreen::handleEvent (XEvent *event)
 {
-    CompWindow *w;
-
     screen->handleEvent (event);
 
     if (event->type == PropertyNotify &&
 	event->xproperty.atom == Atoms::winState)
     {
-	w = screen->findWindow (event->xproperty.window);
+	CompWindow *w = screen->findWindow (event->xproperty.window);
+
 	if (w && w->isViewable ())
 	{
 	    if (w->state () & CompWindowStateDisplayModalMask)
@@ -107,15 +104,14 @@ FadeWindow::dim (bool damage)
 void
 FadeWindow::addDisplayModal ()
 {
-    if (!(window->state () & CompWindowStateDisplayModalMask))
-	return;
-
-    if (dModal)
+    if (!(window->state () & CompWindowStateDisplayModalMask) ||
+	dModal)
 	return;
 
     dModal = true;
 
-    fScreen->displayModals++;
+    ++fScreen->displayModals;
+
     if (fScreen->displayModals == 1)
 	fScreen->cScreen->damageScreen ();
 }
@@ -128,7 +124,8 @@ FadeWindow::removeDisplayModal ()
 
     dModal = false;
 
-    fScreen->displayModals--;
+    --fScreen->displayModals;
+
     if (fScreen->displayModals == 0)
 	fScreen->cScreen->damageScreen ();
 }
@@ -149,13 +146,12 @@ FadeWindow::paintStep (unsigned int mode,
 	{
 	    steps     = 1;
 	    fadeTime -= msSinceLastPaint;
+
 	    if (fadeTime < 0)
 		fadeTime = 0;
 	}
 	else
-	{
 	    steps = 0;
-	}
     }
 }
 
@@ -169,10 +165,10 @@ FadeWindow::windowNotify (CompWindowNotify n)
 }
 
 bool
-FadeWindow::glPaint (const GLWindowPaintAttrib& attrib,
-		     const GLMatrix&            transform,
-		     const CompRegion&          region,
-		     unsigned int               mask)
+FadeWindow::glPaint (const GLWindowPaintAttrib &attrib,
+		     const GLMatrix            &transform,
+		     const CompRegion          &region,
+		     unsigned int              mask)
 {
     if (!GL::canDoSlightlySaturated)
 	saturation = attrib.saturation;
@@ -182,25 +178,22 @@ FadeWindow::glPaint (const GLWindowPaintAttrib& attrib,
 	brightness == attrib.brightness &&
 	saturation == attrib.saturation &&
 	!fScreen->displayModals)
-    {
 	return gWindow->glPaint (attrib, transform, region, mask);
-    }
 
     GLWindowPaintAttrib fAttrib (attrib);
-    int                 mode;
 
-    mode = fScreen->optionGetFadeMode ();
+    int mode = fScreen->optionGetFadeMode ();
 
     if (!window->alive () &&
 	fScreen->optionGetDimUnresponsive ())
     {
-	GLuint value;
+	GLuint value = fScreen->optionGetUnresponsiveBrightness ();
 
-	value = fScreen->optionGetUnresponsiveBrightness ();
 	if (value != 100)
 	    fAttrib.brightness = fAttrib.brightness * value / 100;
 
-	value = fScreen->optionGetUnresponsiveSaturation ();
+	value        = fScreen->optionGetUnresponsiveSaturation ();
+
 	if (value != 100 && GL::canDoSlightlySaturated)
 	    fAttrib.saturation = fAttrib.saturation * value / 100;
     }
@@ -210,54 +203,51 @@ FadeWindow::glPaint (const GLWindowPaintAttrib& attrib,
 	fAttrib.saturation = 0;
     }
 
-    if (mode == FadeOptions::FadeModeConstantTime)
+    if (mode == FadeOptions::FadeModeConstantTime   &&
+	(fAttrib.opacity    != targetOpacity    ||
+	 fAttrib.brightness != targetBrightness ||
+	 fAttrib.saturation != targetSaturation))
     {
-	if (fAttrib.opacity    != targetOpacity    ||
-	    fAttrib.brightness != targetBrightness ||
-	    fAttrib.saturation != targetSaturation)
-	{
-	    fadeTime = fScreen->optionGetFadeTime ();
-	    steps    = 1;
+	fadeTime = fScreen->optionGetFadeTime ();
+	steps    = 1;
 
-	    opacityDiff    = fAttrib.opacity - opacity;
-	    brightnessDiff = fAttrib.brightness - brightness;
-	    saturationDiff = fAttrib.saturation - saturation;
+	opacityDiff    = fAttrib.opacity    - opacity;
+	brightnessDiff = fAttrib.brightness - brightness;
+	saturationDiff = fAttrib.saturation - saturation;
 
-	    targetOpacity    = fAttrib.opacity;
-	    targetBrightness = fAttrib.brightness;
-	    targetSaturation = fAttrib.saturation;
-	}
+	targetOpacity    = fAttrib.opacity;
+	targetBrightness = fAttrib.brightness;
+	targetSaturation = fAttrib.saturation;
     }
 
     if (steps)
     {
-	GLint newOpacity = OPAQUE;
+	GLint newOpacity    = OPAQUE;
 	GLint newBrightness = BRIGHT;
 	GLint newSaturation = COLOR;
 
 	if (mode == FadeOptions::FadeModeConstantSpeed)
 	{
 	    newOpacity = opacity;
+
 	    if (fAttrib.opacity > opacity)
 		newOpacity = MIN (opacity + steps, fAttrib.opacity);
 	    else if (fAttrib.opacity < opacity)
 		newOpacity = MAX (opacity - steps, fAttrib.opacity);
 
 	    newBrightness = brightness;
+
 	    if (fAttrib.brightness > brightness)
-		newBrightness = MIN (brightness + (steps / 12),
-				     fAttrib.brightness);
+		newBrightness = MIN (brightness + (steps / 12), fAttrib.brightness);
 	    else if (fAttrib.brightness < brightness)
-		newBrightness = MAX (brightness - (steps / 12),
-				     fAttrib.brightness);
+		newBrightness = MAX (brightness - (steps / 12), fAttrib.brightness);
 
 	    newSaturation = saturation;
+
 	    if (fAttrib.saturation > saturation)
-		saturation = MIN (saturation + (steps / 6),
-				  fAttrib.saturation);
+		newSaturation = MIN (saturation + (steps / 6), fAttrib.saturation);
 	    else if (fAttrib.saturation < saturation)
-		saturation = MAX (saturation - (steps / 6),
-				  fAttrib.saturation);
+		newSaturation = MAX (saturation - (steps / 6), fAttrib.saturation);
 	}
 	else if (mode == FadeOptions::FadeModeConstantTime)
 	{
@@ -266,12 +256,12 @@ FadeWindow::glPaint (const GLWindowPaintAttrib& attrib,
 	    if (totalFadeTime == 0)
 		totalFadeTime = fadeTime;
 
-	    newOpacity = fAttrib.opacity -
-		            (opacityDiff * fadeTime / totalFadeTime);
+	    newOpacity    = fAttrib.opacity -
+			    (opacityDiff    * fadeTime / totalFadeTime);
 	    newBrightness = fAttrib.brightness -
-		            (brightnessDiff * fadeTime / totalFadeTime);
+			    (brightnessDiff * fadeTime / totalFadeTime);
 	    newSaturation = fAttrib.saturation -
-		            (saturationDiff * fadeTime / totalFadeTime);
+			    (saturationDiff * fadeTime / totalFadeTime);
 	}
 
 	steps = 0;
@@ -285,14 +275,10 @@ FadeWindow::glPaint (const GLWindowPaintAttrib& attrib,
 	    if (newOpacity    != fAttrib.opacity    ||
 		newBrightness != fAttrib.brightness ||
 		newSaturation != fAttrib.saturation)
-	    {
 		cWindow->addDamage ();
-	    }
 	}
 	else
-	{
 	    opacity = 0;
-	}
     }
 
     fAttrib.opacity    = opacity;
@@ -326,17 +312,22 @@ FadeScreen::setOption (const CompString  &name,
     if (!rv || !CompOption::findOption (getOptions (), name, &index))
 	return false;
 
-    switch (index) {
+    switch (index)
+    {
 	case FadeOptions::FadeSpeed:
-		fadeTime = 1000.0f / optionGetFadeSpeed ();
+	    fadeTime = 1000.0f / optionGetFadeSpeed ();
 	    break;
+
 	case FadeOptions::WindowMatch:
 	    cScreen->damageScreen ();
 	    break;
+
 	case FadeOptions::DimUnresponsive:
 	    foreach (CompWindow *w, screen->windows ())
 		w->windowNotifySetEnabled (FadeWindow::get (w), optionGetDimUnresponsive ());
+
 	    break;
+
 	default:
 	    break;
     }
@@ -346,22 +337,22 @@ FadeScreen::setOption (const CompString  &name,
 
 FadeWindow::FadeWindow (CompWindow *w) :
     PluginClassHandler<FadeWindow, CompWindow> (w),
-    fScreen (FadeScreen::get (screen)),
-    window (w),
-    cWindow (CompositeWindow::get (w)),
-    gWindow (GLWindow::get (w)),
-    opacity (cWindow->opacity ()),
-    brightness (cWindow->brightness ()),
-    saturation (cWindow->saturation ()),
-    targetOpacity (opacity),
+    fScreen          (FadeScreen::get (screen)),
+    window           (w),
+    cWindow          (CompositeWindow::get (w)),
+    gWindow          (GLWindow::get (w)),
+    opacity          (cWindow->opacity ()),
+    brightness       (cWindow->brightness ()),
+    saturation       (cWindow->saturation ()),
+    targetOpacity    (opacity),
     targetBrightness (brightness),
     targetSaturation (saturation),
-    dModal (false),
-    steps (0),
-    fadeTime (0),
-    opacityDiff (0),
-    brightnessDiff (0),
-    saturationDiff (0)
+    dModal           (false),
+    steps            (0),
+    fadeTime         (0),
+    opacityDiff      (0),
+    brightnessDiff   (0),
+    saturationDiff   (0)
 {
     if (window->isViewable ())
 	addDisplayModal ();
@@ -381,11 +372,10 @@ FadeWindow::~FadeWindow ()
 bool
 FadePluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION)           |
-	!CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI) |
-	!CompPlugin::checkPluginABI ("opengl", COMPIZ_OPENGL_ABI))
-    {
-	return false;
-    }
-    return true;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION)		&&
+	CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI)	&&
+	CompPlugin::checkPluginABI ("opengl", COMPIZ_OPENGL_ABI))
+	return true;
+
+    return false;
 }

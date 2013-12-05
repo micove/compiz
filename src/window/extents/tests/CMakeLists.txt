@@ -11,8 +11,6 @@ target_link_libraries (compiz_test_window_extents_shift
                        compiz_window_extents 
                        ${GTEST_BOTH_LIBRARIES}
 		       ${GMOCK_LIBRARY}
-		       ${GMOCK_MAIN_LIBRARY}
-		       ${CMAKE_THREAD_LIBS_INIT} # Link in pthread. 
-                       )
+		       ${GMOCK_MAIN_LIBRARY})
 
-gtest_add_tests (compiz_test_window_extents_shift "" ${CMAKE_CURRENT_SOURCE_DIR}/shift/src/test-window-extents-shift.cpp)
+compiz_discover_tests (compiz_test_window_extents_shift COVERAGE compiz_window_extents)

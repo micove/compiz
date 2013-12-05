@@ -38,16 +38,22 @@ class FadeScreen :
     public FadeOptions
 {
     public:
+
 	FadeScreen (CompScreen *s);
 
-	bool setOption (const CompString &, CompOption::Value &);
+	bool setOption (const CompString  &,
+			CompOption::Value &);
 
-	bool bell (CompAction *, CompAction::State state, CompOption::Vector &);
+	bool bell (CompAction         *,
+		   CompAction::State  state,
+		   CompOption::Vector &);
+
 	void handleEvent (XEvent *);
+
 	void preparePaint (int);
 
-	int displayModals;
-	int fadeTime;
+	int             displayModals;
+	int             fadeTime;
 
 	CompositeScreen *cScreen;
 };
@@ -58,47 +64,56 @@ class FadeWindow :
     public PluginClassHandler<FadeWindow, CompWindow>
 {
     public:
+
 	FadeWindow (CompWindow *w);
 	~FadeWindow ();
 
 	void windowNotify (CompWindowNotify);
-	void paintStep (unsigned int, int, int);
 
-	bool glPaint (const GLWindowPaintAttrib&, const GLMatrix&,
-		      const CompRegion&, unsigned int);
+	void paintStep (unsigned int  ,
+			int           ,
+			int            );
+
+	bool glPaint (const GLWindowPaintAttrib &,
+		      const GLMatrix            &,
+		      const CompRegion          &,
+		      unsigned int                );
 
 	void addDisplayModal ();
+
 	void removeDisplayModal ();
 
 	void dim (bool);
 
     private:
+
 	FadeScreen      *fScreen;
 	CompWindow      *window;
 	CompositeWindow *cWindow;
 	GLWindow        *gWindow;
 
-	GLushort opacity;
-	GLushort brightness;
-	GLushort saturation;
+	GLushort        opacity;
+	GLushort        brightness;
+	GLushort        saturation;
 
-	GLushort targetOpacity;
-	GLushort targetBrightness;
-	GLushort targetSaturation;
+	GLushort        targetOpacity;
+	GLushort        targetBrightness;
+	GLushort        targetSaturation;
 
-	bool dModal;
+	bool            dModal;
 
-	int steps;
-	int fadeTime;
+	int             steps;
+	int             fadeTime;
 
-	int opacityDiff;
-	int brightnessDiff;
-	int saturationDiff;
+	int             opacityDiff;
+	int             brightnessDiff;
+	int             saturationDiff;
 };
 
 class FadePluginVTable :
     public CompPlugin::VTableForScreenAndWindow<FadeScreen, FadeWindow>
 {
     public:
+
 	bool init ();
 };

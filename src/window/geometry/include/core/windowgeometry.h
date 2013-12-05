@@ -64,6 +64,12 @@ public:
     compiz::window::Geometry  change (const compiz::window::Geometry &g, unsigned int mask) const;
     void		      applyChange (const compiz::window::Geometry &g, unsigned int mask);
 
+    int xMinusBorder () const { return x () - mBorder; }
+    int yMinusBorder () const { return y () - mBorder; }
+
+    unsigned int widthIncBorders () const { return width () + mBorder * 2; }
+    unsigned int heightIncBorders () const { return height () + mBorder * 2; }
+
 private:
     int mBorder;
 };

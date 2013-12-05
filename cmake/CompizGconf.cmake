@@ -29,7 +29,7 @@ function (compiz_install_gconf_schema _src _dst)
     endif ()
     install (
 	FILES "${_src}"
-	DESTINATION "${COMPIZ_DESTDIR}${_dst}"
+	DESTINATION "${_dst}"
     )
 endfunction ()
 

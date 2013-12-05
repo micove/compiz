@@ -37,11 +37,9 @@ compiz::window::Geometry
 compiz::place::ScreenSizeChangeObject::adjustForSize (const CompSize &oldSize,
 						      const CompSize &newSize)
 {
-    int            vpX, vpY, shiftX, shiftY;
+    int            vpX, vpY;
     compiz::window::Geometry g, vpRelRect;
     int		   pivotX, pivotY;
-    int		   curVpOffsetX = getViewport ().x () * newSize.width ();
-    int		   curVpOffsetY = getViewport ().y () * newSize.height ();
 
     g = getGeometry ();
     compiz::window::Geometry og (g);
@@ -59,24 +57,14 @@ compiz::place::ScreenSizeChangeObject::adjustForSize (const CompSize &oldSize,
     if (pivotY < 0)
 	vpY -= 1;
 
-    /* if window's target vp is to the left of the leftmost viewport on that
-       row, assign its target vp column as 0 (-s->x rel. to current vp) */
-    if (getViewport ().x () + vpX < 0)
-	vpX = -getViewport ().x ();
-
-    /* if window's target vp is above the topmost viewport on that column,
-       assign its target vp row as 0 (-s->y rel. to current vp) */
-    if (getViewport ().y () + vpY < 0)
-	vpY = -getViewport ().y ();
-
     unsigned int mask = mSaver.pop (vpRelRect, CHANGE_X | CHANGE_Y |
 					       CHANGE_WIDTH | CHANGE_HEIGHT);
 
     if (mask)
     {
 	/* set position/size to saved original rectangle */
-	g.applyChange (compiz::window::Geometry (vpRelRect.x () + vpX * newSize.width (),
-						 vpRelRect.y () + vpY * newSize.height (),
+	g.applyChange (compiz::window::Geometry (vpRelRect.x (),
+						 vpRelRect.y (),
 						 vpRelRect.width (),
 						 vpRelRect.height (),
 						 vpRelRect.border ()), mask);
@@ -90,41 +78,23 @@ compiz::place::ScreenSizeChangeObject::adjustForSize (const CompSize &oldSize,
 	vpRelRect.setWidth (g.width ());
 	vpRelRect.setHeight (g.height ());
 
-	g.setPos (g.pos ());
-
-	shiftX = vpX * (newSize.width () - oldSize.width ());
-	shiftY = vpY * (newSize.width () - oldSize.height ());
+	g = vpRelRect;
 
 	/* if coords. relative to viewport are outside new viewport area,
 	   shift window left/up so that it falls inside */
-	if (vpRelRect.x () >= newSize.width ())
-	    shiftX -= vpRelRect.x () - (newSize.width () - 1);
-	if (vpRelRect.y () >= newSize.height ())
-	    shiftY -= vpRelRect.y () - (newSize.height () - 1);
-
-	if (shiftX)
-	    g.setX (g.x () + shiftX);
-
-	if (shiftY)
-	    g.setY (g.y () + shiftY);
+	if (vpRelRect.x () + vpRelRect.width() >= newSize.width ())
+	    g.setX (g.x () - (vpRelRect.x () + vpRelRect.width () - newSize.width ()));
+	if (vpRelRect.y () + vpRelRect.height() >= newSize.height ())
+	    g.setY (g.y () - (vpRelRect.y () + vpRelRect.width () - newSize.height ()));
 
 	g.setWidth (vpRelRect.width ());
 	g.setHeight (vpRelRect.height ());
     }
 
-    /* Handle non-(0,0) current viewport by shifting by curVpOffsetX,Y,
-       and bring window to (0,0) by shifting by minus its vp offset */
-
-    g.setX (g.x () + curVpOffsetX - (getViewport ().x () + vpX) * newSize.width ());
-    g.setY (g.y () + curVpOffsetY - (getViewport ().y () + vpY) * newSize.height ());
-
     unsigned int flags = 0;
     const CompRect &workArea = getWorkarea (g);
 
     compiz::place::clampGeometryToWorkArea (g, workArea, getExtents (), flags, newSize);
-
-    g.setX (g.x () - curVpOffsetX + (getViewport ().x () + vpX) * newSize.width ());
-    g.setY (g.y () - curVpOffsetY + (getViewport ().y () + vpY) * newSize.height ());
 
     if (!mask)
     {
@@ -150,6 +120,9 @@ compiz::place::ScreenSizeChangeObject::adjustForSize (const CompSize &oldSize,
 	unsigned int remaining = g.changeMask (rg);
 	mSaver.push (vpRelRect, remaining);
     }
+
+    g.setX (g.x () + vpX * newSize.width ());
+    g.setY (g.y () + vpY * newSize.height ());
 
     /* for maximized/fullscreen windows, update saved pos/size XXX,
      * also pull in the old code to handle maximized windows which

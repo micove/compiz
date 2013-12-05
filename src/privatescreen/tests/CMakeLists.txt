@@ -12,10 +12,12 @@ include_directories(
   ${compiz_SOURCE_DIR}/src/timer/src
 
   ${compiz_SOURCE_DIR}/src/rect/include
+  ${compiz_SOURCE_DIR}/src/region/include
   ${compiz_SOURCE_DIR}/src/screen/geometry/include
   ${compiz_SOURCE_DIR}/src/window/geometry/include
   ${compiz_SOURCE_DIR}/src/window/extents/include
   ${compiz_SOURCE_DIR}/src/screen/extents/include
+  ${compiz_SOURCE_DIR}/src/servergrab/include
 
   ${compiz_SOURCE_DIR}/src/pluginclasshandler/include
 
@@ -48,7 +50,6 @@ target_link_libraries(
   
   ${GTEST_BOTH_LIBRARIES}
   ${GMOCK_LIBRARY}
-  ${CMAKE_THREAD_LIBS_INIT} # Link in pthread.
 )
 
-env_gtest_add_tests( compiz_privatescreen_test "" ${CMAKE_CURRENT_SOURCE_DIR}/test-privatescreen.cpp )
+compiz_discover_tests (compiz_privatescreen_test COVERAGE compiz_core)

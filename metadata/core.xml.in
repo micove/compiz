@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <compiz>
     <plugin name="core" useBcop="true">
 	<_short>General Options</_short>
@@ -188,6 +189,10 @@
 			<_short>Unmaximize Window</_short>
 			<_long>Unmaximize active window</_long>
 			<default>&lt;Alt&gt;F5</default>
+			</option>
+			<option name="unmaximize_or_minimize_window_key" type="key">
+			<_short>Unmaximize or Minimize Window</_short>
+			<_long>Unmaximize or minimize active window</_long>
 			</option>
 			<option name="maximize_window_horizontally_key" type="key">
 			<_short>Maximize Window Horizontally</_short>

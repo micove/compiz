@@ -60,9 +60,10 @@ class CoreExp : public CompMatch::Expression {
 	    }
 	    else if (str.compare (0, 6, "state=") == 0)
 	    {
+		using ::compiz::private_screen::windowStateFromString;
+
 		mType = TypeState;
-		priv.uval = PrivateScreen::windowStateFromString
-				(str.substr (6).c_str ());
+		priv.uval = windowStateFromString(str.substr (6).c_str ());
 	    }
 	    else if (str.compare (0, 18, "override_redirect=") == 0)
 	    {
@@ -84,7 +85,7 @@ class CoreExp : public CompMatch::Expression {
 	    }
 	}
 
-	bool evaluate (CompWindow *w)
+	bool evaluate (const CompWindow *w) const
 	{
 	    switch (mType)
 	    {
@@ -235,8 +236,8 @@ matchOpsEqual (MatchOp::List &list1,
 		break;
 	}
 
-	it1++;
-	it2++;
+	++it1;
+	++it2;
     }
 
     return true;
@@ -390,7 +391,7 @@ matchAddFromString (MatchOp::List &list,
 	}
     }
 
-    if (list.size ())
+    if (!list.empty ())
 	list.front ()->flags &= ~MATCH_OP_AND_MASK;
 
 }
@@ -463,7 +464,7 @@ matchUpdateOps (MatchOp::List &list)
 
 static bool
 matchEvalOps (MatchOp::List &list,
-	      CompWindow    *w)
+	      const CompWindow *w)
 {
     bool       value, result = false;
     MatchExpOp *exp;
@@ -622,7 +623,7 @@ CompMatch::update ()
 }
 
 bool
-CompMatch::evaluate (CompWindow *window)
+CompMatch::evaluate (const CompWindow *window) const
 {
     return matchEvalOps (priv->op.op, window);
 }

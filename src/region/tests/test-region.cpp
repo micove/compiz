@@ -8,24 +8,6 @@
 
 #include <iostream>
 
-namespace { // DEBUG stuff
-void dump_rects(CompRegion const& region)
-{
-    typedef std::vector<CompRect> vcr;
-    vcr const& rects = region.rects();
-
-    for(vcr::const_iterator i = rects.begin(); i !=rects.end(); ++i)
-    {
-	std::cout << "Rect " << std::distance(rects.begin(), i) << ": ";
-
-	std::cout << "x=" << i->left() << ", ";
-	std::cout << "y=" << i->top() << ", ";
-	std::cout << "w=" << i->width() << ", ";
-	std::cout << "h=" << i->height() << "\n";
-    }
-}
-}
-
 namespace {
 
   int const x1(13);
@@ -43,7 +25,6 @@ namespace {
 
   int const dx(3);
   int const dy(5);
-}
 
 TEST(RegionTest, create_and_destroy)
 {
@@ -581,4 +562,6 @@ TEST(RegionTest, external_refs)
     delete rp;
     ASSERT_EQ(*p, r1);
     delete p;
+}
+
 }

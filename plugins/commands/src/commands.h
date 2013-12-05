@@ -33,18 +33,19 @@ class CommandsScreen :
     public CommandsOptions
 {
     public:
+
 	CommandsScreen (CompScreen *s);
 
-	static bool runCommand (CompAction *action,
-				CompAction::State state,
-				CompOption::Vector& options,
-				int commandOption);
+	static bool runCommand (CompAction          *action,
+				CompAction::State   state,
+				CompOption::Vector  &options,
+				int                 commandOption);
 };
 
 class CommandsPluginVTable :
     public CompPlugin::VTableForScreen<CommandsScreen>
 {
     public:
+
 	bool init ();
 };
-

@@ -44,11 +44,11 @@ public:
     CompTimerTest ();
     virtual ~CompTimerTest ();
 
-    virtual void SetUp();
+    virtual void SetUp ();
 
     Glib::RefPtr <Glib::MainContext> mc;
     Glib::RefPtr <Glib::MainLoop> ml;
-    Glib::RefPtr <CompTimeoutSource> ts;
+    CompTimeoutSource *ts;
     std::deque <CompTimer *> timers;
 
     int lastTimerTriggered;

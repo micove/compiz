@@ -24,6 +24,7 @@
  *
  * Ported to Compiz 0.9 by:
  * Copyright (C) 2009 Sam Spilsbury <smspillaz@gmail.com>
+ * Copyright (C) 2013 Sami Jaktholm <sampo_75@windowslive.com> (introspection)
  */
 
 #include "dbus.h"
@@ -31,6 +32,119 @@
 COMPIZ_PLUGIN_20090315 (dbus, DbusPluginVTable);
 
 CompOption::Vector emptyList;
+
+const char*
+IntrospectionResponse::finishAndGetXml ()
+{
+    xmlTextWriterEndDocument (xmlWriter);
+    return reinterpret_cast <const char *> (xmlBuf->content);
+}
+
+void 
+IntrospectionResponse::startInterface ()
+{
+    xmlTextWriterStartElement (xmlWriter, BAD_CAST "interface");
+    xmlTextWriterWriteAttribute (xmlWriter, BAD_CAST "name",
+				 BAD_CAST COMPIZ_DBUS_SERVICE_NAME);
+}
+
+void
+IntrospectionResponse::endInterface ()
+{
+    xmlTextWriterEndElement (xmlWriter);
+}
+
+void
+IntrospectionResponse::addArgument (const char *type,
+				    const char *direction)
+{
+    xmlTextWriterStartElement (xmlWriter, BAD_CAST "arg");
+    xmlTextWriterWriteAttribute (xmlWriter, BAD_CAST "type", BAD_CAST type);
+    xmlTextWriterWriteAttribute (xmlWriter, BAD_CAST "direction",
+				 BAD_CAST direction);
+    xmlTextWriterEndElement (xmlWriter);
+}
+
+void
+IntrospectionResponse::addMethod (const char *name,
+				  int        nArgs,
+				  ...)
+{
+    va_list var_args;
+    const char *type, *direction;
+
+    xmlTextWriterStartElement (xmlWriter, BAD_CAST "method");
+    xmlTextWriterWriteAttribute (xmlWriter, BAD_CAST "name", BAD_CAST name);
+
+    va_start (var_args, nArgs);
+    while (nArgs)
+    {
+	type = va_arg (var_args, const char *);
+	direction = va_arg (var_args, const char *);
+	addArgument (type, direction);
+	--nArgs;
+    }
+    va_end (var_args);
+
+    xmlTextWriterEndElement (xmlWriter);
+}
+
+void
+IntrospectionResponse::addSignal (const char *name,
+				  int        nArgs,
+				  ...)
+{
+    va_list var_args;
+    const char *type;
+
+    xmlTextWriterStartElement (xmlWriter, BAD_CAST "signal");
+    xmlTextWriterWriteAttribute (xmlWriter, BAD_CAST "name", BAD_CAST name);
+
+    va_start (var_args, nArgs);
+    while (nArgs)
+    {
+	type = va_arg (var_args, const char *);
+	addArgument (type, "out");
+	--nArgs;
+    }
+    va_end (var_args);
+
+    xmlTextWriterEndElement (xmlWriter);
+}
+
+void
+IntrospectionResponse::addNode (const char *name)
+{
+    xmlTextWriterStartElement (xmlWriter, BAD_CAST "node");
+    xmlTextWriterWriteAttribute (xmlWriter, BAD_CAST "name", BAD_CAST name);
+    xmlTextWriterEndElement (xmlWriter);
+}
+
+IntrospectionResponse::IntrospectionResponse ()
+{
+    xmlBuf = xmlBufferCreate ();
+    xmlWriter = xmlNewTextWriterMemory (xmlBuf, 0);
+
+    /* Add introspection node. */
+    xmlTextWriterStartElement (xmlWriter, BAD_CAST "node");
+
+    xmlTextWriterStartElement (xmlWriter, BAD_CAST "interface");
+    xmlTextWriterWriteAttribute (xmlWriter, BAD_CAST "name",
+				 BAD_CAST "org.freedesktop.DBus.Introspectable");
+
+    addMethod ("Introspect", 1, "s", "out");
+
+    xmlTextWriterEndElement (xmlWriter);
+}
+
+IntrospectionResponse::~IntrospectionResponse ()
+{
+    if (xmlWriter)
+	xmlFreeTextWriter (xmlWriter);
+
+    if (xmlBuf)
+	xmlBufferFree (xmlBuf);
+}
 
 #ifdef __cplusplus
 /* A simple wrapper for dbus to Compiz 0.9 */
@@ -76,484 +190,213 @@ DbusScreen::getOptionsFromPath (const std::vector<CompString>& path)
     return p->vTable->getOptions ();
 }
 
-#if INTROSPECTION_XML_ENABLED
-/* functions to create introspection XML */
-static void
-dbusIntrospectStartInterface (xmlTextWriterPtr writer)
+bool
+DbusScreen::sendIntrospectResponse (DBusConnection        *connection,
+				    DBusMessage           *message,
+				    IntrospectionResponse &response)
 {
-    xmlTextWriterStartElement (writer, BAD_CAST "interface");
-    xmlTextWriterWriteAttribute (writer, BAD_CAST "name",
-				 BAD_CAST COMPIZ_DBUS_SERVICE_NAME);
-}
-
-static void
-dbusIntrospectEndInterface (xmlTextWriterPtr writer)
-{
-    xmlTextWriterEndElement (writer);
-}
-
-static void
-dbusIntrospectAddArgument (xmlTextWriterPtr writer,
-			   char             *type,
-			   char             *direction)
-{
-    xmlTextWriterStartElement (writer, BAD_CAST "arg");
-    xmlTextWriterWriteAttribute (writer, BAD_CAST "type", BAD_CAST type);
-    xmlTextWriterWriteAttribute (writer, BAD_CAST "direction",
-				 BAD_CAST direction);
-    xmlTextWriterEndElement (writer);
-}
-
-static void
-dbusIntrospectAddMethod (xmlTextWriterPtr writer,
-			 char             *name,
-			 int              nArgs,
-			 ...)
-{
-    va_list var_args;
-    char *type, *direction;
-
-    xmlTextWriterStartElement (writer, BAD_CAST "method");
-    xmlTextWriterWriteAttribute (writer, BAD_CAST "name", BAD_CAST name);
-
-    va_start (var_args, nArgs);
-    while (nArgs)
-    {
-	type = va_arg (var_args, char *);
-	direction = va_arg (var_args, char *);
-	dbusIntrospectAddArgument (writer, type, direction);
-	nArgs--;
-    }
-    va_end (var_args);
-
-    xmlTextWriterEndElement (writer);
-}
-
-static void
-dbusIntrospectAddSignal (xmlTextWriterPtr writer,
-			 char             *name,
-			 int              nArgs,
-			 ...)
-{
-    va_list var_args;
-    char *type;
-
-    xmlTextWriterStartElement (writer, BAD_CAST "signal");
-    xmlTextWriterWriteAttribute (writer, BAD_CAST "name", BAD_CAST name);
-
-    va_start (var_args, nArgs);
-    while (nArgs)
-    {
-	type = va_arg (var_args, char *);
-	dbusIntrospectAddArgument (writer, type, "out");
-	nArgs--;
-    }
-    va_end (var_args);
-
-    xmlTextWriterEndElement (writer);
-}
-
-static void
-dbusIntrospectAddNode (xmlTextWriterPtr writer,
-		       char             *name)
-{
-    xmlTextWriterStartElement (writer, BAD_CAST "node");
-    xmlTextWriterWriteAttribute (writer, BAD_CAST "name", BAD_CAST name);
-    xmlTextWriterEndElement (writer);
-}
-
-static void
-dbusIntrospectStartRoot (xmlTextWriterPtr writer)
-{
-    xmlTextWriterStartElement (writer, BAD_CAST "node");
-
-    xmlTextWriterStartElement (writer, BAD_CAST "interface");
-    xmlTextWriterWriteAttribute (writer, BAD_CAST "name",
-				 BAD_CAST "org.freedesktop.DBus.Introspectable");
-
-    dbusIntrospectAddMethod (writer, "Introspect", 1, "s", "out");
-
-    xmlTextWriterEndElement (writer);
-}
-
-static void
-dbusIntrospectEndRoot (xmlTextWriterPtr writer)
-{
-    xmlTextWriterEndDocument (writer);
-}
-
-/* introspection handlers */
-static bool
-dbusHandleRootIntrospectMessage (DBusConnection *connection,
-				 DBusMessage    *message)
-{
-    char **plugins, **pluginName;
-    int nPlugins;
-
-    xmlTextWriterPtr writer;
-    xmlBufferPtr buf;
-
-    buf = xmlBufferCreate ();
-    writer = xmlNewTextWriterMemory (buf, 0);
-
-    dbusIntrospectStartRoot (writer);
-    dbusIntrospectStartInterface (writer);
-
-    dbusIntrospectAddMethod (writer, COMPIZ_DBUS_GET_PLUGINS_MEMBER_NAME, 1,
-			     "as", "out");
-    dbusIntrospectAddMethod (writer,
-			     COMPIZ_DBUS_GET_PLUGIN_METADATA_MEMBER_NAME, 7,
-			     "s", "in", "s", "out", "s", "out", "s", "out",
-			     "b", "out", "as", "out", "as", "out");
-    dbusIntrospectAddSignal (writer,
-			     COMPIZ_DBUS_PLUGINS_CHANGED_SIGNAL_NAME, 0);
-
-    dbusIntrospectEndInterface (writer);
-
-    plugins = availablePlugins (&nPlugins);
-    if (plugins)
-    {
-	pluginName = plugins;
-
-	while (nPlugins--)
-	{
-	    dbusIntrospectAddNode (writer, *pluginName);
-	    free (*pluginName);
-	    pluginName++;
-	}
-
-	free (plugins);
-    }
-    else
-    {
-	xmlFreeTextWriter (writer);
-	xmlBufferFree (buf);
-	return false;
-    }
-
-    dbusIntrospectEndRoot (writer);
-
-    xmlFreeTextWriter (writer);
-
     DBusMessage *reply = dbus_message_new_method_return (message);
     if (!reply)
-    {
-	xmlBufferFree (buf);
 	return false;
-    }
 
     DBusMessageIter args;
     dbus_message_iter_init_append (reply, &args);
 
-    if (!dbus_message_iter_append_basic (&args, DBUS_TYPE_STRING,
-					 &buf->content))
-    {
-	xmlBufferFree (buf);
-	return false;
-    }
+    const char* responseXml = response.finishAndGetXml ();
 
-    xmlBufferFree (buf);
+    if (!dbus_message_iter_append_basic (&args, DBUS_TYPE_STRING, &responseXml))
+	return false;
 
     if (!dbus_connection_send (connection, reply, NULL))
-    {
 	return false;
-    }
 
     dbus_connection_flush (connection);
     dbus_message_unref (reply);
 
     return true;
+}
+
+/* introspection handlers */
+bool
+DbusScreen::handleRootIntrospectMessage (DBusConnection *connection,
+					 DBusMessage    *message)
+{
+
+    IntrospectionResponse response;
+    response.startInterface ();
+
+#if GET_PLUGIN_METADATA_ENABLED
+    response.addMethod (COMPIZ_DBUS_GET_PLUGIN_METADATA_MEMBER_NAME, 7,
+			"s", "in", "s", "out", "s", "out", "s", "out",
+			"b", "out", "as", "out", "as", "out");
+#endif
+
+    response.addSignal (COMPIZ_DBUS_PLUGINS_CHANGED_SIGNAL_NAME, 0);
+    response.endInterface ();
+
+    const CompPlugin::List &plugins = CompPlugin::getPlugins ();
+
+    if (plugins.empty ())
+	return false;
+
+    foreach (CompPlugin* p, plugins)
+    {
+	if (p->vTable)
+	    response.addNode (p->vTable->name ().c_str());
+    }
+
+    return sendIntrospectResponse (connection, message, response);
+
 }
 
 /* MULTIDPYERROR: only works with one or less displays present */
 bool
-DbusScreen::dbusHandlePluginIntrospectMessage (DBusConnection *connection,
-				   	       DBusMessage    *message,
-				   	       char           **path)
+DbusScreen::handlePluginIntrospectMessage (DBusConnection *connection,
+				   	   DBusMessage    *message)
 {
-    CompScreen *s;
     char screenName[256];
+    IntrospectionResponse response;
 
-    xmlTextWriterPtr writer;
-    xmlBufferPtr buf;
+    snprintf (screenName, 256, "screen%d", screen->screenNum ());
+    response.addNode (screenName);
 
-    buf = xmlBufferCreate ();
-    writer = xmlNewTextWriterMemory (buf, 0);
+    return sendIntrospectResponse (connection, message, response);
 
-    dbusIntrospectStartRoot (writer);
+}
 
-    for (d = core.displays; d; d = d->next)
+bool
+DbusScreen::handleScreenIntrospectMessage (DBusConnection           *connection,
+					   DBusMessage              *message,
+					   std::vector<CompString>& path)
+{
+    IntrospectionResponse response;
+
+    response.startInterface ();
+    response.addMethod (COMPIZ_DBUS_LIST_MEMBER_NAME, 1, "as", "out");
+    response.endInterface ();
+
+    CompOption::Vector &options = getOptionsFromPath (path);
+    if (!options.empty ())
     {
-	dbusIntrospectAddNode (writer, "allscreens");
-
-	for (s = d->screens; s; s = s->next)
+	foreach (CompOption &option, options)
 	{
-	    sprintf (screenName, "screen%d", s->screenNum);
-	    dbusIntrospectAddNode (writer, screenName);
+	    response.addNode (option.name ().c_str());
 	}
     }
 
-    dbusIntrospectEndRoot (writer);
-
-    xmlFreeTextWriter (writer);
-
-    DBusMessage *reply = dbus_message_new_method_return (message);
-    if (!reply)
-    {
-	xmlBufferFree (buf);
-	return false;
-    }
-
-    DBusMessageIter args;
-    dbus_message_iter_init_append (reply, &args);
-
-    if (!dbus_message_iter_append_basic (&args, DBUS_TYPE_STRING,
-					 &buf->content))
-    {
-	xmlBufferFree (buf);
-	return false;
-    }
-
-    xmlBufferFree (buf);
-
-    if (!dbus_connection_send (connection, reply, NULL))
-    {
-	return false;
-    }
-
-    dbus_connection_flush (connection);
-    dbus_message_unref (reply);
-
-    return true;
+    return sendIntrospectResponse (connection, message, response);
 }
 
-static bool
-dbusHandleScreenIntrospectMessage (DBusConnection *connection,
-				   DBusMessage    *message,
-				   char           **path)
+bool
+DbusScreen::handleOptionIntrospectMessage (DBusConnection           *connection,
+					   DBusMessage              *message,
+					   std::vector<CompString>& path)
 {
-    CompOption *option = NULL;
-    int nOptions;
+#if GET_PLUGIN_METADATA_ENABLED
+    bool metadataHandled = false;
+#endif
+    bool isList = false;
+    char type[3];
 
-    xmlTextWriterPtr writer;
-    xmlBufferPtr buf;
+    IntrospectionResponse response;
+    CompOption::Type      restrictionType;
 
-    buf = xmlBufferCreate ();
-    writer = xmlNewTextWriterMemory (buf, 0);
+    CompOption::Vector &options = getOptionsFromPath (path);
+    CompOption         *option  = CompOption::findOption (options, path[2]);
 
-    dbusIntrospectStartRoot (writer);
-    dbusIntrospectStartInterface (writer);
+    response.startInterface ();
 
-    dbusIntrospectAddMethod (writer, COMPIZ_DBUS_LIST_MEMBER_NAME, 1,
-			     "as", "out");
-
-    dbusIntrospectEndInterface (writer);
-
-    option = dbusGetOptionsFromPath (path, NULL, NULL, &nOptions);
     if (option)
     {
-	while (nOptions--)
-	{
-	    dbusIntrospectAddNode (writer, option->name);
-	    option++;
-	}
-    }
+        restrictionType = option->type ();
+        if (restrictionType == CompOption::TypeList)
+        {
+	    restrictionType = option->value ().listType ();
+	    isList = true;
+        }
 
-    dbusIntrospectEndRoot (writer);
-
-    xmlFreeTextWriter (writer);
-
-    DBusMessage *reply = dbus_message_new_method_return (message);
-    if (!reply)
-    {
-	xmlBufferFree (buf);
-	return false;
-    }
-
-    DBusMessageIter args;
-    dbus_message_iter_init_append (reply, &args);
-
-    if (!dbus_message_iter_append_basic (&args, DBUS_TYPE_STRING,
-					 &buf->content))
-    {
-	xmlBufferFree (buf);
-	return false;
-    }
-
-    xmlBufferFree (buf);
-
-    if (!dbus_connection_send (connection, reply, NULL))
-    {
-	return false;
-    }
-
-    dbus_connection_flush (connection);
-    dbus_message_unref (reply);
-
-    return true;
-}
-
-static bool
-dbusHandleOptionIntrospectMessage (DBusConnection *connection,
-				   DBusMessage    *message,
-				   char           **path)
-{
-    CompOption       *option;
-    int              nOptions;
-    CompOptionType   restrictionType;
-    bool             metadataHandled;
-    char             type[3];
-    xmlTextWriterPtr writer;
-    xmlBufferPtr     buf;
-    bool             isList = false;
-
-    buf = xmlBufferCreate ();
-    writer = xmlNewTextWriterMemory (buf, 0);
-
-    dbusIntrospectStartRoot (writer);
-    dbusIntrospectStartInterface (writer);
-
-    option = dbusGetOptionsFromPath (path, NULL, NULL, &nOptions);
-    if (!option)
-    {
-	xmlFreeTextWriter (writer);
-	xmlBufferFree (buf);
-	return false;
-    }
-
-    while (nOptions--)
-    {
-	if (strcmp (option->name, path[2]) == 0)
-	{
-	    restrictionType = option->type;
-	    if (restrictionType == CompOptionTypeList)
-	    {
-		restrictionType = option->value.list.type;
-		isList = true;
-	    }
-
-	    metadataHandled = false;
-	    switch (restrictionType)
-	    {
-	    case CompOptionTypeInt:
-		if (isList)
-		    strcpy (type, "ai");
-		else
-		    strcpy (type, "i");
-
-		dbusIntrospectAddMethod (writer,
-					 COMPIZ_DBUS_GET_METADATA_MEMBER_NAME,
-					 6, "s", "out", "s", "out",
-					 "b", "out", "s", "out",
-					 "i", "out", "i", "out");
-		metadataHandled = true;
-		break;
-	    case CompOptionTypeFloat:
-		if (isList)
-		    strcpy (type, "ad");
-		else
-		    strcpy (type, "d");
-
-		dbusIntrospectAddMethod (writer,
-					 COMPIZ_DBUS_GET_METADATA_MEMBER_NAME,
-					 7, "s", "out", "s", "out",
-					 "b", "out", "s", "out",
-					 "d", "out", "d", "out",
-					 "d", "out");
-		metadataHandled = true;
-		break;
-	    case CompOptionTypeString:
-		if (isList)
-		    strcpy (type, "as");
-		else
-		    strcpy (type, "s");
-
-		dbusIntrospectAddMethod (writer,
-					 COMPIZ_DBUS_GET_METADATA_MEMBER_NAME,
-					 5, "s", "out", "s", "out",
-					 "b", "out", "s", "out",
-					 "as", "out");
-		metadataHandled = true;
-		break;
-	    case CompOptionTypeBool:
-	    case CompOptionTypeBell:
-		if (isList)
-		    strcpy (type, "ab");
-		else
-		    strcpy (type, "b");
-
-		break;
-	    case CompOptionTypeColor:
-	    case CompOptionTypeKey:
-	    case CompOptionTypeButton:
-	    case CompOptionTypeEdge:
-	    case CompOptionTypeMatch:
-		if (isList)
-		    strcpy (type, "as");
-		else
-		    strcpy (type, "s");
-		break;
-	    default:
-		continue;
-	    }
-
-	    dbusIntrospectAddMethod (writer,
-				     COMPIZ_DBUS_GET_MEMBER_NAME, 1,
-				     type, "out");
-	    dbusIntrospectAddMethod (writer,
-				     COMPIZ_DBUS_SET_MEMBER_NAME, 1,
-				     type, "in");
-	    dbusIntrospectAddSignal (writer,
-				     COMPIZ_DBUS_CHANGED_SIGNAL_NAME, 1,
-				     type, "out");
-
-	    if (!metadataHandled)
-		dbusIntrospectAddMethod (writer,
-					 COMPIZ_DBUS_GET_METADATA_MEMBER_NAME,
-					 4, "s", "out", "s", "out",
-					 "b", "out", "s", "out");
-	    break;
-	}
-
-	option++;
-    }
-
-    dbusIntrospectEndInterface (writer);
-    dbusIntrospectEndRoot (writer);
-
-    xmlFreeTextWriter (writer);
-
-    DBusMessage *reply = dbus_message_new_method_return (message);
-    if (!reply)
-    {
-	xmlBufferFree (buf);
-	return false;
-    }
-
-    DBusMessageIter args;
-    dbus_message_iter_init_append (reply, &args);
-
-    if (!dbus_message_iter_append_basic (&args, DBUS_TYPE_STRING,
-					 &buf->content))
-    {
-	xmlBufferFree (buf);
-	return false;
-    }
-
-    xmlBufferFree (buf);
-
-    if (!dbus_connection_send (connection, reply, NULL))
-    {
-	return false;
-    }
-
-    dbus_connection_flush (connection);
-    dbus_message_unref (reply);
-
-    return true;
-}
-
+        switch (restrictionType)
+        {
+        case CompOption::TypeInt:
+	    if (isList)
+	        strcpy (type, "ai");
+	    else
+	        strcpy (type, "i");
+#if GET_PLUGIN_METADATA_ENABLED
+	    response.addMethod (COMPIZ_DBUS_GET_METADATA_MEMBER_NAME,
+			        6, "s", "out", "s", "out",
+			        "b", "out", "s", "out",
+			        "i", "out", "i", "out");
+	    metadataHandled = true;
 #endif
+	    break;
+        case CompOption::TypeFloat:
+	    if (isList)
+	        strcpy (type, "ad");
+	    else
+	        strcpy (type, "d");
+#if GET_PLUGIN_METADATA_ENABLED
+	    response.addMethod (COMPIZ_DBUS_GET_METADATA_MEMBER_NAME,
+			        7, "s", "out", "s", "out",
+			        "b", "out", "s", "out",
+			        "d", "out", "d", "out",
+			        "d", "out");
+	    metadataHandled = true;
+#endif
+	    break;
+        case CompOption::TypeString:
+	    if (isList)
+	        strcpy (type, "as");
+	    else
+	        strcpy (type, "s");
+#if GET_PLUGIN_METADATA_ENABLED
+	    response.addMethod (COMPIZ_DBUS_GET_METADATA_MEMBER_NAME,
+			        5, "s", "out", "s", "out",
+			        "b", "out", "s", "out",
+			        "as", "out");
+	    metadataHandled = true;
+#endif
+	    break;
+        case CompOption::TypeBool:
+        case CompOption::TypeBell:
+	    if (isList)
+	        strcpy (type, "ab");
+	    else
+	        strcpy (type, "b");
+
+	    break;
+        case CompOption::TypeColor:
+        case CompOption::TypeKey:
+        case CompOption::TypeButton:
+        case CompOption::TypeEdge:
+        case CompOption::TypeMatch:
+	    if (isList)
+	        strcpy (type, "as");
+	    else
+	        strcpy (type, "s");
+	    break;
+        default:
+	    break;
+        }
+
+        response.addMethod (COMPIZ_DBUS_GET_MEMBER_NAME, 1,
+			    type, "out");
+        response.addMethod (COMPIZ_DBUS_SET_MEMBER_NAME, 1,
+			    type, "in");
+        response.addSignal (COMPIZ_DBUS_CHANGED_SIGNAL_NAME, 1,
+			    type, "out");
+#if GET_PLUGIN_METADATA_ENABLED
+        if (!metadataHandled)
+	    response.addMethod (COMPIZ_DBUS_GET_METADATA_MEMBER_NAME,
+			        4, "s", "out", "s", "out",
+			        "b", "out", "s", "out");
+#endif
+    }
+
+    response.endInterface ();
+
+    return sendIntrospectResponse (connection, message, response);
+}
 
 
 /*
@@ -1395,42 +1238,6 @@ DbusScreen::handleGetMetadataMessage (DBusConnection                 *connection
 #endif
 
 /*
- * 'GetPlugins' can be used to retrieve a list of available plugins. There's
- * no guarantee that a plugin in this list can actually be loaded.
- *
- * Example:
- *
- * dbus-send --print-reply --type=method_call \
- * --dest=org.freedesktop.compiz	      \
- * /org/freedesktop/compiz		      \
- * org.freedesktop.compiz.getPlugins
- */
-bool
-DbusScreen::handleGetPluginsMessage (DBusConnection *connection,
-			     	     DBusMessage    *message)
-{
-    DBusMessage *reply;
-    std::list <CompString> plugins = CompPlugin::availablePlugins ();
-
-    reply = dbus_message_new_method_return (message);
-
-    foreach (CompString& p, plugins)
-    {
-	const char *plugin = p.c_str ();
-	dbus_message_append_args (reply,
-				  DBUS_TYPE_STRING, &plugin,
-				  DBUS_TYPE_INVALID);
-    }
-
-    dbus_connection_send (connection, reply, NULL);
-    dbus_connection_flush (connection);
-
-    dbus_message_unref (reply);
-
-    return true;
-}
-
-/*
  * 'GetPluginMetadata' can be used to retrieve metadata for a plugin.
  *
  * Example:
@@ -1567,9 +1374,8 @@ DbusScreen::handleMessage (DBusConnection *connection,
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 
     /* root messages */
-    if (path.size () == 0)
+    if (path.empty ())
     {
-#if GET_PLUGIN_METADATA_ENABLED
 	if (dbus_message_is_method_call (message,
 					 DBUS_INTERFACE_INTROSPECTABLE,
 					 "Introspect"))
@@ -1577,6 +1383,7 @@ DbusScreen::handleMessage (DBusConnection *connection,
 	    if (handleRootIntrospectMessage (connection, message))
 		return DBUS_HANDLER_RESULT_HANDLED;
 	}
+#if GET_PLUGIN_METADATA_ENABLED
 	else if (dbus_message_is_method_call (message, COMPIZ_DBUS_INTERFACE,
 				 COMPIZ_DBUS_GET_PLUGIN_METADATA_MEMBER_NAME))
 	{
@@ -1584,34 +1391,25 @@ DbusScreen::handleMessage (DBusConnection *connection,
 		return DBUS_HANDLER_RESULT_HANDLED;
 	}
 #endif
-	if (dbus_message_is_method_call (message, COMPIZ_DBUS_INTERFACE,
-					  COMPIZ_DBUS_GET_PLUGINS_MEMBER_NAME))
-	{
-	    if (handleGetPluginsMessage (connection, message))
-		return DBUS_HANDLER_RESULT_HANDLED;
-	}
 
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
     /* plugin message */
     else if (path.size () == 1)
     {
-#if INTROSPECTION_XML_ENABLED
 	if (dbus_message_is_method_call (message,
 					 DBUS_INTERFACE_INTROSPECTABLE,
 					 "Introspect"))
 	{
-	    if (handlePluginIntrospectMessage (connection, message, path))
+	    if (handlePluginIntrospectMessage (connection, message))
 		return DBUS_HANDLER_RESULT_HANDLED;
 	}
 
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-#endif
     }
     /* screen message */
-    else if (path.size () < 2)
+    else if (path.size () == 2)
     {
-#if INTROSPECTION_XML_ENABLED
 	if (dbus_message_is_method_call (message,
 					 DBUS_INTERFACE_INTROSPECTABLE,
 					 "Introspect"))
@@ -1619,7 +1417,7 @@ DbusScreen::handleMessage (DBusConnection *connection,
 	    if (handleScreenIntrospectMessage (connection, message, path))
 		return DBUS_HANDLER_RESULT_HANDLED;
 	}
-#endif
+
 	if (dbus_message_is_method_call (message, COMPIZ_DBUS_INTERFACE,
 					      COMPIZ_DBUS_LIST_MEMBER_NAME))
 	{
@@ -1630,13 +1428,11 @@ DbusScreen::handleMessage (DBusConnection *connection,
 	return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
     /* option message */
-#if INTROSPECT_XML_ENABLED
     if (dbus_message_is_method_call (message, DBUS_INTERFACE_INTROSPECTABLE,
 				     "Introspect"))
     {
 	status = handleOptionIntrospectMessage (connection, message, path);
     }
-#endif
 
     if (dbus_message_is_method_call (message, COMPIZ_DBUS_INTERFACE,
 					  COMPIZ_DBUS_ACTIVATE_MEMBER_NAME))
@@ -1698,7 +1494,7 @@ DbusScreen::sendChangeSignalForOption (CompOption       *o,
     if (!o)
 	return;
 
-    sprintf (path, "%s/%s/%s/%s", COMPIZ_DBUS_ROOT_PATH,
+    snprintf (path, 256, "%s/%s/%s/%s", COMPIZ_DBUS_ROOT_PATH,
 	     plugin.c_str (), "options", o->name ().c_str ());
 
     signal = dbus_message_new_signal (path,
@@ -2041,7 +1837,8 @@ DbusScreen::~DbusScreen ()
 bool
 DbusPluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
-	return false;
-    return true;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
+	return true;
+
+    return false;
 }

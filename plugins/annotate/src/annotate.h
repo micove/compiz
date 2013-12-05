@@ -26,8 +26,6 @@
 #include "annotate_options.h"
 #include <composite/composite.h>
 
-#include <core/serialization.h>
-
 #include <cairo-xlib-xrender.h>
 #include <opengl/opengl.h>
 
@@ -40,9 +38,9 @@ static int initialPointerY = 0;
 
 typedef struct _Ellipse
 {
-    CompPoint	center;
-    int		radiusX;
-    int		radiusY;
+    CompPoint   center;
+    int         radiusX;
+    int         radiusY;
 } Ellipse;
 
 enum DrawMode
@@ -58,7 +56,6 @@ enum DrawMode
 
 class AnnoScreen :
     public PluginClassHandler <AnnoScreen, CompScreen>,
-    public PluginStateWriter <AnnoScreen>,
     public ScreenInterface,
     public GLScreenInterface,
     public AnnotateOptions
@@ -67,38 +64,25 @@ class AnnoScreen :
 	AnnoScreen (CompScreen *screen);
 	~AnnoScreen ();
 
-	CompositeScreen *cScreen;
-	GLScreen *gScreen;
+	CompositeScreen        *cScreen;
+	GLScreen               *gScreen;
 
 	CompScreen::GrabHandle grabIndex;
 
-	Pixmap pixmap;
-	GLTexture::List texture;
-	cairo_surface_t *surface;
-	cairo_t		*cairo;
-	CompString	cairoBuffer; // used for serialization
-	bool		content;
-	Damage		damage;
+	Pixmap                 pixmap;
+	GLTexture::List        texture;
+	cairo_surface_t        *surface;
+	cairo_t                *cairo;
+	CompString             cairoBuffer; // used for serialization
+	bool                   content;
+	Damage                 damage;
 
-	CompRect	rectangle, lastRect;
-	DrawMode	drawMode;
+	CompRect               rectangle;
+	CompRect               lastRect;
+	DrawMode               drawMode;
 
-	CompPoint	lineVector;
-	Ellipse		ellipse;
-	
-	template <class Archive>
-	void serialize (Archive & ar, const unsigned int count)
-	{
-	    /* FIXME:
-	     * cairo_surface_get_image_data is broken or something
-	     * so serializing cairo bits is next to impossible at the moment
-	     *
-	     * ar & cairoBuffer;
-	     * ar & content;
-	     */
-	}
-	
-	void postLoad ();
+	CompPoint              lineVector;
+	Ellipse                ellipse;
 
 	void handleEvent (XEvent *);
 
@@ -117,88 +101,88 @@ class AnnoScreen :
 			unsigned short *color);
 
 	void
-	drawLine (double	     x1,
-		  double	     y1,
-		  double	     x2,
-		  double	     y2,
-		  double	     width,
+	drawLine (double         x1,
+		  double         y1,
+		  double         x2,
+		  double         y2,
+		  double         width,
 		  unsigned short *color);
 
 	void
-	drawRectangle (double	  x,
-		       double	  y,
-		       double	  w,
-		       double	  h,
+	drawRectangle (double         x,
+		       double         y,
+		       double         w,
+		       double         h,
 		       unsigned short *fillColor,
 		       unsigned short *strokeColor,
-		       double	  strokeWidth);
+		       double         strokeWidth);
 
 	void
-	drawEllipse (double		xc,
-		     double		yc,
-		     double		radiusX,
-		     double		radiusY,
-		     unsigned short	*fillColor,
-		     unsigned short	*strokeColor,
-		     double		strokeWidth);
+	drawEllipse (double         xc,
+		     double         yc,
+		     double         radiusX,
+		     double         radiusY,
+		     unsigned short *fillColor,
+		     unsigned short *strokeColor,
+		     double         strokeWidth);
 
 	void
-	drawText (double	     		     x,
-	          double	     		     y,
-	          const char	     		     *text,
-	          const char	     		     *fontFamily,
-	          double	     		     fontSize,
-	          cairo_font_slant_t	     	     fontSlant,
-	          cairo_font_weight_t	     	     fontWeight,
-	          unsigned short 		     *fillColor,
-	          unsigned short 		     *strokeColor,
-	          double	     		     strokeWidth);
+	drawText (double              x,
+		  double              y,
+		  const char          *text,
+		  const char          *fontFamily,
+		  double              fontSize,
+		  cairo_font_slant_t  fontSlant,
+		  cairo_font_weight_t fontWeight,
+		  unsigned short      *fillColor,
+		  unsigned short      *strokeColor,
+		  double              strokeWidth);
 
-/* Actions */
+        /* Actions */
 
 	bool
-	draw (CompAction         *action,
-	      CompAction::State  state,
+	draw (CompAction          *action,
+	      CompAction::State   state,
 	      CompOption::Vector& options);
 
 	bool
-	terminate (CompAction         *action,
-		   CompAction::State  state,
+	terminate (CompAction          *action,
+		   CompAction::State   state,
 		   CompOption::Vector& options);
 
 	bool
-	initiateErase (CompAction         *action,
-		       CompAction::State  state,
+	initiateErase (CompAction          *action,
+		       CompAction::State   state,
 		       CompOption::Vector& options);
 
 	bool
-	initiateFreeDraw (CompAction         *action,
-			  CompAction::State  state,
+	initiateFreeDraw (CompAction          *action,
+			  CompAction::State   state,
 			  CompOption::Vector& options);
 
 	bool
-	initiateLine (CompAction         *action,
-		      CompAction::State  state,
+	initiateLine (CompAction          *action,
+		      CompAction::State   state,
 		      CompOption::Vector& options);
 
 	bool
-	initiateRectangle (CompAction         *action,
-			   CompAction::State  state,
+	initiateRectangle (CompAction          *action,
+			   CompAction::State   state,
 			   CompOption::Vector& options);
 
 	bool
-	initiateEllipse (CompAction         *action,
-			 CompAction::State  state,
+	initiateEllipse (CompAction          *action,
+			 CompAction::State   state,
 			 CompOption::Vector& options);
 
 	bool
-	clear (CompAction         *action,
-	       CompAction::State  state,
+	clear (CompAction          *action,
+	       CompAction::State   state,
 	       CompOption::Vector& options);
 
 	void
-	handleMotionEvent (int	  xRoot,
-			   int	  yRoot);
+	handleMotionEvent (int xRoot,
+			   int yRoot);
 
 };
 

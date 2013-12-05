@@ -27,29 +27,43 @@
 
 COMPIZ_PLUGIN_20090315 (switcher, SwitchPluginVTable)
 
+const unsigned short WIDTH  = 212;
+const unsigned short HEIGHT = 192;
+const unsigned short SPACE  = 10;
+
+const unsigned short BOX_WIDTH = 3;
+
 #define XWINDOWCHANGES_INIT {0, 0, 0, 0, 0, None, 0}
 
 static float _boxVertices[] =
 {
-    -(WIDTH >> 1), 0,
-    -(WIDTH >> 1), BOX_WIDTH,
-     (WIDTH >> 1), BOX_WIDTH,
-     (WIDTH >> 1), 0,
+    -(WIDTH >> 1), BOX_WIDTH, 0.0f,
+     (WIDTH >> 1), BOX_WIDTH, 0.0f,
+    -(WIDTH >> 1), 0.0f,      0.0f,
+    -(WIDTH >> 1), 0.0f,      0.0f,
+     (WIDTH >> 1), BOX_WIDTH, 0.0f,
+     (WIDTH >> 1), 0.0f,      0.0f,
 
-    -(WIDTH >> 1),	       BOX_WIDTH,
-    -(WIDTH >> 1),	       HEIGHT - BOX_WIDTH,
-    -(WIDTH >> 1) + BOX_WIDTH, HEIGHT - BOX_WIDTH,
-    -(WIDTH >> 1) + BOX_WIDTH, 0,
+    -(WIDTH >> 1),             HEIGHT - BOX_WIDTH, 0.0f,
+    -(WIDTH >> 1) + BOX_WIDTH, HEIGHT - BOX_WIDTH, 0.0f,
+    -(WIDTH >> 1),             BOX_WIDTH,          0.0f,
+    -(WIDTH >> 1),             BOX_WIDTH,          0.0f,
+    -(WIDTH >> 1) + BOX_WIDTH, HEIGHT - BOX_WIDTH, 0.0f,
+    -(WIDTH >> 1) + BOX_WIDTH, BOX_WIDTH,          0.0f,
 
-     (WIDTH >> 1) - BOX_WIDTH, BOX_WIDTH,
-     (WIDTH >> 1) - BOX_WIDTH, HEIGHT - BOX_WIDTH,
-     (WIDTH >> 1),	       HEIGHT - BOX_WIDTH,
-     (WIDTH >> 1),	       0,
+     (WIDTH >> 1) - BOX_WIDTH, HEIGHT - BOX_WIDTH, 0.0f,
+     (WIDTH >> 1),             HEIGHT - BOX_WIDTH, 0.0f,
+     (WIDTH >> 1) - BOX_WIDTH, BOX_WIDTH,          0.0f,
+     (WIDTH >> 1) - BOX_WIDTH, BOX_WIDTH,          0.0f,
+     (WIDTH >> 1),             HEIGHT - BOX_WIDTH, 0.0f,
+     (WIDTH >> 1),             BOX_WIDTH,          0.0f,
 
-    -(WIDTH >> 1), HEIGHT - BOX_WIDTH,
-    -(WIDTH >> 1), HEIGHT,
-     (WIDTH >> 1), HEIGHT,
-     (WIDTH >> 1), HEIGHT - BOX_WIDTH
+    -(WIDTH >> 1), HEIGHT,             0.0f,
+     (WIDTH >> 1), HEIGHT,             0.0f,
+    -(WIDTH >> 1), HEIGHT - BOX_WIDTH, 0.0f,
+    -(WIDTH >> 1), HEIGHT - BOX_WIDTH, 0.0f,
+     (WIDTH >> 1), HEIGHT,             0.0f,
+     (WIDTH >> 1), HEIGHT - BOX_WIDTH, 0.0f,
 };
 
 
@@ -480,7 +494,7 @@ SwitchScreen::windowRemove (CompWindow *w)
 	    if (w == windows.back ())
 		newSelected = windows.begin ();
 	    else
-		newSelected++;
+		++newSelected;
 
 	    selected = *newSelected;
 	}
@@ -799,9 +813,6 @@ SwitchScreen::glPaintOutput (const GLScreenPaintAttrib &sAttrib,
 
 	    sTransform.toScreenSpace (output, -DEFAULT_Z_CAMERA);
 
-	    glPushMatrix ();
-	    glLoadMatrixf (sTransform.getMatrix ());
-
 	    if (!switcher->destroyed () &&
 		switcher->isViewable () &&
 		sw->cWindow->damaged ())
@@ -809,8 +820,6 @@ SwitchScreen::glPaintOutput (const GLScreenPaintAttrib &sAttrib,
 		sw->gWindow->glPaint (sw->gWindow->paintAttrib (),
 				      sTransform, infiniteRegion, 0);
 	    }
-
-	    glPopMatrix ();
 	}
     }
     else
@@ -939,7 +948,7 @@ SwitchWindow::updateIconPos (int   &wx,
 
 /* Only for the popup window */
 bool
-SwitchWindow::managed ()
+SwitchWindow::managed () const
 {
     return true;
 }
@@ -950,15 +959,17 @@ SwitchWindow::glPaint (const GLWindowPaintAttrib &attrib,
 		       const CompRegion          &region,
 		       unsigned int              mask)
 {
+    GLVertexBuffer *streamingBuffer = GLVertexBuffer::streamingBuffer ();
+    GLMatrix        wTransform (transform);
     int	       zoomType = NORMAL_WINDOW_MASK;
     bool       status;
 
     if (window->id () == sScreen->popupWindow)
     {
-	int            x, y, x1, x2, cx, i;
+	int            x, y, x1, x2, cx;
 	unsigned short color[4];
 
-	CompWindow::Geometry &g = window->geometry ();
+	const CompWindow::Geometry &g = window->geometry ();
 
 	if (mask & PAINT_WINDOW_OCCLUSION_DETECTION_MASK ||
 	    sScreen->ignoreSwitcher)
@@ -975,17 +986,14 @@ SwitchWindow::glPaint (const GLWindowPaintAttrib &attrib,
 	x = x1 + sScreen->pos;
 	y = g.y () + SPACE;
 
-	glPushAttrib (GL_SCISSOR_BIT);
-
 	glEnable (GL_SCISSOR_TEST);
 	glScissor (x1, 0, x2 - x1, screen->height ());
 
 	foreach (CompWindow *w, sScreen->windows)
 	{
 	    if (x + WIDTH > x1)
-		SwitchWindow::get (w)->paintThumb (
-		    gWindow->lastPaintAttrib (), transform,
-		    mask, x, y);
+		SwitchWindow::get (w)->paintThumb (gWindow->lastPaintAttrib (),
+		                                   transform, mask, x, y);
 	    x += WIDTH;
 	}
 
@@ -994,31 +1002,32 @@ SwitchWindow::glPaint (const GLWindowPaintAttrib &attrib,
 	    if (x > x2)
 		break;
 
-            SwitchWindow::get (w)->paintThumb (
-		gWindow->lastPaintAttrib (), transform,
-		mask, x, y);
+            SwitchWindow::get (w)->paintThumb (gWindow->lastPaintAttrib (),
+	                                       transform, mask, x, y);
 	    x += WIDTH;
 	}
 
-	glPopAttrib ();
+	glDisable (GL_SCISSOR_TEST);
 
 	cx = g.x () + (g.width () >> 1);
+	wTransform.translate (cx, y, 0.0f);
 
-	glDisableClientState (GL_TEXTURE_COORD_ARRAY);
 	glEnable (GL_BLEND);
-	for (i = 0; i < 4; i++)
+	for (int i = 0; i < 4; i++)
+	{
 	    color[i] = (unsigned int)sScreen->fgColor[i] *
 		       gWindow->lastPaintAttrib ().opacity /
 		       0xffff;
-	glColor4usv (color);
-	glPushMatrix ();
-	glTranslatef (cx, y, 0.0f);
-	glVertexPointer (2, GL_FLOAT, 0, _boxVertices);
-	glDrawArrays (GL_QUADS, 0, 16);
-	glPopMatrix ();
-	glColor4usv (defaultColor);
+	}
+
+	streamingBuffer->begin (GL_TRIANGLES);
+
+	streamingBuffer->addColors (1, color);
+	streamingBuffer->addVertices (24, _boxVertices);
+
+	streamingBuffer->end ();
+	streamingBuffer->render (wTransform, attrib);
 	glDisable (GL_BLEND);
-	glEnableClientState (GL_TEXTURE_COORD_ARRAY);
     }
     else if (window == sScreen->selectedWindow)
     {
@@ -1184,12 +1193,11 @@ SwitchWindow::SwitchWindow (CompWindow *window) :
 bool
 SwitchPluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION) ||
-        !CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI) ||
-        !CompPlugin::checkPluginABI ("opengl", COMPIZ_OPENGL_ABI) ||
-        !CompPlugin::checkPluginABI ("compiztoolbox", COMPIZ_COMPIZTOOLBOX_ABI))
-	 return false;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION)			&&
+	CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI)		&&
+	CompPlugin::checkPluginABI ("compiztoolbox", COMPIZ_COMPIZTOOLBOX_ABI)	&&
+	CompPlugin::checkPluginABI ("opengl", COMPIZ_OPENGL_ABI))
+	return true;
 
-    return true;
+    return false;
 }
-

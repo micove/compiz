@@ -12,7 +12,6 @@ target_link_libraries(
   compiz_wrapsystem_test
   
   ${GTEST_BOTH_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT} # Link in pthread.
 )
 
-add_test( compiz_wrapsystem_test "/bin/bash" "${CMAKE_SOURCE_DIR}/scripts/run-with-xvfb.sh" "./compiz_wrapsystem_test" )
+compiz_discover_tests (compiz_wrapsystem_test COVERAGE compiz_core)

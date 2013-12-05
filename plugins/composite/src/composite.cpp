@@ -33,7 +33,7 @@
 
 
 class CompositePluginVTable :
-    public CompPlugin::VTableForScreenAndWindow<CompositeScreen, CompositeWindow>
+    public CompPlugin::VTableForScreenAndWindow<CompositeScreen, CompositeWindow, COMPIZ_COMPOSITE_ABI>
 {
     public:
 
@@ -67,17 +67,21 @@ PrivateCompositeScreen::setOption (const CompString  &name,
     if (!rv || !CompOption::findOption (getOptions (), name, &index))
 	return false;
 
-    switch (index) {
+    switch (index)
+    {
 	case CompositeOptions::DetectRefreshRate:
 	    if (optionGetDetectRefreshRate ())
 		detectRefreshRate ();
 	    break;
+
 	case CompositeOptions::RefreshRate:
 	    if (optionGetDetectRefreshRate ())
 		return false;
+
 	    redrawTime = 1000 / optionGetRefreshRate ();
 	    optimalRedrawTime = redrawTime;
 	    break;
+
 	default:
 	    break;
     }
@@ -88,14 +92,15 @@ PrivateCompositeScreen::setOption (const CompString  &name,
 bool
 CompositePluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
-	return false;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
+    {
+	CompPrivate p;
+	p.uval = COMPIZ_COMPOSITE_ABI;
+	screen->storeValue ("composite_ABI", p);
+	return true;
+    }
 
-    CompPrivate p;
-    p.uval = COMPIZ_COMPOSITE_ABI;
-    screen->storeValue ("composite_ABI", p);
-
-    return true;
+    return false;
 }
 
 void

@@ -1,7 +1,9 @@
 project (po)
 
 find_program (_intltool_update intltool-update)
-mark_as_advanced (intltool_update)
+if (NOT EXISTS "${_intltool_update}")
+    message (SEND_ERROR "Missing intltool-update (try: sudo apt-get install intltool)")
+endif ()
 
 find_program (_xgettext xgettext)
 mark_as_advanced (_xgettext)
@@ -45,7 +47,7 @@ foreach(catalog ${compiz_catalogs})
 
     install (
 	FILES ${po_BINARY_DIR}/${catalog}/LC_MESSAGES/compiz.mo
-	DESTINATION ${COMPIZ_DESTDIR}${datadir}/locale/${catalog}/LC_MESSAGES
+	DESTINATION ${datadir}/locale/${catalog}/LC_MESSAGES
     )
 
     set (compiz_catalog_targets ${compiz_catalog_targets} ${po_BINARY_DIR}/${catalog}/LC_MESSAGES/compiz.mo)

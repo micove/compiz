@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <compiz>
     <plugin name="composite" useBcop="true">
 	<_short>Composite</_short>
@@ -16,14 +17,19 @@
 	    <option name="refresh_rate" type="int">
 		<_short>Refresh Rate</_short>
 		<_long>The rate at which the screen is redrawn (times/second)</_long>
-		<default>50</default>
+		<default>60</default>
 		<min>1</min>
 		<max>200</max>
 	    </option>
 	    <option name="unredirect_fullscreen_windows" type="bool">
 		<_short>Unredirect Fullscreen Windows</_short>
 		<_long>Allow drawing of fullscreen windows to not be redirected to offscreen pixmaps</_long>
-		<default>false</default>
+		<default>true</default>
+	    </option>
+	    <option name="unredirect_match" type="match">
+		<_short>Unredirect Match</_short>
+		<_long>Specifies which windows will be unredirected when they are fullscreen. You might want to exclude video players for example, to avoid tearing. But this will be at the expense of performance/frame rate. Note: "class=" matching requires the regex plugin to work.</_long>
+		<default>(any) &amp; !(class=Totem) &amp; !(class=MPlayer) &amp; !(class=Vlc) &amp; !(class=Plugin-container) &amp; !(class=Firefox)</default>
 	    </option>
 	    <option name="force_independent_output_painting" type="bool">
 		<_short>Force independent output painting.</_short>

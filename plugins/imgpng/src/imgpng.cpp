@@ -36,6 +36,8 @@
 
 COMPIZ_PLUGIN_20090315 (imgpng, PngPluginVTable)
 
+const unsigned short PNG_SIG_SIZE = 8;
+
 PngScreen::PngScreen (CompScreen *screen) :
     PluginClassHandler<PngScreen, CompScreen> (screen)
 {
@@ -54,9 +56,7 @@ premultiplyData (png_structp   png,
 		 png_row_infop row_info,
 		 png_bytep     data)
 {
-    unsigned int i;
-
-    for (i = 0; i < row_info->rowbytes; i += 4)
+    for (unsigned int i = 0; i < row_info->rowbytes; i += 4)
     {
 	unsigned char *base = &data[i];
 	unsigned char blue  = base[0];
@@ -82,7 +82,7 @@ PngScreen::readPngData (png_struct *png,
 {
     png_uint_32	 pngWidth, pngHeight;
     int		 depth, colorType, interlace;
-    unsigned int pixelSize, i;
+    unsigned int pixelSize;
     png_byte	 **rowPointers;
     char	 *d;
 
@@ -130,19 +130,21 @@ PngScreen::readPngData (png_struct *png,
 
     pixelSize = 4;
     d = (char *) malloc (pngWidth * pngHeight * pixelSize);
+
     if (!d)
 	return false;
 
     data = d;
 
     rowPointers = new png_byte *[pngHeight];
+
     if (!rowPointers)
     {
 	free (d);
 	return false;
     }
 
-    for (i = 0; i < pngHeight; i++)
+    for (unsigned int i = 0; i < pngHeight; ++i)
 	rowPointers[i] = (png_byte *) (d + i * pngWidth * pixelSize);
 
     png_read_image (png, rowPointers);
@@ -161,6 +163,7 @@ stdioReadFunc (png_structp png,
     std::ifstream *file = (std::ifstream *) png_get_io_ptr (png);
 
     file->read ((char *) data, size);
+
     if (file->fail ())
 	png_error (png, "Read Error");
 }
@@ -171,21 +174,20 @@ PngScreen::readPng (std::ifstream &file,
 		    void          *&data)
 {
     unsigned char png_sig[PNG_SIG_SIZE];
-    png_struct	  *png;
-    png_info	  *info;
-    bool	  status;
 
     file.read ((char *) png_sig, PNG_SIG_SIZE);
-    if (file.fail ())
-	return false;
-    if (png_sig_cmp (png_sig, 0, PNG_SIG_SIZE) != 0)
+
+    if (file.fail () ||
+	png_sig_cmp (png_sig, 0, PNG_SIG_SIZE))
 	return false;
 
-    png = png_create_read_struct (PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    png_struct *png = png_create_read_struct (PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+
     if (!png)
 	return false;
 
-    info = png_create_info_struct (png);
+    png_info *info = png_create_info_struct (png);
+
     if (!info)
     {
 	png_destroy_read_struct (&png, NULL, NULL);
@@ -195,7 +197,7 @@ PngScreen::readPng (std::ifstream &file,
     png_set_read_fn (png, &file, stdioReadFunc);
     png_set_sig_bytes (png, PNG_SIG_SIZE);
 
-    status = readPngData (png, info, data, size);
+    bool status = readPngData (png, info, data, size);
 
     png_destroy_read_struct (&png, &info, NULL);
 
@@ -210,6 +212,7 @@ stdioWriteFunc (png_structp png,
     std::ofstream *file = (std::ofstream *) png_get_io_ptr (png);
 
     file->write ((char *) data, size);
+
     if (file->bad ())
 	png_error (png, "Write Error");
 }
@@ -220,27 +223,25 @@ PngScreen::writePng (unsigned char *buffer,
 		     CompSize      &size,
 		     int           stride)
 {
-    png_struct	 *png;
-    png_info	 *info;
-    png_byte	 **rows;
-    png_color_16 white;
-    int		 i, height = size.height ();
+    int      height = size.height ();
+    png_byte **rows = new png_byte *[height];
 
-    rows = new png_byte *[height];
     if (!rows)
 	return false;
 
-    for (i = 0; i < height; i++)
+    for (int i = 0; i < height; ++i)
 	rows[height - i - 1] = buffer + i * stride;
 
-    png = png_create_write_struct (PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    png_struct *png = png_create_write_struct (PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+
     if (!png)
     {
 	delete [] rows;
 	return false;
     }
 
-    info = png_create_info_struct (png);
+    png_info *info = png_create_info_struct (png);
+
     if (!info)
     {
 	png_destroy_write_struct (&png, NULL);
@@ -263,6 +264,8 @@ PngScreen::writePng (unsigned char *buffer,
 		  PNG_INTERLACE_NONE,
 		  PNG_COMPRESSION_TYPE_DEFAULT,
 		  PNG_FILTER_TYPE_DEFAULT);
+
+    png_color_16 white;
 
     white.red   = 0xff;
     white.blue  = 0xff;
@@ -295,16 +298,17 @@ bool
 PngScreen::imageToFile (CompString &path,
 			CompString &format,
 			CompSize   &size,
-			int	   stride,
-			void	   *data)
+			int        stride,
+			void       *data)
 {
-    bool          status = false;
     std::ofstream file;
     CompString    fileName = fileNameWithExtension (path);
+    bool          status   = false;
 
     if (format == "png")
     {
 	file.open (fileName.c_str ());
+
 	if (file.is_open ())
 	{
 	    status = writePng ((unsigned char *) data, file, size, stride);
@@ -336,11 +340,12 @@ PngScreen::fileToImage (CompString &name,
 			int        &stride,
 			void       *&data)
 {
-    bool          status = false;
     std::ifstream file;
     CompString    fileName = fileNameWithExtension (name);
+    bool          status   = false;
 
     file.open (fileName.c_str ());
+
     if (file.is_open ())
     {
 	status = readPng (file, size, data);
@@ -359,9 +364,8 @@ PngScreen::fileToImage (CompString &name,
 bool
 PngPluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
-	return false;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
+	return true;
 
-    return true;
+    return false;
 }
-

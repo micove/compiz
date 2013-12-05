@@ -53,6 +53,10 @@ class Extents
 	int top;
 	int bottom;
 
+	bool operator== (const Extents &other) const;
+	bool operator!= (const Extents &other) const;
+
+	/* Only here for ABI compatability */
 	bool operator== (const Extents &other);
 	bool operator!= (const Extents &other);
 };

@@ -5,5 +5,5 @@ set (_images
 
 install (
     FILES ${_images}
-    DESTINATION ${COMPIZ_DESTDIR}${compiz_sharedir}
+    DESTINATION ${compiz_sharedir}
 )

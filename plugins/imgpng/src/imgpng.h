@@ -34,36 +34,52 @@
 
 #include <iosfwd>
 
-#define PNG_SIG_SIZE 8
+extern const unsigned short PNG_SIG_SIZE;
 
 class PngScreen :
     public ScreenInterface,
     public PluginClassHandler<PngScreen, CompScreen>
 {
     public:
+
 	PngScreen (CompScreen *screen);
 	~PngScreen ();
 
-	bool fileToImage (CompString &path, CompSize &size,
-			  int &stride, void *&data);
-	bool imageToFile (CompString &path, CompString &format,
-			  CompSize &size, int stride, void *data);
+	bool fileToImage (CompString &path,
+			  CompSize   &size,
+			  int        &stride,
+			  void       *&data);
+
+	bool imageToFile (CompString &path,
+			  CompString &format,
+			  CompSize   &size,
+			  int        stride,
+			  void       *data);
 
     private:
+
 	CompString fileNameWithExtension (CompString &path);
 
-	bool readPngData (png_struct *png, png_info *info,
-			  void *&data, CompSize &size);
-	bool readPng (std::ifstream &file, CompSize &size, void *& data);
-	bool writePng (unsigned char *buffer, std::ostream &file,
-		       CompSize &size, int stride);
+	bool readPngData (png_struct *png,
+			  png_info   *info,
+			  void       *&data,
+			  CompSize   &size);
+
+	bool readPng (std::ifstream &file,
+		      CompSize      &size,
+		      void          *&data);
+
+	bool writePng (unsigned char *buffer,
+		       std::ostream  &file,
+		       CompSize      &size,
+		       int           stride);
 };
 
 class PngPluginVTable :
     public CompPlugin::VTableForScreen<PngScreen>
 {
     public:
+
 	bool init ();
 };
-
 #endif

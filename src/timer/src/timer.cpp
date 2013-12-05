@@ -56,6 +56,10 @@ CompTimeoutSource::CompTimeoutSource (Glib::RefPtr <Glib::MainContext> &ctx) :
     set_priority (G_PRIORITY_DEFAULT);
     attach (ctx);
 
+    /* We have to unreference the source so that it is destroyed
+     * when the main context destroys it */
+    unreference ();
+
     connect (sigc::mem_fun <bool, CompTimeoutSource> (this, &CompTimeoutSource::callback));
 }
 
@@ -75,7 +79,7 @@ CompTimeoutSource::create (Glib::RefPtr <Glib::MainContext> &ctx)
     return new CompTimeoutSource (ctx);
 }
 
-#define COMPIZ_TIMEOUT_WAIT 15
+static const unsigned short COMPIZ_TIMEOUT_WAIT = 15;
 
 bool
 CompTimeoutSource::prepare (int &timeout)
@@ -109,7 +113,7 @@ CompTimeoutSource::prepare (int &timeout)
 		break;
 	    if (t->maxLeft () < (unsigned int) timeout)
 		timeout = (int) t->maxLeft ();
-	    it++;
+	    ++it;
 	}
     }
     else
@@ -152,7 +156,7 @@ CompTimeoutSource::callback ()
     }
 
     std::list<CompTimer*>::const_iterator i = requeue.begin ();
-    for (; i != requeue.end (); i++)
+    for (; i != requeue.end (); ++i)
     {
 	CompTimer *t = *i;
 	handler->addTimer (t);

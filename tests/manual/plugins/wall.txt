@@ -1,0 +1,49 @@
+COMPIZ WALL PLUGIN MANUAL TESTS
+===============================
+Sam Spilsbury <smspillaz@gmail.com>
+
+Edge Flip Pointer
+-----------------
+Setup:
+#. Enable "Edge Flip Pointer" in the wall plugin
+   and set up screen edges as appropriate
+
+Actions:
+#. Move cursor to relevant screen edge
+#. Viewport will change to the next one
+   over
+#. Viewport will not change if that
+   viewport is the last one in the row
+   or column
+
+Edge Flip Move
+--------------
+Setup:
+#. Disable "Edge Flip Pointer" in the wall plugin,
+   enable "Edge Flip Move" in the wall plugin,
+   and set up screen edges as appropriate
+
+Actions:
+#. Grab window by titlebar
+#. Move cursor to relevant screen edge
+#. Viewport will change to the next one
+   over while window is grabbed
+#. Viewport will not change if that
+   viewport is the last one in the row
+   or colum
+
+Edge Flip Dnd
+-------------
+Setup:
+#. Disable "Edge Flip Pointer" in the wall plugin,
+   enable "Edge Flip Dnd" in the wall plugin,
+   and set up screen edges as appropriate
+
+Actions:
+#. Grab a desktop icon
+#. Move cursor to relevant screen edge
+#. Viewport will change to the next one
+   over while icon is grabbed
+#. Viewport will not change if that
+   viewport is the last one in the row
+   or colum

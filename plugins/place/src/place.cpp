@@ -24,6 +24,8 @@
 
 COMPIZ_PLUGIN_20090315 (place, PlacePluginVTable)
 
+namespace cp = compiz::place;
+
 #define XWINDOWCHANGES_INIT {0, 0, 0, 0, 0, None, 0}
 
 PlaceScreen::PlaceScreen (CompScreen *screen) :
@@ -200,7 +202,9 @@ void
 PlaceScreen::handleEvent (XEvent *event)
 {
     if (event->type == ConfigureNotify &&
-	event->xconfigure.window == screen->root ())
+	event->xconfigure.window == screen->root () &&
+	(event->xconfigure.width != screen->width () ||
+	 event->xconfigure.height != screen->height ()))
     {
 	mPrevSize.setWidth (screen->width ());
 	mPrevSize.setHeight (screen->height ());
@@ -228,12 +232,15 @@ PlaceScreen::handleEvent (XEvent *event)
 	        w = screen->findWindow (event->xproperty.window);
 	        if (w)
 	        {
-		    mStrutWindows.remove (w);
-		    /* Only do when handling screen size change.
-		       ps->strutWindowCount is 0 at any other time */
-		    if (mStrutWindows.empty ())
-			doHandleScreenSizeChange (screen->width (),
-						  screen->height ()); /* 2nd pass */
+		    if (!mStrutWindows.empty ())
+		    {
+			mStrutWindows.remove (w);
+			/* Only do when handling screen size change.
+			   ps->strutWindowCount is 0 at any other time */
+			if (mStrutWindows.empty ())
+			    doHandleScreenSizeChange (screen->width (),
+						      screen->height ()); /* 2nd pass */
+		    }
 	        }
 	    }
     }
@@ -297,6 +304,14 @@ PlaceWindow::PlaceWindow (CompWindow *w) :
 
 PlaceWindow::~PlaceWindow ()
 {
+    if (!ps->mStrutWindows.empty() && window->struts())
+    {
+	ps->mStrutWindows.remove(window);
+	if (ps->mStrutWindows.empty())
+	{
+	    ps->doHandleScreenSizeChange(screen->width(), screen->height());
+	}
+    }
 }
 
 bool
@@ -335,47 +350,22 @@ PlaceWindow::place (CompPoint &pos)
 CompRect
 PlaceWindow::doValidateResizeRequest (unsigned int &mask,
 				      XWindowChanges *xwc,
-				      bool	   sizeOnly,
+				      bool	   onlyValidateSize,
 				      bool	   clampToViewport)
 {
-    CompRect workArea;
-    int	     x, y, left, right, bottom, top;
-    CompWindow::Geometry geom;
-    int      output;
+    CompWindow::Geometry geom (xwc->x, xwc->y, xwc->width, xwc->height,
+			       window->serverGeometry ().border ());
+    CompPoint pos (geom.pos ());
 
     if (clampToViewport)
-    {
-	/* left, right, top, bottom target coordinates, clamed to viewport
-	 * sizes as we don't need to validate movements to other viewports;
-	 * we are only interested in inner-viewport movements */
+	pos = cp::getViewportRelativeCoordinates(geom, *screen);
 
-	x = xwc->x % screen->width ();
-	if ((x + xwc->width) < 0)
-	    x += screen->width ();
+    CompWindowExtents edgePositions = cp::getWindowEdgePositions (pos,
+								  geom,
+								  window->border ());
 
-	y = xwc->y % screen->height ();
-	if ((y + xwc->height) < 0)
-	    y += screen->height ();
-    }
-    else
-    {
-	x = xwc->x;
-	y = xwc->y;
-    }
-
-    left   = x - window->border ().left;
-    right  = left + xwc->width +  (window->border ().left +
-				   window->border ().right +
-				   2 * window->serverGeometry ().border ());
-    top    = y - window->border ().top;
-    bottom = top + xwc->height + (window->border ().top +
-				  window->border ().bottom +
-				  2 * window->serverGeometry ().border ());
-
-    geom.set (xwc->x, xwc->y, xwc->width, xwc->height,
-	      window->serverGeometry ().border ());
-    output   = screen->outputDeviceForGeometry (geom);
-    workArea = screen->getWorkareaForOutput (output);
+    int      output   = screen->outputDeviceForGeometry (geom);
+    CompRect workArea = screen->getWorkareaForOutput (output);
 
     if (clampToViewport &&
     	xwc->width >= workArea.width () &&
@@ -389,82 +379,40 @@ PlaceWindow::doValidateResizeRequest (unsigned int &mask,
 	}
     }
 
-    if ((right - left) > workArea.width ())
-    {
-	left  = workArea.left ();
-	right = workArea.right ();
-    }
-    else
-    {
-	if (left < workArea.left ())
-	{
-	    right += workArea.left () - left;
-	    left  = workArea.left ();
-	}
-
-	if (right > workArea.right ())
-	{
-	    left -= right - workArea.right ();
-	    right = workArea.right ();
-	}
-    }
-
-    if ((bottom - top) > workArea.height ())
-    {
-	top    = workArea.top ();
-	bottom = workArea.bottom ();
-    }
-    else
-    {
-	if (top < workArea.top ())
-	{
-	    bottom += workArea.top () - top;
-	    top    = workArea.top ();
-	}
-
-	if (bottom > workArea.bottom ())
-	{
-	    top   -= bottom - workArea.bottom ();
-	    bottom = workArea.bottom ();
-	}
-    }
+    cp::clampHorizontalEdgePositionsToWorkArea (edgePositions, workArea);
+    cp::clampVerticalEdgePositionsToWorkArea (edgePositions, workArea);
 
     /* bring left/right/top/bottom to actual window coordinates */
-    left   += window->border ().left;
-    right  -= window->border ().right + 2 * window->serverGeometry ().border ();
-    top    += window->border ().top;
-    bottom -= window->border ().bottom + 2 * window->serverGeometry ().border ();
+    cp::subtractBordersFromEdgePositions (edgePositions,
+					  window->border (),
+					  geom.border ());
 
-    /* always validate position if the applicaiton changed only its size,
+    /* always validate position if the application changed only its size,
      * as it might become partially offscreen because of that */
-    if (!(mask) & (CWX | CWY) && (mask & (CWWidth | CWHeight)))
-	sizeOnly = false;
+    if (cp::onlySizeChanged (mask))
+	onlyValidateSize = false;
 
-    if ((right - left) != xwc->width)
-    {
-	xwc->width = right - left;
-	mask       |= CWWidth;
-	sizeOnly   = false;
-    }
+    if (cp::applyWidthChange(edgePositions,
+			     *xwc,
+			     mask))
+	onlyValidateSize = false;
 
-    if ((bottom - top) != xwc->height)
-    {
-	xwc->height = bottom - top;
-	mask        |= CWHeight;
-	sizeOnly    = false;
-    }
+    if (cp::applyHeightChange(edgePositions,
+			      *xwc,
+			      mask))
+	onlyValidateSize = false;
 
-    if (!sizeOnly)
+    if (!onlyValidateSize)
     {
-	if (left != x)
+	if (edgePositions.left != pos.x ())
 	{
-	    xwc->x += left - x;
+	    xwc->x += edgePositions.left - pos.x ();
 	    mask   |= CWX;
 	}
 
-	if (top != y)
+	if (edgePositions.top != pos.y ())
 	{
-	    xwc->y += top - y;
+	    xwc->y += edgePositions.top - pos.y ();
 	    mask   |= CWY;
 	}
     }
@@ -486,7 +434,9 @@ PlaceWindow::validateResizeRequest (unsigned int   &mask,
     if (!mask)
 	return;
 
-    if (source == ClientTypePager)
+    /* Clamp all windows initially on placement */
+    if (window->placed () &&
+	source == ClientTypePager)
 	return;
 
     if (window->state () & CompWindowStateFullscreenMask)
@@ -496,14 +446,16 @@ PlaceWindow::validateResizeRequest (unsigned int   &mask,
 			     CompWindowTypeDesktopMask))
 	return;
 
-    /* do nothing if the window was already (at least partially) offscreen */
-    if (window->serverX () < 0                         ||
-	window->serverX () + window->serverWidth () > screen->width () ||
-	window->serverY () < 0                         ||
-	window->serverY () + window->serverHeight () > screen->height ())
-    {
+    /* do nothing if the window was already (at least partially) offscreen
+     * and already placed */
+    bool onscreen =
+	CompRect (0,
+		  0,
+		  screen->width (),
+		  screen->height ()).contains (window->geometry ());
+
+    if (window->placed () && !onscreen)
 	return;
-    }
 
     if (hasUserDefinedPosition (false))
 	/* try to keep the window position intact for USPosition -
@@ -746,10 +698,8 @@ PlaceWindow::placePointer (const CompRect &workArea,
 {
     if (PlaceScreen::get (screen)->getPointerPosition (pos))
     {
-	unsigned int dx = (window->serverGeometry ().width () / 2) -
-			   window->serverGeometry ().border ();
-	unsigned int dy = (window->serverGeometry ().height () / 2) -
-			   window->serverGeometry ().border ();
+	unsigned int dx = (window->serverGeometry ().widthIncBorders () / 2);
+	unsigned int dy = (window->serverGeometry ().heightIncBorders () / 2);
 	pos -= CompPoint (dx, dy);
     }
     else
@@ -943,7 +893,7 @@ PlaceWindow::cascadeFindNext (const Placeable::Vector &placeables,
     /* arbitrary-ish threshold, honors user attempts to
      * manually cascade.
      */
-#define CASCADE_FUZZ 15
+static const unsigned short CASCADE_FUZZ = 15;
 
     xThreshold = MAX (this->extents ().left, CASCADE_FUZZ);
     yThreshold = MAX (this->extents ().top, CASCADE_FUZZ);
@@ -962,7 +912,7 @@ PlaceWindow::cascadeFindNext (const Placeable::Vector &placeables,
     winHeight = window->serverHeight ();
 
     cascadeStage = 0;
-    for (iter = sorted.begin (); iter != sorted.end (); iter++)
+    for (iter = sorted.begin (); iter != sorted.end (); ++iter)
     {
 	Placeable  *p = *iter;
 	int        wx, wy;
@@ -988,7 +938,7 @@ PlaceWindow::cascadeFindNext (const Placeable::Vector &placeables,
 		cascadeX = MAX (0, workArea.x ());
 		cascadeY = MAX (0, workArea.y ());
 
-#define CASCADE_INTERVAL 50 /* space between top-left corners of cascades */
+static const unsigned short CASCADE_INTERVAL = 50; /* space between top-left corners of cascades */
 
 		cascadeStage += 1;
 		cascadeX += CASCADE_INTERVAL * cascadeStage;
@@ -1195,38 +1145,10 @@ void
 PlaceWindow::constrainToWorkarea (const CompRect &workArea,
 				  CompPoint      &pos)
 {
-    CompWindowExtents extents;
-    int               delta;
-
-    extents.left   = pos.x () - window->border ().left;
-    extents.top    = pos.y () - window->border ().top;
-    extents.right  = extents.left + window->serverWidth () +
-		     (window->border ().left +
-		      window->border ().right +
-		      2 * window->serverGeometry ().border ());
-    extents.bottom = extents.top + window->serverHeight () +
-		     (window->border ().top +
-		      window->border ().bottom +
-		      2 * window->serverGeometry ().border ());
-
-    delta = workArea.right () - extents.right;
-    if (delta < 0)
-	extents.left += delta;
-
-    delta = workArea.left () - extents.left;
-    if (delta > 0)
-	extents.left += delta;
-
-    delta = workArea.bottom () - extents.bottom;
-    if (delta < 0)
-	extents.top += delta;
-
-    delta = workArea.top () - extents.top;
-    if (delta > 0)
-	extents.top += delta;
-
-    pos.setX (extents.left + window->border ().left);
-    pos.setY (extents.top  + window->border ().top);
+    pos = cp::constrainPositionToWorkArea (pos,
+                                           window->serverGeometry (),
+                                           window->border (),
+                                           workArea);
 
 }
 
@@ -1375,11 +1297,8 @@ PlaceWindow::grabNotify (int x,
 bool
 PlacePluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
-	return false;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
+	return true;
 
-    return true;
+    return false;
 }
-
-
-

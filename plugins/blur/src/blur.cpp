@@ -27,6 +27,12 @@
 
 COMPIZ_PLUGIN_20090315 (blur, BlurPluginVTable)
 
+const unsigned short BLUR_GAUSSIAN_RADIUS_MAX = 15;
+
+const unsigned short BLUR_STATE_CLIENT = 0;
+const unsigned short BLUR_STATE_DECOR  = 1;
+const unsigned short BLUR_STATE_NUM    = 2;
+
 /* pascal triangle based kernel generator */
 static int
 blurCreateGaussianLinearKernel (int   radius,
@@ -1210,7 +1216,7 @@ BlurScreen::fboUpdate (BoxPtr pBox,
     return true;
 }
 
-#define MAX_VERTEX_PROJECT_COUNT 20
+static const unsigned short MAX_VERTEX_PROJECT_COUNT = 20;
 
 void
 BlurWindow::projectRegion (CompOutput     *output,
@@ -2323,11 +2329,10 @@ BlurWindow::~BlurWindow ()
 bool
 BlurPluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION) |
-        !CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI) |
-        !CompPlugin::checkPluginABI ("opengl", COMPIZ_OPENGL_ABI))
-	 return false;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION)		&&
+	CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI)	&&
+	CompPlugin::checkPluginABI ("opengl", COMPIZ_OPENGL_ABI))
+	return true;
 
-    return true;
+    return false;
 }
-

@@ -35,7 +35,7 @@ target_link_libraries (
 
 install (
     TARGETS decoration
-    DESTINATION ${COMPIZ_DESTDIR}${libdir}
+    DESTINATION ${libdir}
 )
 
 set (DECORATION_LIBS "")
@@ -55,5 +55,5 @@ compiz_configure_file (
 
 install (
     FILES ${CMAKE_CURRENT_BINARY_DIR}/libdecoration.pc
-    DESTINATION ${COMPIZ_DESTDIR}${libdir}/pkgconfig
+    DESTINATION ${libdir}/pkgconfig
 )

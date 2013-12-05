@@ -472,7 +472,7 @@ update_switcher_window (Window     popup,
 	switcher_selected_window = selected;
     }
 
-    pixmap = create_pixmap (width, height, d->frame->style_window_rgba);
+    pixmap = create_native_pixmap_and_wrap (width, height, d->frame->style_window_rgba);
     if (!pixmap)
 	return FALSE;
 
@@ -486,6 +486,11 @@ update_switcher_window (Window     popup,
     if (d->pixmap)
 	g_object_unref (G_OBJECT (d->pixmap));
 
+    if (d->x11Pixmap)
+	decor_post_delete_pixmap (xdisplay,
+				  wnck_window_get_xid (d->win),
+				  d->x11Pixmap);
+
     if (d->buffer_pixmap)
 	g_object_unref (G_OBJECT (d->buffer_pixmap));
 
@@ -496,6 +501,7 @@ update_switcher_window (Window     popup,
 	XRenderFreePicture (xdisplay, d->picture);
 
     d->pixmap	     = pixmap;
+    d->x11Pixmap     = GDK_PIXMAP_XID (d->pixmap);
     d->buffer_pixmap = buffer_pixmap;
     d->cr	     = gdk_cairo_create (pixmap);
 

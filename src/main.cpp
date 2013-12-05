@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <libgen.h>
 
 #include "privatescreen.h"
 #include "privatestackdebugger.h"
@@ -102,6 +103,10 @@ CompManager::parseArguments (int argc, char **argv)
 	{
 	    replaceCurrentWm = true;
 	}
+	else if (!strcmp (argv[i], "--send-startup-message"))
+	{
+	    sendStartupMessage = true;
+	}
 	else if (!strcmp (argv[i], "--sm-disable"))
 	{
 	    disableSm = true;
@@ -118,11 +123,9 @@ CompManager::parseArguments (int argc, char **argv)
 	}
 	else
 	{
-	    plugins.push_back (argv[i]);
+	    initialPlugins.push_back (argv[i]);
 	}
     }
-
-    initialPlugins = plugins;
 
     return true;
 }
@@ -139,7 +142,7 @@ CompManager::init ()
 {
     std::auto_ptr<CompScreenImpl> screen(new CompScreenImpl ());
 
-    if (screen->priv->createFailed ())
+    if (screen->createFailed ())
     {
 	return false;
     }
@@ -148,37 +151,8 @@ CompManager::init ()
 
     modHandler = new ModifierHandler ();
 
-    if (!plugins.empty ())
-    {
-	CompOption::Value::Vector list;
-        CompOption::Value         value;
-	CompOption                *o = screen->getOption ("active_plugins");
-
-	foreach (CompString &str, plugins)
-	{
-	    value.set (str);
-	    list.push_back (value);
-	}
-
-	value.set (CompOption::TypeString, list);
-
-	if (o)
-	    o->set (value);
-    }
-
     if (!screen->init (displayName))
 	return false;
-
-    screen->priv->setDirtyPluginList ();
-    screen->priv->updatePlugins ();
-
-    if (debugOutput)
-    {
-	StackDebugger::SetDefault (new StackDebugger (screen->dpy (),
-						      screen->root (),
-						      boost::bind (&PrivateScreen::queueEvents,
-								   screen->priv.get())));
-    }
 
      if (!disableSm)
      {
@@ -215,7 +189,40 @@ CompManager::fini ()
     delete modHandler;
 }
 
-
+/*
+ * Try to detect the true bin directory compiz was run from and store it
+ * in environment variable COMPIZ_BIN_PATH. If all else fails, don't define it.
+ */
+static void
+detectCompizBinPath (char **argv)
+{
+    const char *bin = argv[0];
+#ifdef __linux__
+    char exe[PATH_MAX];
+    ssize_t len = readlink ("/proc/self/exe", exe, sizeof(exe)-1);
+    if (len > 0)
+    {
+	exe[len] = '\0';
+	bin = exe;
+    }
+#endif
+    if (strchr (bin, '/'))   // dirname needs a '/' to work reliably
+    {
+	// We need a private copy for dirname() to modify
+	char *tmpBin = strdup (bin);
+	if (tmpBin)
+	{
+	    const char *binDir = dirname (tmpBin);
+	    if (binDir)
+	    {
+		char env[PATH_MAX];
+		snprintf (env, sizeof(env)-1, "COMPIZ_BIN_PATH=%s/", binDir);
+		putenv (strdup (env));  // parameter needs to be leaked!
+	    }
+	    free (tmpBin);
+	}
+    }
+}
 
 int
 main (int argc, char **argv)
@@ -225,6 +232,8 @@ main (int argc, char **argv)
     programName = argv[0];
     programArgc = argc;
     programArgv = argv;
+
+    detectCompizBinPath (argv);
 
     signal (SIGCHLD, chldSignalHandler);
 

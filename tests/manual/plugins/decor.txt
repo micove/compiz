@@ -1,0 +1,40 @@
+COMPIZ DECOR PLUGIN
+===================
+Sam Spilsbury <smspillaz@gmail.com>
+
+Static Gravity Handling - no decorations
+----------------------------------------
+Setup:
+# Install guake
+
+Actions:
+# Start and launch guake
+
+Expected Result:
+  Guake should sit flush with the panels and work area
+
+Static Gravity Handling - decorations
+-------------------------------------
+Setup:
+# Install friends-app
+
+Actions:
+# Start and launch friends-app
+
+Expected Result:
+  The QML window should have its decorations visible and
+  be contained in the top left hand corner of the work area
+
+_NET_REQUEST_FRAME_EXTENTS handling
+-----------------------------------
+Setup:
+# Install any sun-awt application - examples:
+  1. netbeans
+  2. ecplise
+
+Actions:
+# Run the application
+
+Expected Result:
+  The application should not have its contents offset
+  by its decoration size

@@ -14,7 +14,6 @@ target_link_libraries(
   compiz_string
   
   ${GTEST_BOTH_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT} # Link in pthread.
 )
 
-gtest_add_tests( compiz_string_test "" ${CMAKE_CURRENT_SOURCE_DIR}/printf/src/test-string-printf.cpp )
+compiz_discover_tests (compiz_string_test COVERAGE compiz_string)

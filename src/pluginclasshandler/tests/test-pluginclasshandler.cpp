@@ -72,5 +72,15 @@ CompizPCHTest::CompizPCHTest () :
 
 CompizPCHTest::~CompizPCHTest ()
 {
+    foreach (Plugin *p, plugins)
+    {
+	delete p;
+    }
+
+    foreach (Base *b, bases)
+    {
+	delete b;
+    }
+
     delete global;
 }

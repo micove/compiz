@@ -7,11 +7,14 @@ compiz_set (USE_KDE4 ${BUILD_KDE4})
 if (USE_KDE4)
 
     find_package(KDE4 4.3.0)
+    find_package(KDE4Workspace)
 
-    if (KDE4_FOUND)
+    if (KDE4_FOUND AND KDE4Workspace_FOUND)
         include(KDE4Defaults)
 	include(FindPkgConfig)
 	include(MacroLibrary)
+
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
 
         add_definitions(${QT_DEFINITIONS} ${KDE4_DEFINITIONS})
 
@@ -66,11 +69,11 @@ if (USE_KDE4)
 
 	install (
 	    TARGETS kde4-window-decorator
-	    DESTINATION ${COMPIZ_DESTDIR}${exec_prefix}
+	    DESTINATION ${exec_prefix}
 	)
 
-    else (KDE4_FOUND)
+    else (KDE4_FOUND AND KDE4Workspace_FOUND)
 	compiz_set (USE_KDE4 0)
-    endif (KDE4_FOUND)
+    endif (KDE4_FOUND AND KDE4Workspace_FOUND)
 
 endif (USE_KDE4)

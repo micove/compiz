@@ -163,7 +163,7 @@ KWD::readPropertyString (WId	      id,
 
 	XTextPropertyToStringList (&xtp, &tData, &retCount);
 
-	for (unsigned int i = 0; i < (unsigned int) retCount; i++)
+	for (unsigned int i = 0; i < (unsigned int) retCount; ++i)
 	{
 	    QString str = QString (tData[i]);
 	    ret.push_back (str);

@@ -87,3 +87,13 @@ TEST_F(CompWindowGeometryTestGeometry, TestGeometry)
     EXPECT_EQ (rg, compiz::window::Geometry (49, 99, 199, 299, 5));
     EXPECT_EQ (mask, CHANGE_X | CHANGE_Y | CHANGE_WIDTH | CHANGE_HEIGHT);
 }
+
+TEST_F(CompWindowGeometryTestGeometry, TestBorders)
+{
+    compiz::window::Geometry g (1, 1, 1, 1, 1);
+
+    EXPECT_EQ (g.xMinusBorder (), 0);
+    EXPECT_EQ (g.yMinusBorder (), 0);
+    EXPECT_EQ (g.widthIncBorders (), 3);
+    EXPECT_EQ (g.heightIncBorders (), 3);
+}

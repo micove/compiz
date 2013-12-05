@@ -44,12 +44,15 @@ class CompScreenImpl;
 class PrivateScreen;
 class CompManager;
 class CoreWindow;
+class CoreOptions;
+class ServerGrabInterface;
 
 typedef std::list<CompWindow *> CompWindowList;
 typedef std::vector<CompWindow *> CompWindowVector;
 
 extern bool       replaceCurrentWm;
 extern bool       debugOutput;
+extern bool       sendStartupMessage;
 
 extern CompScreen   *screen;
 
@@ -66,6 +69,16 @@ extern unsigned int pointerMods;
 #define NOTIFY_DELETE_MASK (1 << 1)
 #define NOTIFY_MOVE_MASK   (1 << 2)
 #define NOTIFY_MODIFY_MASK (1 << 3)
+
+#define SCREEN_EDGE_LEFT	    0
+#define SCREEN_EDGE_RIGHT	    1
+#define SCREEN_EDGE_TOP		    2
+#define SCREEN_EDGE_BOTTOM	    3
+#define SCREEN_EDGE_TOPLEFT	    4
+#define SCREEN_EDGE_TOPRIGHT	    5
+#define SCREEN_EDGE_BOTTOMLEFT	    6
+#define SCREEN_EDGE_BOTTOMRIGHT	    7
+#define SCREEN_EDGE_NUM		    8
 
 typedef boost::function<void (short int)> FdWatchCallBack;
 typedef boost::function<void (const char *)> FileWatchCallBack;
@@ -96,6 +109,9 @@ struct CompActiveWindowHistory {
     int    y;
     int    activeNum;
 };
+
+class ScreenInterface;
+extern template class WrapableInterface<CompScreen, ScreenInterface>;
 
 /**
  * Interface to an abstract screen.
@@ -142,14 +158,73 @@ class ScreenInterface : public WrapableInterface<CompScreen, ScreenInterface> {
 };
 
 namespace compiz { namespace private_screen {
-    class Grab;
+    struct Grab;
     class EventManager;
+    class Ping;
 }}
+
+namespace compiz {
+class DesktopWindowCount
+{
+public:
+    virtual void incrementDesktopWindowCount() = 0;
+    virtual void decrementDesktopWindowCount() = 0;
+    virtual int desktopWindowCount() = 0;
+protected:
+    ~DesktopWindowCount() {}
+};
+
+class MapNum
+{
+public:
+    virtual unsigned int nextMapNum() = 0;
+protected:
+    ~MapNum() {}
+};
+
+class Ping
+{
+public:
+    virtual unsigned int lastPing () const = 0;
+protected:
+    ~Ping() {}
+};
+
+class XWindowInfo
+{
+public:
+    virtual int getWmState (Window id) = 0;
+    virtual void setWmState (int state, Window id) const = 0;
+    virtual void getMwmHints (Window id,
+			  unsigned int *func,
+			  unsigned int *decor) const = 0;
+    virtual unsigned int getProtocols (Window id) = 0;
+    virtual unsigned int getWindowType (Window id) = 0;
+    virtual unsigned int getWindowState (Window id) = 0;
+protected:
+    ~XWindowInfo() {}
+};
+
+class History
+{
+public:
+    virtual unsigned int activeNum () const = 0;
+    virtual CompActiveWindowHistory *currentHistory () = 0;
+protected:
+    ~History() {}
+};
+
+}
 
 class CompScreen :
     public WrapableHandler<ScreenInterface, 18>,
     public PluginClassStorage, // TODO should be an interface here
     public CompSize,
+    public virtual ::compiz::DesktopWindowCount,
+    public virtual ::compiz::MapNum,
+    public virtual ::compiz::Ping,
+    public virtual ::compiz::XWindowInfo,
+    public virtual ::compiz::History,
     public CompOption::Class   // TODO should be an interface here
 {
 public:
@@ -234,7 +309,6 @@ public:
 			    unsigned int value) = 0;
     virtual Window activeWindow () = 0;
     virtual unsigned int currentDesktop () = 0;
-    virtual CompActiveWindowHistory *currentHistory () = 0;
     virtual void focusDefaultWindow () = 0;
     virtual Time getCurrentTime () = 0;
     virtual unsigned int getWindowProp (Window       id,
@@ -286,7 +360,6 @@ public:
 				CompString &pname,
 				CompSize   &size,
 				void       *&data) = 0;
-    virtual int desktopWindowCount () = 0;
     virtual XWindowAttributes attrib () = 0;
     virtual CompIcon *defaultIcon () const = 0;
     virtual bool otherGrabExist (const char *, ...) = 0;
@@ -302,7 +375,6 @@ public:
     virtual CompOutput & currentOutputDev () const = 0;
     virtual bool grabExist (const char *) = 0;
     virtual Cursor invisibleCursor () = 0;
-    virtual unsigned int activeNum () const = 0;
     virtual void sendWindowActivationRequest (Window id) = 0;
     virtual const CompWindowVector & clientList (bool stackingOrder = true) = 0;
     virtual int outputDeviceForPoint (const CompPoint &point) = 0;
@@ -321,18 +393,34 @@ public:
     virtual bool grabbed () = 0;
     virtual SnDisplay * snDisplay () = 0;
 
-    friend class CompWindow; // TODO get rid of friends
-    friend class PrivateWindow; // TODO get rid of friends
-    friend class ModifierHandler; // TODO get rid of friends
-    friend class CompManager; // TODO get rid of friends
-
     virtual void processEvents () = 0;
     virtual void alwaysHandleEvent (XEvent *event) = 0;
 
-    bool displayInitialised() const;
+    virtual ServerGrabInterface * serverGrabInterface () = 0;
+
+    // Replacements for friends accessing priv. They are declared virtual to
+    // ensure the ABI is stable if/when they are moved to CompScreenImpl.
+    // They are only intended for use within compiz-core
+    virtual bool displayInitialised() const = 0;
+    virtual void updatePassiveKeyGrabs () const = 0;
+    virtual void applyStartupProperties (CompWindow *window) = 0;
+    virtual void updateClientList() = 0;
+    virtual CompWindow * getTopWindow() const = 0;
+    virtual CompWindow * getTopServerWindow() const = 0;
+    virtual CoreOptions& getCoreOptions() = 0;
+    virtual Colormap colormap() const = 0;
+    virtual void setCurrentDesktop (unsigned int desktop) = 0;
+    virtual Window activeWindow() const = 0;
+    virtual void updatePassiveButtonGrabs(Window serverFrame) = 0;
+    virtual bool grabWindowIsNot(Window w) const = 0;
+    virtual void incrementPendingDestroys() = 0;
+    virtual void setNextActiveWindow(Window id) = 0;
+    virtual Window getNextActiveWindow() const = 0;
+    virtual CompWindow * focusTopMostWindow () = 0;
+    // End of "internal use only" functions
+
 protected:
 	CompScreen();
-	boost::scoped_ptr<PrivateScreen> priv; // TODO should not be par of interface
 
 private:
     // The "wrapable" functions delegate to these (for mocking)

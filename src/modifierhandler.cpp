@@ -27,7 +27,6 @@
  */
 
 #include <core/screen.h>
-#include "privatescreen.h"
 #include "privatewindow.h"
 
 const unsigned int ModifierHandler::virtualModMask[7] = {
@@ -144,7 +143,7 @@ ModifierHandler::updateModifierMappings ()
 		(modMask[CompModNumLock]    & ~CompNoMask) |
 		(modMask[CompModScrollLock] & ~CompNoMask);
 
-	    screen->priv->updatePassiveKeyGrabs ();
+	    screen->updatePassiveKeyGrabs ();
 	    foreach (CompWindow *w, screen->windows ())
 		w->priv->updatePassiveButtonGrabs ();
 	}
@@ -157,9 +156,7 @@ ModifierHandler::updateModifierMappings ()
 unsigned int
 ModifierHandler::virtualToRealModMask (unsigned int modMask)
 {
-    int i;
-
-    for (i = 0; i < CompModNum; i++)
+    for (int i = 0; i < CompModNum; i++)
     {
 	if (modMask & virtualModMask[i])
 	{

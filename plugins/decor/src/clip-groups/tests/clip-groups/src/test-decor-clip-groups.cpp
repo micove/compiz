@@ -134,7 +134,7 @@ void PrintTo(const CompRegion &reg, ::std::ostream *os)
     const CompRect::vector &rv = reg.rects ();
     for (CompRect::vector::const_iterator it = rv.begin ();
 	 it != rv.end ();
-	 it++)
+	 ++it)
     {
 	const CompRect &r = *it;
 	*os << " - Rect : " << r.x () << " " << r.y () << " " << r.width () << " " << r.height () << std::endl;

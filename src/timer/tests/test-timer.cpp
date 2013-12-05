@@ -42,6 +42,30 @@ CompTimerTest::~CompTimerTest ()
 	timers.pop_front();
 	delete t;
     }
+
+    TimeoutHandler::SetDefault (NULL); 
+
+    ts->destroy (); // calls delete this. Seriously.
+}
+
+class ForceGSliceMalloc
+{
+    public:
+
+	ForceGSliceMalloc ()
+	{
+	    setenv ("G_SLICE", "always-malloc", 1);
+	}
+
+	~ForceGSliceMalloc ()
+	{
+	    unsetenv ("G_SLICE");
+	}
+};
+
+namespace
+{
+    ForceGSliceMalloc fgm;
 }
 
 void CompTimerTest::SetUp ()

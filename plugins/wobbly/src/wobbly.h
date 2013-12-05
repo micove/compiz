@@ -41,20 +41,20 @@
 			  CompWindowTypeMenuMask    | \
 			  CompWindowTypeUtilMask)
 
-#define GRID_WIDTH  4
-#define GRID_HEIGHT 4
+const unsigned short GRID_WIDTH = 4;
+const unsigned short GRID_HEIGHT = 4;
 
-#define MODEL_MAX_SPRINGS (GRID_WIDTH * GRID_HEIGHT * 2)
+const unsigned short MODEL_MAX_SPRINGS = (GRID_WIDTH * GRID_HEIGHT * 2);
 
-#define MASS 15.0f
+extern const float MASS;
 
 #define NorthEdgeMask (1L << 0)
 #define SouthEdgeMask (1L << 1)
 #define WestEdgeMask  (1L << 2)
 #define EastEdgeMask  (1L << 3)
 
-#define EDGE_DISTANCE 25.0f
-#define EDGE_VELOCITY 13.0f
+extern const unsigned short EDGE_DISTANCE;
+extern const unsigned short EDGE_VELOCITY;
 
 typedef enum
 {
@@ -288,7 +288,6 @@ public:
     void glAddGeometry (const GLTexture::MatrixList &,
 			const CompRegion &, const CompRegion &,
 			unsigned int = MAXSHORT, unsigned int = MAXSHORT);
-    void glDrawGeometry ();
 
     WobblyScreen     *wScreen;
     CompWindow       *window;

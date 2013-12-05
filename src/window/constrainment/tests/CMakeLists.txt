@@ -12,8 +12,6 @@ target_link_libraries (compiz_test_window_constrainment_to_hints
                        compiz_window_constrainment 
                        ${GTEST_BOTH_LIBRARIES}
 		       ${GMOCK_LIBRARY}
-		       ${GMOCK_MAIN_LIBRARY}
-		       ${CMAKE_THREAD_LIBS_INIT} # Link in pthread. 
-                       )
+		       ${GMOCK_MAIN_LIBRARY})
 
-gtest_add_tests ( compiz_test_window_constrainment_to_hints "" ${CMAKE_CURRENT_SOURCE_DIR}/to-hints/src/test-window-constrainment-to-hints.cpp)
+compiz_discover_tests (compiz_test_window_constrainment_to_hints COVERAGE compiz_window_constrainment)

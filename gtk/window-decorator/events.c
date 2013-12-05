@@ -23,7 +23,8 @@
  *        Authored By: Sam Spilsbury <sam.spilsbury@canonical.com>
  */
 
-#include "gtk-window-decorator.h" 
+#include "gtk-window-decorator.h"
+#include "gwd-settings-interface.h"
 
 void
 move_resize_window (WnckWindow *win,
@@ -85,8 +86,11 @@ common_button_event (WnckWindow *win,
 {
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
     guint   state = d->button_states[button];
+    gboolean use_tooltips = FALSE;
 
-    if (settings->use_tooltips)
+    g_object_get (settings, "use-tooltips", &use_tooltips, NULL);
+
+    if (use_tooltips)
 	handle_tooltip_event (win, gtkwd_event, gtkwd_type, state, tooltip);
 
     if (d->frame_window && gtkwd_type == GEnterNotify)
@@ -130,6 +134,13 @@ close_button_event (WnckWindow *win,
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
     guint   state = d->button_states[BUTTON_CLOSE];
 
+    if (action_menu_mapped && gtkwd_type == GButtonPress)
+    {
+	gtk_object_destroy (GTK_OBJECT (action_menu));
+	action_menu_mapped = FALSE;
+	action_menu = NULL;
+    }
+
     common_button_event (win, gtkwd_event, gtkwd_type,
 			 BUTTON_CLOSE, 1, _("Close Window"));
 
@@ -151,6 +162,13 @@ max_button_event (WnckWindow *win,
 {
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
     guint   state = d->button_states[BUTTON_MAX];
+
+    if (action_menu_mapped && gtkwd_type == GButtonPress)
+    {
+	gtk_object_destroy (GTK_OBJECT (action_menu));
+	action_menu_mapped = FALSE;
+	action_menu = NULL;
+    }
 
     if (wnck_window_is_maximized (win))
 	common_button_event (win, gtkwd_event, gtkwd_type, BUTTON_MAX,
@@ -205,6 +223,13 @@ min_button_event (WnckWindow *win,
 {
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
     guint   state = d->button_states[BUTTON_MIN];
+
+    if (action_menu_mapped && gtkwd_type == GButtonPress)
+    {
+	gtk_object_destroy (GTK_OBJECT (action_menu));
+	action_menu_mapped = FALSE;
+	action_menu = NULL;
+    }
 
     common_button_event (win, gtkwd_event, gtkwd_type,
 			 BUTTON_MIN, 1, _("Minimize Window"));
@@ -417,7 +442,11 @@ void
 handle_mouse_wheel_title_event (WnckWindow   *win,
 				unsigned int button)
 {
-    switch (settings->wheel_action) {
+    gint wheel_action = WHEEL_ACTION_NONE;
+
+    g_object_get (settings, "mouse-wheel-action", &wheel_action, NULL);
+
+    switch (wheel_action) {
     case WHEEL_ACTION_SHADE:
 	if (button == 4)
 	{
@@ -440,11 +469,9 @@ title_event (WnckWindow       *win,
 	     decor_event      *gtkwd_event,
 	     decor_event_type gtkwd_type)
 {
-    static int	  last_button_num = 0;
     static Window last_button_xwindow = None;
     static Time	  last_button_time = 0;
-    static int	  last_button_x = 0;
-    static int	  last_button_y = 0;
+    gint	  titlebar_action = 0;
 
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
 
@@ -460,13 +487,17 @@ title_event (WnckWindow       *win,
 
     if (gtkwd_event->button == 1)
     {
+	static int last_button_num = 0;
+	static int last_button_x = 0;
+	static int last_button_y = 0;
 	if (gtkwd_event->button == last_button_num		        &&
 	    gtkwd_event->window == last_button_xwindow		        &&
 	    gtkwd_event->time < last_button_time + double_click_timeout &&
 	    dist (gtkwd_event->x, gtkwd_event->y,
 		  last_button_x, last_button_y) < DOUBLE_CLICK_DISTANCE)
 	{
-	    handle_title_button_event (win, settings->double_click_action,
+	    g_object_get (settings, "titlebar-double-click-action", &titlebar_action, NULL);
+	    handle_title_button_event (win, titlebar_action,
 				       gtkwd_event);
 
 	    last_button_num	= 0;
@@ -490,12 +521,14 @@ title_event (WnckWindow       *win,
     }
     else if (gtkwd_event->button == 2)
     {
-	handle_title_button_event (win, settings->middle_click_action,
+	g_object_get (settings, "titlebar-middle-click-action", &titlebar_action, NULL);
+	handle_title_button_event (win, titlebar_action,
 				   gtkwd_event);
     }
     else if (gtkwd_event->button == 3)
     {
-	handle_title_button_event (win, settings->right_click_action,
+	g_object_get (settings, "titlebar-right-click-action", &titlebar_action, NULL);
+	handle_title_button_event (win, titlebar_action,
 				   gtkwd_event);
     }
     else if (gtkwd_event->button == 4 ||
@@ -511,7 +544,7 @@ frame_common_event (WnckWindow       *win,
 		    decor_event      *gtkwd_event,
 		    decor_event_type gtkwd_type)
 {
-
+    gint    titlebar_action = 0;
     decor_t *d = g_object_get_data (G_OBJECT (win), "decor");
 
     if (d->frame_window && gtkwd_type == GEnterNotify)
@@ -564,11 +597,13 @@ frame_common_event (WnckWindow       *win,
 	restack_window (win, Above);
 	break;
     case 2:
-	handle_title_button_event (win, settings->middle_click_action,
+	g_object_get (settings, "titlebar-middle-click-action", &titlebar_action, NULL);
+	handle_title_button_event (win, titlebar_action,
 				   gtkwd_event);
 	break;
     case 3:
-	handle_title_button_event (win, settings->right_click_action,
+	g_object_get (settings, "titlebar-right-click-action", &titlebar_action, NULL);
+	handle_title_button_event (win, titlebar_action,
 				   gtkwd_event);
 	break;
     }
@@ -672,7 +707,7 @@ find_event_callback_for_point (decor_t *d,
     int    i, j;
     BoxPtr box;
 
-    for (i = 0; i < BUTTON_NUM; i++)
+    for (i = 0; i < BUTTON_NUM; ++i)
     {
 	box = &d->button_windows[i].pos;
 	if (x >= box->x1 && x <= box->x2 &&
@@ -691,9 +726,9 @@ find_event_callback_for_point (decor_t *d,
 	}
     }
 
-    for (i = 0; i < 3; i++)
+    for (i = 0; i < 3; ++i)
     {
-	for (j = 0; j < 3; j++)
+	for (j = 0; j < 3; ++j)
 	{
 	    box = &d->event_windows[i][j].pos;
 	    if (x >= box->x1 && x <= box->x2 &&
@@ -721,15 +756,15 @@ find_leave_event_callback (decor_t *d)
 {
     int i, j;
 
-    for (i = 0; i < BUTTON_NUM; i++)
+    for (i = 0; i < BUTTON_NUM; ++i)
     {
 	if (d->last_pos_entered == &d->button_windows[i].pos)
 	    return d->button_windows[i].callback;
     }
 
-    for (i = 0; i < 3; i++)
+    for (i = 0; i < 3; ++i)
     {
-	for (j = 0; j < 3; j++)
+	for (j = 0; j < 3; ++j)
 	{
 	    if (d->last_pos_entered == &d->event_windows[i][j].pos)
 		return d->event_windows[i][j].callback;
@@ -977,12 +1012,12 @@ event_filter_func (GdkXEvent *gdkxevent,
 	    GdkScreen  *g_screen = gdk_display_get_default_screen (gdkdisplay);
 	    Window     root = GDK_WINDOW_XWINDOW (gdk_screen_get_root_window (g_screen));
 	    WnckScreen *screen;
-	    
+
 	    screen = wnck_screen_get_for_root (root);
-	    
+
 	    if (screen)
 	    {
-		if (shadow_property_changed (screen))
+		if (gwd_process_decor_shadow_property_update ())
 		    decorations_changed (screen);
 	    }
 	}
@@ -998,7 +1033,10 @@ event_filter_func (GdkXEvent *gdkxevent,
 		decor_t  *d = g_object_get_data (G_OBJECT (win), "decor");
 		gboolean decorated = FALSE;
 
-		if (get_mwm_prop (xid) & (MWM_DECOR_ALL | MWM_DECOR_TITLE))
+		/* Only decorations that are actually bound to windows can be decorated
+		 * ignore cases where a broken application which shouldn't be decorated
+		 * sets the decoration hint */
+		if (get_mwm_prop (xid) & (MWM_DECOR_ALL | MWM_DECOR_TITLE) && d->win)
 		    decorated = TRUE;
 
 		if (decorated != d->decorated)
@@ -1014,7 +1052,7 @@ event_filter_func (GdkXEvent *gdkxevent,
 			update_window_decoration_state (win);
 			update_window_decoration_actions (win);
 			update_window_decoration_icon (win);
-			update_window_decoration_size (win);
+			request_update_window_decoration_size (win);
 			update_event_windows (win);
 		    }
 		    else
@@ -1069,6 +1107,13 @@ event_filter_func (GdkXEvent *gdkxevent,
 		}
 	    }
 	}
+	else if (xevent->xclient.message_type == decor_request_atom)
+	{
+	    WnckWindow *win = wnck_window_get (xevent->xclient.window);
+
+	    if (win)
+		update_window_decoration_size (win);
+	}
     default:
 	break;
     }
@@ -1088,14 +1133,14 @@ event_filter_func (GdkXEvent *gdkxevent,
 		event_callback   cb = NULL;
 		Window           w = xevent->xany.window;
 
-		for (i = 0; i < 3; i++)
-		    for (j = 0; j < 3; j++)
+		for (i = 0; i < 3; ++i)
+		    for (j = 0; j < 3; ++j)
 			if (d->event_windows[i][j].window == w)
 			    cb = d->event_windows[i][j].callback;
 
 		if (!cb)
 		{
-		    for (i = 0; i < BUTTON_NUM; i++)
+		    for (i = 0; i < BUTTON_NUM; ++i)
 			if (d->button_windows[i].window == w)
 			    cb = d->button_windows[i].callback;
 		}

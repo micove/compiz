@@ -28,15 +28,88 @@
 #ifndef _OPENGL_PRIVATES_H
 #define _OPENGL_PRIVATES_H
 
+#include <memory>
+
 #include <composite/composite.h>
 #include <opengl/opengl.h>
 #include <core/atoms.h>
+#include <core/configurerequestbuffer.h>
 
-#include "privatefragment.h"
+#ifdef USE_GLES
+#include <opengl/framebufferobject.h>
+#endif
+
+#include <opengl/doublebuffer.h>
+
 #include "privatetexture.h"
+#include "privatevertexbuffer.h"
 #include "opengl_options.h"
 
 extern CompOutput *targetOutput;
+
+class GLDoubleBuffer :
+    public compiz::opengl::DoubleBuffer
+{
+    public:
+
+	GLDoubleBuffer (Display                                             *,
+			const CompSize                                      &,
+			const compiz::opengl::impl::GLXSwapIntervalEXTFunc  &,
+			const compiz::opengl::impl::GLXWaitVideoSyncSGIFunc &);
+
+    protected:
+
+	Display *mDpy;
+	const CompSize &mSize;
+};
+
+#ifndef USE_GLES
+
+class GLXDoubleBuffer :
+    public GLDoubleBuffer
+{
+    public:
+
+	GLXDoubleBuffer (Display *,
+		       const CompSize &,
+		       Window);
+
+	void swap () const;
+	bool blitAvailable () const;
+	void blit (const CompRegion &region) const;
+	bool fallbackBlitAvailable () const;
+	void fallbackBlit (const CompRegion &region) const;
+	void copyFrontToBack () const;
+
+    protected:
+
+	Window mOutput;
+};
+
+#else
+
+class EGLDoubleBuffer :
+    public GLDoubleBuffer
+{
+    public:
+
+	EGLDoubleBuffer (Display *,
+		       const CompSize &,
+		       EGLSurface const &);
+
+	void swap () const;
+	bool blitAvailable () const;
+	void blit (const CompRegion &region) const;
+	bool fallbackBlitAvailable () const;
+	void fallbackBlit (const CompRegion &region) const;
+	void copyFrontToBack () const;
+
+    private:
+
+	EGLSurface const & mSurface;
+};
+
+#endif
 
 class GLIcon
 {
@@ -67,15 +140,16 @@ class PrivateGLScreen :
 			   const CompRegion    &region);
 
 	bool hasVSync ();
+	bool requiredForcedRefreshRate ();
+
+	void updateRenderMode ();
 
 	void prepareDrawing ();
 
 	bool compositingActive ();
 
-	void controlSwapVideoSync ();
-	void waitForVideoSync ();
-
-	void paintBackground (const CompRegion &region,
+	void paintBackground (const GLMatrix   &transform,
+	                      const CompRegion &region,
 			      bool             transformed);
 
 	void paintOutputRegion (const GLMatrix   &transform,
@@ -87,6 +161,8 @@ class PrivateGLScreen :
 
 	void updateView ();
 
+	bool driverIsBlacklisted (const char *regex) const;
+
     public:
 
 	GLScreen        *gScreen;
@@ -94,7 +170,9 @@ class PrivateGLScreen :
 
 	GLenum textureFilter;
 
+	#ifndef USE_GLES
 	GLFBConfig      glxPixmapFBConfigs[MAX_DEPTH + 1];
+	#endif
 
 	GLTexture::List backgroundTextures;
 	bool            backgroundLoaded;
@@ -103,36 +181,62 @@ class PrivateGLScreen :
 
 	CompPoint rasterPos;
 
-	GLFragment::Storage fragmentStorage;
-
-	GLfloat projection[16];
+	GLMatrix *projection;
 
 	bool clearBuffers;
 	bool lighting;
 
-	GL::GLXGetProcAddressProc getProcAddress;
-
+	#ifdef USE_GLES
+	EGLContext ctx;
+	EGLSurface surface;
+	EGLDoubleBuffer doubleBuffer;
+	#else
 	GLXContext ctx;
 
+	GL::GLXGetProcAddressProc getProcAddress;
+	GLXDoubleBuffer doubleBuffer;
+	#endif
+
+	GLFramebufferObject *scratchFbo;
 	CompRegion outputRegion;
 
-	bool pendingCommands;
-
 	XRectangle lastViewport;
+	bool refreshSubBuffer;
+	unsigned int lastMask;
 
 	std::vector<GLTexture::BindPixmapProc> bindPixmap;
 	bool hasCompositing;
+	bool commonFrontbuffer;
+	bool incorrectRefreshRate; // hack for NVIDIA specifying an incorrect
+				   // refresh rate, causing us to miss vblanks
 
 	GLIcon defaultIcon;
 
+	Window saveWindow; // hack for broken applications, see:
+			   // https://bugs.launchpad.net/ubuntu/+source/compiz/+bug/807487
+
+	GLProgramCache *programCache;
+	GLShaderCache   shaderCache;
+	GLVertexBuffer::AutoProgram *autoProgram;
+
 	Pixmap rootPixmapCopy;
 	CompSize rootPixmapSize;
+
+	const char *glVendor, *glRenderer, *glVersion;
+
+	mutable CompString prevRegex;
+	mutable bool       prevBlacklisted;
 };
 
 class PrivateGLWindow :
     public WindowInterface,
     public CompositeWindowInterface
 {
+    public:
+
+	static const unsigned int UpdateRegion = 1 << 0;
+	static const unsigned int UpdateMatrix = 1 << 1;
+
     public:
 	PrivateGLWindow (CompWindow *w, GLWindow *gw);
 	~PrivateGLWindow ();
@@ -145,6 +249,8 @@ class PrivateGLWindow :
 	void setWindowMatrix ();
 	void updateWindowRegions ();
 
+	void clearTextures ();
+
 	CompWindow      *window;
 	GLWindow        *gWindow;
 	CompositeWindow *cWindow;
@@ -153,7 +259,8 @@ class PrivateGLWindow :
 	GLTexture::List       textures;
 	GLTexture::MatrixList matrices;
 	CompRegion::Vector    regions;
-	bool                  updateReg;
+	unsigned int          updateState;
+	bool		      needsRebind;
 
 	CompRegion    clip;
 
@@ -169,10 +276,17 @@ class PrivateGLWindow :
 
 	unsigned int lastMask;
 
-	GLWindow::Geometry geometry;
+	GLVertexBuffer *vertexBuffer;
+
+	// map of shaders, plugin name is key, pair of vertex and fragment
+	// shader source code is value
+	std::list<const GLShaderData*> shaders;
+	GLVertexBuffer::AutoProgram *autoProgram;
 
 	std::list<GLIcon> icons;
+
+	compiz::window::configure_buffers::Releasable::Ptr configureLock;
 };
 
-
 #endif
+

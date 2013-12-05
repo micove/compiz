@@ -35,7 +35,6 @@ target_link_libraries(
   compiz_string 
   
   ${GTEST_BOTH_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT} # Link in pthread.
 )
 
 target_link_libraries( 
@@ -47,7 +46,6 @@ target_link_libraries(
   compiz_string 
   
   ${GTEST_BOTH_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT} # Link in pthread.
 )
 
 target_link_libraries( 
@@ -59,7 +57,6 @@ target_link_libraries(
   compiz_string 
   
   ${GTEST_BOTH_LIBRARIES}
-  ${CMAKE_THREAD_LIBS_INIT} # Link in pthread.
 )
 
 # Not compilable
@@ -74,8 +71,8 @@ target_link_libraries(
 #  gtest_main
 #)
 
-gtest_add_tests( compiz_pch_construct "" ${CMAKE_CURRENT_SOURCE_DIR}/construct/src/test-pch-construct.cpp )
-gtest_add_tests( compiz_pch_get "" ${CMAKE_CURRENT_SOURCE_DIR}/get/src/test-pch-get.cpp )
+compiz_discover_tests (compiz_pch_construct COVERAGE compiz_pluginclasshandler)
+compiz_discover_tests (compiz_pch_get COVERAGE compiz_pluginclasshandler)
 #add_test( compiz_pch_indexes compiz_pch_indexes )
-gtest_add_tests( compiz_pch_typenames "" ${CMAKE_CURRENT_SOURCE_DIR}/typenames/src/test-pch-typenames.cpp )
+compiz_discover_tests (compiz_pch_typenames COVERAGE compiz_pluginclasshandler)
 

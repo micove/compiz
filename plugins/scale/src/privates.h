@@ -63,6 +63,8 @@ class PrivateScaleScreen :
 	void findBestSlots ();
 	bool fillInWindows ();
 	bool layoutThumbs ();
+	bool layoutThumbsAll ();
+	bool layoutThumbsSingle ();
 
 	SlotArea::vector getSlotAreas ();
 
@@ -89,6 +91,7 @@ class PrivateScaleScreen :
 	bool ensureDndRedirectWindow ();
 
 	bool selectWindowAt (int x, int y, bool moveInputFocus);
+	bool selectWindowAt (int x, int y);
 
 	void moveFocusWindow (int dx, int dy);
 

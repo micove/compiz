@@ -36,6 +36,7 @@
 # LIBRARIES  = libraries added to link command
 # LIBDIRS    = additional link directories
 # INCDIRS    = additional include directories
+# NOINSTALL  = do not install this plugin
 #
 # The following variables will be used by this macro:
 #
@@ -75,8 +76,6 @@ endif (COMPIZ_PACKAGING_ENABLED)
 
 ### Set up core lib dependences so this in correctly imported into plugins
 
-find_package (Boost 1.34.0 REQUIRED serialization)
-
 set (COMPIZ_REQUIRES
     x11
     xext
@@ -94,7 +93,6 @@ set (COMPIZ_REQUIRES
 )
 
 compiz_pkg_check_modules (COMPIZ REQUIRED ${COMPIZ_REQUIRES})
-
 list (APPEND COMPIZ_LIBRARIES ${Boost_LIBRARIES})
 
 # determinate installation directories
@@ -188,6 +186,14 @@ macro (_build_compiz_plugin plugin)
 	)
     endif (COMPIZ_PLUGIN_INSTALL_TYPE)
 
+    set (_install_plugin_${plugin} ON)
+
+    foreach (ARG ${ARGN})
+	if (${ARG} STREQUAL "NOINSTALL")
+	    set (_install_plugin_${plugin} OFF)
+	endif (${ARG} STREQUAL "NOINSTALL")
+    endforeach ()
+
     _get_parameters (${_PLUGIN} ${ARGN})
     _prepare_directories ()
 
@@ -244,11 +250,13 @@ macro (_build_compiz_plugin plugin)
 
 	if (_translated_xml)
 
-	    # install xml
-	    install (
-		FILES ${_translated_xml}
-		DESTINATION ${COMPIZ_DESTDIR}${PLUGIN_XMLDIR}
-	    )
+	    if (_install_plugin_${plugin})
+		# install xml
+		install (
+		    FILES ${_translated_xml}
+		    DESTINATION $ENV{DESTDIR}${PLUGIN_XMLDIR}
+		)
+	    endif (_install_plugin_${plugin})
 	endif (_translated_xml)
 
 	find_file (
@@ -256,6 +264,16 @@ macro (_build_compiz_plugin plugin)
 	    PATHS ${CMAKE_CURRENT_SOURCE_DIR}
 	    NO_DEFAULT_PATH
 	)
+
+	set (COMPIZ_CURRENT_PLUGIN ${plugin})
+	set (COMPIZ_CURRENT_XML_FILE ${_translated_xml})
+
+	# find extension files
+	file (GLOB _extension_files "${COMPIZ_CMAKE_MODULE_PATH}/plugin_extensions/*.cmake")
+
+	foreach (_file ${_extension_files})
+	    include (${_file})
+	endforeach ()
 
 	# generate pkgconfig file and install it and the plugin header file
 	if (_${plugin}_pkg AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/include/${plugin})
@@ -269,33 +287,29 @@ macro (_build_compiz_plugin plugin)
 		    set (VERSION 0.0.1-git)
 		endif (NOT VERSION)
 
+		#add CFLAGSADD so pkg-config file has correct flags
+		set (COMPIZ_CFLAGS ${COMPIZ_CFLAGS} ${${_PLUGIN}_CFLAGSADD})
+
 		compiz_configure_file (
 		    ${_${plugin}_pkg}
 		    ${CMAKE_BINARY_DIR}/generated/compiz-${plugin}.pc
 		    COMPIZ_REQUIRES
 		    COMPIZ_CFLAGS
+		    PKGCONFIG_LIBS
 		)
 
-		install (
-		    FILES ${CMAKE_BINARY_DIR}/generated/compiz-${plugin}.pc
-		    DESTINATION ${COMPIZ_DESTDIR}${PLUGIN_PKGDIR}
-		)
-		install (
-		    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/${plugin}
-		    DESTINATION ${COMPIZ_DESTDIR}${PLUGIN_INCDIR}/compiz
-		)
+		if (_install_plugin_${plugin})
+		    install (
+			FILES ${CMAKE_BINARY_DIR}/generated/compiz-${plugin}.pc
+			DESTINATION ${PLUGIN_PKGDIR}
+		    )
+		    install (
+			DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/${plugin}
+			DESTINATION ${PLUGIN_INCDIR}/compiz
+		    )
+		endif ()
 	    endif ()
 	endif ()
-
-	set (COMPIZ_CURRENT_PLUGIN ${plugin})
-	set (COMPIZ_CURRENT_XML_FILE ${_translated_xml})
-
-	# find extension files
-	file (GLOB _extension_files "${COMPIZ_CMAKE_MODULE_PATH}/plugin_extensions/*.cmake")
-
-	foreach (_file ${_extension_files})
-	    include (${_file})
-	endforeach ()
 
 	# find files for build
 	file (GLOB _h_files "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
@@ -411,12 +425,18 @@ macro (_build_compiz_plugin plugin)
 		      compiz_core
 	)
 
-	install (
-	    TARGETS ${plugin}
-	    LIBRARY DESTINATION ${COMPIZ_DESTDIR}${PLUGIN_LIBDIR}
-	)
+	if (_install_plugin_${plugin})
+	    install (
+		TARGETS ${plugin}
+		LIBRARY DESTINATION ${PLUGIN_LIBDIR}
+	    )
+	endif (_install_plugin_${plugin})
 
-	compiz_add_uninstall ()
+	if (NOT _COMPIZ_INTERNAL AND _install_plugin_${plugin})
+
+	    compiz_add_uninstall ()
+
+	endif (NOT _COMPIZ_INTERNAL AND _install_plugin_${plugin})
 
 	if (NOT COMPIZ_PLUGIN_PACK_BUILD)
 		set (CMAKE_PROJECT_NAME plugin-${plugin})
@@ -449,10 +469,15 @@ endmacro ()
 macro (compiz_plugin plugin)
     string (TOUPPER ${plugin} _PLUGIN)
 
+    # If already defined, use the existing value...
+    if (NOT DEFINED COMPIZ_DISABLE_PLUGIN_${_PLUGIN})
+       set (COMPIZ_DISABLE_PLUGIN_${_PLUGIN} OFF)
+    endif ()
+
     option (
 	COMPIZ_DISABLE_PLUGIN_${_PLUGIN}
 	"Disable building of plugin \"${plugin}\""
-	OFF
+	${COMPIZ_DISABLE_PLUGIN_${_PLUGIN}}
     )
 
     if (NOT COMPIZ_DISABLE_PLUGIN_${_PLUGIN})

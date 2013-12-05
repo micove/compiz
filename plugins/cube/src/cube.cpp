@@ -33,7 +33,7 @@
 #include <privates.h>
 
 class CubePluginVTable :
-    public CompPlugin::VTableForScreenAndWindow<CubeScreen, PrivateCubeWindow>
+    public CompPlugin::VTableForScreenAndWindow<CubeScreen, PrivateCubeWindow, COMPIZ_CUBE_ABI>
 {
     public:
 
@@ -44,33 +44,39 @@ class CubePluginVTable :
 COMPIZ_PLUGIN_20090315 (cube, CubePluginVTable)
 
 void
-CubeScreenInterface::cubeGetRotation (float &x, float &v, float &progress)
+CubeScreenInterface::cubeGetRotation (float &x,
+				      float &v,
+				      float &progress)
     WRAPABLE_DEF (cubeGetRotation, x, v, progress);
 
 void
-CubeScreenInterface::cubeClearTargetOutput (float xRotate, float vRotate)
+CubeScreenInterface::cubeClearTargetOutput (float xRotate,
+					    float vRotate)
     WRAPABLE_DEF (cubeClearTargetOutput, xRotate, vRotate);
 
 void
 CubeScreenInterface::cubePaintTop (const GLScreenPaintAttrib &sAttrib,
-		                   const GLMatrix            &transform,
-		                   CompOutput                *output,
-		                   int                       size)
-    WRAPABLE_DEF (cubePaintTop, sAttrib, transform, output, size)
-    
+				   const GLMatrix            &transform,
+				   CompOutput                *output,
+				   int                       size,
+				   const GLVector            &normal)
+    WRAPABLE_DEF (cubePaintTop, sAttrib, transform, output, size, normal)
+
 void
 CubeScreenInterface::cubePaintBottom (const GLScreenPaintAttrib &sAttrib,
 				      const GLMatrix            &transform,
 				      CompOutput                *output,
-				      int                       size)
-    WRAPABLE_DEF (cubePaintBottom, sAttrib, transform, output, size)
+				      int                       size,
+				      const GLVector            &normal)
+    WRAPABLE_DEF (cubePaintBottom, sAttrib, transform, output, size, normal)
 
 void
 CubeScreenInterface::cubePaintInside (const GLScreenPaintAttrib &sAttrib,
 				      const GLMatrix            &transform,
 				      CompOutput                *output,
-				      int                       size)
-    WRAPABLE_DEF (cubePaintInside, sAttrib, transform, output, size)
+				      int                       size,
+				      const GLVector            &normal)
+    WRAPABLE_DEF (cubePaintInside, sAttrib, transform, output, size, normal)
 
 bool
 CubeScreenInterface::cubeCheckOrientation (const GLScreenPaintAttrib &sAttrib,
@@ -93,7 +99,7 @@ CubeScreenInterface::cubeShouldPaintViewport (const GLScreenPaintAttrib &sAttrib
 					      CompOutput                *output,
 					      PaintOrder                order)
     WRAPABLE_DEF (cubeShouldPaintViewport, sAttrib, transform, output, order)
-    
+
 bool
 CubeScreenInterface::cubeShouldPaintAllViewports ()
     WRAPABLE_DEF (cubeShouldPaintAllViewports);
@@ -189,8 +195,12 @@ CubeScreen::multioutputMode () const
     {
 	case CubeOptions::MultioutputModeOneBigCube:
 	    return OneBigCube;
+	    break;
+
 	case CubeOptions::MultioutputModeMultipleCubes:
 	    return MultipleCubes;
+	    break;
+
 	default:
 	    break;
     }
@@ -214,7 +224,7 @@ bool
 CubeScreen::cubeShouldPaintAllViewports ()
 {
     WRAPABLE_HND_FUNCTN_RETURN (bool, cubeShouldPaintAllViewports);
-    
+
     return priv->mPaintAllViewports;
 }
 
@@ -225,18 +235,18 @@ CubeScreen::repaintCaps ()
 }
 
 bool
-PrivateCubeScreen::updateGeometry (int sides, int invert)
+PrivateCubeScreen::updateGeometry (int sides,
+				   int invert)
 {
-    GLfloat radius, distance;
     GLfloat *v;
-    int     i, n;
+    int     i;
 
     sides *= mNOutput;
 
-    distance = 0.5f / tanf (M_PI / sides);
-    radius   = 0.5f / sinf (M_PI / sides);
+    GLfloat distance = 0.5f / tanf (M_PI / sides);
+    GLfloat radius   = 0.5f / sinf (M_PI / sides);
 
-    n = (sides + 2) * 2;
+    int n = (sides + 2) * 2;
 
     if (mNVertices != n)
     {
@@ -254,7 +264,7 @@ PrivateCubeScreen::updateGeometry (int sides, int invert)
     *v++ = 0.5 * invert;
     *v++ = 0.0f;
 
-    for (i = 0; i <= sides; i++)
+    for (i = 0; i <= sides; ++i)
     {
 	*v++ = radius * sinf (i * 2 * M_PI / sides + M_PI / sides);
 	*v++ = 0.5 * invert;
@@ -265,7 +275,7 @@ PrivateCubeScreen::updateGeometry (int sides, int invert)
     *v++ = -0.5 * invert;
     *v++ = 0.0f;
 
-    for (i = sides; i >= 0; i--)
+    for (i = sides; i >= 0; --i)
     {
 	*v++ = radius * sinf (i * 2 * M_PI / sides + M_PI / sides);
 	*v++ = -0.5 * invert;
@@ -281,15 +291,13 @@ PrivateCubeScreen::updateGeometry (int sides, int invert)
 void
 PrivateCubeScreen::updateOutputs ()
 {
-    CompOutput *pBox0, *pBox1;
+    CompOutput   *pBox0, *pBox1;
     unsigned int i, j;
-    int    k, x;
-
-    k = 0;
+    int          k = 0;
 
     mFullscreenOutput = true;
 
-    for (i = 0; i < screen->outputDevs ().size (); i++)
+    for (i = 0; i < screen->outputDevs ().size (); ++i)
     {
 	mOutputMask[i] = -1;
 
@@ -305,16 +313,16 @@ PrivateCubeScreen::updateOutputs ()
 	if (pBox0->y1 () != pBox1->y1 () || pBox0->y2 () != pBox1->y2 ())
 	    continue;
 
-	k++;
+	++k;
 
-	for (j = 0; j < screen->outputDevs ().size (); j++)
+	for (j = 0; j < screen->outputDevs ().size (); ++j)
 	{
 	    pBox0 = &screen->outputDevs ()[j];
 
 	    /* must not intersect other output region */
 	    if (i != j && pBox0->x2 () > pBox1->x1 () && pBox0->x1 () < pBox1->x2 ())
 	    {
-		k--;
+		--k;
 		break;
 	    }
 	}
@@ -342,13 +350,15 @@ PrivateCubeScreen::updateOutputs ()
     }
 
     /* add output indices from left to right */
+    int x;
     j = 0;
+
     for (;;)
     {
 	x = MAXSHORT;
 	k = -1;
 
-	for (i = 0; i < screen->outputDevs ().size (); i++)
+	for (i = 0; i < screen->outputDevs ().size (); ++i)
 	{
 	    if (mOutputMask[i] != -1)
 		continue;
@@ -366,7 +376,7 @@ PrivateCubeScreen::updateOutputs ()
 	mOutputMask[k] = j;
 	mOutput[j]     = k;
 
-	j++;
+	++j;
     }
 
     mNOutput = j;
@@ -388,34 +398,38 @@ PrivateCubeScreen::updateSkydomeTexture ()
 	return;
 
     CompString imgName = optionGetSkydomeImage ();
-    CompString pname = "cube";
+    CompString pname   = "cube";
 
     if (optionGetSkydomeImage ().empty () ||
 	(mSky = GLTexture::readImageToTexture (imgName, pname, mSkySize)).empty ())
     {
+	GLfloat MaxUShortFloat = static_cast <GLfloat>
+				 (std::numeric_limits <unsigned short>::max ());
 	GLfloat aaafTextureData[128][128][3];
-	GLfloat fRStart = (GLfloat) optionGetSkydomeGradientStartColorRed () / 0xffff;
-	GLfloat fGStart = (GLfloat) optionGetSkydomeGradientStartColorGreen () / 0xffff;
-	GLfloat fBStart = (GLfloat) optionGetSkydomeGradientStartColorBlue () / 0xffff;
-	GLfloat fREnd = (GLfloat) optionGetSkydomeGradientEndColorRed () / 0xffff;
-	GLfloat fGEnd = (GLfloat) optionGetSkydomeGradientEndColorGreen () / 0xffff;
-	GLfloat fBEnd = (GLfloat) optionGetSkydomeGradientEndColorBlue () / 0xffff;
-	GLfloat fRStep = (fREnd - fRStart) / 128.0f;
-	GLfloat fGStep = (fGEnd - fGStart) / 128.0f;
-	GLfloat fBStep = (fBStart - fBEnd) / 128.0f;
-	GLfloat fR = fRStart;
-	GLfloat fG = fGStart;
-	GLfloat fB = fBStart;
 
-	int	iX, iY;
+	GLfloat fRStart = optionGetSkydomeGradientStartColorRed () / MaxUShortFloat;
+	GLfloat fGStart = optionGetSkydomeGradientStartColorGreen () / MaxUShortFloat;
+	GLfloat fBStart = optionGetSkydomeGradientStartColorBlue () / MaxUShortFloat;
 
-	for (iX = 127; iX >= 0; iX--)
+	GLfloat fREnd   = optionGetSkydomeGradientEndColorRed () / MaxUShortFloat;
+	GLfloat fGEnd   = optionGetSkydomeGradientEndColorGreen () / MaxUShortFloat;
+	GLfloat fBEnd   = optionGetSkydomeGradientEndColorBlue () / MaxUShortFloat;
+
+	GLfloat fRStep  = (fREnd - fRStart) / 128.0f;
+	GLfloat fGStep  = (fGEnd - fGStart) / 128.0f;
+	GLfloat fBStep  = (fBStart - fBEnd) / 128.0f;
+
+	GLfloat fR      = fRStart;
+	GLfloat fG      = fGStart;
+	GLfloat fB      = fBStart;
+
+	for (int iX = 127; iX >= 0; --iX)
 	{
 	    fR += fRStep;
 	    fG += fGStep;
 	    fB -= fBStep;
 
-	    for (iY = 0; iY < 128; iY++)
+	    for (int iY = 0; iY < 128; ++iY)
 	    {
 		aaafTextureData[iX][iY][0] = fR;
 		aaafTextureData[iX][iY][1] = fG;
@@ -433,14 +447,14 @@ PrivateCubeScreen::updateSkydomeTexture ()
     }
 }
 
+#ifndef USE_GLES
 static bool
 fillCircleTable (GLfloat   **ppSint,
 		 GLfloat   **ppCost,
 		 const int n)
 {
     const GLfloat angle = 2 * M_PI / (GLfloat) ((n == 0) ? 1 : n);
-    const int	  size = abs (n);
-    int		  i;
+    const int     size  = abs (n);
 
     *ppSint = (GLfloat *) calloc (sizeof (GLfloat), size + 1);
     *ppCost = (GLfloat *) calloc (sizeof (GLfloat), size + 1);
@@ -456,7 +470,7 @@ fillCircleTable (GLfloat   **ppSint,
     (*ppSint)[0] = 0.0;
     (*ppCost)[0] = 1.0;
 
-    for (i = 1; i < size; i++)
+    for (int i = 1; i < size; ++i)
     {
 	(*ppSint)[i] = sin (angle * i);
 	(*ppCost)[i] = cos (angle * i);
@@ -467,10 +481,12 @@ fillCircleTable (GLfloat   **ppSint,
 
     return true;
 }
+#endif
 
 void
 PrivateCubeScreen::updateSkydomeList (GLfloat fRadius)
 {
+#ifndef USE_GLES
     GLint   iSlices = 128;
     GLint   iStacks = 64;
     GLfloat afTexCoordX[4];
@@ -483,32 +499,28 @@ PrivateCubeScreen::updateSkydomeList (GLfloat fRadius)
     GLfloat x;
     GLfloat y;
     GLfloat z;
-    int	    i;
-    int	    j;
-    int	    iStacksStart;
-    int	    iStacksEnd;
-    int	    iSlicesStart;
-    int	    iSlicesEnd;
-    GLfloat fStepX;
-    GLfloat fStepY;
+    int     iStacksStart;
+    int     iStacksEnd;
+    int     iSlicesStart;
+    int     iSlicesEnd;
 
     if (optionGetSkydomeAnimated ())
     {
-	iStacksStart = 11; /* min.   0 */
-	iStacksEnd = 53;   /* max.  64 */
-	iSlicesStart = 0;  /* min.   0 */
-	iSlicesEnd = 128;  /* max. 128 */
+	iStacksStart = 11;  /* min.   0 */
+	iStacksEnd   = 53;  /* max.  64 */
+	iSlicesStart = 0;   /* min.   0 */
+	iSlicesEnd   = 128; /* max. 128 */
     }
     else
     {
-	iStacksStart = 21; /* min.   0 */
-	iStacksEnd = 43;   /* max.  64 */
-	iSlicesStart = 21; /* min.   0 */
-	iSlicesEnd = 44;   /* max. 128 */
+	iStacksStart = 21;  /* min.   0 */
+	iStacksEnd   = 43;  /* max.  64 */
+	iSlicesStart = 21;  /* min.   0 */
+	iSlicesEnd   = 44;  /* max. 128 */
     }
 
-    fStepX = 1.0 / (GLfloat) (iSlicesEnd - iSlicesStart);
-    fStepY = 1.0 / (GLfloat) (iStacksEnd - iStacksStart);
+    GLfloat fStepX = 1.0 / (GLfloat) (iSlicesEnd - iSlicesStart);
+    GLfloat fStepY = 1.0 / (GLfloat) (iStacksEnd - iStacksStart);
 
     if (!mSky.size ())
 	return;
@@ -541,14 +553,14 @@ PrivateCubeScreen::updateSkydomeList (GLfloat fRadius)
 
     glBegin (GL_QUADS);
 
-    for (i = iStacksStart; i < iStacksEnd; i++)
+    for (int i = iStacksStart; i < iStacksEnd; ++i)
     {
 	afTexCoordX[0] = 1.0f;
 	afTexCoordX[1] = 1.0f - fStepX;
 	afTexCoordX[2] = 1.0f - fStepX;
 	afTexCoordX[3] = 1.0f;
 
-	for (j = iSlicesStart; j < iSlicesEnd; j++)
+	for (int j = iSlicesStart; j < iSlicesEnd; ++j)
 	{
 	    /* bottom-right */
 	    z = cost2[i];
@@ -616,23 +628,26 @@ PrivateCubeScreen::updateSkydomeList (GLfloat fRadius)
     free (cost1);
     free (sint2);
     free (cost2);
+
+#endif
 }
 
 bool
-PrivateCubeScreen::setOption (const CompString &name, CompOption::Value &value)
+PrivateCubeScreen::setOption (const CompString  &name,
+			      CompOption::Value &value)
 {
-
     unsigned int index;
-
-    bool rv = CubeOptions::setOption (name, value);
+    bool         rv = CubeOptions::setOption (name, value);
 
     if (!rv || !CompOption::findOption (getOptions (), name, &index))
         return false;
 
-    switch (index) {
+    switch (index)
+    {
 	case CubeOptions::In:
 	    rv = updateGeometry (screen->vpSize ().width (), value.b () ? -1 : 1);
 	    break;
+
 	case CubeOptions::Skydome:
 	case CubeOptions::SkydomeImage:
 	case CubeOptions::SkydomeAnimated:
@@ -642,11 +657,13 @@ PrivateCubeScreen::setOption (const CompString &name, CompOption::Value &value)
 	    updateSkydomeList (1.0f);
 	    cScreen->damageScreen ();
 	    break;
+
 	case CubeOptions::MultioutputMode:
 	    updateOutputs ();
 	    updateGeometry (screen->vpSize ().width (), mInvert);
 	    cScreen->damageScreen ();
 	    break;
+
 	default:
 	    break;
     }
@@ -657,22 +674,22 @@ PrivateCubeScreen::setOption (const CompString &name, CompOption::Value &value)
 bool
 PrivateCubeScreen::adjustVelocity ()
 {
-    float unfold, adjust, amount;
+    float unfold;
 
     if (mUnfolded)
 	unfold = 1.0f - mUnfold;
     else
 	unfold = 0.0f - mUnfold;
 
-    adjust = unfold * 0.02f * optionGetAcceleration ();
-    amount = fabs (unfold);
+    float adjust = unfold * 0.02f * optionGetAcceleration ();
+    float amount = fabs (unfold);
+
     if (amount < 1.0f)
 	amount = 1.0f;
     else if (amount > 3.0f)
 	amount = 3.0f;
 
-    mUnfoldVelocity = (amount * mUnfoldVelocity + adjust) /
-	(amount + 2.0f);
+    mUnfoldVelocity = (amount * mUnfoldVelocity + adjust) / (amount + 2.0f);
 
     return (fabs (unfold) < 0.002f && fabs (mUnfoldVelocity) < 0.01f);
 }
@@ -686,18 +703,18 @@ PrivateCubeScreen::preparePaint (int msSinceLastPaint)
 
     if (mGrabIndex)
     {
-	int   steps;
-	float amount, chunk;
+	float amount = msSinceLastPaint * 0.2f * optionGetSpeed ();
+	int   steps  = amount / (0.5f * optionGetTimestep ());
 
-	amount = msSinceLastPaint * 0.2f *
-	    optionGetSpeed ();
-	steps  = amount / (0.5f * optionGetTimestep ());
-	if (!steps) steps = 1;
-	chunk  = amount / (float) steps;
+	if (!steps)
+	    steps = 1;
+
+	float chunk  = amount / (float) steps;
 
 	while (steps--)
 	{
 	    mUnfold += mUnfoldVelocity * chunk;
+
 	    if (mUnfold > 1.0f)
 		mUnfold = 1.0f;
 
@@ -725,17 +742,11 @@ PrivateCubeScreen::preparePaint (int msSinceLastPaint)
     if (mRotationState == CubeScreen::RotationManual ||
 	(mRotationState == CubeScreen::RotationChange &&
 	 !optionGetTransparentManualOnly ()))
-    {
 	opt = mLastOpacityIndex = CubeOptions::ActiveOpacity;
-    }
     else if (mRotationState == CubeScreen::RotationChange)
-    {
 	opt = mLastOpacityIndex = CubeOptions::InactiveOpacity;
-    }
     else
-    {
 	opt = CubeOptions::InactiveOpacity;
-    }
 
     mToOpacity = (mOptions[opt].value ().f () / 100.0f) * OPAQUE;
 
@@ -752,8 +763,8 @@ PrivateCubeScreen::preparePaint (int msSinceLastPaint)
 
     }
 
-    topColor	= optionGetTopColor ();
-    bottomColor	= optionGetBottomColor ();
+    topColor    = optionGetTopColor ();
+    bottomColor = optionGetBottomColor ();
 
     mPaintAllViewports = (mDesktopOpacity != OPAQUE ||
 			  topColor[3] != OPAQUE ||
@@ -763,15 +774,16 @@ PrivateCubeScreen::preparePaint (int msSinceLastPaint)
 }
 
 void
-PrivateCubeScreen::paint (CompOutput::ptrList &outputs, unsigned int mask)
+PrivateCubeScreen::paint (CompOutput::ptrList &outputs,
+			  unsigned int        mask)
 {
     float x, progress;
 
     cubeScreen->cubeGetRotation (x, x, progress);
 
-    if (optionGetMultioutputMode () == MultioutputModeOneBigCube && 
+    if (optionGetMultioutputMode () == MultioutputModeOneBigCube &&
 	screen->outputDevs ().size () &&
-        (progress > 0.0f || mDesktopOpacity != OPAQUE))
+	(progress > 0.0f || mDesktopOpacity != OPAQUE))
     {
 	outputs.clear ();
 	outputs.push_back (&screen->fullscreenOutput ());
@@ -794,7 +806,7 @@ PrivateCubeScreen::glPaintOutput (const GLScreenPaintAttrib &sAttrib,
     }
 
     mSrcOutput = ((unsigned int) output->id () != (unsigned int) ~0) ?
-    							      output->id () : 0;
+		     output->id () : 0;
     /* Always use BTF painting on non-transformed screen */
     mPaintOrder = BTF;
 
@@ -817,39 +829,38 @@ CubeScreen::cubeCheckOrientation (const GLScreenPaintAttrib &sAttrib,
 				  std::vector<GLVector>     &points)
 {
     WRAPABLE_HND_FUNCTN_RETURN (bool, cubeCheckOrientation, sAttrib, transform, output, points)
+
+    GLMatrix pm (priv->gScreen->projectionMatrix ()->getMatrix ());
     GLMatrix sTransform = transform;
-    GLMatrix mvp, pm (priv->gScreen->projectionMatrix ());
-    GLVector pntA, pntB, pntC;
-    GLVector vecA, vecB, ortho;
-    bool     rv = false;
+    bool     rv         = false;
 
     priv->gScreen->glApplyTransform (sAttrib, output, &sTransform);
     sTransform.translate (priv->mOutputXOffset, -priv->mOutputYOffset, 0.0f);
     sTransform.scale (priv->mOutputXScale, priv->mOutputYScale, 1.0f);
 
-    mvp = pm * sTransform;
+    GLMatrix mvp = pm * sTransform;
 
-    pntA = mvp * points[0];
+    GLVector pntA = mvp * points[0];
 
     if (pntA[3] < 0.0f)
 	rv = !rv;
 
     pntA.homogenize ();
 
-    pntB = mvp * points[1];
+    GLVector pntB = mvp * points[1];
 
     if (pntB[3] < 0.0f)
 	rv = !rv;
 
     pntB.homogenize ();
 
-    pntC = mvp * points[2];
+    GLVector pntC = mvp * points[2];
     pntC.homogenize ();
 
-    vecA = pntC - pntA;
-    vecB = pntC - pntB;
+    GLVector vecA = pntC - pntA;
+    GLVector vecB = pntC - pntB;
 
-    ortho = vecA ^ vecB;
+    GLVector ortho = vecA ^ vecB;
 
     if (ortho[2] > 0.0f)
 	rv = !rv;
@@ -865,16 +876,13 @@ CubeScreen::cubeShouldPaintViewport (const GLScreenPaintAttrib &sAttrib,
 {
     WRAPABLE_HND_FUNCTN_RETURN (bool, cubeShouldPaintViewport, sAttrib, transform, output, order)
 
-    bool  ftb;
-    float pointZ;
-
-    pointZ = priv->mInvert * priv->mDistance;
+    float pointZ = priv->mInvert * priv->mDistance;
     std::vector<GLVector> vPoints;
     vPoints.push_back (GLVector (-0.5, 0.0, pointZ, 1.0));
     vPoints.push_back (GLVector (0.0, 0.5, pointZ, 1.0));
     vPoints.push_back (GLVector (0.0, 0.0, pointZ, 1.0));
 
-    ftb = cubeCheckOrientation (sAttrib, transform, output, vPoints);
+    bool ftb = cubeCheckOrientation (sAttrib, transform, output, vPoints);
 
     return (order == FTB && ftb) || (order == BTF && !ftb);
 }
@@ -887,26 +895,22 @@ PrivateCubeScreen::moveViewportAndPaint (const GLScreenPaintAttrib &sAttrib,
 					 PaintOrder                paintOrder,
 					 int                       dx)
 {
-    int output;
-
-    if (!cubeScreen->cubeShouldPaintViewport (sAttrib, transform, outputPtr, 
+    if (!cubeScreen->cubeShouldPaintViewport (sAttrib, transform, outputPtr,
 					      paintOrder))
 	return;
 
-    output = ((unsigned int) outputPtr->id () != (unsigned int) ~0)
-    							 ? outputPtr->id () : 0;
+    int output = ((unsigned int) outputPtr->id () != (unsigned int) ~0) ?
+		     outputPtr->id () : 0;
 
     mPaintOrder = paintOrder;
 
     if (mNOutput > 1)
     {
-	int cubeOutput, dView;
-
 	/* translate to cube output */
-	cubeOutput = mOutputMask[output];
+	int cubeOutput = mOutputMask[output];
 
 	/* convert from window movement to viewport movement */
-	dView = -dx;
+	int dView = -dx;
 
 	cubeOutput += dView;
 
@@ -916,7 +920,7 @@ PrivateCubeScreen::moveViewportAndPaint (const GLScreenPaintAttrib &sAttrib,
 	if (cubeOutput < 0)
 	{
 	    cubeOutput += mNOutput;
-	    dView--;
+	    --dView;
 	}
 
 	/* translate back to compiz output */
@@ -959,12 +963,9 @@ PrivateCubeScreen::paintAllViewports (const GLScreenPaintAttrib &sAttrib,
 {
     GLScreenPaintAttrib sa = sAttrib;
 
-    int i;
-    int xMoveAdd;
-    int origXMoveAdd = 0; /* dx for the viewport we start
-			     painting with (back-most). */
+    int origXMoveAdd = 0; // dx for the viewport we start painting with (back-most).
     int iFirstSign;       /* 1 if we do xMove += i first and
-			     -1 if we do xMove -= i first. */
+			    -1 if we do xMove -= i first. */
 
     if (mInvert == 1)
     {
@@ -994,7 +995,9 @@ PrivateCubeScreen::paintAllViewports (const GLScreenPaintAttrib &sAttrib,
 	    iFirstSign = 1;
     }
 
-    for (i = 0; i <= hsize / 2; i++)
+    int xMoveAdd;
+
+    for (int i = 0; i <= hsize / 2; ++i)
     {
 	/* move to the correct viewport (back to front). */
 	xMoveAdd = origXMoveAdd;	/* move to farthest viewport. */
@@ -1046,7 +1049,9 @@ PrivateCubeScreen::paintAllViewports (const GLScreenPaintAttrib &sAttrib,
 }
 
 void
-CubeScreen::cubeGetRotation (float &x, float &v, float &progress)
+CubeScreen::cubeGetRotation (float &x,
+			     float &v,
+			     float &progress)
 {
     WRAPABLE_HND_FUNCTN (cubeGetRotation, x, v, progress)
 
@@ -1056,14 +1061,15 @@ CubeScreen::cubeGetRotation (float &x, float &v, float &progress)
 }
 
 void
-CubeScreen::cubeClearTargetOutput (float xRotate, float vRotate)
+CubeScreen::cubeClearTargetOutput (float xRotate,
+				   float vRotate)
 {
     WRAPABLE_HND_FUNCTN (cubeClearTargetOutput, xRotate, vRotate)
 
     if (priv->mSky.size () > 0)
     {
 	priv->gScreen->setLighting (false);
-
+#ifndef USE_GLES
 	glPushMatrix ();
 
 	if (priv->optionGetSkydomeAnimated () &&
@@ -1073,80 +1079,75 @@ CubeScreen::cubeClearTargetOutput (float xRotate, float vRotate)
 	    glRotatef (xRotate, 0.0f, 0.0f, -1.0f);
 	}
 	else
-	{
 	    glRotatef (90.0f, 1.0f, 0.0f, 0.0f);
-	}
 
 	glCallList (priv->mSkyListId);
 	glPopMatrix ();
+#endif
     }
     else
-    {
 	priv->gScreen->clearTargetOutput (GL_COLOR_BUFFER_BIT);
-    }
 }
 
 void 
 CubeScreen::cubePaintTop (const GLScreenPaintAttrib &sAttrib,
 			  const GLMatrix            &transform,
 			  CompOutput                *output,
-			  int                       size)
+			  int                       size,
+			  const GLVector            &normal)
 {
-    WRAPABLE_HND_FUNCTN (cubePaintTop, sAttrib, transform, output, size)
+    WRAPABLE_HND_FUNCTN (cubePaintTop, sAttrib, transform, output, size, normal)
 
-    GLScreenPaintAttrib sa = sAttrib;
+    GLScreenPaintAttrib sa         = sAttrib;
     GLMatrix            sTransform = transform;
-
-    unsigned short*	color;
-    int			opacity;
 
     priv->gScreen->setLighting (true);
 
-    color = priv->optionGetTopColor ();
-    opacity = priv->mDesktopOpacity * color[3] / 0xffff;
+    unsigned short *color  = priv->optionGetTopColor ();
+    int            opacity = priv->mDesktopOpacity * color[3] / 0xffff;
 
-    glColor4us (color[0] * opacity / 0xffff,
-		color[1] * opacity / 0xffff,
-		color[2] * opacity / 0xffff,
-		opacity);
+    GLVertexBuffer *streamingBuffer = GLVertexBuffer::streamingBuffer ();
+    std::vector <GLushort> colorData;
 
-    glPushMatrix ();
+    colorData.push_back (color[0] * opacity / 0xffff);
+    colorData.push_back (color[1] * opacity / 0xffff);
+    colorData.push_back (color[2] * opacity / 0xffff);
+    colorData.push_back (opacity);
 
     sa.yRotate += (360.0f / size) * (priv->mXRotations + 1);
 
     priv->gScreen->glApplyTransform (sa, output, &sTransform);
 
-    glLoadMatrixf (sTransform.getMatrix ());
-    glTranslatef (priv->mOutputXOffset, -priv->mOutputYOffset, 0.0f);
-    glScalef (priv->mOutputXScale, priv->mOutputYScale, 1.0f);
+    sTransform.translate (priv->mOutputXOffset, -priv->mOutputYOffset, 0.0f);
+    sTransform.scale (priv->mOutputXScale, priv->mOutputYScale, 1.0f);
 
     if ((priv->mDesktopOpacity != OPAQUE) || (color[3] != OPAQUE))
     {
+#ifndef USE_GLES
 	priv->gScreen->setTexEnvMode (GL_MODULATE);
+#endif
 	glEnable (GL_BLEND);
 	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
-    glVertexPointer (3, GL_FLOAT, 0, priv->mVertices);
+    bool withTexture = priv->mInvert == 1 && size == 4 && priv->mTexture.size ();
 
-    if (priv->mInvert == 1 && size == 4 && priv->mTexture.size ())
-    {
+    if (withTexture)
 	priv->mTexture[0]->enable (GLTexture::Good);
-	glTexCoordPointer (2, GL_FLOAT, 0, priv->mTc);
-	glDrawArrays (GL_TRIANGLE_FAN, 0, priv->mNVertices >> 1);
+
+    streamingBuffer->begin (GL_TRIANGLE_FAN);
+    streamingBuffer->addColors (1, &(colorData[0]));
+    streamingBuffer->addVertices (priv->mNVertices >> 1, priv->mVertices);
+    streamingBuffer->addNormals (1, const_cast <GLfloat *> (&normal[0]));
+
+    if (withTexture)
+	streamingBuffer->addTexCoords (0, 2, priv->mTc);
+
+    streamingBuffer->end ();
+    streamingBuffer->render (sTransform);
+
+    if (withTexture)
 	priv->mTexture[0]->disable ();
-	glDisableClientState (GL_TEXTURE_COORD_ARRAY);
-    }
-    else
-    {
-	glDisableClientState (GL_TEXTURE_COORD_ARRAY);
-	glDrawArrays (GL_TRIANGLE_FAN, 0, priv->mNVertices >> 1);
-    }
-
-    glPopMatrix ();
-
-    glColor4usv (defaultColor);
-    glEnableClientState (GL_TEXTURE_COORD_ARRAY);
 
     priv->gScreen->setTexEnvMode (GL_REPLACE);
     glDisable (GL_BLEND);
@@ -1157,53 +1158,52 @@ void
 CubeScreen::cubePaintBottom (const GLScreenPaintAttrib &sAttrib,
 			     const GLMatrix            &transform,
 			     CompOutput                *output,
-			     int                       size)
+			     int                       size,
+			     const GLVector            &normal)
 {
-    WRAPABLE_HND_FUNCTN (cubePaintBottom, sAttrib, transform, output, size)
+    WRAPABLE_HND_FUNCTN (cubePaintBottom, sAttrib, transform, output, size, normal)
 
-    GLScreenPaintAttrib sa = sAttrib;
+    GLScreenPaintAttrib sa         = sAttrib;
     GLMatrix            sTransform = transform;
-
-    unsigned short*	color;
-    int			opacity;
 
     priv->gScreen->setLighting (true);
 
-    color   = priv->optionGetBottomColor ();
-    opacity = priv->mDesktopOpacity * color[3] / 0xffff;
+    unsigned short *color  = priv->optionGetBottomColor ();
+    int            opacity = priv->mDesktopOpacity * color[3] / 0xffff;
 
-    glColor4us (color[0] * opacity / 0xffff,
-		color[1] * opacity / 0xffff,
-		color[2] * opacity / 0xffff,
-		opacity);
+    GLVertexBuffer *streamingBuffer = GLVertexBuffer::streamingBuffer ();
+    std::vector <GLushort> colorData;
 
-    glPushMatrix ();
+    colorData.push_back (color[0] * opacity / 0xffff);
+    colorData.push_back (color[1] * opacity / 0xffff);
+    colorData.push_back (color[2] * opacity / 0xffff);
+    colorData.push_back (opacity);
 
     sa.yRotate += (360.0f / size) * (priv->mXRotations + 1);
 
     priv->gScreen->glApplyTransform (sa, output, &sTransform);
 
-    glLoadMatrixf (sTransform.getMatrix ());
-    glTranslatef (priv->mOutputXOffset, -priv->mOutputYOffset, 0.0f);
-    glScalef (priv->mOutputXScale, priv->mOutputYScale, 1.0f);
+    sTransform.translate (priv->mOutputXOffset, -priv->mOutputYOffset, 0.0f);
+    sTransform.scale (priv->mOutputXScale, priv->mOutputYScale, 1.0f);
 
     if ((priv->mDesktopOpacity != OPAQUE) || (color[3] != OPAQUE))
     {
+#ifndef USE_GLES
 	priv->gScreen->setTexEnvMode (GL_MODULATE);
+#endif
 	glEnable (GL_BLEND);
 	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
-    glVertexPointer (3, GL_FLOAT, 0, priv->mVertices);
+    streamingBuffer->begin (GL_TRIANGLE_FAN);
+    streamingBuffer->addColors (1, &(colorData[0]));
+    streamingBuffer->addVertices (priv->mNVertices, priv->mVertices);
+    streamingBuffer->addNormals (1, const_cast <GLfloat *> (&normal[0]));
+    streamingBuffer->setVertexOffset (priv->mNVertices >> 1);
+    streamingBuffer->setMaxVertices (priv->mNVertices >> 1);
 
-
-    glDisableClientState (GL_TEXTURE_COORD_ARRAY);
-    glDrawArrays (GL_TRIANGLE_FAN, priv->mNVertices >> 1, priv->mNVertices >> 1);
-
-    glPopMatrix ();
-
-    glColor4usv (defaultColor);
-    glEnableClientState (GL_TEXTURE_COORD_ARRAY);
+    streamingBuffer->end ();
+    streamingBuffer->render (sTransform);
 
     priv->gScreen->setTexEnvMode (GL_REPLACE);
     glDisable (GL_BLEND);
@@ -1214,18 +1214,21 @@ void
 CubeScreen::cubePaintInside (const GLScreenPaintAttrib &sAttrib,
 			     const GLMatrix            &transform,
 			     CompOutput                *output,
-			     int                       size)
+			     int                       size,
+			     const GLVector            &normal)
 {
-    WRAPABLE_HND_FUNCTN (cubePaintInside, sAttrib, transform, output, size)
+    WRAPABLE_HND_FUNCTN (cubePaintInside, sAttrib, transform, output, size, normal)
 }
 
 void 
-PrivateCubeScreen::glEnableOutputClipping (const GLMatrix &transform, 
+PrivateCubeScreen::glEnableOutputClipping (const GLMatrix   &transform,
 					   const CompRegion &region,
-					   CompOutput *output)
+					   CompOutput       *output)
 {
     if (mRotationState != CubeScreen::RotationNone)
     {
+	/* FIXME: No output clipping in OpenGL|ES yet */
+	#ifndef USE_GLES
 	glPushMatrix ();
 	glLoadMatrixf (transform.getMatrix ());
 	glTranslatef (mOutputXOffset, -mOutputYOffset, 0.0f);
@@ -1260,6 +1263,7 @@ PrivateCubeScreen::glEnableOutputClipping (const GLMatrix &transform,
 	glEnable (GL_CLIP_PLANE3);
 
 	glPopMatrix ();
+	#endif
     }
     else
 	gScreen->glEnableOutputClipping (transform, region, output);
@@ -1285,19 +1289,8 @@ PrivateCubeScreen::glPaintTransformedOutput (const GLScreenPaintAttrib &sAttrib,
 					     CompOutput                *outputPtr, 
 					     unsigned int              mask)
 {
-    GLScreenPaintAttrib sa = sAttrib;
-    float               xRotate, vRotate, progress;
-    int                 hsize;
-    float               size;
-    GLenum              filter = gScreen->textureFilter ();
-    PaintOrder          paintOrder;
-    bool                wasCulled = false;
-    bool                paintCaps;
-    int                 cullNorm, cullInv;
-    int                 output = 0;
-
-    output = ((unsigned int) outputPtr->id () != (unsigned int) ~0) ?
-    							   outputPtr->id () : 0;
+    int output = ((unsigned int) outputPtr->id () != (unsigned int) ~0) ?
+		     outputPtr->id () : 0;
 
     mReversedWindowList = cScreen->getWindowPaintList ();
     mReversedWindowList.reverse ();
@@ -1311,28 +1304,25 @@ PrivateCubeScreen::glPaintTransformedOutput (const GLScreenPaintAttrib &sAttrib,
 	updateGeometry (screen->vpSize ().width (), mInvert);
     }
 
-    hsize = screen->vpSize ().width () * mNOutput;
-    size  = hsize;
-
+    int cullNorm;
     glGetIntegerv (GL_CULL_FACE_MODE, &cullNorm);
-    cullInv   = (cullNorm == GL_BACK)? GL_FRONT : GL_BACK;
-    wasCulled = glIsEnabled (GL_CULL_FACE);
+
+    int  cullInv   = (cullNorm == GL_BACK)? GL_FRONT : GL_BACK;
+    bool wasCulled = glIsEnabled (GL_CULL_FACE);
 
     if (!mFullscreenOutput)
     {
 	mOutputXScale = (float) screen->width () / outputPtr->width ();
 	mOutputYScale = (float) screen->height () / outputPtr->height ();
 
-	mOutputXOffset =
-	    (screen->width () / 2.0f -
-	     (outputPtr->x1 () + outputPtr->x2 ()) / 2.0f) /
-	    (float) outputPtr->width ();
+	mOutputXOffset = (screen->width () / 2.0f -
+			  (outputPtr->x1 () + outputPtr->x2 ()) / 2.0f) /
+			 (float) outputPtr->width ();
 
-	mOutputYOffset =
-	    (screen->height () / 2.0f -
-	     (outputPtr->y1 () +
-	      outputPtr->y2 ()) / 2.0f) /
-	    (float) outputPtr->height ();
+	mOutputYOffset = (screen->height () / 2.0f -
+			  (outputPtr->y1 () +
+			   outputPtr->y2 ()) / 2.0f) /
+			 (float) outputPtr->height ();
     }
     else
     {
@@ -1342,22 +1332,26 @@ PrivateCubeScreen::glPaintTransformedOutput (const GLScreenPaintAttrib &sAttrib,
 	mOutputYOffset = 0.0f;
     }
 
+    float xRotate, vRotate, progress;
     cubeScreen->cubeGetRotation (xRotate, vRotate, progress);
 
+    GLScreenPaintAttrib sa = sAttrib;
     sa.xRotate += xRotate;
     sa.vRotate += vRotate;
 
     if (!mCleared[output])
     {
-	float rRotate;
-
-	rRotate = xRotate - ((screen->vp ().x () *360.0f) / screen->vpSize ().width ());
+	float rRotate = xRotate - ((screen->vp ().x () *360.0f) /
+				   screen->vpSize ().width ());
 
 	cubeScreen->cubeClearTargetOutput (rRotate, vRotate);
 	mCleared[output] = true;
     }
 
     mask &= ~PAINT_SCREEN_CLEAR_MASK;
+
+    int   hsize = screen->vpSize ().width () * mNOutput;
+    float size  = hsize;
 
     if (mGrabIndex)
     {
@@ -1398,6 +1392,8 @@ PrivateCubeScreen::glPaintTransformedOutput (const GLScreenPaintAttrib &sAttrib,
     if (mGrabIndex && optionGetMipmap ())
 	gScreen->setTextureFilter (GL_LINEAR_MIPMAP_LINEAR);
 
+    PaintOrder paintOrder;
+
     if (mInvert == 1)
     {
 	/* Outside cube - start with FTB faces */
@@ -1405,10 +1401,8 @@ PrivateCubeScreen::glPaintTransformedOutput (const GLScreenPaintAttrib &sAttrib,
 	glCullFace (cullInv);
     }
     else
-    {
 	/* Inside cube - start with BTF faces */
 	paintOrder = BTF;
-    }
 
     if (mInvert == -1 || cubeScreen->cubeShouldPaintAllViewports ())
 	paintAllViewports (sa, transform, region, outputPtr,
@@ -1419,15 +1413,13 @@ PrivateCubeScreen::glPaintTransformedOutput (const GLScreenPaintAttrib &sAttrib,
     if (wasCulled && cubeScreen->cubeShouldPaintAllViewports ())
 	glDisable (GL_CULL_FACE);
 
-    paintCaps = !mGrabIndex && (hsize > 2) && !mCapsPainted[output] &&
-	        (mInvert != 1 || mDesktopOpacity != OPAQUE ||
-		 cubeScreen->cubeShouldPaintAllViewports () || sa.vRotate != 0.0f ||
-		 sa.yTranslate != 0.0f);
+    bool paintCaps = !mGrabIndex && (hsize > 2) && !mCapsPainted[output] &&
+		     (mInvert != 1 || mDesktopOpacity != OPAQUE ||
+		     cubeScreen->cubeShouldPaintAllViewports () || sa.vRotate != 0.0f ||
+		     sa.yTranslate != 0.0f);
 
     if (paintCaps)
     {
-	Bool topDir, bottomDir, allCaps;
-
 	std::vector<GLVector> top;
 	top.push_back (GLVector (0.5, 0.5,  0.0, 1.0));
 	top.push_back (GLVector (0.0, 0.5, -0.5, 1.0));
@@ -1438,57 +1430,47 @@ PrivateCubeScreen::glPaintTransformedOutput (const GLScreenPaintAttrib &sAttrib,
 	bottom.push_back (GLVector (0.0, -0.5, -0.5, 1.0));
 	bottom.push_back (GLVector (0.0, -0.5,  0.0, 1.0));
 
-	topDir    = cubeScreen->cubeCheckOrientation (sa, transform, outputPtr, top);
-	bottomDir = cubeScreen->cubeCheckOrientation (sa, transform, outputPtr, bottom);
+	Bool topDir    = cubeScreen->cubeCheckOrientation (sa, transform, outputPtr, top);
+	Bool bottomDir = cubeScreen->cubeCheckOrientation (sa, transform, outputPtr, bottom);
 
 	mCapsPainted[output] = TRUE;
 
-	allCaps = cubeScreen->cubeShouldPaintAllViewports () || mInvert != 1;
+	Bool allCaps = cubeScreen->cubeShouldPaintAllViewports () || mInvert != 1;
 
 	if (topDir && bottomDir)
 	{
-	    glNormal3f (0.0f, -1.0f, 0.0f);
 	    if (allCaps)
 	    {
-		cubeScreen->cubePaintBottom (sa, transform, outputPtr, hsize);
-		glNormal3f (0.0f, 0.0f, -1.0f);
-		cubeScreen->cubePaintInside (sa, transform, outputPtr, hsize);
-		glNormal3f (0.0f, -1.0f, 0.0f);
+		cubeScreen->cubePaintBottom (sa, transform, outputPtr, hsize, GLVector (0.0f, -1.0f, 0.0f, 1.0f));
+		cubeScreen->cubePaintInside (sa, transform, outputPtr, hsize, GLVector (0.0f, 0.0f, -1.0f, 1.0f));
 	    }
-	    cubeScreen->cubePaintTop (sa, transform, outputPtr, hsize);
+
+	    cubeScreen->cubePaintTop (sa, transform, outputPtr, hsize, GLVector (0.0f, -1.0f, 0.0f, 1.0f));
 	}
 	else if (!topDir && !bottomDir)
 	{
-	    glNormal3f (0.0f, 1.0f, 0.0f);
 	    if (allCaps)
 	    {
-		cubeScreen->cubePaintTop (sa, transform, outputPtr, hsize);
-		glNormal3f (0.0f, 0.0f, -1.0f);
-		cubeScreen->cubePaintInside (sa, transform, outputPtr, hsize);
-		glNormal3f (0.0f, 1.0f, 0.0f);
+		cubeScreen->cubePaintTop (sa, transform, outputPtr, hsize, GLVector (0.0f, 1.0f, 0.0f, 1.0f));
+		cubeScreen->cubePaintInside (sa, transform, outputPtr, hsize, GLVector (0.0f, 0.0f, -1.0f, 1.0f));
 	    }
-	    cubeScreen->cubePaintBottom (sa, transform, outputPtr, hsize);
+
+	    cubeScreen->cubePaintBottom (sa, transform, outputPtr, hsize, GLVector (0.0f, -1.0f, 0.0f, 1.0f));
 	}
 	else if (allCaps)
 	{
-	    glNormal3f (0.0f, 1.0f, 0.0f);
-	    cubeScreen->cubePaintTop (sa, transform, outputPtr, hsize);
-	    glNormal3f (0.0f, -1.0f, 0.0f);
-	    cubeScreen->cubePaintBottom (sa, transform, outputPtr, hsize);
-	    glNormal3f (0.0f, 0.0f, -1.0f);
-	    cubeScreen->cubePaintInside (sa, transform, outputPtr, hsize);
+	    cubeScreen->cubePaintTop (sa, transform, outputPtr, hsize, GLVector (0.0f, 1.0f, 0.0f, 1.0f));
+	    cubeScreen->cubePaintBottom (sa, transform, outputPtr, hsize, GLVector (0.0f, -1.0f, 0.0f, 1.0f));
+	    cubeScreen->cubePaintInside (sa, transform, outputPtr, hsize, GLVector (0.0f, 0.0f, -1.0f, 1.0f));
 	}
-	glNormal3f (0.0f, 0.0f, -1.0f);
     }
 
     if (wasCulled)
 	glEnable (GL_CULL_FACE);
 
     if (mInvert == 1)
-    {
 	/* Outside cube - continue with BTF faces */
 	paintOrder = BTF;
-    }
     else
     {
 	/* Inside cube - continue with FTB faces */
@@ -1502,6 +1484,7 @@ PrivateCubeScreen::glPaintTransformedOutput (const GLScreenPaintAttrib &sAttrib,
 
     glCullFace (cullNorm);
 
+    GLenum filter = gScreen->textureFilter ();
     gScreen->setTextureFilter (filter);
 }
 
@@ -1532,7 +1515,7 @@ PrivateCubeScreen::getWindowPaintList ()
     if (mPaintOrder == FTB)
 	return mReversedWindowList;
     else
-        return cScreen->getWindowPaintList ();
+	return cScreen->getWindowPaintList ();
 }
 
 void 
@@ -1554,18 +1537,14 @@ PrivateCubeScreen::unfold (CompAction         *action,
 		           CompAction::State  state,
 			   CompOption::Vector &options)
 {
-    Window     xid;
-
-    xid = CompOption::getIntOptionNamed (options, "root");
+    Window xid = CompOption::getIntOptionNamed (options, "root");
 
     if (::screen->root () == xid)
     {
 	CUBE_SCREEN (screen);
 
-	if (screen->vpSize ().width () * cs->priv->mNOutput < 4)
-	    return false;
-
-	if (screen->otherGrabExist ("rotate", "switcher", "cube", NULL))
+	if (screen->vpSize ().width () * cs->priv->mNOutput < 4 ||
+	    screen->otherGrabExist ("rotate", "switcher", "cube", NULL))
 	    return false;
 
 	if (!cs->priv->mGrabIndex)
@@ -1592,8 +1571,7 @@ PrivateCubeScreen::fold (CompAction         *action,
 			 CompAction::State  state,
 			 CompOption::Vector &options)
 {
-    Window     xid;
-    xid = CompOption::getIntOptionNamed (options, "root");
+    Window xid = CompOption::getIntOptionNamed (options, "root");
 
     if (!xid || ::screen->root () == xid)
     {
@@ -1621,19 +1599,16 @@ PrivateCubeScreen::outputChangeNotify ()
 }
 
 bool 
-PrivateCubeScreen::setOptionForPlugin (const char *plugin,
-				       const char *name,
+PrivateCubeScreen::setOptionForPlugin (const char        *plugin,
+				       const char        *name,
 				       CompOption::Value &v)
 {
-    bool status;
+    bool status = screen->setOptionForPlugin (plugin, name, v);
 
-    status = screen->setOptionForPlugin (plugin, name, v);
-
-    if (status)
-    {
-	if (strcmp (plugin, "core") == 0 && strcmp (name, "hsize") == 0)
-	    updateGeometry (screen->vpSize ().width (), mInvert);
-    }
+    if (status				&&
+	strcmp (plugin, "core") == 0	&&
+	strcmp (name, "hsize")  == 0)
+	updateGeometry (screen->vpSize ().width (), mInvert);
 
     return status;
 }
@@ -1643,13 +1618,12 @@ PrivateCubeScreen::PrivateCubeScreen (CompScreen *s) :
     gScreen (GLScreen::get (s)),
     cubeScreen (CubeScreen::get (s))
 {
-
     mPw = 0;
     mPh = 0;
 
     mInvert = 1;
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 8; ++i)
 	mTc[i] = 0.0f;
 
     mNVertices = 0;
@@ -1705,10 +1679,14 @@ PrivateCubeScreen::~PrivateCubeScreen ()
     if (mVertices)
 	free (mVertices);
 
+#ifndef USE_GLES
     if (mSkyListId)
 	glDeleteLists (mSkyListId, 1);
+#endif
 }
 
+
+template class PluginClassHandler<PrivateCubeWindow, CompWindow, COMPIZ_CUBE_ABI>;
 
 PrivateCubeWindow::PrivateCubeWindow (CompWindow *w) :
     PluginClassHandler<PrivateCubeWindow, CompWindow, COMPIZ_CUBE_ABI> (w),
@@ -1723,6 +1701,8 @@ PrivateCubeWindow::PrivateCubeWindow (CompWindow *w) :
 PrivateCubeWindow::~PrivateCubeWindow ()
 {
 }
+
+template class PluginClassHandler<CubeScreen, CompScreen, COMPIZ_CUBE_ABI>;
 
 CubeScreen::CubeScreen (CompScreen *s) :
     PluginClassHandler<CubeScreen, CompScreen, COMPIZ_CUBE_ABI> (s),
@@ -1752,16 +1732,17 @@ CubeScreen::setOption (const CompString  &name,
 bool
 CubePluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION) ||
-        !CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI) ||
-        !CompPlugin::checkPluginABI ("opengl", COMPIZ_OPENGL_ABI))
-	return false;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION)		&&
+	CompPlugin::checkPluginABI ("composite", COMPIZ_COMPOSITE_ABI)	&&
+	CompPlugin::checkPluginABI ("opengl", COMPIZ_OPENGL_ABI))
+    {
+	CompPrivate p;
+	p.uval = COMPIZ_CUBE_ABI;
+	screen->storeValue ("cube_ABI", p);
+	return true;
+    }
 
-    CompPrivate p;
-    p.uval = COMPIZ_CUBE_ABI;
-    screen->storeValue ("cube_ABI", p);
-
-    return true;
+    return false;
 }
 
 void
@@ -1769,4 +1750,3 @@ CubePluginVTable::fini ()
 {
     screen->eraseValue ("cube_ABI");
 }
-

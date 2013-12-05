@@ -34,11 +34,8 @@ svgSet (CompAction         *action,
 	CompAction::State  state,
 	CompOption::Vector &options)
 {
-    CompWindow *w;
-    Window     xid;
-
-    xid = CompOption::getIntOptionNamed (options, "window");
-    w   = screen->findWindow (xid);
+    Window     xid = CompOption::getIntOptionNamed (options, "window");
+    CompWindow *w  = screen->findWindow (xid);
 
     if (w)
     {
@@ -68,7 +65,6 @@ svgSet (CompAction         *action,
     return false;
 }
 
-
 SvgScreen::SvgScreen (CompScreen *screen) :
     PluginClassHandler<SvgScreen, CompScreen> (screen)
 {
@@ -87,8 +83,8 @@ SvgScreen::fileToImage (CompString &path,
 			void       *&data)
 {
     CompString fileName = path;
-    bool       status = false;
-    int        len = fileName.length ();
+    bool       status   = false;
+    int        len      = fileName.length ();
 
     if (len < 4 || fileName.substr (len - 4, 4) != ".svg")
 	fileName += ".svg";
@@ -116,6 +112,7 @@ SvgScreen::handleCompizEvent (const char         *plugin,
     if (strcmp (plugin, "zoom") == 0)
     {
 	int output = CompOption::getIntOptionNamed (options, "output");
+
 	if (output == 0)
 	{
 	    if (strcmp (event, "in") == 0)
@@ -126,9 +123,7 @@ SvgScreen::handleCompizEvent (const char         *plugin,
 				  CompOption::getIntOptionNamed (options, "y2"));
 	    }
 	    else if (strcmp (event, "out") == 0)
-	    {
 		zoom.setGeometry (0, 0, 0, 0);
-	    }
 	}
     }
 }
@@ -145,11 +140,13 @@ SvgScreen::readSvgToImage (const char *file,
     RsvgDimensionData svgDimension;
 
     svgFile.open (file);
+
     if (!svgFile.is_open ())
 	return false;
 
     svgFile.close ();
     svgHandle = rsvg_handle_new_from_file (file, &error);
+
     if (!svgHandle)
 	return false;
 
@@ -159,6 +156,7 @@ SvgScreen::readSvgToImage (const char *file,
     size.setHeight (svgDimension.height);
 
     data = malloc (svgDimension.width * svgDimension.height * 4);
+
     if (!data)
     {
 	rsvg_handle_free (svgHandle);
@@ -170,6 +168,7 @@ SvgScreen::readSvgToImage (const char *file,
 						   svgDimension.width,
 						   svgDimension.height,
 						   svgDimension.width * 4);
+
     if (surface)
     {
 	cairo_t *cr;
@@ -221,11 +220,11 @@ SvgWindow::~SvgWindow ()
 
 bool
 SvgWindow::glDraw (const GLMatrix     &transform,
-		   GLFragment::Attrib &fragment,
+		   const GLWindowPaintAttrib &attrib,
 		   const CompRegion   &region,
 		   unsigned int       mask)
 {
-    bool status = gWindow->glDraw (transform, fragment, region, mask);
+    bool status = gWindow->glDraw (transform, attrib, region, mask);
 
     if (!status)
 	return status;
@@ -236,57 +235,49 @@ SvgWindow::glDraw (const GLMatrix     &transform,
     if (context && reg.numRects ())
     {
 	GLTexture::MatrixList matrix (1);
-	unsigned int          i, j;
-	int		      x1, y1, x2, y2;
 	CompRect              rect = context->box.boundingRect ();
 
-	x1 = MIN (rect.x1 (), sScreen->zoom.x1 ());
-	y1 = MIN (rect.y1 (), sScreen->zoom.y1 ());
-	x2 = MAX (rect.x2 (), sScreen->zoom.x2 ());
-	y2 = MAX (rect.y2 (), sScreen->zoom.y2 ());
+	int x1 = MIN (rect.x1 (), sScreen->zoom.x1 ());
+	int y1 = MIN (rect.y1 (), sScreen->zoom.y1 ());
+	int x2 = MAX (rect.x2 (), sScreen->zoom.x2 ());
+	int y2 = MAX (rect.y2 (), sScreen->zoom.y2 ());
 
 	rect.setGeometry (x1, y1, x2 - x1, y2 - y1);
 
-	for (i = 0; i < context->texture[0].textures.size (); i++)
+	for (unsigned int i = 0; i < context->texture[0].textures.size (); ++i)
 	{
 	    matrix[0] = context->texture[0].matrices[i];
 
-	    gWindow->geometry ().reset ();
+	    gWindow->vertexBuffer ()->begin ();
 	    gWindow->glAddGeometry (matrix, context->box, reg);
+	    gWindow->vertexBuffer ()->end ();
 
 	    if (mask & PAINT_WINDOW_TRANSLUCENT_MASK)
 		mask |= PAINT_WINDOW_BLEND_MASK;
 
-	    gWindow->glDrawTexture (context->texture[0].textures[i], fragment, mask);
+	    gWindow->glDrawTexture (context->texture[0].textures[i],
+				    transform, attrib, mask);
 
 	    if (rect.width () > 0 && rect.height () > 0)
 	    {
-		float    xScale, yScale;
-		float    dx, dy;
-		int      width, height;
-
 		rect.setGeometry (rect.x1 () - 1,
 				  rect.y1 () - 1,
 				  rect.width () + 1,
 				  rect.height () + 1);
 
-		xScale = screen->width  () /
-		         (float) (sScreen->zoom.width ());
-		yScale = screen->height () /
-		         (float) (sScreen->zoom.height ());
+		float xScale = screen->width  () / (float) (sScreen->zoom.width ());
+		float yScale = screen->height () / (float) (sScreen->zoom.height ());
 
-		dx = rect.width ();
-		dy = rect.height ();
+		float dx = rect.width ();
+		float dy = rect.height ();
 
-		width  = dx * xScale + 0.5f;
-		height = dy * yScale + 0.5f;
+		float width  = dx * xScale + 0.5f;
+		float height = dy * yScale + 0.5f;
 
 		if (rect   != context->rect          ||
 		    width  != context->size.width () ||
 		    height != context->size.height ())
 		{
-		    float x1, y1, x2, y2;
-
 		    context->rect = rect;
 		    context->size.setWidth (width);
 		    context->size.setHeight (height);
@@ -294,10 +285,10 @@ SvgWindow::glDraw (const GLMatrix     &transform,
 		    dx = context->box.boundingRect ().width ();
 		    dy = context->box.boundingRect ().height ();
 
-		    x1 = (rect.x1 () - context->box.boundingRect ().x ()) / dx;
-		    y1 = (rect.y1 () - context->box.boundingRect ().y ()) / dy;
-		    x2 = (rect.x2 () - context->box.boundingRect ().x ()) / dx;
-		    y2 = (rect.y2 () - context->box.boundingRect ().y ()) / dy;
+		    float x1 = (rect.x1 () - context->box.boundingRect ().x ()) / dx;
+		    float y1 = (rect.y1 () - context->box.boundingRect ().y ()) / dy;
+		    float x2 = (rect.x2 () - context->box.boundingRect ().x ()) / dx;
+		    float y2 = (rect.y2 () - context->box.boundingRect ().y ()) / dy;
 
 		    finiTexture (context->texture[1]);
 
@@ -311,21 +302,22 @@ SvgWindow::glDraw (const GLMatrix     &transform,
 		    }
 		}
 
-		for (j = 0; j < context->texture[1].textures.size (); j++)
-		{
-		    GLTexture::Filter saveFilter;
-		    CompRegion        r (rect);
+		GLTexture::Filter saveFilter;
+		CompRegion        r (rect);
 
+		for (unsigned int j = 0; j < context->texture[1].textures.size (); ++j)
+		{
 		    matrix[0] = context->texture[1].matrices[j];
 
 		    saveFilter = gScreen->filter (SCREEN_TRANS_FILTER);
 		    gScreen->setFilter (SCREEN_TRANS_FILTER, GLTexture::Good);
 
-		    gWindow->geometry ().reset ();
+		    gWindow->vertexBuffer ()->begin ();
 		    gWindow->glAddGeometry (matrix, r, reg);
+		    gWindow->vertexBuffer ()->end ();
 
 		    gWindow->glDrawTexture (context->texture[1].textures[j],
-					    fragment, mask);
+					    transform, attrib, mask);
 
 		    gScreen->setFilter (SCREEN_TRANS_FILTER, saveFilter);
 		}
@@ -374,18 +366,15 @@ SvgWindow::resizeNotify (int dx,
 void
 SvgWindow::updateSvgMatrix ()
 {
-    SvgTexture        *texture;
     GLTexture::Matrix *m;
     unsigned int      i;
-    CompRect          rect;
-
-    rect = context->box.boundingRect ();
-    texture = &context->texture[0];
+    CompRect          rect     = context->box.boundingRect ();
+    SvgTexture        *texture = &context->texture[0];
 
     if (texture->matrices.size () != texture->textures.size ())
 	texture->matrices.resize (texture->textures.size ());
 
-    for (i = 0; i < texture->textures.size (); i++)
+    for (i = 0; i < texture->textures.size (); ++i)
     {
 	m = &texture->matrices[i];
 	*m = texture->textures[i]->matrix ();
@@ -402,7 +391,7 @@ SvgWindow::updateSvgMatrix ()
     if (texture->matrices.size () != texture->textures.size ())
 	texture->matrices.resize (texture->textures.size ());
 
-    for (i = 0; i < texture->textures.size (); i++)
+    for (i = 0; i < texture->textures.size (); ++i)
     {
 	m = &texture->matrices[i];
 	*m = texture->textures[i]->matrix ();
@@ -418,9 +407,6 @@ SvgWindow::updateSvgMatrix ()
 void
 SvgWindow::updateSvgContext ()
 {
-    int      x1, y1, x2, y2;
-    CompSize wSize;
-
     if (context)
     {
 	finiTexture (context->texture[0]);
@@ -429,9 +415,13 @@ SvgWindow::updateSvgContext ()
     else
     {
 	context = new SvgContext;
+
 	if (!context)
 	    return;
     }
+
+    int      x1, y1, x2, y2;
+    CompSize wSize;
 
     initTexture (source, context->texture[1], context->size);
 
@@ -512,7 +502,6 @@ SvgWindow::initTexture (SvgSource  *source,
 			SvgTexture &texture,
 			CompSize   size)
 {
-    cairo_surface_t *surface;
     Display         *dpy = screen->dpy ();
 
     texture.size    = size;
@@ -521,6 +510,7 @@ SvgWindow::initTexture (SvgSource  *source,
 
     if (size.width () && size.height ())
     {
+	cairo_surface_t *surface;
 	XWindowAttributes attr;
 	XGetWindowAttributes (dpy, window->id (), &attr);
 
@@ -531,6 +521,7 @@ SvgWindow::initTexture (SvgSource  *source,
 	texture.textures =
 	    GLTexture::bindPixmapToTexture (texture.pixmap,
 					    size.width (), size.height (), attr.depth);
+
 	if (texture.textures.empty ())
 	{
 	    compLogMessage ("svg", CompLogLevelInfo,
@@ -565,14 +556,12 @@ void
 SvgWindow::setSvg (CompString    &data,
 		   decor_point_t p[2])
 {
-    RsvgHandle *svg = NULL;
-    GError     *error = NULL;
-
     if (!gWindow)
 	return;
 
-    svg = rsvg_handle_new_from_data ((guint8 *) data.c_str (),
-				     data.length (), &error);
+    GError     *error = NULL;
+    RsvgHandle *svg   = rsvg_handle_new_from_data ((guint8 *) data.c_str (),
+						   data.length (), &error);
 
     if (source)
     {
@@ -623,12 +612,13 @@ SvgWindow::setSvg (CompString    &data,
 bool
 SvgPluginVTable::init ()
 {
-    if (!CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
-	return false;
+    if (CompPlugin::checkPluginABI ("core", CORE_ABIVERSION))
+    {
+	rsvg_init ();
+	return true;
+    }
 
-    rsvg_init ();
-
-    return true;
+    return false;
 }
 
 void
@@ -636,4 +626,3 @@ SvgPluginVTable::fini ()
 {
     rsvg_term ();
 }
-

@@ -27,6 +27,9 @@
 
 #include "privates.h"
 
+template class WrapableInterface<CompositeWindow, CompositeWindowInterface>;
+template class PluginClassHandler<CompositeWindow, CompWindow, COMPIZ_COMPOSITE_ABI>;
+
 CompositeWindow::CompositeWindow (CompWindow *w) :
     PluginClassHandler<CompositeWindow, CompWindow, COMPIZ_COMPOSITE_ABI> (w),
     priv (new PrivateCompositeWindow (w, this))
@@ -34,16 +37,13 @@ CompositeWindow::CompositeWindow (CompWindow *w) :
     CompScreen *s = screen;
 
     if (w->windowClass () != InputOnly)
-    {
 	priv->damage = XDamageCreate (s->dpy (), w->id (),
-				      XDamageReportRawRectangles);
-    }
+				      XDamageReportBoundingBox);
     else
-    {
 	priv->damage = None;
-    }
 
     priv->opacity = OPAQUE;
+
     if (!(w->type () & CompWindowTypeDesktopMask))
 	priv->opacity = s->getWindowProp32 (w->id (),
 					    Atoms::winOpacity, OPAQUE);
@@ -60,7 +60,6 @@ CompositeWindow::CompositeWindow (CompWindow *w) :
 
 CompositeWindow::~CompositeWindow ()
 {
-
     if (priv->damage)
 	XDamageDestroy (screen->dpy (), priv->damage);
 
@@ -82,17 +81,38 @@ CompositeWindow::~CompositeWindow ()
     delete priv;
 }
 
+void
+PrivateCompositeWindow::setNewPixmapReadyCallback (const PixmapBinding::NewPixmapReadyCallback &cb)
+{
+    mPixmapBinding.setNewPixmapReadyCallback (cb);
+}
+
+void
+CompositeWindow::setNewPixmapReadyCallback (const PixmapBinding::NewPixmapReadyCallback &cb)
+{
+    priv->setNewPixmapReadyCallback (cb);
+}
+
+void
+PrivateCompositeWindow::allowFurtherRebindAttempts ()
+{
+    mPixmapBinding.allowFurtherRebindAttempts ();
+}
+
 PrivateCompositeWindow::PrivateCompositeWindow (CompWindow      *w,
 						CompositeWindow *cw) :
     window (w),
     cWindow (cw),
     cScreen (CompositeScreen::get (screen)),
-    pixmap (None),
+    mPixmapBinding (boost::function <void ()> (),
+		     this,
+		     this,
+		     this,
+		     screen->serverGrabInterface ()),
     damage (None),
     damaged (false),
     redirected (cScreen->compositingActive ()),
     overlayWindow (false),
-    bindFailed (false),
     opacity (OPAQUE),
     brightness (BRIGHT),
     saturation (COLOR),
@@ -105,9 +125,14 @@ PrivateCompositeWindow::PrivateCompositeWindow (CompWindow      *w,
 
 PrivateCompositeWindow::~PrivateCompositeWindow ()
 {
-
     if (sizeDamage)
 	free (damageRects);
+}
+
+bool
+PrivateCompositeWindow::bind ()
+{
+    return mPixmapBinding.bind ();
 }
 
 bool
@@ -117,58 +142,71 @@ CompositeWindow::bind ()
 	return false;
 
     redirect ();
-    if (!priv->pixmap)
-    {
-	XWindowAttributes attr;
+    return priv->bind ();
+}
 
-	/* don't try to bind window again if it failed previously */
-	if (priv->bindFailed)
-	    return false;
-
-	/* We have to grab the server here to make sure that window
-	   is mapped when getting the window pixmap */
-	XGrabServer (screen->dpy ());
-	XGetWindowAttributes (screen->dpy (),
-			      ROOTPARENT (priv->window), &attr);
-	if (attr.map_state != IsViewable)
-	{
-	    XUngrabServer (screen->dpy ());
-	    XSync (screen->dpy (), false);
-	    priv->bindFailed = true;
-	    return false;
-	}
-
-	priv->pixmap = XCompositeNameWindowPixmap
-	    (screen->dpy (), ROOTPARENT (priv->window));
-	priv->size = CompSize (attr.border_width * 2 + attr.width,
-			       attr.border_width * 2 + attr.height);
-	XUngrabServer (screen->dpy ());
-	XSync (screen->dpy (), false);
-    }
-    return true;
+void
+PrivateCompositeWindow::release ()
+{
+    mPixmapBinding.release ();
 }
 
 void
 CompositeWindow::release ()
 {
-    if (priv->pixmap)
-    {
-	XFreePixmap (screen->dpy (), priv->pixmap);
-	priv->pixmap = None;
-	priv->size = CompSize ();
-    }
+    return priv->release ();
+}
+
+Pixmap
+PrivateCompositeWindow::pixmap () const
+{
+    return mPixmapBinding.pixmap ();
+}
+
+WindowPixmapInterface::Ptr
+PrivateCompositeWindow::getPixmap ()
+{
+    Pixmap pixmap = XCompositeNameWindowPixmap (screen->dpy (), ROOTPARENT (window));
+    WindowPixmapInterface::Ptr p (new X11WindowPixmap (screen->dpy (), pixmap));
+    return p;
+}
+
+bool
+PrivateCompositeWindow::getAttributes (XWindowAttributes &attr)
+{
+    return window->queryFrameAttributes (attr);
+}
+
+bool
+PrivateCompositeWindow::frozen ()
+{
+    /* keep old pixmap for windows that are unmapped on the client side,
+     * but not yet on our side as it's pretty likely that plugins are
+     * currently using it for animations
+     */
+    bool pendingUnmap = !window->mapNum () && window->isViewable ();
+    bool hidden = window->state () & CompWindowStateHiddenMask;
+    bool animated = window->hasUnmapReference ();
+
+    return (pendingUnmap || hidden) && animated;
 }
 
 Pixmap
 CompositeWindow::pixmap ()
 {
-    return priv->pixmap;
+    return priv->pixmap ();
+}
+
+const CompSize &
+PrivateCompositeWindow::size () const
+{
+    return mPixmapBinding.size ();
 }
 
 const CompSize &
 CompositeWindow::size ()
 {
-    return priv->size;
+    return priv->size ();
 }
 
 void
@@ -211,10 +249,8 @@ CompositeWindow::unredirect ()
 	priv->cScreen->updateOutputWindow ();
 
     XCompositeUnredirectWindow (screen->dpy (),
-                               ROOTPARENT (priv->window),
-                               CompositeRedirectManual);
-
-
+				ROOTPARENT (priv->window),
+				CompositeRedirectManual);
 }
 
 bool
@@ -229,6 +265,12 @@ CompositeWindow::overlayWindow ()
     return priv->overlayWindow;
 }
 
+bool
+CompositeWindow::frozen ()
+{
+    return priv->frozen ();
+}
+
 void
 CompositeWindow::damageTransformedRect (float          xScale,
 					float          yScale,
@@ -236,12 +278,10 @@ CompositeWindow::damageTransformedRect (float          xScale,
 					float          yTranslate,
 					const CompRect &rect)
 {
-    int x1, x2, y1, y2;
-
-    x1 = (short) (rect.x1 () * xScale) - 1;
-    y1 = (short) (rect.y1 () * yScale) - 1;
-    x2 = (short) (rect.x2 () * xScale + 0.5f) + 1;
-    y2 = (short) (rect.y2 () * yScale + 0.5f) + 1;
+    int x1 = (short) (rect.x1 () * xScale) - 1;
+    int y1 = (short) (rect.y1 () * yScale) - 1;
+    int x2 = (short) (rect.x2 () * xScale + 0.5f) + 1;
+    int y2 = (short) (rect.y2 () * yScale + 0.5f) + 1;
 
     x1 += (short) xTranslate;
     y1 += (short) yTranslate;
@@ -250,7 +290,7 @@ CompositeWindow::damageTransformedRect (float          xScale,
 
     if (x2 > x1 && y2 > y1)
     {
-	CompWindow::Geometry geom = priv->window->geometry ();
+	const CompWindow::Geometry &geom = priv->window->serverGeometry ();
 
 	x1 += geom.x () + geom.border ();
 	y1 += geom.y () + geom.border ();
@@ -270,22 +310,20 @@ CompositeWindow::damageOutputExtents ()
     if (priv->window->shaded () ||
 	(priv->window->isViewable ()))
     {
-	int x1, x2, y1, y2;
-
-	CompWindow::Geometry geom = priv->window->geometry ();
-	CompWindowExtents output  = priv->window->output ();
+	const CompWindow::Geometry &geom = priv->window->geometry ();
+	const CompWindowExtents &output  = priv->window->output ();
 
 	/* top */
-	x1 = -output.left - geom.border ();
-	y1 = -output.top - geom.border ();
-	x2 = priv->window->size ().width () + output.right - geom.border ();
-	y2 = -geom.border ();
+	int x1 = -output.left - geom.border ();
+	int y1 = -output.top - geom.border ();
+	int x2 = priv->window->size ().width () + output.right;
+	int y2 = -geom.border ();
 
 	if (x1 < x2 && y1 < y2)
 	    addDamageRect (CompRect (x1, y1, x2 - x1, y2 - y1));
 
 	/* bottom */
-	y1 = priv->window->size ().height () - geom.border ();
+	y1 = priv->window->size ().height ();
 	y2 = y1 + output.bottom - geom.border ();
 
 	if (x1 < x2 && y1 < y2)
@@ -295,13 +333,13 @@ CompositeWindow::damageOutputExtents ()
 	x1 = -output.left - geom.border ();
 	y1 = -geom.border ();
 	x2 = -geom.border ();
-	y2 = priv->window->size ().height () - geom.border ();
+	y2 = priv->window->size ().height ();
 
 	if (x1 < x2 && y1 < y2)
 	    addDamageRect (CompRect (x1, y1, x2 - x1, y2 - y1));
 
 	/* right */
-	x1 = priv->window->size ().width () - geom.border ();
+	x1 = priv->window->size ().width ();
 	x2 = x1 + output.right - geom.border ();
 
 	if (x1 < x2 && y1 < y2)
@@ -317,12 +355,10 @@ CompositeWindow::addDamageRect (const CompRect &rect)
 
     if (!damageRect (false, rect))
     {
-	int x, y;
+	int x = rect.x ();
+	int y = rect.y ();
 
-	x = rect.x ();
-	y = rect.y ();
-
-	CompWindow::Geometry geom = priv->window->geometry ();
+	const CompWindow::Geometry &geom = priv->window->geometry ();
 	x += geom.x () + geom.border ();
 	y += geom.y () + geom.border ();
 
@@ -341,7 +377,7 @@ CompositeWindow::addDamage (bool force)
     if (priv->window->shaded () || force ||
 	(priv->window->isViewable ()))
     {
-	int    border = priv->window->geometry ().border ();
+	int border = priv->window->serverGeometry ().border ();
 
 	int x1 = -MAX (priv->window->output ().left,
 		       priv->window->input ().left) - border;
@@ -385,10 +421,8 @@ CompositeWindow::processDamage (XDamageNotifyEvent *de)
 	priv->nDamage++;
     }
     else
-    {
-        priv->handleDamageRect (this, de->area.x, de->area.y,
+	priv->handleDamageRect (this, de->area.x, de->area.y,
 				de->area.width, de->area.height);
-    }
 }
 
 void
@@ -398,24 +432,23 @@ PrivateCompositeWindow::handleDamageRect (CompositeWindow *w,
 					  int             width,
 					  int             height)
 {
-    bool   initial = false;
-
     if (!w->priv->redirected)
 	return;
 
+    bool initial = false;
+
     if (!w->priv->damaged)
-    {
 	w->priv->damaged = initial = true;
-    }
 
     if (!w->damageRect (initial, CompRect (x, y, width, height)))
     {
-	CompWindow::Geometry geom = w->priv->window->geometry ();
+	const CompWindow::Geometry &geom = w->priv->window->geometry ();
 
 	x += geom.x () + geom.border ();
 	y += geom.y () + geom.border ();
 
-	w->priv->cScreen->damageRegion (CompRegion (CompRect (x, y, width, height)));
+	w->priv->cScreen->damageRegion (CompRegion (CompRect
+						    (x, y, width, height)));
     }
 
     if (initial)
@@ -425,13 +458,12 @@ PrivateCompositeWindow::handleDamageRect (CompositeWindow *w,
 void
 CompositeWindow::updateOpacity ()
 {
-    unsigned short opacity;
-
     if (priv->window->type () & CompWindowTypeDesktopMask)
 	return;
 
-    opacity = screen->getWindowProp32 (priv->window->id (),
-					     Atoms::winOpacity, OPAQUE);
+    unsigned short opacity =
+	screen->getWindowProp32 (priv->window->id (),
+				 Atoms::winOpacity, OPAQUE);
 
     if (opacity != priv->opacity)
     {
@@ -443,10 +475,9 @@ CompositeWindow::updateOpacity ()
 void
 CompositeWindow::updateBrightness ()
 {
-    unsigned short brightness;
-
-    brightness = screen->getWindowProp32 (priv->window->id (),
-						Atoms::winBrightness, BRIGHT);
+    unsigned short brightness =
+	screen->getWindowProp32 (priv->window->id (),
+				 Atoms::winBrightness, BRIGHT);
 
     if (brightness != priv->brightness)
     {
@@ -458,10 +489,9 @@ CompositeWindow::updateBrightness ()
 void
 CompositeWindow::updateSaturation ()
 {
-    unsigned short saturation;
-
-    saturation = screen->getWindowProp32 (priv->window->id (),
-						Atoms::winSaturation, COLOR);
+    unsigned short saturation =
+	screen->getWindowProp32 (priv->window->id (),
+				 Atoms::winSaturation, COLOR);
 
     if (saturation != priv->saturation)
     {
@@ -502,9 +532,10 @@ PrivateCompositeWindow::windowNotify (CompWindowNotify n)
     switch (n)
     {
 	case CompWindowNotifyMap:
-	    bindFailed = false;
+	    allowFurtherRebindAttempts ();
 	    damaged = false;
 	    break;
+
 	case CompWindowNotifyUnmap:
 	    cWindow->addDamage (true);
 	    cWindow->release ();
@@ -512,24 +543,26 @@ PrivateCompositeWindow::windowNotify (CompWindowNotify n)
 	    if (!redirected && cScreen->compositingActive ())
 		cWindow->redirect ();
 	    break;
+
 	case CompWindowNotifyRestack:
 	case CompWindowNotifyHide:
 	case CompWindowNotifyShow:
 	case CompWindowNotifyAliveChanged:
 	    cWindow->addDamage (true);
 	    break;
+
 	case CompWindowNotifyReparent:
 	case CompWindowNotifyUnreparent:
 	    if (redirected)
-	    {
 		cWindow->release ();
-	    }
 	    cScreen->damageScreen ();
 	    cWindow->addDamage (true);
 	    break;
+
 	case CompWindowNotifyFrameUpdate:
 	    cWindow->release ();
 	    break;
+
 	case CompWindowNotifySyncAlarm:
 	{
 	    XRectangle *rects;
@@ -545,6 +578,7 @@ PrivateCompositeWindow::windowNotify (CompWindowNotify n)
 	    }
 	    break;
 	}
+
 	default:
 	    break;
     }
@@ -557,61 +591,22 @@ PrivateCompositeWindow::resizeNotify (int dx, int dy, int dwidth, int dheight)
 {
     window->resizeNotify (dx, dy, dwidth, dheight);
 
-    Pixmap pixmap = None;
-    CompSize size = CompSize ();
-
-
     if (window->shaded () || (window->isViewable ()))
     {
-	int x, y, x1, x2, y1, y2;
+	int x = window->geometry ().x ();
+	int y = window->geometry ().y ();
 
-	x = window->geometry ().x ();
-	y = window->geometry ().y ();
-
-	x1 = x - window->output ().left - dx;
-	y1 = y - window->output ().top - dy;
-	x2 = x + window->size ().width () +
-	     window->output ().right - dx - dwidth;
-	y2 = y + window->size ().height () +
-	     window->output ().bottom - dy - dheight;
+	int x1 = x - window->output ().left - dx;
+	int y1 = y - window->output ().top - dy;
+	int x2 = x + window->size ().width () +
+		 window->output ().right - dx - dwidth;
+	int y2 = y + window->size ().height () +
+		 window->output ().bottom - dy - dheight;
 
 	cScreen->damageRegion (CompRegion (CompRect (x1, y1, x2 - x1, y2 - y1)));
     }
 
-    if (window->mapNum () && redirected)
-    {
-	unsigned int actualWidth, actualHeight, ui;
-	Window	     root;
-	Status	     result;
-	int	     i;
-
-	pixmap = XCompositeNameWindowPixmap (screen->dpy (), ROOTPARENT (window));
-	result = XGetGeometry (screen->dpy (), pixmap, &root, &i, &i,
-			       &actualWidth, &actualHeight, &ui, &ui);
-	size = CompSize (actualWidth, actualHeight);
-	if (!result || actualWidth != (unsigned int) window->size ().width () ||
-	    actualHeight != (unsigned int) window->size ().height ())
-	{
-	    XFreePixmap (screen->dpy (), pixmap);
-	    return;
-	}
-    }
-
-    if (((!window->mapNum () && window->isViewable ()) ||
-	   window->state () & CompWindowStateHiddenMask) && window->hasUnmapReference ())
-    {
-       /* keep old pixmap for windows that are unmapped on the client side,
-	* but not yet on our side as it's pretty likely that plugins are
-	* currently using it for animations
-	*/
-    }
-    else
-    {
-	cWindow->release ();
-	this->pixmap = pixmap;
-	this->size = size;
-    }
-
+    cWindow->release ();
     cWindow->addDamage ();
 }
 
@@ -620,20 +615,19 @@ PrivateCompositeWindow::moveNotify (int dx, int dy, bool now)
 {
     if (window->shaded () || (window->isViewable ()))
     {
-	int x, y, x1, x2, y1, y2;
+	int x = window->geometry ().x ();
+	int y = window->geometry ().y ();
 
-	x = window->geometry ().x ();
-	y = window->geometry ().y ();
-
-	x1 = x - window->output ().left - dx;
-	y1 = y - window->output ().top - dy;
-	x2 = x + window->size ().width () +
-	     window->output ().right - dx;
-	y2 = y + window->size ().height () +
-	     window->output ().bottom - dy;
+	int x1 = x - window->output ().left - dx;
+	int y1 = y - window->output ().top - dy;
+	int x2 = x + window->geometry ().width () +
+		 window->output ().right - dx;
+	int y2 = y + window->geometry ().height () +
+		 window->output ().bottom - dy;
 
 	cScreen->damageRegion (CompRegion (CompRect (x1, y1, x2 - x1, y2 - y1)));
     }
+
     cWindow->addDamage ();
 
     window->moveNotify (dx, dy, now);

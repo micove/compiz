@@ -24,10 +24,40 @@
  */
 
 #include "gtk-window-decorator.h"
+#include "gwd-settings-writable-interface.h"
+#include "gwd-settings.h"
+#include "gwd-settings-interface.h"
+#include "gwd-settings-notified-interface.h"
+#include "gwd-settings-notified.h"
+
+GWDSettingsNotified *notified;
+GWDSettingsWritable *writable;
+GWDSettings	    *settings;
+
+gdouble decoration_alpha = 0.5;
+#ifdef USE_METACITY
+MetaButtonLayout meta_button_layout;
+gboolean	 meta_button_layout_set = FALSE;
+#endif
 
 gboolean minimal = FALSE;
 
 #define SWITCHER_SPACE 40
+
+const float STROKE_ALPHA = 0.6f;
+
+const unsigned short ICON_SPACE = 20;
+
+const float DOUBLE_CLICK_DISTANCE = 8.0f;
+
+const float	    SHADOW_RADIUS      = 8.0f;
+const float	    SHADOW_OPACITY     = 0.5f;
+const unsigned short SHADOW_OFFSET_X    = 1;
+const unsigned short SHADOW_OFFSET_Y    = 1;
+
+const float META_OPACITY              = 0.75f;
+
+const float META_ACTIVE_OPACITY       = 1.0f;
 
 guint cmdline_options = 0;
 
@@ -48,6 +78,9 @@ Atom compiz_shadow_color_atom;
 Atom toolkit_action_atom;
 Atom toolkit_action_window_menu_atom;
 Atom toolkit_action_force_quit_dialog_atom;
+Atom decor_request_atom;
+Atom decor_pending_atom;
+Atom decor_delete_pixmap_atom;
 
 Atom net_wm_state_atom;
 Atom net_wm_state_modal_atom;
@@ -122,8 +155,6 @@ decor_t   *switcher_window = NULL;
 XRenderPictFormat *xformat_rgba;
 XRenderPictFormat *xformat_rgb;
 
-decor_settings_t *settings;
-
 const gchar * window_type_frames[WINDOW_TYPE_FRAMES_NUM] = {
     "normal", "modal_dialog", "dialog", "menu", "utility"
 };
@@ -143,17 +174,10 @@ main (int argc, char *argv[])
     GList	  *windows, *win;
     decor_frame_t *bare_p, *switcher_p;
 
-#ifdef USE_METACITY
-    char       *meta_theme = NULL;
-    MetaTheme  *theme = NULL;
-#endif
+    const char *option_meta_theme = NULL;
+    gint       option_blur_type = 0;
 
     program_name = argv[0];
-
-    settings = malloc (sizeof (decor_settings_t));
-
-    if (!settings)
-	return 1;
 
     gtk_init (&argc, &argv);
 
@@ -161,42 +185,7 @@ main (int argc, char *argv[])
     bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
     textdomain (GETTEXT_PACKAGE);
 
-    settings->blur_type = BLUR_TYPE_NONE;
-    settings->use_system_font = FALSE;
-
-    settings->active_shadow_radius   = SHADOW_RADIUS;
-    settings->active_shadow_opacity  = SHADOW_OPACITY;
-    settings->active_shadow_color[0] = SHADOW_COLOR_RED;
-    settings->active_shadow_color[1] = SHADOW_COLOR_GREEN;
-    settings->active_shadow_color[2] = SHADOW_COLOR_BLUE;
-    settings->active_shadow_offset_x = SHADOW_OFFSET_X;
-    settings->active_shadow_offset_y = SHADOW_OFFSET_Y;
-    settings->inactive_shadow_radius   = SHADOW_RADIUS;
-    settings->inactive_shadow_opacity  = SHADOW_OPACITY;
-    settings->inactive_shadow_color[0] = SHADOW_COLOR_RED;
-    settings->inactive_shadow_color[1] = SHADOW_COLOR_GREEN;
-    settings->inactive_shadow_color[2] = SHADOW_COLOR_BLUE;
-    settings->inactive_shadow_offset_x = SHADOW_OFFSET_X;
-    settings->inactive_shadow_offset_y = SHADOW_OFFSET_Y;
-    settings->decoration_alpha = 0.5;
-    settings->use_tooltips = TRUE;
-
-#ifdef USE_METACITY
-
-    settings->meta_opacity              = META_OPACITY;
-    settings->meta_shade_opacity        = META_SHADE_OPACITY;
-    settings->meta_active_opacity       = META_ACTIVE_OPACITY;
-    settings->meta_active_shade_opacity = META_ACTIVE_SHADE_OPACITY;
-
-    settings->meta_button_layout_set = FALSE;
-#endif
-
-    settings->font = strdup ("Sans Bold 12");
-
-    settings->mutter_draggable_border_width = 10;
-    settings->mutter_attach_modal_dialogs = FALSE;
-
-    for (i = 0; i < argc; i++)
+    for (i = 0; i < argc; ++i)
     {
 	if (strcmp (argv[i], "--minimal") == 0)
 	{
@@ -211,41 +200,17 @@ main (int argc, char *argv[])
 	    if (argc > ++i)
 	    {
 		if (strcmp (argv[i], "titlebar") == 0)
-		    settings->blur_type = BLUR_TYPE_TITLEBAR;
+		    option_blur_type = BLUR_TYPE_TITLEBAR;
 		else if (strcmp (argv[i], "all") == 0)
-		    settings->blur_type = BLUR_TYPE_ALL;
+		    option_blur_type = BLUR_TYPE_ALL;
 	    }
-	    cmdline_options |= CMDLINE_BLUR;
 	}
 
 #ifdef USE_METACITY
-	else if (strcmp (argv[i], "--opacity") == 0)
-	{
-	    if (argc > ++i)
-		settings->meta_opacity = atof (argv[i]);
-	    cmdline_options |= CMDLINE_OPACITY;
-	}
-	else if (strcmp (argv[i], "--no-opacity-shade") == 0)
-	{
-	    settings->meta_shade_opacity = FALSE;
-	    cmdline_options |= CMDLINE_OPACITY_SHADE;
-	}
-	else if (strcmp (argv[i], "--active-opacity") == 0)
-	{
-	    if (argc > ++i)
-		settings->meta_active_opacity = atof (argv[i]);
-	    cmdline_options |= CMDLINE_ACTIVE_OPACITY;
-	}
-	else if (strcmp (argv[i], "--no-active-opacity-shade") == 0)
-	{
-	    settings->meta_active_shade_opacity = FALSE;
-	    cmdline_options |= CMDLINE_ACTIVE_OPACITY_SHADE;
-	}
 	else if (strcmp (argv[i], "--metacity-theme") == 0)
 	{
 	    if (argc > ++i)
-		meta_theme = argv[i];
-	    cmdline_options |= CMDLINE_THEME;
+		option_meta_theme = argv[i];
 	}
 #endif
 
@@ -257,10 +222,6 @@ main (int argc, char *argv[])
 		     "[--blur none|titlebar|all] "
 
 #ifdef USE_METACITY
-		     "[--opacity OPACITY] "
-		     "[--no-opacity-shade] "
-		     "[--active-opacity OPACITY] "
-		     "[--no-active-opacity-shade] "
 		     "[--metacity-theme THEME] "
 #endif
 
@@ -305,6 +266,10 @@ main (int argc, char *argv[])
     net_wm_state_atom = XInternAtom (xdisplay,"_NET_WM_STATE", 0);
     net_wm_state_modal_atom = XInternAtom (xdisplay, "_NET_WM_STATE_MODAL", 0);
 
+    decor_request_atom = XInternAtom (xdisplay, DECOR_REQUEST_PIXMAP_ATOM_NAME, 0);
+    decor_pending_atom = XInternAtom (xdisplay, DECOR_PIXMAP_PENDING_ATOM_NAME, 0);
+    decor_delete_pixmap_atom = XInternAtom (xdisplay, DECOR_DELETE_PIXMAP_ATOM_NAME, 0);
+
     status = decor_acquire_dm_session (xdisplay,
 				       gdk_screen_get_number (gdkscreen),
 				       "gwd", replace, &dm_sn_timestamp);
@@ -336,47 +301,34 @@ main (int argc, char *argv[])
 
     initialize_decorations ();
 
-    if (!init_settings (screen))
+    notified = gwd_settings_notified_impl_new (screen);
+
+    if (!notified)
+	return 1;
+
+    writable = GWD_SETTINGS_WRITABLE_INTERFACE (gwd_settings_impl_new (option_blur_type != BLUR_TYPE_NONE ? &option_blur_type : NULL,
+								       option_meta_theme ? &option_meta_theme : NULL,
+								       notified));
+
+    if (!writable)
     {
-	free (settings);
+	g_object_unref (notified);
+	return 1;
+    }
+
+    settings = GWD_SETTINGS_INTERFACE (writable);
+
+    gwd_settings_writable_freeze_updates (writable);
+
+    if (!init_settings (writable,
+			screen))
+    {
+	g_object_unref (writable);
 	fprintf (stderr, "%s: Failed to get necessary gtk settings\n", argv[0]);
 	return 1;
     }
 
-    theme_draw_window_decoration    = draw_window_decoration;
-    theme_calc_decoration_size	    = calc_decoration_size;
-    theme_update_border_extents	    = update_border_extents;
-    theme_get_event_window_position = get_event_window_position;
-    theme_get_button_position       = get_button_position;
-    theme_get_title_scale	    = get_title_scale;
-    theme_get_shadow                = cairo_get_shadow;
-
-#ifdef USE_METACITY
-    if (meta_theme)
-    {
-	meta_theme_set_current (meta_theme, TRUE);
-
-	theme = meta_theme_get_current ();
-
-	if (!theme)
-	    g_warning ("specified a theme that does not exist! falling back to cairo decoration\n");
-    }
-    else
-	theme = meta_theme_get_current ();
-
-    if (theme)
-    {
-	theme_draw_window_decoration    = meta_draw_window_decoration;
-	theme_calc_decoration_size	    = meta_calc_decoration_size;
-	theme_update_border_extents	    = meta_update_border_extents;
-	theme_get_event_window_position = meta_get_event_window_position;
-	theme_get_button_position	    = meta_get_button_position;
-	theme_get_title_scale	    = meta_get_title_scale;
-	theme_get_shadow            = meta_get_shadow;
-    }
-#endif
-
-    for (i = 0; i < 3; i++)
+    for (i = 0; i < 3; ++i)
     {
 	for (j = 0; j < 3; j++)
 	{
@@ -393,6 +345,8 @@ main (int argc, char *argv[])
 
     if (!create_tooltip_window ())
     {
+	g_object_unref (writable);
+
 	free (settings);
 	fprintf (stderr, "%s, Couldn't create tooltip window\n", argv[0]);
 	return 1;
@@ -415,7 +369,7 @@ main (int argc, char *argv[])
 	XQueryTree (xdisplay, gdk_x11_get_default_root_xwindow (),
 		    &root_ret, &parent_ret, &children, &nchildren);
 
-	for (i = 0; i < nchildren; i++)
+	for (i = 0; i < nchildren; ++i)
 	{
 	    GdkWindow *toplevel = create_foreign_window  (children[i]);
 
@@ -436,15 +390,18 @@ main (int argc, char *argv[])
  	connect_screen (screen);
     }
 
+    decor_set_dm_check_hint (xdisplay, gdk_screen_get_number (gdkscreen),
+			     WINDOW_DECORATION_TYPE_PIXMAP |
+			     WINDOW_DECORATION_TYPE_WINDOW);
+
+    /* Update the decorations based on the settings */
+    gwd_settings_writable_thaw_updates (writable);
+
     /* Keep the default, bare and switcher decorations around
      * since otherwise they will be spuriously recreated */
 
     bare_p = gwd_get_decor_frame ("bare");
     switcher_p = gwd_get_decor_frame ("switcher");
-
-    decor_set_dm_check_hint (xdisplay, gdk_screen_get_number (gdkscreen),
-			     WINDOW_DECORATION_TYPE_PIXMAP |
-			     WINDOW_DECORATION_TYPE_WINDOW);
 
     update_default_decorations (gdkscreen);
 
@@ -472,9 +429,7 @@ main (int argc, char *argv[])
     gwd_decor_frame_unref (bare_p);
     gwd_decor_frame_unref (switcher_p);
 
-    g_free (settings->font);
-
-    free (settings);
+    fini_settings ();
 
     return 0;
 }
