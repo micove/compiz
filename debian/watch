@@ -1,2 +1,2 @@
 version=3
-https://launchpad.net/compiz-core/+download https://launchpad.net/compiz-core/.*/compiz-(.+).tar.bz2
+https://launchpad.net/compiz/+download https://launchpad.net/compiz/.*/compiz-(.+).tar.bz2
