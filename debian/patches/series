@@ -5,3 +5,4 @@
 005_disable_desktop_vpswitch.patch
 100_fix_pc_files.patch
 101_ring_requires_text.patch
+102_disable_edgeflip_move.patch

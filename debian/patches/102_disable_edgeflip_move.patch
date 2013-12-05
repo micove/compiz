@@ -1,0 +1,26 @@
+Description: Disable edge flip move.
+ When moving windows to different viewports the window can appear several inches
+ away from where the window was grabbed. On rare instances the distance can be
+ big enough that the window completely disappears from all workspaces.
+ Restarting compiz sometimes make the window be drawn within the boundaries of
+ a workspace. This avoids having to kill the process of the missing window and
+ potentially lose unsaved data contained in it.
+ .
+ As a workaround disable it as a default. The user can use expo or other plugins
+ that do the same. The user can also manually enable this option and risk losing
+ unsaved data if unlucky.
+Author: Miguel A. Colón Vélez <debian.micove@gmail.com>
+Forwarded: no
+Last-Update: 2012-03-12
+
+--- compiz-fusion-plugins-main-0.9.7.0.orig/plugins/wall/wall.xml.in
++++ compiz-fusion-plugins-main-0.9.7.0/plugins/wall/wall.xml.in
+@@ -351,7 +351,7 @@
+ 				<option name="edgeflip_move" type="bool">
+ 					<_short>Edge Flip Move</_short>
+ 					<_long>Flip viewport when moving a window to a screen edge</_long>
+-					<default>true</default>
++					<default>false</default>
+ 				</option>
+ 				<option name="edgeflip_dnd" type="bool">
+ 					<_short>Edge Flip DnD</_short>
