@@ -13,6 +13,7 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
   [ Miguel A. Colón Vélez ]
   * Acknowledge NMU 0.8.4-5.1 and remove compiz-gnome.
   * debian/*:
+    - Remove the compiz.links file.
     - Integrate the files from ccsm.
       + Add the ccsm.1 and compizconfig-settings-manager.manpages files.
       + Add th compizconfig-settings-manager.install file.
@@ -36,9 +37,8 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
     - Update the copyright one with the one provided from upstream. It's more
       accurate than what we had before.
     - Update the gbp.conf file for compression = xz.
-    - Update the watch file to find the tarball in launchpad.
     - Add libcompiz_core to libcompiz-core.install and compiz-dev.install.
-    - Remove the compiz.links file.
+    - Update the watch file to find the tarball in launchpad.
     - Include a libdecoration0.symbols based on the file from Ubuntu. Update it
       for the API change from 0.9.5.0.
     - Update gconf file s/allscreens/screen0/.
