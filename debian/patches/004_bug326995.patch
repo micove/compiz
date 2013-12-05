@@ -1,0 +1,16 @@
+Description: Change default reflection scale value from 0.75 to 1.0. Anything else is unphysical 
+Bug: https://bugs.launchpad.net/bugs/326995
+
+Index: compiz-fusion-plugins-main-0.9.0/expo/expo.xml.in
+===================================================================
+--- compiz-fusion-plugins-main-0.9.0.orig/plugins/expo/expo.xml.in	2010-10-21 10:22:04.000000000 -0400
++++ compiz-fusion-plugins-main-0.9.0/plugins/expo/expo.xml.in	2010-10-21 10:22:24.753994006 -0400
+@@ -265,7 +265,7 @@
+ 		    <option name="scale_factor" type="float">
+ 			<_short>Reflection Scale</_short>
+ 			<_long>The vertical scale factor of the ground reflection.</_long>
+-			<default>0.75</default>
++			<default>1.0</default>
+ 			<min>0.0</min>
+ 			<max>2.0</max>
+ 			<precision>0.01</precision>

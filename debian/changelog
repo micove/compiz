@@ -59,6 +59,10 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
       + 003_ccsm_remove_redundant_sliders.patch. Remove potentially dangerous
         sliders.
     - Add a patch to fix the exec_prefix entries in some pc files.
+    - Add a patch for a more realistic reflection scale.
+    - Add a patch to disable switching between desktops with a mousewheel over
+      the desktop background by default.
+    - Add a patch to add text as a dependency of ring.
   * debian/control:
     - Bump debhelper to (>= 9.20120419) and the compatibility level to 9.
       + debhelper (>= 9.20120419) enables hardening support with cmake.

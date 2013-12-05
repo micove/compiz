@@ -1,0 +1,17 @@
+Description: Silence error messages about text not loaded.
+ compiz (ring) - Warn: No compatible text plugin loaded
+ compiz (core) - Error: Plugin 'text' not loaded.
+Author: Miguel A. Colón Vélez <debian.micove@gmail.com>
+Forwarded: no
+Last-Update: 2012-03-12
+
+--- compiz-fusion-plugins-main-0.9.7.0.orig/plugins/ring/ring.xml.in
++++ compiz-fusion-plugins-main-0.9.7.0/plugins/ring/ring.xml.in
+@@ -13,6 +13,7 @@
+ 			</relation>
+ 			<requirement>
+ 				<plugin>opengl</plugin>
++				<plugin>text</plugin>
+ 			</requirement>
+ 		</deps>
+ 		<options>

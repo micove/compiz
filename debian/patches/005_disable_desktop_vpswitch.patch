@@ -1,0 +1,19 @@
+Description: Disable switching between desktop with mousewheel over desktop background as this option is too easily launched by mistake
+Bug: https://bugs.launchpad.net/bugs/414170 
+
+--- compiz-fusion-plugins-main-0.8.2~/plugins/vpswitch/vpswitch.xml.in	2009-03-04 22:36:21.000000000 -0500
++++ compiz-fusion-plugins-main-0.8.2/plugins/vpswitch/vpswitch.xml.in	2009-08-17 20:35:30.916819017 -0400
+@@ -95,13 +95,11 @@
+ 				<option name="next_button" type="button">
+ 					<_short>Move Next</_short>
+ 					<_long>Move to the next viewport</_long>
+-					<default>Button5</default>
+ 					<internal/>
+ 				</option>
+ 				<option name="prev_button" type="button">
+ 					<_short>Move Prev</_short>
+ 					<_long>Move to the previous viewport</_long>
+-					<default>Button4</default>
+ 					<internal/>
+ 				</option>
+ 				<option name="initiate_button" type="button">

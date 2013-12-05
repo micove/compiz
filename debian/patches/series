@@ -1,4 +1,7 @@
 001_ubuntu-config_adapted_to_debian.patch
 002_valid_ccsm_desktop_file.patch
 003_ccsm_remove_redundant_sliders.patch
+004_bug326995.patch
+005_disable_desktop_vpswitch.patch
 100_fix_pc_files.patch
+101_ring_requires_text.patch
