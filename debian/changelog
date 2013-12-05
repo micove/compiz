@@ -38,6 +38,8 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
       accurate than what we had before.
     - Update the gbp.conf file for compression = xz.
     - Add libcompiz_core to libcompiz-core.install and compiz-dev.install.
+    - Integrate the files from libcompizconfig.
+      + Add the .install files.
     - Update the watch file to find the tarball in launchpad.
     - Include a libdecoration0.symbols based on the file from Ubuntu. Update it
       for the API change from 0.9.5.0.

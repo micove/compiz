@@ -1,0 +1,5 @@
+usr/include/compizconfig/*.h
+usr/lib/*/libcompizconfig.so
+usr/lib/*/pkgconfig/libcompizconfig.pc
+usr/share/cmake*/FindCompizConfig.cmake
+usr/share/compiz/cmake/LibCompizConfigCommon.cmake

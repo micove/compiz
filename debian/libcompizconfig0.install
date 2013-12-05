@@ -1,0 +1,5 @@
+compizconfig/libcompizconfig/config/config /etc/compizconfig
+usr/lib/*/compiz/libccp.so
+usr/lib/*/compizconfig/backends/*.so
+usr/lib/*/libcompizconfig.so.*
+usr/share/compiz/ccp.xml
