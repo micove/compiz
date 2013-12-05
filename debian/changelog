@@ -20,6 +20,9 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
       + Remove TODO from the docs file.
       + Only copy core.xml and compiz-plugins Breaks/Replaces compiz-core now.
       + Remove compiz-decorator since it's included in the source.
+    - Update the compiz-dev files.
+      + Remove TODO from the docs file.
+      + Specify which .pc and .cmake to install.
     - Update the gbp.conf file for compression = xz.
     - Update the watch file to find the tarball in launchpad.
     - Add libcompiz_core to libcompiz-core.install and compiz-dev.install.
