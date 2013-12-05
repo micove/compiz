@@ -50,19 +50,6 @@ Index: compiz-0.9.7.0~bzr2995/plugins/place/place.xml.in
  		<max>5</max>
  		<desc>
  		    <value>0</value>
-Index: compiz-0.9.7.0~bzr2995/plugins/decor/decor.xml.in
-===================================================================
---- compiz-0.9.7.0~bzr2995.orig/plugins/decor/decor.xml.in	2012-02-09 16:32:07.000000000 +0100
-+++ compiz-0.9.7.0~bzr2995/plugins/decor/decor.xml.in	2012-02-22 17:47:03.473768903 +0100
-@@ -101,7 +101,7 @@
- 	    <option name="command" type="string">
- 		<_short>Command</_short>
- 		<_long>Decorator command line that is executed if no decorator is already running.</_long>
--		<default>exec \"${COMPIZ_BIN_PATH}compiz-decorator\"</default>
-+		<default>/usr/bin/gtk-window-decorator</default>
- 	    </option>
- 	    <option name="mipmap" type="bool">
- 		<_short>Mipmap</_short>
 Index: compiz-0.9.7.0~bzr2995/plugins/gnomecompat/gnomecompat.xml.in
 ===================================================================
 --- compiz-0.9.7.0~bzr2995.orig/plugins/gnomecompat/gnomecompat.xml.in	2012-02-09 16:32:07.000000000 +0100
