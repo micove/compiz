@@ -33,6 +33,8 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
       + Update the .install file so it includes all the plugins and xml files.
         Move the package below libcompizconfig0 so it runs after
         libcompizconfig0.
+    - Update the copyright one with the one provided from upstream. It's more
+      accurate than what we had before.
     - Update the gbp.conf file for compression = xz.
     - Update the watch file to find the tarball in launchpad.
     - Add libcompiz_core to libcompiz-core.install and compiz-dev.install.
