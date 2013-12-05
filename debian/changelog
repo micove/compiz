@@ -38,6 +38,10 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
       + Change libpng12-dev | libpng-dev to libpng-dev.
       + Change libgnome-window-settings-dev to gnome-control-center-dev.
       + Add lcov, libgtest-dev and google-mock for building the tests.
+      + Add libgnome-desktop-dev, libgtk-3-dev, libjpeg-dev, libnotify-dev,
+        libprotobuf-dev, libxi-dev, pkg-config, protobuf-compiler,
+        python-all-dev and python-pyrex since all of the compiz project got
+        merged into a single source.
     - Depend on compiz-fusion-plugins-main (>= 0.9.7.0) and libcompizconfig0
       (>= 0.9.5.92).
     - compiz-core breaks/replaces compiz-gtk (<< 0.9). The compiz-decorator file
