@@ -39,19 +39,58 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
         libprotobuf-dev, libxi-dev, pkg-config, protobuf-compiler,
         python-all-dev and python-pyrex since all of the compiz project got
         merged into a single source.
-    - Depend on compiz-fusion-plugins-main (>= 0.9.7.0) and libcompizconfig0
-      (>= 0.9.5.92).
-    - compiz-core breaks/replaces compiz-gtk (<< 0.9). The compiz-decorator file
-      got moved here. Changes Conflicts/Replaces to Breaks/Replaces.
-    - compiz-core other breaks are now (<< 0.9.7.0) or (<< 0.9.5.92). Some of
-      experimental versions did not depend on compiz-core-abiversion.
-    - compiz-gtk breaks/replaces compiz-plugins (<< 0.9). The gconf schemas
-      folder is now here. Changes Conflicts/Replaces to Breaks/Replaces.
-    - Add libdecoration0-dev to the dependencies of compiz-dev.
-    - Add compiz-plugins to the dependencies of compiz-gtk.
+    - Add X-Python-Version: >= 2.6 since compizconfig-settings-manager and
+      python-compizconfig are now here.
+    - Update the dependencies of compiz.
+      + Remove compiz-fusion-plugins-main.
+      + Change compiz-gtk for compiz-gnome.
+      + Update the versions.
+    - Update the compiz-dev stanza.
+      + Add libgtk-3-dev and libdecoration0-dev to the dependencies.
+    - Update the compiz-core stanza.
+      + Breaks/replaces compiz-gtk (<< 0.9). The compiz-decorator file got moved
+        here. Changes Conflicts/Replaces to Breaks/Replaces.
+      + Break basically everything (<< 0.9.10.0). Some of the experimental
+        versions did not depend on compiz-core-abiversion and that require this.
+      + Remove suggests nvidia-glx (>= 1.0.9625-1)
     - Add the libcompiz-core package.
-      + Add a Breaks: compiz-core (<< 0.9.7.0).
-    - libdecoration0 breaks compiz-plugins (<< 0.9.7.0).
+      + Add a Breaks: compiz-core (<< 0.9.10.0).
+    - Rename compiz-gtk to compiz-gnome since they are the same now.
+      + Add compiz-plugins, gnome-settings-daemon and gsettings-desktop-schemas
+        to the dependencies.
+      + Add python-gconf to the recommendations.
+      + Breaks/replaces compiz-plugins (<< 0.9.10.0). The gconf schemas folder
+        is now here. Changes Conflicts/Replaces to Breaks/Replaces.
+      + Breaks/replaces compiz-gtk (<< 0.9.10.0) since the package got renamed.
+      + Breaks/replaces compizconfig-backend-gconf (<< 0.9.10.0) to transition
+        to this package.
+      + Break libcompizconfig0 (<< 0.9.10.0) due to old ABI breakage.
+    - Update the compiz-kde stanza.
+      + Remove the dependency on compizconfig-backend-kconfig4.
+      + Breaks/replaces compizconfig-backend-kconfig (<< 0.9.10.0) to transition
+        to this package.
+      + Break libcompizconfig0 (<< 0.9.10.0) due to old ABI breakage.
+    - Update the compiz-plugins stanza.
+      + Breaks/replaces compiz-fusion-plugins-extra, compiz-fusion-plugins-main
+        and compiz-fusion-plugins-unsupported to transition to this package.
+      + Breaks/replaces compiz-gtk (<< 0.9.10.0) since some old versions moved
+        files between them.
+    - Update the libdecoration0 stanza.
+      + Put in Section: libs.
+      + Breaks compiz-plugins (<< 0.9.10.0) due to old ABI breakage.
+    - Add the libcompizconfig0 stanza from the libcompizconfig source.
+      + Breaks compizconfig-backend-gconf, compizconfig-backend-kconfig, and
+        python-compizconfig (<< 0.9.10.0) due to old ABI breakage.
+    - Add the libcompizconfig-dev stanza from the libcompizconfig source.
+      + Add ${misc:Depends} and compiz-dev to the dependencies.
+    - Add the python-compizconfig stanza from the compizconfig-python source.
+      + Explicitly depend on libcompizconfig0.
+      + Break compizconfig-settings-manager (<< 0.9.10.0).
+      + Add a ${python:Provides}.
+    - Add the compizconfig-settings-manager stanza from the ccsm source.
+      + Add python-compizconfig and ${shlibs:Depends} to the dependencies.
+    - Add transitional packages for compizconfig-backend-{gconf,kconfig}, 
+      compiz-fusion-plugins-{main,extra,unsupported} and compiz-gtk.
   * debian/rules:
     - Find CORE_ABIVERSION in abiversion.h.
     - Update and reorder the DEFAULT_PLUGINS list.
@@ -62,8 +101,8 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
     - Add a get-orig-source routine to repack the tarball. Upstream now includes
       a debian folder.
   * Add Multiarch Support.
-    - Mark compiz-{dev,plugins}, libcompiz-core and libdecoration{-dev} as M-A:
-      same.
+    - Mark compiz-{dev,plugins}, libcompiz-core and libdecoration0{-dev}, and
+      libcompizconfig0{-dev} as M-A: same.
     - Mark compiz-core as M-A: foreign.
 
  -- Miguel A. Colón Vélez <debian.micove@gmail.com>  Thu, 26 Apr 2012 05:04:55 -0400
