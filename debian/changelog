@@ -13,6 +13,8 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
   [ Miguel A. Colón Vélez ]
   * Acknowledge NMU 0.8.4-5.1 and remove compiz-gnome.
   * debian/*:
+    - Integrate the file from ccsm.
+      + Add the ccsm.1 and compizconfig-settings-manager.manpages files.
     - Update the gbp.conf file for compression = xz.
     - Update the watch file to find the tarball in launchpad.
     - Add libcompiz_core to libcompiz-core.install and compiz-dev.install.
