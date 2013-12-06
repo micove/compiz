@@ -137,7 +137,7 @@ compiz (0.9.10.0+repack-0.1) experimental; urgency=low
       a debian folder.
   * Add Multiarch Support.
     - Mark compiz-{dev,plugins}, libcompiz-core and libdecoration0{-dev}, and
-      libcompizconfig0{-dev} as M-A: same.
+      libcompizconfig{0,-dev} as M-A: same.
     - Mark compiz-core as M-A: foreign.
 
  -- Miguel A. Colón Vélez <debian.micove@gmail.com>  Thu, 26 Apr 2012 05:04:55 -0400
