@@ -1,0 +1,14 @@
+Description: Install the gsettings backend in libdir instead of hardcoding it.
+Author: Miguel A. Colón Vélez <debian.micove@gmail.com>
+Last-Update: 2013-12-03
+
+--- compiz-0.9.10.0+repack.orig/compizconfig/gsettings/gsettings_backend_shared/CMakeLists.txt
++++ compiz-0.9.10.0+repack/compizconfig/gsettings/gsettings_backend_shared/CMakeLists.txt
+@@ -77,6 +77,6 @@ if (GSETTINGS_UTIL_FOUND)
+                            ${GSETTINGS_UTIL_LIBRARIES})
+ 
+     install (TARGETS compizconfig_gsettings_backend
+-	     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
++	     DESTINATION ${libcompizconfig_libdir})
+ 
+ endif (GSETTINGS_UTIL_FOUND)

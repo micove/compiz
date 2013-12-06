@@ -1,5 +1,5 @@
 usr/bin/gtk-window-decorator
-usr/lib/compizconfig/backends/libgsettings.so
-usr/lib/libcompizconfig_gsettings_backend.so
+usr/lib/*/compizconfig/backends/libgsettings.so
+usr/lib/*/libcompizconfig_gsettings_backend.so
 usr/share/gconf/schemas/*.schemas
 usr/share/glib-2.0/schemas/*.xml
