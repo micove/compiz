@@ -3,5 +3,6 @@ usr/share/compiz/*.xml
 usr/share/compiz/cubeaddon
 usr/share/compiz/mag
 usr/share/compiz/notification
+usr/share/compiz/scale
 usr/share/compiz/showmouse
 usr/share/compiz/splash

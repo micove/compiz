@@ -9,6 +9,7 @@ Uploaders:
 Build-Depends:
  cmake (>= 2.6),
  debhelper (>= 9.20120419),
+ dh-python,
  gcovr,
  gnome-control-center-dev,
  google-mock,
