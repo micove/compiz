@@ -1,5 +1,6 @@
 usr/lib/*/compiz/lib*.so
 usr/share/compiz/*.xml
+usr/share/compiz/cube
 usr/share/compiz/cubeaddon
 usr/share/compiz/mag
 usr/share/compiz/notification

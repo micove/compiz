@@ -1,2 +1,5 @@
 .AUTHORS.sed
+compizconfig/ccsm/ccsm.desktop
+compizconfig/ccsm/installed_files
+compizconfig/compizconfig-python/tests/compiz_config_test.pyc
 po/compiz.pot

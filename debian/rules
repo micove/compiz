@@ -5,6 +5,8 @@
 #export DH_VERBOSE=1
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
+LDFLAGS += -Wl,--as-needed
 
 CORE_ABIVERSION := $(shell sed -rn 's/^\#define[[:space:]]+CORE_ABIVERSION[[:space:]]+//p' include/core/abiversion.h )
 DEFAULT_PLUGINS = "core composite opengl decor mousepoll snap compiztoolbox resize gnomecompat wall grid regex vpswitch place move session animation expo workarounds ezoom staticswitcher fade scale"
@@ -21,6 +23,10 @@ override_dh_auto_configure:
 			-DUSE_GCONF=ON \
 			-DBUILD_XORG_GTEST=OFF
 
+override_dh_clean:
+	$(RM) -r compizconfig/ccsm/build
+	dh_clean
+
 override_dh_gencontrol:
 	dh_gencontrol -- -Vcoreabiversion=$(CORE_ABIVERSION)
 
@@ -32,7 +38,14 @@ override_dh_install:
 	cmake_dir=`cmake --system-information 2> /dev/null | grep "^CMAKE_ROOT " | sed -e 's/.*"\(.*\)"/\1/'` && \
 	mkdir -p debian/tmp$${cmake_dir}/Modules && cp cmake/FindCompiz.cmake debian/tmp$${cmake_dir}/Modules
 
+	# remove acceptance test binary
+	$(RM) debian/tmp/usr/bin/compiz_autopilot_acceptance_tests
+
 	dh_install --fail-missing
+
+override_dh_installdocs:
+	dh_installdocs -Nlibdecoration0 -Nlibdecoration0-dev --link-doc=libcompiz-core
+	dh_installdocs --remaining-packages --link-doc=libdecoration0
 
 %:
 	dh $@ --parallel --with python2

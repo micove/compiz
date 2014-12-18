@@ -1,4 +1,5 @@
 usr/bin/gtk-window-decorator
+usr/lib/*/compizconfig/backends/libgconf.so
 usr/lib/*/compizconfig/backends/libgsettings.so
 usr/lib/*/libcompizconfig_gsettings_backend.so
 usr/share/gconf/schemas/*.schemas

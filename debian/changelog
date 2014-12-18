@@ -128,7 +128,10 @@ compiz (0.9.12.0+bzr3917+repack-0.1) experimental; urgency=medium
     - Add transitional packages for compizconfig-backend-{gconf,kconfig}, 
       compiz-fusion-plugins-{main,extra,unsupported} and compiz-gnome.
   * debian/rules:
+    - Fix the clean routine.
+    - Use symlinks for the doc directories.
     - Find CORE_ABIVERSION in abiversion.h.
+    - Use -Wl,--as-needed.
     - Update and reorder the DEFAULT_PLUGINS list.
     - Disable xorg-gtest due to missing build dependencies (libxorg-gtest-dev).
     - Enable --with python2 for the merged python code.
