@@ -72,7 +72,7 @@ compiz (0.9.12.0+bzr3917+repack-0.1) experimental; urgency=medium
       + Change kdebase-workspace-dev to kde-workspace-dev.
       + Change libpng12-dev | libpng-dev to libpng-dev.
       + Change libgnome-window-settings-dev to gnome-control-center-dev.
-      + Add gcovr, google-mock, gsettings-desktop-schemas-dev, lcov,
+      + Add dh-python, gcovr, google-mock, gsettings-desktop-schemas-dev, lcov,
         libgnome-desktop-dev, libgtest-dev, libgtk-3-dev, libjpeg-dev,
         libnotify-dev, libprotobuf-dev, libwnck-3-dev, libxi-dev, pkg-config,
         protobuf-compiler, python-all-dev and python-pyrex since all of the
