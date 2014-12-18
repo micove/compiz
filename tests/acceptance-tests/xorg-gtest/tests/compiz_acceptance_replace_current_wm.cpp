@@ -172,6 +172,7 @@ class SlowDownTask :
 	    mIsRunning (true)
 	{
 	}
+	virtual ~SlowDownTask () {}
 
     private:
 

@@ -38,11 +38,11 @@
 
 // =====================  Restack  =========================
 
-RestackAnim::RestackAnim (CompWindow *w,
-			  WindowEvent curWindowEvent,
-			  float duration,
+RestackAnim::RestackAnim (CompWindow       *w,
+			  WindowEvent      curWindowEvent,
+			  float            duration,
 			  const AnimEffect info,
-			  const CompRect &icon) :
+			  const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon)
 {
     mRestackData = static_cast<RestackPersistentData *>
@@ -59,6 +59,7 @@ RestackAnim::cleanUp (bool closing, bool destructing)
 
     // Look for still playing windows in parent-child chain
     CompWindow *wCur = mRestackData->mMoreToBePaintedNext;
+
     while (wCur)
     {
 	AnimWindow *awCur = AnimWindow::get (wCur);
@@ -69,13 +70,16 @@ RestackAnim::cleanUp (bool closing, bool destructing)
 	    thereIsUnfinishedChainElem = true;
 	    break;
 	}
+
 	RestackPersistentData *dataCur = static_cast<RestackPersistentData *>
 	    (awCur->persistentData["restack"]);
 	wCur = dataCur->mMoreToBePaintedNext;
     }
+
     if (!thereIsUnfinishedChainElem)
     {
 	wCur = mRestackData->mMoreToBePaintedPrev;
+
 	while (wCur)
 	{
 	    AnimWindow *awCur = AnimWindow::get (wCur);
@@ -86,6 +90,7 @@ RestackAnim::cleanUp (bool closing, bool destructing)
 		thereIsUnfinishedChainElem = true;
 		break;
 	    }
+
 	    RestackPersistentData *dataCur =
 		static_cast<RestackPersistentData *>
 		(awCur->persistentData["restack"]);
@@ -97,6 +102,7 @@ RestackAnim::cleanUp (bool closing, bool destructing)
     {
 	// Finish off all windows in parent-child chain
 	CompWindow *wCur = mRestackData->mMoreToBePaintedNext;
+
 	while (wCur)
 	{
 	    AnimWindow *awCur = AnimWindow::get (wCur);
@@ -107,7 +113,9 @@ RestackAnim::cleanUp (bool closing, bool destructing)
 	    static_cast<ExtensionPluginAnimation *>
 		(getExtensionPluginInfo ())->cleanUpParentChildChainItem (awCur);
 	}
+
 	wCur = mWindow;
+
 	while (wCur)
 	{
 	    AnimWindow *awCur = AnimWindow::get (wCur);
@@ -128,12 +136,12 @@ RestackAnim::cleanUp (bool closing, bool destructing)
 bool
 RestackAnim::initiateRestackAnim (int duration)
 {
-    CompWindow *wStart = 0;
-    CompWindow *wEnd = 0;
+    CompWindow *wStart    = 0;
+    CompWindow *wEnd      = 0;
     CompWindow *wOldAbove = 0;
 
     if (!mRestackData)
-    	return false;
+	return false;
 
     ExtensionPluginAnimation *extPlugin =
 	static_cast<ExtensionPluginAnimation *> (getExtensionPluginInfo ());
@@ -148,12 +156,12 @@ RestackAnim::initiateRestackAnim (int duration)
     if (mRestackData->mIsSecondary)
     {
     	if (!mRestackData->mMoreToBePaintedNext)
-    	    return false;
+	    return false;
 
-    	AnimWindow *awAbove =
-    	    AnimWindow::get (mRestackData->mMoreToBePaintedNext);
-    	RestackPersistentData *dataAbove = static_cast<RestackPersistentData *>
-    	    (awAbove->persistentData["restack"]);
+	AnimWindow *awAbove =
+	    AnimWindow::get (mRestackData->mMoreToBePaintedNext);
+	RestackPersistentData *dataAbove = static_cast<RestackPersistentData *>
+	    (awAbove->persistentData["restack"]);
 
 	mTotalTime = awAbove->curAnimation ()->totalTime ();
 	mRemainingTime = mTotalTime;
@@ -162,7 +170,7 @@ RestackAnim::initiateRestackAnim (int duration)
 	{
 	    // Host this subject instead, on the above subject's host
 	    mRestackData->getHostedOnWin (mWindow,
-	    				  dataAbove->mWinThisIsPaintedBefore);
+					  dataAbove->mWinThisIsPaintedBefore);
 	}
 	// do basic secondary subject initialization
 	postInitiateRestackAnim (0, 0, 0, 0, false);
@@ -175,10 +183,10 @@ RestackAnim::initiateRestackAnim (int duration)
 
     if (restackInfo)
     {
-	wStart = restackInfo->wStart;
-	wEnd = restackInfo->wEnd;
+	wStart    = restackInfo->wStart;
+	wEnd      = restackInfo->wEnd;
 	wOldAbove = restackInfo->wOldAbove;
-	raised = restackInfo->raised;
+	raised    = restackInfo->raised;
     }
 
     // Find union region of all windows that will be
@@ -199,6 +207,7 @@ RestackAnim::initiateRestackAnim (int duration)
     {
 	RestackPersistentData *dataCand = static_cast<RestackPersistentData *>
 	    (AnimWindow::get (wCand)->persistentData["restack"]);
+
 	if (!extPlugin->relevantForRestackAnim (wCand))
 	    continue;
 
@@ -227,16 +236,13 @@ RestackAnim::initiateRestackAnim (int duration)
     }
 
     if (fadeRegion.isEmpty ())
-    {
 	// empty intersection -> won't be drawn
 	return false;
-    }
+
     if (wOldAbove)
-    {
 	// Store this window in the next window
 	// so that this is drawn before that, i.e. in its old place
 	mRestackData->getHostedOnWin (mWindow, wOldAbove);
-    }
 
     postInitiateRestackAnim (numSelectedCandidates, duration,
 			     wStart, wEnd, raised);
@@ -245,13 +251,16 @@ RestackAnim::initiateRestackAnim (int duration)
     if (mRestackData->mMoreToBePaintedPrev)
     {
 	RestackPersistentData *dataCur;
+
 	for (CompWindow *wCur = mRestackData->mMoreToBePaintedPrev; wCur;
 	     wCur = dataCur->mMoreToBePaintedPrev)
 	{
 	    dataCur = static_cast<RestackPersistentData *>
 		(AnimWindow::get (wCur)->persistentData["restack"]);
+
 	    if (!dataCur)
 		break;
+
 	    dataCur->mIsSecondary = true;
 	}
     }
@@ -259,16 +268,20 @@ RestackAnim::initiateRestackAnim (int duration)
 }
 
 bool
-RestackAnim::onSameRestackChain (CompWindow *wSubject, CompWindow *wOther)
+RestackAnim::onSameRestackChain (CompWindow *wSubject,
+				 CompWindow *wOther)
 {
     RestackPersistentData *dataCur;
+
     for (CompWindow *wCur = wSubject; wCur;
 	 wCur = dataCur->mMoreToBePaintedNext)
     {
 	if (wOther == wCur)
 	    return true;
+
 	dataCur = static_cast<RestackPersistentData *>
 	    (AnimWindow::get (wCur)->persistentData["restack"]);
+
 	if (!dataCur)
 	    break;
     }
@@ -281,8 +294,10 @@ RestackAnim::onSameRestackChain (CompWindow *wSubject, CompWindow *wOther)
     {
 	if (wOther == wCur)
 	    return true;
+
 	dataCur = static_cast<RestackPersistentData *>
 	    (AnimWindow::get (wCur)->persistentData["restack"]);
+
 	if (!dataCur)
 	    break;
     }
@@ -306,25 +321,28 @@ RestackAnim::unionRestackChain (CompWindow *w)
     CompRegion unionRegion;
 
     RestackPersistentData *dataCur;
+
     for (CompWindow *wCur = w; wCur;
 	 wCur = dataCur->mMoreToBePaintedNext)
     {
 	unionRegion += wCur->borderRect ();
 	dataCur = static_cast<RestackPersistentData *>
 	    (AnimWindow::get (wCur)->persistentData["restack"]);
+
 	if (!dataCur)
 	    break;
     }
 
     RestackPersistentData *dataSubj = static_cast<RestackPersistentData *>
-	    (AnimWindow::get (w)->
-	     persistentData["restack"]);
+				      (AnimWindow::get (w)->
+				       persistentData["restack"]);
     for (CompWindow *wCur = dataSubj->mMoreToBePaintedPrev; wCur;
 	 wCur = dataCur->mMoreToBePaintedPrev)
     {
 	unionRegion += wCur->borderRect ();
 	dataCur = static_cast<RestackPersistentData *>
 	    (AnimWindow::get (wCur)->persistentData["restack"]);
+
 	if (!dataCur)
 	    break;
     }
@@ -336,12 +354,12 @@ RestackInfo::RestackInfo (CompWindow *wRestacked,
 			  CompWindow *wStart,
 			  CompWindow *wEnd,
 			  CompWindow *wOldAbove,
-			  bool raised) :
+			  bool       raised) :
     wRestacked (wRestacked),
-    wStart (wStart),
-    wEnd (wEnd),
-    wOldAbove (wOldAbove),
-    raised (raised)
+    wStart     (wStart),
+    wEnd       (wEnd),
+    wOldAbove  (wOldAbove),
+    raised     (raised)
 {
 }
 
@@ -374,9 +392,9 @@ RestackPersistentData::resetRestackInfo (bool alsoResetChain)
 
     if (alsoResetChain)
     {
-    	// Reset chain connections as this is not on a chain
-    	mMoreToBePaintedNext = 0;
-    	mMoreToBePaintedPrev = 0;
+	// Reset chain connections as this is not on a chain
+	mMoreToBePaintedNext = 0;
+	mMoreToBePaintedPrev = 0;
     }
 }
 
@@ -385,12 +403,12 @@ RestackPersistentData::setRestackInfo (CompWindow *wRestacked,
 				       CompWindow *wStart,
 				       CompWindow *wEnd,
 				       CompWindow *wOldAbove,
-				       bool raised)
+				       bool       raised)
 {
     if (mRestackInfo)
 	delete mRestackInfo;
-    mRestackInfo =
-	new RestackInfo (wRestacked, wStart, wEnd, wOldAbove, raised);
+
+    mRestackInfo = new RestackInfo (wRestacked, wStart, wEnd, wOldAbove, raised);
 }
 
 /// Make this window be hosted on (i.e. drawn before) the given window.
@@ -402,4 +420,3 @@ RestackPersistentData::getHostedOnWin (CompWindow *wGuest, CompWindow *wHost)
     dataHost->mWinToBePaintedBeforeThis = wGuest;
     mWinThisIsPaintedBefore = wHost;
 }
-

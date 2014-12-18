@@ -26,6 +26,7 @@ DEALINGS IN THE SOFTWARE.
 #define KDECORATIONBRIDGE_H
 
 #include "kdecoration.h"
+#include "kdeversion.h"
 #include <QWidget>
 
 /**
@@ -42,7 +43,9 @@ public:
     virtual bool isCloseable() const = 0;
     virtual bool isMaximizable() const = 0;
     virtual MaximizeMode maximizeMode() const = 0;
+#if KDE_IS_VERSION(4,10,90)
     virtual QuickTileMode quickTileMode() const = 0;
+#endif
     virtual bool isMinimizable() const = 0;
     virtual bool providesContextHelp() const = 0;
     virtual int desktop() const = 0;

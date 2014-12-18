@@ -21,7 +21,8 @@
 #define _COMPIZ_GWD_SETTINGS_NOTIFIED_H
 
 #include <glib-object.h>
-#include <libwnck/screen.h>
+#define WNCK_I_KNOW_THIS_IS_UNSTABLE
+#include <libwnck/libwnck.h>
 #include <gwd-fwd.h>
 
 G_BEGIN_DECLS

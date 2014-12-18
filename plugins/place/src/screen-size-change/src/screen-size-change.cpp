@@ -39,7 +39,7 @@ compiz::place::ScreenSizeChangeObject::adjustForSize (const CompSize &oldSize,
 {
     int            vpX, vpY;
     compiz::window::Geometry g, vpRelRect;
-    int		   pivotX, pivotY;
+    int		   pivotX, pivotY, pivotWidth, pivotHeight;
 
     g = getGeometry ();
     compiz::window::Geometry og (g);
@@ -50,10 +50,13 @@ compiz::place::ScreenSizeChangeObject::adjustForSize (const CompSize &oldSize,
     /* FIXME: Should use saved geometry for maximized / fullscreen windows */
 
     /* calculate target vp x, y index for window's pivot point */
-    vpX = pivotX / oldSize.width ();
+    pivotWidth = (getState () & compiz::place::WindowMaximized) ? newSize.width () : oldSize.width ();
+    pivotHeight = (getState () & compiz::place::WindowMaximized) ? newSize.height () : oldSize.height ();
+
+    vpX = pivotX / pivotWidth;
     if (pivotX < 0)
 	vpX -= 1;
-    vpY = pivotY / oldSize.height ();
+    vpY = pivotY / pivotHeight;
     if (pivotY < 0)
 	vpY -= 1;
 

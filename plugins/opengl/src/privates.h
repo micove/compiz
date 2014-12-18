@@ -29,16 +29,16 @@
 #define _OPENGL_PRIVATES_H
 
 #include <memory>
+#include <vector>
+#include <tr1/tuple>
+#include <boost/shared_ptr.hpp>
 
 #include <composite/composite.h>
 #include <opengl/opengl.h>
 #include <core/atoms.h>
 #include <core/configurerequestbuffer.h>
 
-#ifdef USE_GLES
 #include <opengl/framebufferobject.h>
-#endif
-
 #include <opengl/doublebuffer.h>
 
 #include "privatetexture.h"
@@ -120,8 +120,26 @@ class GLIcon
 	GLTexture::List textures;
 };
 
+class FrameProvider
+{
+    public:
+
+	typedef boost::shared_ptr <FrameProvider> Ptr;
+	typedef std::tr1::tuple <GLFramebufferObject *, int> Frame;
+
+	virtual ~FrameProvider () {}
+
+	virtual GLuint getCurrentFrame () = 0;
+	virtual void endFrame () = 0;
+
+	virtual bool providesPersistence () = 0;
+	virtual bool alwaysPostprocess () = 0;
+	virtual void invalidateAll () = 0;
+};
+
 class PrivateGLScreen :
     public ScreenInterface,
+    public CompositeScreenInterface,
     public compiz::composite::PaintHandler,
     public OpenglOptions
 {
@@ -142,11 +160,16 @@ class PrivateGLScreen :
 	bool hasVSync ();
 	bool requiredForcedRefreshRate ();
 
+	unsigned int getFrameAge ();
+
 	void updateRenderMode ();
+	void updateFrameProvider ();
 
 	void prepareDrawing ();
 
 	bool compositingActive ();
+
+	void damageCutoff ();
 
 	void paintBackground (const GLMatrix   &transform,
 	                      const CompRegion &region,
@@ -162,6 +185,8 @@ class PrivateGLScreen :
 	void updateView ();
 
 	bool driverIsBlacklisted (const char *regex) const;
+
+	bool postprocessRequiredForCurrentFrame ();
 
     public:
 
@@ -197,7 +222,7 @@ class PrivateGLScreen :
 	GLXDoubleBuffer doubleBuffer;
 	#endif
 
-	GLFramebufferObject *scratchFbo;
+	boost::shared_ptr <GLFramebufferObject> scratchFbo;
 	CompRegion outputRegion;
 
 	XRectangle lastViewport;
@@ -222,8 +247,10 @@ class PrivateGLScreen :
 	Pixmap rootPixmapCopy;
 	CompSize rootPixmapSize;
 
+	FrameProvider::Ptr frameProvider;
 	const char *glVendor, *glRenderer, *glVersion;
 
+	bool postprocessingRequired;
 	mutable CompString prevRegex;
 	mutable bool       prevBlacklisted;
 };

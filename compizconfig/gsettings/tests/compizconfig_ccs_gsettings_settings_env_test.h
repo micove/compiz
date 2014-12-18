@@ -40,6 +40,8 @@ class CCSGSettingsStorageEnv :
 {
     public:
 
+	virtual ~CCSGSettingsStorageEnv () {}
+
 	virtual void SetUp () {}
 	virtual void TearDown () {}
 

@@ -133,8 +133,8 @@ isZoomed (int out)
 	return false;
 
     if (zs->zooms.at (out).currentZoom != 1.0f	||
-	zs->zooms.at (out).newZoom != 1.0f	||
-	zs->zooms.at (out).zVelocity != 0.0f)
+	zs->zooms.at (out).newZoom     != 1.0f	||
+	zs->zooms.at (out).zVelocity   != 0.0f)
 	return true;
 
     return false;
@@ -142,7 +142,8 @@ isZoomed (int out)
 
 /* Returns the distance to the defined edge in zoomed pixels.  */
 int
-EZoomScreen::distanceToEdge (int out, EZoomScreen::ZoomEdge edge)
+EZoomScreen::distanceToEdge (int                   out,
+			     EZoomScreen::ZoomEdge edge)
 {
     CompOutput *o = &screen->outputDevs ().at (out);
 
@@ -157,11 +158,12 @@ EZoomScreen::distanceToEdge (int out, EZoomScreen::ZoomEdge edge)
 			   o->region ()->extents.y1, &x1, &y1);
     switch (edge)
     {
+	case WEST:  return o->region ()->extents.x1 - x1;
 	case NORTH: return o->region ()->extents.y1 - y1;
+	case EAST:  return x2 - o->region ()->extents.x2;
 	case SOUTH: return y2 - o->region ()->extents.y2;
-	case EAST: return x2 - o->region ()->extents.x2;
-	case WEST: return o->region ()->extents.x1 - x1;
     }
+
     return 0; // Never reached.
 }
 
@@ -170,7 +172,7 @@ void
 EZoomScreen::ZoomArea::updateActualTranslates ()
 {
     xtrans = -realXTranslate * (1.0f - currentZoom);
-    ytrans = realYTranslate * (1.0f - currentZoom);
+    ytrans =  realYTranslate * (1.0f - currentZoom);
 }
 
 /* Returns true if the head in question is currently moving.
@@ -182,8 +184,8 @@ bool
 EZoomScreen::isInMovement (int out)
 {
     if (zooms.at (out).currentZoom == 1.0f  &&
-	zooms.at (out).newZoom == 1.0f	    &&
-	zooms.at (out).zVelocity == 0.0f)
+	zooms.at (out).newZoom     == 1.0f  &&
+	zooms.at (out).zVelocity   == 0.0f)
 	return false;
 
     if (zooms.at (out).currentZoom != zooms.at (out).newZoom	    ||
@@ -210,6 +212,8 @@ EZoomScreen::ZoomArea::ZoomArea (int out) :
     yTranslate (0.0f),
     realXTranslate (0.0f),
     realYTranslate (0.0f),
+    xtrans (0.0f),
+    ytrans (0.0f),
     locked (false)
 {
     updateActualTranslates ();
@@ -227,15 +231,18 @@ EZoomScreen::ZoomArea::ZoomArea () :
     yTranslate (0.0f),
     realXTranslate (0.0f),
     realYTranslate (0.0f),
+    xtrans (0.0f),
+    ytrans (0.0f),
     locked (false)
 {
 }
+
 /* Adjust the velocity in the z-direction. */
 void
-EZoomScreen::adjustZoomVelocity (int out, float chunk)
+EZoomScreen::adjustZoomVelocity (int   out,
+				 float chunk)
 {
-    float d = (zooms.at (out).newZoom - zooms.at (out).currentZoom) * 75.0f;
-
+    float d      = (zooms.at (out).newZoom - zooms.at (out).currentZoom) * 75.0f;
     float adjust = d * 0.002f;
     float amount = fabs (d);
 
@@ -244,13 +251,13 @@ EZoomScreen::adjustZoomVelocity (int out, float chunk)
     else if (amount > 5.0f)
 	amount = 5.0f;
 
-    zooms.at (out).zVelocity =
-	(amount * zooms.at (out).zVelocity + adjust) / (amount + 1.0f);
+    zooms.at (out).zVelocity = (amount * zooms.at (out).zVelocity + adjust) /
+			       (amount + 1.0f);
 
     if (fabs (d) < 0.1f && fabs (zooms.at (out).zVelocity) < 0.005f)
     {
 	zooms.at (out).currentZoom = zooms.at (out).newZoom;
-	zooms.at (out).zVelocity = 0.0f;
+	zooms.at (out).zVelocity   = 0.0f;
     }
     else
 	zooms.at (out).currentZoom += (zooms.at (out).zVelocity * chunk) /
@@ -260,7 +267,8 @@ EZoomScreen::adjustZoomVelocity (int out, float chunk)
 /* Adjust the X/Y velocity based on target translation and real
  * translation. */
 void
-EZoomScreen::adjustXYVelocity (int out, float chunk)
+EZoomScreen::adjustXYVelocity (int   out,
+			       float chunk)
 {
     zooms.at (out).xVelocity /= 1.25f;
     zooms.at (out).yVelocity /= 1.25f;
@@ -295,8 +303,8 @@ EZoomScreen::adjustXYVelocity (int out, float chunk)
     {
 	zooms.at (out).realXTranslate = zooms.at (out).xTranslate;
 	zooms.at (out).realYTranslate = zooms.at (out).yTranslate;
-	zooms.at (out).xVelocity = 0.0f;
-	zooms.at (out).yVelocity = 0.0f;
+	zooms.at (out).xVelocity      = 0.0f;
+	zooms.at (out).yVelocity      = 0.0f;
 	return;
     }
 
@@ -313,7 +321,7 @@ EZoomScreen::preparePaint (int msSinceLastPaint)
     if (grabbed)
     {
 	float amount = msSinceLastPaint * 0.05f * optionGetSpeed ();
-	int steps  = amount / (0.5f * optionGetTimestep ());
+	int   steps  = amount / (0.5f * optionGetTimestep ());
 
 	if (!steps)
 	    steps = 1;
@@ -344,6 +352,7 @@ EZoomScreen::preparePaint (int msSinceLastPaint)
 		}
 	    }
 	}
+
 	if (optionGetZoomMode () == EzoomOptions::ZoomModeSyncMouse)
 	    syncCenterToMouse ();
     }
@@ -384,7 +393,6 @@ EZoomScreen::drawBox (const GLMatrix &transform,
     int            inx1, inx2, iny1, iny2;
     int            out = output->id ();
     GLushort       colorData[4];
-    GLushort       *color;
     GLfloat        vertexData[12];
     GLVertexBuffer *streamingBuffer = GLVertexBuffer::streamingBuffer ();
 
@@ -401,11 +409,15 @@ EZoomScreen::drawBox (const GLMatrix &transform,
 
     const float MaxUShortFloat = std::numeric_limits <unsigned short>::max ();
 
-    glEnable (GL_BLEND);
+    GLboolean glBlendEnabled = glIsEnabled (GL_BLEND);
+
+    /* just enable blending if it is disabled */
+    if (!glBlendEnabled)
+	glEnable (GL_BLEND);
 
     /* Draw filled rectangle */
-    float alpha = optionGetZoomBoxFillColorAlpha () / MaxUShortFloat;
-    color = optionGetZoomBoxFillColor ();
+    float    alpha  = optionGetZoomBoxFillColorAlpha () / MaxUShortFloat;
+    GLushort *color = optionGetZoomBoxFillColor ();
 
     colorData[0] = alpha * color[0];
     colorData[1] = alpha * color[1];
@@ -466,7 +478,9 @@ EZoomScreen::drawBox (const GLMatrix &transform,
     streamingBuffer->end ();
     streamingBuffer->render (zTransform);
 
-    glDisable (GL_BLEND);
+    /* just disable blending if it was disabled before */
+    if (!glBlendEnabled)
+	glDisable (GL_BLEND);
 
     /* Damage the zoom selection box region during draw. */
     cScreen->damageRegion (CompRegion (x1 - 1,
@@ -490,7 +504,7 @@ EZoomScreen::glPaintOutput (const GLScreenPaintAttrib &attrib,
 
     if (isActive (out))
     {
-	GLScreenPaintAttrib sa = attrib;
+	GLScreenPaintAttrib sa         = attrib;
 	GLMatrix            zTransform = transform;
 
 	mask &= ~PAINT_SCREEN_REGION_MASK;
@@ -508,11 +522,9 @@ EZoomScreen::glPaintOutput (const GLScreenPaintAttrib &attrib,
 	status = gScreen->glPaintOutput (sa, zTransform, region, output, mask);
 
 	drawCursor (output, transform);
-
     }
     else
-	status = gScreen->glPaintOutput (attrib, transform, region, output,
-					 mask);
+	status = gScreen->glPaintOutput (attrib, transform, region, output, mask);
 
     if (grabIndex)
 	drawBox (transform, output, box);
@@ -557,7 +569,9 @@ constrainZoomTranslate ()
  * that is, it's the point that's the same regardless of zoom level.
  */
 void
-EZoomScreen::setCenter (int x, int y, bool instant)
+EZoomScreen::setCenter (int  x,
+			int  y,
+			bool instant)
 {
     int         out = screen->outputDeviceForPoint (x, y);
     CompOutput  *o  = &screen->outputDevs ().at (out);
@@ -627,9 +641,9 @@ void
 EZoomScreen::areaToWindow (CompWindow *w)
 {
     int left   = w->serverX () - w->border ().left;
-    int width  = w->width () + w->border ().left + w->border ().right;
     int top    = w->serverY () - w->border ().top;
-    int height = w->height ()  + w->border ().top + w->border ().bottom;
+    int width  = w->width ()   + w->border ().left + w->border ().right;
+    int height = w->height ()  + w->border ().top  + w->border ().bottom;
 
     setZoomArea (left, top, width, height, false);
 }
@@ -637,16 +651,15 @@ EZoomScreen::areaToWindow (CompWindow *w)
 /* Pans the zoomed area vertically/horizontally by * value * zs->panFactor
  * TODO: Fix output. */
 void
-EZoomScreen::panZoom (int xvalue, int yvalue)
+EZoomScreen::panZoom (int xvalue,
+		      int yvalue)
 {
+    float panFactor = optionGetPanFactor ();
+
     for (unsigned int out = 0; out < zooms.size (); ++out)
     {
-	zooms.at (out).xTranslate +=
-	    optionGetPanFactor () * xvalue *
-	    zooms.at (out).currentZoom;
-	zooms.at (out).yTranslate +=
-	    optionGetPanFactor () * yvalue *
-	    zooms.at (out).currentZoom;
+	zooms.at (out).xTranslate += panFactor * xvalue * zooms.at (out).currentZoom;
+	zooms.at (out).yTranslate += panFactor * yvalue * zooms.at (out).currentZoom;
     }
 
     constrainZoomTranslate ();
@@ -660,14 +673,15 @@ EZoomScreen::enableMousePolling ()
 {
     pollHandle.start ();
     lastChange = time(NULL);
-    mouse = MousePoller::getCurrentPosition ();
+    mouse      = MousePoller::getCurrentPosition ();
 }
 
 /* Sets the zoom (or scale) level.
  * Cleans up if we are suddenly zoomed out.
  */
 void
-EZoomScreen::setScale (int out, float value)
+EZoomScreen::setScale (int   out,
+		       float value)
 {
     if (zooms.at (out).locked)
 	return;
@@ -758,21 +772,25 @@ EZoomScreen::convertToZoomed (int out,
 	*resultY = y;
     }
 
-    CompOutput *o  = &screen->outputDevs ()[out];
-    ZoomArea   &za = zooms.at (out);
+    CompOutput *o          = &screen->outputDevs ()[out];
+    ZoomArea   &za         = zooms.at (out);
+    int        oWidth      = o->width ();
+    int        oHeight     = o->height ();
+    int        halfOWidth  = oWidth  / 2;
+    int        halfOHeight = oHeight / 2;
 
     x -= o->x1 ();
     y -= o->y1 ();
 
     *resultX = x - (za.realXTranslate *
-		    (1.0f - za.currentZoom) * o->width ()) - o->width () / 2;
+		    (1.0f - za.currentZoom) * oWidth) - halfOWidth;
     *resultX /= za.currentZoom;
-    *resultX += o->width () / 2;
+    *resultX += halfOWidth;
     *resultX += o->x1 ();
     *resultY = y - (za.realYTranslate *
-		    (1.0f - za.currentZoom) * o->height ()) - o->height () / 2;
+		    (1.0f - za.currentZoom) * oHeight) - halfOHeight;
     *resultY /= za.currentZoom;
-    *resultY += o->height () / 2;
+    *resultY += halfOHeight;
     *resultY += o->y1 ();
 }
 
@@ -784,28 +802,29 @@ EZoomScreen::convertToZoomedTarget (int out,
 				    int *resultX,
 				    int *resultY)
 {
-    CompOutput *o = &screen->outputDevs ().at (out);
-
     if (!outputIsZoomArea (out))
     {
 	*resultX = x;
 	*resultY = y;
     }
 
-    ZoomArea    &za = zooms.at (out);
+    CompOutput *o          = &screen->outputDevs ().at (out);
+    ZoomArea   &za         = zooms.at (out);
+    int        oWidth      = o->width ();
+    int        oHeight     = o->height ();
+    int        halfOWidth  = oWidth  / 2;
+    int        halfOHeight = oHeight / 2;
 
     x -= o->x1 ();
     y -= o->y1 ();
 
-    *resultX = x - (za.xTranslate *
-		    (1.0f - za.newZoom) * o->width ()) - o->width () / 2;
+    *resultX = x - (za.xTranslate * (1.0f - za.newZoom) * oWidth)  - halfOWidth;
     *resultX /= za.newZoom;
-    *resultX += o->width () / 2;
+    *resultX += halfOWidth;
     *resultX += o->x1 ();
-    *resultY = y - (za.yTranslate *
-		    (1.0f - za.newZoom) * o->height ()) - o->height () / 2;
+    *resultY = y - (za.yTranslate * (1.0f - za.newZoom) * oHeight) - halfOHeight;
     *resultY /= za.newZoom;
-    *resultY += o->height () / 2;
+    *resultY += halfOHeight;
     *resultY += o->y1 ();
 }
 
@@ -814,7 +833,9 @@ EZoomScreen::convertToZoomedTarget (int out,
  * Returns false if the point isn't on a actively zoomed head
  * or the area is locked. */
 bool
-EZoomScreen::ensureVisibility (int x, int y, int margin)
+EZoomScreen::ensureVisibility (int x,
+			       int y,
+			       int margin)
 {
     int out = screen->outputDeviceForPoint (x, y);
 
@@ -873,7 +894,7 @@ EZoomScreen::ensureVisibilityArea (int         x1,
     int        out  = screen->outputDeviceForPoint (x1 + (x2 - x1 / 2), y1 + (y2 - y1 / 2));
     CompOutput *o   = &screen->outputDevs ().at (out);
 
-    bool widthOkay  = (float)(x2-x1) / (float)o->width () < zooms.at (out).newZoom;
+    bool widthOkay  = (float)(x2-x1) / (float)o->width ()  < zooms.at (out).newZoom;
     bool heightOkay = (float)(y2-y1) / (float)o->height () < zooms.at (out).newZoom;
 
     if (widthOkay &&
@@ -1143,6 +1164,7 @@ EZoomScreen::drawCursor (CompOutput    *output,
 	GLfloat        textureData[8];
 	GLfloat        vertexData[12];
 	GLVertexBuffer *streamingBuffer = GLVertexBuffer::streamingBuffer ();
+	const GLWindowPaintAttrib attrib = { OPAQUE, BRIGHT, COLOR, 0, 0, 0, 0 };
 
 	sTransform.toScreenSpace (output, -DEFAULT_Z_CAMERA);
 	convertToZoomed (out, mouse.x (), mouse.y (), &ax, &ay);
@@ -1157,10 +1179,15 @@ EZoomScreen::drawCursor (CompOutput    *output,
 	int x = -cursor.hotX;
 	int y = -cursor.hotY;
 
-	glEnable (GL_BLEND);
+	GLboolean glBlendEnabled = glIsEnabled (GL_BLEND);
+
+	if (!glBlendEnabled)
+	    glEnable (GL_BLEND);
+
 	glBindTexture (GL_TEXTURE_2D, cursor.texture);
 
 	streamingBuffer->begin (GL_TRIANGLE_STRIP);
+	streamingBuffer->colorDefault ();
 
 	vertexData[0]  = x;
 	vertexData[1]  = y;
@@ -1189,7 +1216,7 @@ EZoomScreen::drawCursor (CompOutput    *output,
 	streamingBuffer->addTexCoords (0, 4, textureData);
 
 	streamingBuffer->end ();
-	streamingBuffer->render (sTransform);
+	streamingBuffer->render (sTransform, attrib);
 
 	glBindTexture (GL_TEXTURE_2D, 0);
 	glDisable (GL_BLEND);
@@ -1221,7 +1248,8 @@ EZoomScreen::updateCursor (CursorTexture * cursor)
     }
 
     XFixesCursorImage *ci = XFixesGetCursorImage (dpy);
-    unsigned char *pixels;
+    unsigned char     *pixels;
+    unsigned long     pix;
 
     if (ci)
     {
@@ -1239,8 +1267,8 @@ EZoomScreen::updateCursor (CursorTexture * cursor)
 
 	for (i = 0; i < ci->width * ci->height; ++i)
 	{
-	    unsigned long pix = ci->pixels[i];
-	    pixels[i * 4] = pix & 0xff;
+	    pix                 = ci->pixels[i];
+	    pixels[i * 4]       = pix & 0xff;
 	    pixels[(i * 4) + 1] = (pix >> 8) & 0xff;
 	    pixels[(i * 4) + 2] = (pix >> 16) & 0xff;
 	    pixels[(i * 4) + 3] = (pix >> 24) & 0xff;
@@ -1264,8 +1292,8 @@ EZoomScreen::updateCursor (CursorTexture * cursor)
 
 	for (i = 0; i < cursor->width * cursor->height; ++i)
 	{
-	    unsigned long pix = 0x00ffffff;
-	    pixels[i * 4] = pix & 0xff;
+	    pix                 = 0x00ffffff;
+	    pixels[i * 4]       = pix & 0xff;
 	    pixels[(i * 4) + 1] = (pix >> 8) & 0xff;
 	    pixels[(i * 4) + 2] = (pix >> 16) & 0xff;
 	    pixels[(i * 4) + 3] = (pix >> 24) & 0xff;
@@ -1319,16 +1347,16 @@ EZoomScreen::cursorZoomActive (int out)
     /* Force cursor hiding and mouse panning if this output is locked
      * and cursor hiding is not enabled and we are syncing the mouse
      */
-    if (!optionGetScaleMouse () &&
-        (optionGetZoomMode () == EzoomOptions::ZoomModeSyncMouse &&
-	 optionGetHideOriginalMouse () &&
-	 !zooms.at (out).locked))
+    if (!optionGetScaleMouse ()					&&
+	optionGetZoomMode () == EzoomOptions::ZoomModeSyncMouse &&
+	optionGetHideOriginalMouse ()				&&
+	!zooms.at (out).locked)
 	return;
 
     if (!cursorInfoSelected)
     {
 	cursorInfoSelected = true;
-        XFixesSelectCursorInput (screen->dpy (), screen->root (),
+	XFixesSelectCursorInput (screen->dpy (), screen->root (),
 				 XFixesDisplayCursorNotifyMask);
 	updateCursor (&cursor);
     }
@@ -1360,14 +1388,12 @@ EZoomScreen::setZoomAreaAction (CompAction         *action,
 {
     int x1 = CompOption::getIntOptionNamed (options, "x1", -1);
     int y1 = CompOption::getIntOptionNamed (options, "y1", -1);
-    int x2 = CompOption::getIntOptionNamed (options, "x2", -1);
-    int y2 = CompOption::getIntOptionNamed (options, "y2", -1);
-
-    bool scale    = CompOption::getBoolOptionNamed (options, "scale", false);
-    bool restrain = CompOption::getBoolOptionNamed (options, "restrain", false);
 
     if (x1 < 0 || y1 < 0)
 	return false;
+
+    int x2 = CompOption::getIntOptionNamed (options, "x2", -1);
+    int y2 = CompOption::getIntOptionNamed (options, "y2", -1);
 
     if (x2 < 0)
 	x2 = x1 + 1;
@@ -1375,20 +1401,21 @@ EZoomScreen::setZoomAreaAction (CompAction         *action,
     if (y2 < 0)
 	y2 = y1 + 1;
 
-    int out = screen->outputDeviceForPoint (x1, y1);
-
-    int width  = x2 - x1;
-    int height = y2 - y1;
+    bool scale    = CompOption::getBoolOptionNamed (options, "scale", false);
+    bool restrain = CompOption::getBoolOptionNamed (options, "restrain", false);
+    int  out      = screen->outputDeviceForPoint (x1, y1);
+    int  width    = x2 - x1;
+    int  height   = y2 - y1;
 
     setZoomArea (x1, y1, width, height, false);
     CompOutput *o = &screen->outputDevs (). at(out);
 
     if (scale && width && height)
-	setScaleBigger (out, width / static_cast <float> (o->width ()),
-			height / static_cast <float> (o->height ()));
+	setScaleBigger (out, width  / static_cast <float> (o->width ()),
+			     height / static_cast <float> (o->height ()));
 
-	if (restrain)
-	    restrainCursor (out);
+    if (restrain)
+	restrainCursor (out);
 
     toggleFunctions (true);
 
@@ -1437,8 +1464,8 @@ EZoomScreen::ensureVisibilityAction (CompAction         *action,
     int height = y2 - y1;
 
     if (scale && width && height)
-	setScaleBigger (out, width / static_cast <float> (o->width ()),
-			height / static_cast <float> (o->height ()));
+	setScaleBigger (out, width  / static_cast <float> (o->width ()),
+			     height / static_cast <float> (o->height ()));
 
     if (restrain)
 	restrainCursor (out);
@@ -1503,8 +1530,8 @@ EZoomScreen::zoomBoxDeactivate (CompAction         *action,
 
 	int        out = screen->outputDeviceForGeometry (outGeometry);
 	CompOutput *o  = &screen->outputDevs (). at (out);
-	setScaleBigger (out, width / static_cast <float> (o->width ()),
-			height / static_cast <float> (o->height ()));
+	setScaleBigger (out, width  / static_cast <float> (o->width ()),
+			     height / static_cast <float> (o->height ()));
 	setZoomArea (x, y, width, height, false);
     }
 
@@ -1526,9 +1553,7 @@ EZoomScreen::zoomIn (CompAction         *action,
 	!isInMovement (out))
 	setCenter (pointerX, pointerY, true);
 
-    setScale (out,
-	      zooms.at (out).newZoom /
-	      optionGetZoomFactor ());
+    setScale (out, zooms.at (out).newZoom / optionGetZoomFactor ());
 
     toggleFunctions (true);
 
@@ -1620,13 +1645,13 @@ EZoomScreen::zoomToWindow (CompAction         *action,
     if (!w)
 	return true;
 
-    int        width  = w->width () + w->border ().left + w->border ().right;
-    int        height = w->height () + w->border ().top + w->border ().bottom;
+    int        width  = w->width ()  + w->border ().left + w->border ().right;
+    int        height = w->height () + w->border ().top  + w->border ().bottom;
     int        out    = screen->outputDeviceForGeometry (w->geometry ());
     CompOutput *o     = &screen->outputDevs ().at (out);
 
-    setScaleBigger (out, width / static_cast <float> (o->width ()),
-		    height / static_cast <float> (o->height ()));
+    setScaleBigger (out, width  / static_cast <float> (o->width ()),
+			 height / static_cast <float> (o->height ()));
     areaToWindow (w);
     toggleFunctions (true);
 
@@ -1637,8 +1662,8 @@ bool
 EZoomScreen::zoomPan (CompAction         *action,
 		      CompAction::State  state,
 		      CompOption::Vector options,
-		      float		 horizAmount,
-		      float		 vertAmount)
+		      float              horizAmount,
+		      float              vertAmount)
 {
     panZoom (horizAmount, vertAmount);
 
@@ -1649,8 +1674,8 @@ EZoomScreen::zoomPan (CompAction         *action,
  */
 bool
 EZoomScreen::zoomCenterMouse (CompAction         *action,
-			     CompAction::State  state,
-			     CompOption::Vector options)
+			      CompAction::State  state,
+			      CompOption::Vector options)
 {
     int out = screen->outputDeviceForPoint (pointerX, pointerY);
 
@@ -1684,11 +1709,12 @@ EZoomScreen::zoomFitWindowToZoom (CompAction         *action,
     XWindowChanges xwc;
 
     int out = screen->outputDeviceForGeometry (w->geometry ());
-    xwc.x = w->serverX ();
-    xwc.y = w->serverY ();
-    xwc.width = (int) (screen->outputDevs ().at (out).width () *
-		       zooms.at (out).currentZoom -
-		       (int) ((w->border ().left + w->border ().right)));
+    xwc.x   = w->serverX ();
+    xwc.y   = w->serverY ();
+
+    xwc.width  = (int) (screen->outputDevs ().at (out).width () *
+			zooms.at (out).currentZoom -
+			(int) ((w->border ().left + w->border ().right)));
     xwc.height = (int) (screen->outputDevs ().at (out).height () *
 			zooms.at (out).currentZoom -
 			(int) ((w->border ().top + w->border ().bottom)));
@@ -1750,8 +1776,8 @@ EZoomScreen::zoomOut (CompAction         *action,
 
 bool
 EZoomScreen::terminate (CompAction         *action,
-		       CompAction::State  state,
-		       CompOption::Vector options)
+			CompAction::State  state,
+			CompOption::Vector options)
 {
     int out = screen->outputDeviceForPoint (pointerX, pointerY);
 
@@ -1765,8 +1791,8 @@ EZoomScreen::terminate (CompAction         *action,
 
     action->setState (action->state () & ~(CompAction::StateTermKey |
 					   CompAction::StateTermButton));
-    return false;
 
+    return false;
 }
 
 /* Focus-track related event handling.
@@ -1812,9 +1838,9 @@ EZoomScreen::focusTrack (XEvent *event)
 
     if (optionGetFocusFitWindow ())
     {
-	int width = w->width () + w->border ().left + w->border ().right;
-	int height = w->height () + w->border ().top + w->border ().bottom;
-	float scale = MAX (width / static_cast <float> (screen->outputDevs ().at(out).width ()),
+	int width  = w->width ()  + w->border ().left + w->border ().right;
+	int height = w->height () + w->border ().top  + w->border ().bottom;
+	float scale = MAX (width  / static_cast <float> (screen->outputDevs ().at (out).width ()),
 			   height / static_cast <float> (screen->outputDevs ().at (out).height ()));
 
 	if (scale > optionGetAutoscaleMin ())
@@ -1853,6 +1879,7 @@ EZoomScreen::handleEvent (XEvent *event)
 
 		cScreen->damageScreen ();
 	    }
+
 	    break;
 
 	case FocusIn:
@@ -1868,6 +1895,7 @@ EZoomScreen::handleEvent (XEvent *event)
 		if (cursor.isSet)
 		    updateCursor (&cursor);
 	    }
+
 	    break;
     }
 

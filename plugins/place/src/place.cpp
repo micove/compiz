@@ -123,6 +123,8 @@ PlaceWindow::getState () const
 	state |= compiz::place::WindowAbove;
     if (window->state () & CompWindowStateBelowMask)
 	state |= compiz::place::WindowBelow;
+    if (window->state () & CompWindowStateMaximizedVertMask || window->state () & CompWindowStateMaximizedHorzMask)
+	state |= compiz::place::WindowMaximized;
 
     return state;
 }

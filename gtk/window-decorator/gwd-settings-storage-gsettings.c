@@ -437,27 +437,16 @@ gwd_settings_storage_gsettings_new (GSettings *desktop,
 
 /* Factory methods */
 
-static gpointer
-list_all_schemas (gpointer data)
-{
-    return (gpointer) g_settings_list_schemas ();
-}
-
 static inline GSettings *
 get_settings_no_abort (const gchar *schema)
 {
-    static GOnce	   get_settings_once = G_ONCE_INIT;
-    const  gchar * const * schemas;
-    guint                  i = 0;
+    GSettings *settings = NULL;
 
-    g_once (&get_settings_once, list_all_schemas, NULL);
-    schemas = (const gchar * const *) get_settings_once.retval;
+    if (g_settings_schema_source_lookup (g_settings_schema_source_get_default(), schema, TRUE)) {
+    	settings = g_settings_new (schema);
+    }
 
-    for (; schemas[i]; ++i)
-	if (g_strcmp0 (schema, schemas[i]) == 0)
-	    return g_settings_new (schema);
-
-    return NULL;
+    return settings;
 }
 
 static void

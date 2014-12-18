@@ -423,9 +423,9 @@ PrivateGLScreen::paintOutputRegion (const GLMatrix   &transform,
 	if (w->destroyed ())
 	    continue;
 
-        gw = GLWindow::get (w);
+	gw = GLWindow::get (w);
 
-        /* Release any queued ConfigureWindow requests now */
+	/* Release any queued ConfigureWindow requests now */
 	gw->priv->configureLock->release ();
 
 	if (unredirected.find (w) != unredirected.end ())
@@ -633,9 +633,15 @@ GLScreen::glPaintOutput (const GLScreenPaintAttrib &sAttrib,
 	{
 	    if (mask & PAINT_SCREEN_FULL_MASK)
 	    {
-		glPaintTransformedOutput (sAttrib, sTransform,
-					  CompRegion (*output), output, mask);
+		CompRegionRef   region (output->region ());
+		CompositeScreen *cs = priv->cScreen;
 
+		glPaintTransformedOutput (sAttrib,
+					  sTransform,
+					  region,
+					  output,
+					  mask);
+		cs->recordDamageOnCurrentFrame (region);
 		return true;
 	    }
 
@@ -665,8 +671,14 @@ GLScreen::glPaintOutput (const GLScreenPaintAttrib &sAttrib,
     }
     else if (mask & PAINT_SCREEN_FULL_MASK)
     {
-	glPaintTransformedOutput (sAttrib, sTransform, CompRegion (*output),
-				  output, mask);
+	CompRegionRef    region (output->region ());
+	CompositeScreen *cs = priv->cScreen;
+	glPaintTransformedOutput (sAttrib,
+				  sTransform,
+				  region,
+				  output,
+				  mask);
+	cs->recordDamageOnCurrentFrame (region);
 
 	return true;
     }
@@ -674,6 +686,13 @@ GLScreen::glPaintOutput (const GLScreenPaintAttrib &sAttrib,
     {
 	return false;
     }
+}
+
+bool
+GLScreen::glPaintCompositedOutputRequired ()
+{
+    WRAPABLE_HND_FUNCTN_RETURN (bool, glPaintCompositedOutputRequired);
+    return false;
 }
 
 void
@@ -1279,6 +1298,15 @@ GLWindow::glDrawTexture (GLTexture          *texture,
 	priv->vertexBuffer->render (transform, attrib);
     #endif
 
+    for (std::list<const GLShaderData*>::const_iterator it = priv->shaders.begin();
+         it != priv->shaders.end();
+         ++it)
+    {
+	if ((*it)->isCached != true)
+	{
+	    delete *it;
+	}
+    }
     priv->shaders.clear ();
     texture->disable ();
 

@@ -45,7 +45,6 @@ class PrivateScaleScreen :
 {
     public:
 	PrivateScaleScreen (CompScreen *);
-	~PrivateScaleScreen ();
 
 	void handleEvent (XEvent *event);
 
@@ -57,6 +56,7 @@ class PrivateScaleScreen :
 			    CompOutput *, unsigned int);
 
 	void activateEvent (bool activating);
+	void terminateScale (bool accept);
 
 	void layoutSlotsForArea (const CompRect&, int);
 	void layoutSlots ();
@@ -70,7 +70,8 @@ class PrivateScaleScreen :
 
 	ScaleWindow * checkForWindowAt (int x, int y);
 
-	void sendDndStatusMessage (Window);
+	void sendDndStatusMessage (Window, bool asks);
+	void sendDndFinishedMessage (Window);
 
 	bool
 	actionShouldToggle (CompAction        *action,
@@ -98,6 +99,7 @@ class PrivateScaleScreen :
 	void windowRemove (CompWindow *);
 
 	bool hoverTimeout ();
+	bool dndCheckTimeout ();
 
 	void updateOpacity ();
 
@@ -121,13 +123,17 @@ class PrivateScaleScreen :
 	CompScreen::GrabHandle grabIndex;
 
 	Window dndTarget;
+	Atom xdndSelection;
+	Atom xdndFinished;
+	Atom xdndActionAsk;
+
+	std::vector<GLTexture::List> dndSpinners;
 
 	CompTimer hover;
+	CompTimer dndCheck;
 
 	ScaleScreen::State state;
 	int                moreAdjust;
-
-	Cursor cursor;
 
 	std::vector<ScaleSlot> slots;
 	int                  nSlots;
@@ -169,8 +175,6 @@ class PrivateScaleWindow :
 	CompositeWindow    *cWindow;
 	GLWindow           *gWindow;
 	ScaleWindow        *sWindow;
-	ScaleScreen        *sScreen;
-	PrivateScaleScreen *spScreen;
 
 	ScaleSlot *slot;
 

@@ -21,6 +21,7 @@
 #include <glib.h>
 #include "gwd-metacity-window-decoration-util.h"
 
+#ifdef USE_METACITY
 gboolean
 gwd_metacity_window_decoration_update_meta_theme (const gchar		     *theme,
 						  GWDMetaThemeGetCurrentProc get_current,
@@ -43,3 +44,4 @@ gwd_metacity_window_decoration_update_meta_theme (const gchar		     *theme,
 
     return TRUE;
 }
+#endif

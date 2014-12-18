@@ -1,7 +1,7 @@
 #
 # Main CMakeLists.txt for compiz
 #
-project (compiz)
+project (compiz C CXX)
 
 set (CMAKE_MODULE_PATH_ORIG ${CMAKE_MODULE_PATH})
 set (COMPIZ_CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)

@@ -25,8 +25,6 @@
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #endif
 
-extern "C"
-{
 #ifdef HAVE_CONFIG_H
 #  include "../config.h"
 #endif
@@ -46,7 +44,6 @@ extern "C"
 
 #include <ccs.h>
 #include "ccs-private.h"
-}
 
 #include <string>
 

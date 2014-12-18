@@ -42,6 +42,7 @@ class ItemInCCSListMatcher :
 	    mMatcher (matcher)
 	{
 	}
+	virtual ~ItemInCCSListMatcher() {}
 
 	virtual bool MatchAndExplain (L list, MatchResultListener *listener) const
 	{

@@ -317,6 +317,12 @@ WaterScreen::waterSetup ()
     }
 }
 
+bool
+WaterScreen::glPaintCompositedOutputRequired ()
+{
+    return true;
+}
+
 void
 WaterScreen::glPaintCompositedOutput (const CompRegion    &region,
                                       GLFramebufferObject *fbo,
@@ -467,6 +473,7 @@ WaterScreen::donePaint ()
 	cScreen->preparePaintSetEnabled (this, false);
 	gScreen->glPaintOutputSetEnabled (this, false);
 	gScreen->glPaintCompositedOutputSetEnabled (this, false);
+	gScreen->glPaintCompositedOutputRequiredSetEnabled (this, false);
 	cScreen->donePaintSetEnabled (this, false);
     }
 

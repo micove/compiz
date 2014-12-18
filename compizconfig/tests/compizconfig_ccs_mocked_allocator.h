@@ -30,6 +30,8 @@ class AllocationInterface
 {
     public:
 
+	virtual ~AllocationInterface() {}
+
 	virtual void * realloc_ (void *, size_t) = 0;
 	virtual void * malloc_ (size_t) = 0;
 	virtual void * calloc_ (size_t, size_t) = 0;

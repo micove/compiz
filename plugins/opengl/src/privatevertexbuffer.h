@@ -41,6 +41,7 @@ class GLVertexBuffer;
 class AbstractUniform
 {
    public:
+       virtual ~AbstractUniform() {}
        void virtual set(GLProgram* program) = 0;
 };
 

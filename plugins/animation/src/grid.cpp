@@ -54,18 +54,18 @@ GridAnim::GridModel::GridObject::setGridPosition (Point &gridPosition)
     mGridPosition = gridPosition;
 }
 
-GridAnim::GridModel::GridModel (CompWindow *w,
+GridAnim::GridModel::GridModel (CompWindow  *w,
 				WindowEvent curWindowEvent,
-				int height,
-				int gridWidth,
-				int gridHeight,
-				int decorTopHeight,
-				int decorBottomHeight) :
+				int         height,
+				int         gridWidth,
+				int         gridHeight,
+				int         decorTopHeight,
+				int         decorBottomHeight) :
     mScale (1.0f, 1.0f),
     mScaleOrigin (0, 0)
 {
     mNumObjects = (unsigned)(gridWidth * gridHeight);
-    mObjects = new GridObject[mNumObjects];
+    mObjects    = new GridObject[mNumObjects];
 
     initObjects (curWindowEvent,
 		 height,
@@ -80,15 +80,17 @@ GridAnim::GridModel::~GridModel ()
 
 void
 GridAnim::GridModel::initObjects (WindowEvent curWindowEvent,
-				  int height,
-				  int gridWidth, int gridHeight,
-				  int decorTopHeight, int decorBottomHeight)
+				  int         height,
+				  int         gridWidth,
+				  int         gridHeight,
+				  int         decorTopHeight,
+				  int         decorBottomHeight)
 {
     int gridX, gridY;
-    int nGridCellsX, nGridCellsY;
+    int nGridCellsY;
 
     // number of grid cells in x direction
-    nGridCellsX = gridWidth - 1;
+    int nGridCellsX = gridWidth - 1;
 
     if (curWindowEvent == WindowEventShade ||
 	curWindowEvent == WindowEventUnshade)
@@ -97,8 +99,7 @@ GridAnim::GridModel::initObjects (WindowEvent curWindowEvent,
 	// One allocated for top, one for bottom.
 	nGridCellsY = gridHeight - 3;
 
-	float winContentsHeight =
-	    height - decorTopHeight - decorBottomHeight;
+	float winContentsHeight = height - decorTopHeight - decorBottomHeight;
 
 	//Top
 	for (gridX = 0; gridX < gridWidth; ++gridX)
@@ -108,13 +109,12 @@ GridAnim::GridModel::initObjects (WindowEvent curWindowEvent,
 	    mObjects[gridX].setGridPosition (gridPos);
 	}
 
+	float inWinY, gridPosY;
 	// Window contents
 	for (gridY = 1; gridY < gridHeight - 1; ++gridY)
 	{
-	    float inWinY =
-		(gridY - 1) * winContentsHeight / nGridCellsY +
-		decorTopHeight;
-	    float gridPosY = inWinY / height;
+	    inWinY = (gridY - 1) * winContentsHeight / nGridCellsY + decorTopHeight;
+	    gridPosY = inWinY / height;
 
 	    for (gridX = 0; gridX < gridWidth; ++gridX)
 	    {
@@ -132,7 +132,7 @@ GridAnim::GridModel::initObjects (WindowEvent curWindowEvent,
     }
     else
     {
-	int objIndex = 0;
+	int   objIndex = 0;
 
 	// number of grid cells in y direction
 	nGridCellsY = gridHeight - 1;
@@ -145,6 +145,7 @@ GridAnim::GridModel::initObjects (WindowEvent curWindowEvent,
 		Point gridPos ((float)gridX / nGridCellsX,
 			       (float)gridY / nGridCellsY);
 		mObjects[objIndex].setGridPosition (gridPos);
+
 		++objIndex;
 	    }
 	}
@@ -156,6 +157,7 @@ GridAnim::GridModel::move (float tx,
 			   float ty)
 {
     GridObject *object = mObjects;
+
     for (unsigned int i = 0; i < mNumObjects; ++i, ++object)
     {
 	object->mPosition.add (Point3d (tx, ty, 0));
@@ -166,6 +168,7 @@ void
 GridAnim::updateBB (CompOutput &output)
 {
     GridModel::GridObject *object = mModel->mObjects;
+
     for (unsigned int i = 0; i < mModel->mNumObjects; ++i, ++object)
     {
 	mAWindow->expandBBWithPoint (object->position ().x () + 0.5,
@@ -180,13 +183,15 @@ GridAnim::initGrid ()
     mGridHeight = 2;
 }
 
-GridAnim::GridAnim (CompWindow *w,
-		    WindowEvent curWindowEvent,
-		    float duration,
+GridAnim::GridAnim (CompWindow       *w,
+		    WindowEvent      curWindowEvent,
+		    float            duration,
 		    const AnimEffect info,
-		    const CompRect &icon) :
+		    const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     mModel (NULL),
+    mGridWidth (0),
+    mGridHeight (0),
     mUseQTexCoord (false)
 {
 }
@@ -259,13 +264,9 @@ GridAnim::addGeometry (const GLTexture::MatrixList &matrix,
 	    mCurWindowEvent == WindowEventUnshade)
 	{
 	    if (y1 < winContentsY)	// if at top part
-	    {
 		gridH = mDecorTopHeight;
-	    }
 	    else if (y2 > winContentsY + winContentsHeight)  // if at bottom
-	    {
 		gridH = mDecorBottomHeight;
-	    }
 	    else			// in window contents (only in Y coords)
 	    {
 		float winContentsHeight =
@@ -282,12 +283,12 @@ GridAnim::addGeometry (const GLTexture::MatrixList &matrix,
 	v = vertexBuffer->getVertices () + (oldCount * vSize);
 	vMax = vertexBuffer->getVertices () + (newCount * vSize);
  
+	float x, y, topiyFloat;
 	// For each vertex
 	for (; v < vMax; v += vSize)
 	{
-	    float x = v[0];
-	    float y = v[1];
-	    float topiyFloat;
+	    x = v[0];
+	    y = v[1];
 
 	    if (y > y2)
 		y = y2;
@@ -301,31 +302,26 @@ GridAnim::addGeometry (const GLTexture::MatrixList &matrix,
 		    topiyFloat = MIN (topiyFloat, 0.999);	// avoid 1.0
 		}
 		else if (y2 > winContentsY + winContentsHeight)	// if at bottom
-		{
 		    topiyFloat = (mGridHeight - 2) +
 			(mDecorBottomHeight ? (y - winContentsY -
 					       winContentsHeight) /
 			 mDecorBottomHeight : 0);
-		}
 		else		// in window contents (only in Y coords)
-		{
 		    topiyFloat = (mGridHeight - 3) *
 			(y - winContentsY) / winContentsHeight + 1;
-		}
 	    }
 	    else
-	    {
 		topiyFloat = (mGridHeight - 1) * (y - oy) / oheight;
-	    }
+
 	    // topiy should be at most (mGridHeight - 2)
 	    int topiy = (int)(topiyFloat + 1e-4);
 
 	    if (topiy == mGridHeight - 1)
 		--topiy;
 
-	    int bottomiy = topiy + 1;
-	    float iny = topiyFloat - topiy;
-	    float inyRest = 1 - iny;
+	    int   bottomiy = topiy + 1;
+	    float iny      = topiyFloat - topiy;
+	    float inyRest  = 1 - iny;
 
 	    // End of calculations for y
 
@@ -335,8 +331,7 @@ GridAnim::addGeometry (const GLTexture::MatrixList &matrix,
 		    x = x2;
 
 		// find containing grid cell (leftix rightix) x (topiy bottomiy)
-		float leftixFloat =
-		    (mGridWidth - 1) * (x - ox) / owidth;
+		float leftixFloat = (mGridWidth - 1) * (x - ox) / owidth;
 		int leftix = (int)(leftixFloat + 1e-4);
 
 		if (leftix == mGridWidth - 1)
@@ -399,11 +394,11 @@ GridAnim::drawGeometry ()
     // Deprecated
 }
 
-GridTransformAnim::GridTransformAnim (CompWindow *w,
-				      WindowEvent curWindowEvent,
-				      float duration,
+GridTransformAnim::GridTransformAnim (CompWindow       *w,
+				      WindowEvent      curWindowEvent,
+				      float            duration,
 				      const AnimEffect info,
-				      const CompRect &icon) :
+				      const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     TransformAnim::TransformAnim (w, curWindowEvent, duration, info, icon),
     GridAnim::GridAnim (w, curWindowEvent, duration, info, icon),
@@ -443,6 +438,7 @@ GridTransformAnim::updateBB (CompOutput &output)
     {
 	GridModel::GridObject *object = mModel->objects ();
 	unsigned int n = mModel->numObjects ();
+
 	for (unsigned int i = 0; i < n; ++i, ++object)
 	{
 	    GLVector coords (object->mPosition.x (),
@@ -471,4 +467,3 @@ GridTransformAnim::updateTransform (GLMatrix &wTransform)
 	wTransform *= skewTransform;
     }
 }
-

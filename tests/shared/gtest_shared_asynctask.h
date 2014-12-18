@@ -32,7 +32,7 @@ class AsyncTask
 	typedef boost::shared_ptr <AsyncTask> Ptr;
 
 	AsyncTask ();
-	~AsyncTask ();
+	virtual ~AsyncTask ();
 
 	void SendMsgToTask (char msg);
 	bool ReadMsgFromTask (char msg, int maximumWait);

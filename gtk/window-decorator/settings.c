@@ -25,10 +25,6 @@
 
 #ifdef USE_GSETTINGS
 #include "gwd-settings-storage-gsettings.h"
-#else
-#ifdef USE_GCONF
-#include "gwd-settings-storage-gconf.h"
-#endif
 #endif
 
 #include "gwd-settings-xproperty-interface.h"
@@ -56,11 +52,6 @@ init_settings (GWDSettingsWritable *writable,
     gwd_connect_org_compiz_gwd_settings (compiz, storage);
     gwd_connect_org_gnome_mutter_settings (mutter, storage);
     gwd_connect_org_gnome_desktop_wm_preferences_settings (gnome, storage);
-#else
-#ifdef USE_GCONF
-#define STORAGE_USED
-    storage = gwd_settings_storage_gconf_new (writable);
-#endif
 #endif
 
     GdkDisplay *display = gdk_display_get_default ();

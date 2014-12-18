@@ -40,11 +40,11 @@
 
 const float RollUpAnim::kDurationFactor = 1.67;
 
-RollUpAnim::RollUpAnim (CompWindow *w,
-			WindowEvent curWindowEvent,
-			float duration,
+RollUpAnim::RollUpAnim (CompWindow       *w,
+			WindowEvent      curWindowEvent,
+			float            duration,
 			const AnimEffect info,
-			const CompRect &icon) :
+			const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, kDurationFactor * duration, info,
 			  icon),
     GridAnim::GridAnim (w, curWindowEvent, kDurationFactor * duration, info,
@@ -56,6 +56,7 @@ void
 RollUpAnim::initGrid ()
 {
     mGridWidth = 2;
+
     if (mCurWindowEvent == WindowEventShade ||
 	mCurWindowEvent == WindowEventUnshade)
 	mGridHeight = 4;
@@ -73,13 +74,14 @@ RollUpAnim::step ()
 		      mAWindow->savedOutRect () :
 		      mWindow->outputRect ());
 
-    int ox = outRect.x ();
-    int oy = outRect.y ();
-    int owidth = outRect.width ();
+    int ox      = outRect.x ();
+    int oy      = outRect.y ();
+    int owidth  = outRect.width ();
     int oheight = outRect.height ();
 
     GridModel::GridObject *object = mModel->objects ();
     unsigned int n = mModel->numObjects ();
+
     for (unsigned int i = 0; i < n; ++i, ++object)
     {
 	// Executing shade mode
@@ -91,16 +93,12 @@ RollUpAnim::step ()
 	    float objGridY = object->gridPosition ().y ();
 
 	    if (objGridY == 0)
-	    {
 		objPos.setY (oy);
-	    }
 	    else if (objGridY == 1)
-	    {
 		objPos.setY (
 		    (1 - forwardProgress) * (oy + oheight * objGridY) +
 		    forwardProgress * (oy +
 				       mDecorTopHeight + mDecorBottomHeight));
-	    }
 	    else
 	    {
 		// find position in window contents
@@ -122,6 +120,7 @@ RollUpAnim::step ()
 		else
 		{
 		    objPos.setY (oy + mDecorTopHeight);
+
 		    if (!fixedInterior)
 			object->offsetTexCoordForQuadAfter ().
 			    setY ((forwardProgress - relPosInWinContents) *
@@ -147,4 +146,3 @@ RollUpAnim::step ()
 	objPos.setX (origx);
     }
 }
-

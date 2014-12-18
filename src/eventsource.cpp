@@ -27,11 +27,10 @@
 #include "privateeventsource.h"
 #include "core/screen.h"
 
-CompEventSource *
+Glib::RefPtr<CompEventSource>
 CompEventSource::create ()
 {
-    return new CompEventSource (screen->dpy (),
-				ConnectionNumber (screen->dpy ()));
+    return Glib::RefPtr<CompEventSource> (new CompEventSource (screen->dpy (), ConnectionNumber (screen->dpy ())));
 }
 
 sigc::connection

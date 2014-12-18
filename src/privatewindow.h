@@ -422,6 +422,8 @@ class PrivateWindow :
 	unsigned int lastPong;
 	bool         alive;
 
+	bool moved;
+
 	CompWindowExtents input;
 	CompWindowExtents serverInput;
 	CompWindowExtents lastServerInput;

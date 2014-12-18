@@ -232,30 +232,6 @@ TEST_P (ExpoWallOffsetTestAnimations, TestAnimationValues)
     EXPECT_FLOAT_EQ (worldScaleFactorY, offset.animationParameters[index].worldScaleFactorY);
 }
 
-TEST_F (ExpoWallOffsetTest, TestNoOffsetIfOutputIsNotOrigin)
-{
-    compiz::expo::calculateWallOffset (CompRect (1,
-						 1,
-						 100,
-						 100),
-				       CompPoint (100,
-						  100),
-				       CompPoint (1,
-						  1),
-				       CompSize (100,
-						 100),
-				       offsetInWorldX,
-				       offsetInWorldY,
-				       worldScaleFactorX,
-				       worldScaleFactorY,
-				       1.0);
-
-    EXPECT_FLOAT_EQ (offsetInWorldX, 0.0f);
-    EXPECT_FLOAT_EQ (offsetInWorldY, 0.0f);
-    EXPECT_FLOAT_EQ (worldScaleFactorX, 1.0f);
-    EXPECT_FLOAT_EQ (worldScaleFactorY, 1.0f);
-}
-
 INSTANTIATE_TEST_CASE_P (ExpoAnimationOffsetTest,
 			 ExpoWallOffsetTestAnimations,
 			 Combine (ValuesIn (testingOffsetParameters),

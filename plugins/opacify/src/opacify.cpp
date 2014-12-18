@@ -33,13 +33,13 @@ const unsigned short MAX_WINDOWS = 64;
 void
 setFunctions (bool enabled)
 {
-    OPACIFY_SCREEN (screen);
+    OpacifyScreen *os = OpacifyScreen::get (screen);
 
     screen->handleEventSetEnabled (os, os->isToggle);
 
     foreach (CompWindow *w, screen->windows ())
     {
-	OPACIFY_WINDOW (w);
+	OpacifyWindow *ow = OpacifyWindow::get (w);
 
 	ow->gWindow->glPaintSetEnabled (ow, enabled);
     }
@@ -53,7 +53,7 @@ setFunctions (bool enabled)
 void
 OpacifyWindow::setOpacity (int fOpacity)
 {
-    if (opacified || (gWindow->paintAttrib ().opacity != opacity))
+    if (!opacified || (gWindow->paintAttrib ().opacity != opacity))
 	cWindow->addDamage ();
 
     opacified = true;
@@ -71,8 +71,7 @@ OpacifyScreen::resetWindowOpacity (Window id)
     if (!w)
 	return;
 
-    OPACIFY_WINDOW (w);
-
+    OpacifyWindow *ow = OpacifyWindow::get (w);
     ow->opacified = false;
     ow->cWindow->addDamage ();
 }
@@ -107,7 +106,7 @@ OpacifyScreen::clearPassive ()
 	if (!win)
 	    continue;
 
-	OPACIFY_WINDOW (win);
+	OpacifyWindow *ow = OpacifyWindow::get (win);
 
 	ow->setOpacity (std::max (targetOpacity,
 				  ow->gWindow->paintAttrib ().opacity));
@@ -123,7 +122,7 @@ OpacifyScreen::clearPassive ()
 void
 OpacifyWindow::dim ()
 {
-    OPACIFY_SCREEN (screen);
+    OpacifyScreen *os = OpacifyScreen::get (screen);
 
     os->passive.push_back (window->id ());
 
@@ -185,7 +184,7 @@ OpacifyScreen::passiveWindows (CompRegion fRegion)
 void
 OpacifyWindow::handleEnter ()
 {
-    OPACIFY_SCREEN (screen);
+    OpacifyScreen *os = OpacifyScreen::get (screen);
 
     if (screen->otherGrabExist (NULL))
     {
@@ -396,6 +395,7 @@ OpacifyWindow::OpacifyWindow (CompWindow *window) :
     opacity   (100)
 {
     GLWindowInterface::setHandler (gWindow, false);
+    gWindow->glPaintSetEnabled (this, true);
 }
 
 /** Constructor for OpacifyScreen. This is called whenever a new screen

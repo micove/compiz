@@ -38,11 +38,11 @@
 
 // =====================  Effect: Fade  =========================
 
-FadeAnim::FadeAnim (CompWindow *w,
-		    WindowEvent curWindowEvent,
-		    float duration,
+FadeAnim::FadeAnim (CompWindow       *w,
+		    WindowEvent      curWindowEvent,
+		    float            duration,
 		    const AnimEffect info,
-		    const CompRect &icon) :
+		    const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon)
 {
 }
@@ -58,4 +58,3 @@ FadeAnim::updateBB (CompOutput &output)
 {
     mAWindow->expandBBWithWindow ();
 }
-

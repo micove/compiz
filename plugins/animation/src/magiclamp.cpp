@@ -52,11 +52,11 @@ MagicLampWavyAnim::initGrid ()
     mGridHeight = optValI (AnimationOptions::MagicLampWavyGridRes);
 }
 
-MagicLampAnim::MagicLampAnim (CompWindow *w,
-			      WindowEvent curWindowEvent,
-			      float duration,
+MagicLampAnim::MagicLampAnim (CompWindow       *w,
+			      WindowEvent      curWindowEvent,
+			      float            duration,
 			      const AnimEffect info,
-			      const CompRect &icon) :
+			      const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     GridAnim::GridAnim (w, curWindowEvent, duration, info, icon),
     mTopLeftCornerObject (0),
@@ -72,21 +72,18 @@ MagicLampAnim::MagicLampAnim (CompWindow *w,
     mUseQTexCoord = true;
 }
 
-MagicLampWavyAnim::MagicLampWavyAnim (CompWindow *w,
-				      WindowEvent curWindowEvent,
-				      float duration,
+MagicLampWavyAnim::MagicLampWavyAnim (CompWindow       *w,
+				      WindowEvent      curWindowEvent,
+				      float            duration,
 				      const AnimEffect info,
-				      const CompRect &icon) :
+				      const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     MagicLampAnim::MagicLampAnim (w, curWindowEvent, duration, info, icon)
 {
-    unsigned int maxWaves;
-    float waveAmpMin, waveAmpMax;
-    float distance;
-
-    maxWaves = (unsigned) optValI (AnimationOptions::MagicLampWavyMaxWaves);
-    waveAmpMin = optValF (AnimationOptions::MagicLampWavyAmpMin);
-    waveAmpMax = optValF (AnimationOptions::MagicLampWavyAmpMax);
+    unsigned int maxWaves   = (unsigned) optValI (AnimationOptions::MagicLampWavyMaxWaves);
+    float        waveAmpMin = optValF (AnimationOptions::MagicLampWavyAmpMin);
+    float        waveAmpMax = optValF (AnimationOptions::MagicLampWavyAmpMax);
+    float        distance;
 
     if (waveAmpMax < waveAmpMin)
 	waveAmpMax = waveAmpMin;
@@ -96,19 +93,19 @@ MagicLampWavyAnim::MagicLampWavyAnim (CompWindow *w,
     CompRect outRect (mAWindow->savedRectsValid () ?
 		      mAWindow->savedOutRect () :
 		      w->outputRect ());
+
     if (mTargetTop)
 	distance = outRect.y () + outRect.height () - mIcon.y ();
     else
 	distance = mIcon.y () - outRect.y ();
 
-    mNumWaves =
-	1 + (float)maxWaves *distance / ::screen->height ();
+    mNumWaves = 1 + (float)maxWaves * distance / ::screen->height ();
 
     mWaves = new WaveParam[mNumWaves];
 
     // Compute wave parameters
 
-    int ampDirection = (RAND_FLOAT () < 0.5 ? 1 : -1);
+    int   ampDirection = (RAND_FLOAT () < 0.5 ? 1 : -1);
     float minHalfWidth = 0.22f;
     float maxHalfWidth = 0.38f;
 
@@ -148,12 +145,11 @@ MagicLampWavyAnim::~MagicLampWavyAnim ()
 /// the whole window (like in MagicLampAnim with menus).
 MagicLampAnim::~MagicLampAnim ()
 {
-    if (mCurWindowEvent == WindowEventOpen ||
-    	mCurWindowEvent == WindowEventUnminimize ||
-    	mCurWindowEvent == WindowEventUnshade)
-    {
+    if (mCurWindowEvent == WindowEventOpen	    ||
+	mCurWindowEvent == WindowEventUnminimize    ||
+	mCurWindowEvent == WindowEventUnshade)
 	mAWindow->expandBBWithWindow ();
-    }
+
 }
 
 bool
@@ -176,8 +172,10 @@ MagicLampWavyAnim::filterTargetX (float &targetX, float x)
     {
 	float cosx = ((x - mWaves[i].pos) /
 		       mWaves[i].halfWidth);
+
 	if (cosx < -1 || cosx > 1)
 	    continue;
+
 	targetX += (mWaves[i].amp * mModel->scale ().x () *
 		    (cos (cosx * M_PI) + 1) / 2);
     }
@@ -196,6 +194,7 @@ MagicLampAnim::step ()
 	mIcon.setX (x);
 	mIcon.setY (y);
     }
+
     float forwardProgress = progressLinear ();
 
     float iconCloseEndY;
@@ -232,6 +231,7 @@ MagicLampAnim::step ()
 	iconCloseEndY = mIcon.y () + mIcon.height ();
 	winFarEndY = outRect.y () + winh;
 	winVisibleCloseEndY = outRect.y ();
+
 	if (winVisibleCloseEndY < iconCloseEndY)
 	    winVisibleCloseEndY = iconCloseEndY;
     }
@@ -266,29 +266,24 @@ MagicLampAnim::step ()
     }
 
     if (forwardProgress < preShapePhaseEnd)
-    {
 	stretchProgress = forwardProgress / stretchPhaseEnd;
-    }
     else
     {
 	if (forwardProgress < stretchPhaseEnd)
-	{
 	    stretchProgress = forwardProgress / stretchPhaseEnd;
-	}
 	else
-	{
 	    postStretchProgress =
 		(forwardProgress - stretchPhaseEnd) / (1 - stretchPhaseEnd);
-	}
     }
 
     // The other objects are squeezed into a horizontal line behind the icon
-    int topmostMovingObjectIdx = -1;
+    int topmostMovingObjectIdx    = -1;
     int bottommostMovingObjectIdx = -1;
 
-    unsigned int n = mModel->numObjects ();
-    float fx = 0.0f;
+    unsigned int n  = mModel->numObjects ();
+    float        fx = 0.0f;
     GridModel::GridObject *object = mModel->objects ();
+
     for (unsigned int i = 0; i < n; ++i, ++object)
     {
 	Point3d &objPos = object->position ();
@@ -304,6 +299,7 @@ MagicLampAnim::step ()
 	    float iconY = (mIcon.y () + mIcon.height () * objGridY);
 
 	    float stretchedPos;
+
 	    if (mTargetTop)
 		stretchedPos = objGridY * origY + (1 - objGridY) * iconY;
 	    else
@@ -311,23 +307,17 @@ MagicLampAnim::step ()
 
 	    // Compute current y position
 	    if (forwardProgress < preShapePhaseEnd)
-	    {
 		objPos.setY ((1 - stretchProgress) * origY +
 			     stretchProgress * stretchedPos);
-	    }
 	    else
 	    {
 		if (forwardProgress < stretchPhaseEnd)
-		{
 		    objPos.setY ((1 - stretchProgress) * origY +
 		    		 stretchProgress * stretchedPos);
-		}
 		else
-		{
 		    objPos.setY ((1 - postStretchProgress) * stretchedPos +
 		    		 postStretchProgress *
 		    		 (stretchedPos + (iconCloseEndY - winFarEndY)));
-		}
 	    }
 
 	    if (mTargetTop)
@@ -378,7 +368,7 @@ MagicLampAnim::step ()
 	// Compute current x position
 	if (forwardProgress < preShapePhaseEnd)
 	    objPos.setX ((1 - preShapeProgress) * origX +
-	    		 preShapeProgress * targetX);
+			 preShapeProgress * targetX);
 	else
 	    objPos.setX (targetX);
 
@@ -388,8 +378,8 @@ MagicLampAnim::step ()
 
     if (stepRegionUsed ())
     {
-    	// Pick objects that will act as the corners of rectangles subtracted
-    	// from this step's damaged region
+	// Pick objects that will act as the corners of rectangles subtracted
+	// from this step's damaged region
 
 	const float topCornerRowRatio =
 	    (mTargetTop ? 0.55 : 0.35);// 0.46 0.42; // rectangle corner row ratio
@@ -398,6 +388,7 @@ MagicLampAnim::step ()
 
 	if (topmostMovingObjectIdx < 0)
 	    topmostMovingObjectIdx = 0;
+
 	if (bottommostMovingObjectIdx < 0)
 	    bottommostMovingObjectIdx = (int)n - 2;
 
@@ -417,6 +408,7 @@ MagicLampAnim::updateBB (CompOutput &output)
 
     GridModel::GridObject *objects = mModel->objects ();
     unsigned int n = mModel->numObjects ();
+
     for (unsigned int i = 0; i < n; ++i)
     {
 	Point3d &objPos = objects[i].position ();
@@ -440,10 +432,10 @@ MagicLampAnim::updateBB (CompOutput &output)
     if (objects[0].position ().x () >
     	objects[n-2].position ().x ())
     {
-    	// Top-left corner is empty
+	// Top-left corner is empty
 
-    	// Position of grid object to pick as the corner of the subtracted rect.
-    	Point3d &objPos = mTopLeftCornerObject->position ();
+	// Position of grid object to pick as the corner of the subtracted rect.
+	Point3d &objPos = mTopLeftCornerObject->position ();
 	region -= CompRect (BB->x1,
 			    BB->y1,
 			    objPos.x () - BB->x1,
@@ -451,9 +443,9 @@ MagicLampAnim::updateBB (CompOutput &output)
     }
     else // Bottom-left corner is empty
     {
-    	// Position of grid object to pick as the corner of the subtracted rect.
-    	Point3d &objPos = mBottomLeftCornerObject->position ();
-    	region -= CompRect (BB->x1,
+	// Position of grid object to pick as the corner of the subtracted rect.
+	Point3d &objPos = mBottomLeftCornerObject->position ();
+	region -= CompRect (BB->x1,
 			    objPos.y (),
 			    objPos.x () - BB->x1,
 			    BB->y2);
@@ -461,22 +453,22 @@ MagicLampAnim::updateBB (CompOutput &output)
 
     // Right side
     if (objects[1].position ().x () <
-    	objects[n-1].position ().x ())
+	objects[n-1].position ().x ())
     {
     	// Top-right corner is empty
 
-    	// Position of grid object to pick as the corner of the subtracted rect.
-    	Point3d &objPos = (mTopLeftCornerObject + 1)->position ();
-    	region -= CompRect (objPos.x (),
+	// Position of grid object to pick as the corner of the subtracted rect.
+	Point3d &objPos = (mTopLeftCornerObject + 1)->position ();
+	region -= CompRect (objPos.x (),
 			    BB->y1,
 			    BB->x2,
 			    objPos.y () - BB->y1);
     }
     else // Bottom-right corner is empty
     {
-    	// Position of grid object to pick as the corner of the subtracted rect.
-    	Point3d &objPos = (mBottomLeftCornerObject + 1)->position ();
-    	region -= CompRect (objPos.x (),
+	// Position of grid object to pick as the corner of the subtracted rect.
+	Point3d &objPos = (mBottomLeftCornerObject + 1)->position ();
+	region -= CompRect (objPos.x (),
 			    objPos.y (),
 			    BB->x2,
 			    BB->y2);
@@ -493,7 +485,7 @@ void
 MagicLampAnim::adjustPointerIconSize ()
 {
     mIcon.setWidth (MAX (4, optValI
-    			 (AnimationOptions::MagicLampOpenStartWidth)));
+			 (AnimationOptions::MagicLampOpenStartWidth)));
 
     // Adjust position so that the icon is centered at the original position.
     mIcon.setX (mIcon.x () - mIcon.width () / 2);
@@ -503,9 +495,8 @@ void
 MagicLampWavyAnim::adjustPointerIconSize ()
 {
     mIcon.setWidth (MAX (4, optValI
-    			 (AnimationOptions::MagicLampWavyOpenStartWidth)));
+			 (AnimationOptions::MagicLampWavyOpenStartWidth)));
 
     // Adjust position so that the icon is centered at the original position.
     mIcon.setX (mIcon.x () - mIcon.width () / 2);
 }
-

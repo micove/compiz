@@ -42,11 +42,11 @@ const float ZoomAnim::kDurationFactor = 1.33;
 const float ZoomAnim::kSpringyDurationFactor = 1.82;
 const float ZoomAnim::kNonspringyDurationFactor = 1.67;
 
-ZoomAnim::ZoomAnim (CompWindow *w,
-		    WindowEvent curWindowEvent,
-		    float duration,
+ZoomAnim::ZoomAnim (CompWindow       *w,
+		    WindowEvent      curWindowEvent,
+		    float            duration,
 		    const AnimEffect info,
-		    const CompRect &icon) :
+		    const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     TransformAnim::TransformAnim (w, curWindowEvent, duration, info, icon),
     FadeAnim::FadeAnim (w, curWindowEvent, duration, info, icon)
@@ -62,11 +62,11 @@ ZoomAnim::ZoomAnim (CompWindow *w,
     }
 }
 
-SidekickAnim::SidekickAnim (CompWindow *w,
-			    WindowEvent curWindowEvent,
-			    float duration,
+SidekickAnim::SidekickAnim (CompWindow       *w,
+			    WindowEvent      curWindowEvent,
+			    float            duration,
 			    const AnimEffect info,
-			    const CompRect &icon) :
+			    const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     TransformAnim::TransformAnim (w, curWindowEvent, duration, info, icon),
     ZoomAnim::ZoomAnim (w, curWindowEvent, duration, info, icon)
@@ -138,41 +138,38 @@ ZoomAnim::adjustDuration ()
     if ((mCurWindowEvent == WindowEventUnminimize ||
 	 mCurWindowEvent == WindowEventOpen) &&
 	getSpringiness () > 1e-4)
-    {
 	mTotalTime *= kSpringyDurationFactor;
-    }
     else if (mCurWindowEvent == WindowEventOpen ||
 	     mCurWindowEvent == WindowEventClose)
-    {
 	mTotalTime *= kNonspringyDurationFactor;
-    }
     else
-    {
 	mTotalTime *= kDurationFactor;
-    }
+
     mRemainingTime = mTotalTime;
 }
 
 void
 ZoomAnim::getZoomProgress (float *pMoveProgress,
 			   float *pScaleProgress,
-			   bool neverSpringy)
+			   bool  neverSpringy)
 {
-    float forwardProgress =
-	1 - mRemainingTime /
-	(mTotalTime - mTimestep);
+    float forwardProgress = 1 - mRemainingTime /
+			    (mTotalTime - mTimestep);
+
     forwardProgress = MIN (forwardProgress, 1);
     forwardProgress = MAX (forwardProgress, 0);
 
-    float x = forwardProgress;
-    bool backwards = false;
-    int animProgressDir = 1;
+    float x               = forwardProgress;
+    bool  backwards       = false;
+    int   animProgressDir = 1;
 
     if (mCurWindowEvent == WindowEventUnminimize ||
 	mCurWindowEvent == WindowEventOpen)
 	animProgressDir = 2;
+
     if (mOverrideProgressDir != 0)
 	animProgressDir = mOverrideProgressDir;
+
     if ((animProgressDir == 1 &&
 	 (mCurWindowEvent == WindowEventUnminimize ||
 	  mCurWindowEvent == WindowEventOpen)) ||
@@ -180,6 +177,7 @@ ZoomAnim::getZoomProgress (float *pMoveProgress,
 	 (mCurWindowEvent == WindowEventMinimize ||
 	  mCurWindowEvent == WindowEventClose)))
 	backwards = true;
+
     if (backwards)
 	x = 1 - x;
 
@@ -187,8 +185,7 @@ ZoomAnim::getZoomProgress (float *pMoveProgress,
     float nonSpringyProgress =
 	1 - pow (progressDecelerateCustom (1 - x, .5f, .8f), 1.7f);
 
-    float damping =
-	pow (dampBase, 0.5);
+    float damping = pow (dampBase, 0.5);
 
     float damping2 =
 	((pow (1-(pow (x,0.7)*0.5),10)-pow (0.5,10))/(1-pow (0.5,10))) *
@@ -199,9 +196,7 @@ ZoomAnim::getZoomProgress (float *pMoveProgress,
     if ((mCurWindowEvent == WindowEventUnminimize ||
 	 mCurWindowEvent == WindowEventOpen) &&
 	!neverSpringy)
-    {
 	springiness = getSpringiness ();
-    }
 
     float springyMoveProgress =
 	cos (2*M_PI*pow (x,1)*1.25) * damping * damping2;
@@ -212,9 +207,7 @@ ZoomAnim::getZoomProgress (float *pMoveProgress,
     if (springiness > 1e-4f)
     {
 	if (x > 0.2)
-	{
 	    springyMoveProgress *= springiness;
-	}
 	else
 	{
 	    // interpolate between (springyMoveProgress * springiness)
@@ -225,30 +218,33 @@ ZoomAnim::getZoomProgress (float *pMoveProgress,
 		(1 - progressUpto02) * springyMoveProgress +
 		progressUpto02 * springyMoveProgress * springiness;
 	}
+
 	moveProgress = 1 - springyMoveProgress;
     }
     else
-    {
 	moveProgress = nonSpringyProgress;
-    }
+
     if (mCurWindowEvent == WindowEventUnminimize ||
 	mCurWindowEvent == WindowEventOpen)
 	moveProgress = 1 - moveProgress;
+
     if (backwards)
 	moveProgress = 1 - moveProgress;
 
     float scProgress = nonSpringyProgress;
+
     if (mCurWindowEvent == WindowEventUnminimize ||
 	mCurWindowEvent == WindowEventOpen)
 	scProgress = 1 - scProgress;
+
     if (backwards)
 	scProgress = 1 - scProgress;
 
-    scaleProgress =
-	pow (scProgress, 1.25);
+    scaleProgress = pow (scProgress, 1.25);
 
     if (pMoveProgress)
 	*pMoveProgress = moveProgress;
+
     if (pScaleProgress)
 	*pScaleProgress = scaleProgress;
 }
@@ -262,8 +258,10 @@ ZoomAnim::getFadeProgress ()
 }
 
 void
-ZoomAnim::getCenterScaleFull (Point *pCurCenter, Point *pCurScale,
-			      Point *pWinCenter, Point *pIconCenter,
+ZoomAnim::getCenterScaleFull (Point *pCurCenter,
+			      Point *pCurScale,
+			      Point *pWinCenter,
+			      Point *pIconCenter,
 			      float *pMoveProgress)
 {
     CompRect outRect (mAWindow->savedRectsValid () ?
@@ -296,12 +294,16 @@ ZoomAnim::getCenterScaleFull (Point *pCurCenter, Point *pCurScale,
     // Copy calculated variables
     if (pCurCenter)
 	*pCurCenter = curCenter;
+
     if (pCurScale)
 	*pCurScale = curScale;
+
     if (pWinCenter)
 	*pWinCenter = winCenter;
+
     if (pIconCenter)
 	*pIconCenter = iconCenter;
+
     if (pMoveProgress)
 	*pMoveProgress = moveProgress;
 }
@@ -311,6 +313,7 @@ ZoomAnim::applyTransform ()
 {
     if (!zoomToIcon ())
 	return;
+
     Point curCenter;
     Point curScale;
     Point winCenter;
@@ -337,6 +340,7 @@ ZoomAnim::applyTransform ()
     {
 	mTransform.translate (winCenter.x (), winCenter.y (), 0);
 	float tx, ty;
+
 	if (shouldAvoidParallelogramLook ())
 	{
 	    // avoid parallelogram look
@@ -351,6 +355,7 @@ ZoomAnim::applyTransform ()
 	    tx = (curCenter.x () - winCenter.x ()) / curScale.x ();
 	    ty = (curCenter.y () - winCenter.y ()) / curScale.y ();
 	}
+
 	mTransform.translate (tx, ty, 0);
 	applyExtraTransform (moveProgress);
 	mTransform.translate (-winCenter.x (), -winCenter.y (), 0);
@@ -372,7 +377,8 @@ ZoomAnim::scaleAroundIcon ()
 }
 
 void
-ZoomAnim::getCenterScale (Point *pCurCenter, Point *pCurScale)
+ZoomAnim::getCenterScale (Point *pCurCenter,
+			  Point *pCurScale)
 {
     getCenterScaleFull (pCurCenter, pCurScale, NULL, NULL, NULL);
 }
@@ -396,9 +402,7 @@ ZoomAnim::getCenter ()
     Point center;
 
     if (zoomToIcon ())
-    {
 	getCenterScale (&center, 0);
-    }
     else
     {
 	float forwardProgress = progressLinear ();
@@ -419,18 +423,16 @@ ZoomAnim::getCenter ()
 					    mDecorTopHeight));
 	}
 	else // i.e. (un)minimizing without zooming
-	{
 	    center.setY (inRect.y () + inRect.height () / 2.0);
-	}
     }
     return center;
 }
 
-GridZoomAnim::GridZoomAnim (CompWindow *w,
-			    WindowEvent curWindowEvent,
-			    float duration,
+GridZoomAnim::GridZoomAnim (CompWindow       *w,
+			    WindowEvent      curWindowEvent,
+			    float            duration,
 			    const AnimEffect info,
-			    const CompRect &icon) :
+			    const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     TransformAnim::TransformAnim (w, curWindowEvent, duration, info, icon),
     GridTransformAnim::GridTransformAnim (w, curWindowEvent, duration, info,
@@ -448,4 +450,3 @@ GridZoomAnim::adjustDuration ()
 	mRemainingTime = mTotalTime;
     }
 }
-

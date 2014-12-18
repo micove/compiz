@@ -88,6 +88,12 @@ void GLVertexBuffer::begin (GLenum primitiveType /* = GL_TRIANGLES */)
     priv->maxVertices = -1;
     priv->normalData.clear ();
     priv->colorData.clear ();
+    for (std::vector<AbstractUniform*>::iterator it = priv->uniforms.begin();
+	 it != priv->uniforms.end();
+	 ++it)
+    {
+	delete *it;
+    }
     priv->uniforms.clear ();
 
     priv->nTextures = 0;
@@ -412,6 +418,12 @@ PrivateVertexBuffer::~PrivateVertexBuffer ()
 	GL::deleteBuffers (1, &colorBuffer);
     if (textureBuffers[0])
 	GL::deleteBuffers (4, &textureBuffers[0]);
+    for (std::vector<AbstractUniform*>::iterator it = uniforms.begin();
+	 it != uniforms.end();
+	 ++it)
+    {
+	delete *it;
+    }
 }
 
 int PrivateVertexBuffer::render (const GLMatrix            *projection,

@@ -293,7 +293,10 @@ endfunction ()
 macro (compiz_add_git_dist)
 
 	add_custom_target (dist
-			   COMMAND bzr export --root=${CMAKE_PROJECT_NAME}-${VERSION} ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}-${VERSION}.tar.bz2
+			   COMMAND bzr export ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}-${VERSION} 
+			   && rm -rf ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}-${VERSION}/debian
+			   && tar -C ${CMAKE_BINARY_DIR} -cj ${CMAKE_PROJECT_NAME}-${VERSION} -f ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}-${VERSION}.tar.bz2
+			   && rm -rf  ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}-${VERSION}
 			   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 endmacro ()
@@ -402,12 +405,12 @@ macro (compiz_add_release)
 	if (AUTO_NEWS_UPDATE)
 
 		add_custom_target (news-header echo > ${CMAKE_BINARY_DIR}/NEWS.update
-				   COMMAND echo 'Release ${VERSION} ('`date +%Y-%m-%d`' '`bzr config email`')' > ${CMAKE_BINARY_DIR}/NEWS.update && seq -s "=" `cat ${CMAKE_BINARY_DIR}/NEWS.update | wc -c` | sed 's/[0-9]//g' >> ${CMAKE_BINARY_DIR}/NEWS.update && echo '${AUTO_NEWS_UPDATE}' >> ${CMAKE_BINARY_DIR}/NEWS.update && echo >> ${CMAKE_BINARY_DIR}/NEWS.update
+                  COMMAND echo \"Release ${VERSION} \(`date +%Y-%m-%d` `bzr config email`\)\" > ${CMAKE_BINARY_DIR}/NEWS.update && seq -s \"=\" `cat ${CMAKE_BINARY_DIR}/NEWS.update | wc -c` | sed 's/[0-9]//g' >> ${CMAKE_BINARY_DIR}/NEWS.update && echo '${AUTO_NEWS_UPDATE}' >> ${CMAKE_BINARY_DIR}/NEWS.update && echo >> ${CMAKE_BINARY_DIR}/NEWS.update
 				   COMMENT "Generating NEWS Header"
 				   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 	else (AUTO_NEWS_UPDATE)
 		add_custom_target (news-header echo > ${CMAKE_BINARY_DIR}/NEWS.update
-				   COMMAND echo 'Release ${VERSION} ('`date +%Y-%m-%d`' '`bzr config email`')' > ${CMAKE_BINARY_DIR}/NEWS.update && seq -s "=" `cat ${CMAKE_BINARY_DIR}/NEWS.update | wc -c` | sed 's/[0-9]//g' >> ${CMAKE_BINARY_DIR}/NEWS.update && $ENV{EDITOR} ${CMAKE_BINARY_DIR}/NEWS.update && echo >> ${CMAKE_BINARY_DIR}/NEWS.update
+				   COMMAND echo \"Release ${VERSION} \(`date +%Y-%m-%d` `bzr config email`\)\" > ${CMAKE_BINARY_DIR}/NEWS.update && seq -s "=" `cat ${CMAKE_BINARY_DIR}/NEWS.update | wc -c` | sed 's/[0-9]//g' >> ${CMAKE_BINARY_DIR}/NEWS.update && $ENV{EDITOR} ${CMAKE_BINARY_DIR}/NEWS.update && echo >> ${CMAKE_BINARY_DIR}/NEWS.update
 				   COMMENT "Generating NEWS Header"
 				   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 	endif (AUTO_NEWS_UPDATE)

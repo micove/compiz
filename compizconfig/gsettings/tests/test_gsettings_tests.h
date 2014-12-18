@@ -35,6 +35,9 @@ using ::testing::TestWithParam;
 class CCSGSettingsTeardownSetupInterface
 {
     public:
+
+	virtual ~CCSGSettingsTeardownSetupInterface () {}
+
 	virtual void SetUp () = 0;
 	virtual void TearDown () = 0;
 };
@@ -42,6 +45,8 @@ class CCSGSettingsTeardownSetupInterface
 class CCSGSettingsTestingEnv
 {
     public:
+
+	virtual ~CCSGSettingsTestingEnv () {}
 
 	virtual void SetUpEnv ()
 	{
@@ -63,6 +68,8 @@ class CCSGSettingsMemoryBackendTestingEnv :
     public CCSGSettingsTestingEnv
 {
     public:
+
+	virtual ~CCSGSettingsMemoryBackendTestingEnv () {}
 
 	virtual void SetUpEnv ()
 	{

@@ -27,6 +27,7 @@
 #define _COMPIZ_PLUGIN_H
 
 #include <core/string.h>
+#include <core/action.h>
 #include <core/option.h>
 #include <core/privateunion.h>
 #include <core/pluginclasshandler.h>
@@ -146,6 +147,8 @@ class CompPlugin {
 
 		virtual bool setOption (const CompString  &name,
 					CompOption::Value &value);
+
+		virtual CompAction::Vector & getActions ();
 	    private:
 		CompString   mName;
 		VTable       **mSelf;
@@ -167,6 +170,7 @@ class CompPlugin {
 		CompOption::Vector & getOptions ();
 		bool setOption (const CompString &name,
 				CompOption::Value &value);
+		CompAction::Vector & getActions ();
 
 	    private:
 
@@ -190,6 +194,7 @@ class CompPlugin {
 		void finiScreen (CompScreen *s);
 		CompOption::Vector & getOptions ();
 		bool setOption (const CompString &name, CompOption::Value &value);
+		CompAction::Vector & getActions ();
 
 	    private:
 
@@ -364,6 +369,15 @@ CompPlugin::VTableForScreenAndWindow<T, T2, ABI>::setOption (const CompString  &
     return oc->setOption (name, value);
 }
 
+template <typename T, typename T2, int ABI>
+CompAction::Vector & CompPlugin::VTableForScreenAndWindow<T, T2, ABI>::getActions ()
+{
+    CompAction::Container *ac = dynamic_cast<CompAction::Container *> (T::get (screen));
+    if (!ac)
+	return noActions ();
+    return ac->getActions ();
+}
+
 /**
  * Mark the plugin class handlers as ready to be initialized
  */
@@ -433,6 +447,16 @@ CompPlugin::VTableForScreen<T, ABI>::setOption (const CompString  &name,
     if (!oc)
 	return false;
     return oc->setOption (name, value);
+}
+
+template <typename T, int ABI>
+CompAction::Vector &
+CompPlugin::VTableForScreen<T, ABI>::getActions ()
+{
+    CompAction::Container *ac = dynamic_cast<CompAction::Container *> (T::get (screen));
+    if (!ac)
+	return noActions ();
+    return ac->getActions ();
 }
 
 typedef CompPlugin::VTable *(*PluginGetInfoProc) (void);

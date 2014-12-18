@@ -98,6 +98,23 @@ autoRaiseTimeout (CompScreen *screen)
 		       Mod3Mask | Mod4Mask | Mod5Mask | CompNoMask)
 
 static bool
+isCallBackBinding (CompAction	           &action,
+		   CompAction::BindingType type,
+		   CompAction::State       state)
+{
+    if (!(action.type () & type))
+	return false;
+
+    if (!(action.state () & state))
+	return false;
+
+    if (!action.active ())
+	return false;
+
+    return true;
+}
+
+static bool
 isCallBackBinding (CompOption	           &option,
 		   CompAction::BindingType type,
 		   CompAction::State       state)
@@ -105,16 +122,7 @@ isCallBackBinding (CompOption	           &option,
     if (!option.isAction ())
 	return false;
 
-    if (!(option.value ().action ().type () & type))
-	return false;
-
-    if (!(option.value ().action ().state () & state))
-	return false;
-
-    if (!option.value ().action ().active ())
-	return false;
-
-    return true;
+    return isCallBackBinding (option.value ().action (), type, state);
 }
 
 static bool
@@ -132,6 +140,14 @@ isInitiateBinding (CompOption	           &option,
     *action = &option.value ().action ();
 
     return true;
+}
+
+static bool
+isBound (CompAction             &action,
+         CompAction::BindingType type,
+         CompAction::State       state)
+{
+    return isCallBackBinding (action, type, state);
 }
 
 static bool
@@ -379,14 +395,53 @@ PrivateScreen::triggerButtonReleaseBindings (CompOption::Vector &options,
 }
 
 bool
+PrivateScreen::shouldTriggerKeyPressAction (CompAction *action,
+					    XKeyEvent  *event)
+{
+    unsigned int modMask = REAL_MOD_MASK & ~modHandler->ignoredModMask ();
+    unsigned int bindMods = modHandler->virtualToRealModMask (action->key ().modifiers ());
+    int          bindCode = action->key ().keycode ();
+    unsigned int bindCodeMod = bindCode ? modHandler->keycodeToModifiers (bindCode) : 0;
+    unsigned int eventMods = event->state & modMask;
+
+    if (bindCode == (int) event->keycode)
+	return (bindMods & modMask) == eventMods;
+    else if (!xkbEvent.get() && bindCode == 0)
+	return bindMods == eventMods;
+    else if (bindCodeMod != 0)
+    {
+	for (int mod = 0; mod < 8; mod++)
+	{
+	    int mask = 1 << mod;
+
+	    if ((bindMods & mask) == 0)
+		continue;
+
+	    for (int k = mod * modHandler->modMap ()->max_keypermod;
+		 k < (mod + 1) * modHandler->modMap ()->max_keypermod;
+		 k++)
+	    {
+		if (modHandler->modMap ()->modifiermap[k] == event->keycode)
+		{
+		    if ((((bindMods & ~mask) | bindCodeMod) & modMask) == eventMods)
+			return true;
+
+		    break;
+		}
+	    }
+	}
+    }
+
+    return false;
+}
+
+bool
 PrivateScreen::triggerKeyPressBindings (CompOption::Vector &options,
+					CompAction::Vector &actions,
 					XKeyEvent          *event,
 					CompOption::Vector &arguments)
 {
     CompAction::State state = 0;
-    CompAction	      *action;
-    unsigned int      modMask = REAL_MOD_MASK & ~modHandler->ignoredModMask ();
-    unsigned int      bindMods;
 
     if (event->keycode == escapeKeyCode)
 	state = CompAction::StateCancel;
@@ -405,6 +460,12 @@ PrivateScreen::triggerKeyPressBindings (CompOption::Vector &options,
 	    }
 	}
 
+	foreach (CompAction &a, actions)
+	{
+	    if (!a.terminate ().empty ())
+		a.terminate () (&a, state, noOptions ());
+	}
+
 	if (state == CompAction::StateCancel)
 	    return false;
     }
@@ -412,73 +473,114 @@ PrivateScreen::triggerKeyPressBindings (CompOption::Vector &options,
     state = CompAction::StateInitKey;
     foreach (CompOption &option, options)
     {
-	if (isBound (option, CompAction::BindingTypeKey, state, &action))
-	{
-	    bindMods = modHandler->virtualToRealModMask (
-		action->key ().modifiers ());
+	CompAction *action;
 
-	    bool match = false;
-	    if (action->key ().keycode () == (int) event->keycode)
-		match = ((bindMods & modMask) == (event->state & modMask));
-	    else if (!xkbEvent.get() && action->key ().keycode () == 0)
-		match = (bindMods == (event->state & modMask));
-
-	    if (match && eventManager.triggerPress (action, state, arguments))
+	if (isBound (option, CompAction::BindingTypeKey, state, &action) &&
+	    shouldTriggerKeyPressAction (action, event) &&
+	    eventManager.triggerPress (action, state, arguments))
 		return true;
-	}
+    }
+
+    foreach (CompAction &action, actions)
+    {
+	if (isBound (action, CompAction::BindingTypeKey, state) &&
+	    shouldTriggerKeyPressAction (&action, event) &&
+	    eventManager.triggerPress (&action, state, arguments))
+		return true;
     }
 
     return false;
 }
 
 bool
+PrivateScreen::shouldTriggerKeyReleaseAction (CompAction *action,
+					      XKeyEvent  *event)
+{
+    unsigned int modMask = REAL_MOD_MASK & ~modHandler->ignoredModMask ();
+    unsigned int bindMods = modHandler->virtualToRealModMask (action->key ().modifiers ());
+
+    if ((bindMods & modMask) == 0)
+	return (unsigned int) action->key ().keycode () == event->keycode;
+
+    unsigned int mods = modHandler->keycodeToModifiers (event->keycode);
+    return !xkbEvent.get() && ((mods & modMask & bindMods) != bindMods);
+}
+
+bool
 PrivateScreen::triggerKeyReleaseBindings (CompOption::Vector &options,
+					  CompAction::Vector &actions,
 					  XKeyEvent          *event,
 					  CompOption::Vector &arguments)
 {
     CompAction::State state = CompAction::StateTermKey;
-    CompAction        *action;
-    unsigned int      ignored = modHandler->ignoredModMask ();
-    unsigned int      modMask = REAL_MOD_MASK & ~ignored;
-    unsigned int      bindMods;
-    unsigned int      mods;
 
-    mods = modHandler->keycodeToModifiers (event->keycode);
-    if (!xkbEvent.get() && !mods)
+    if (!xkbEvent.get() && !modHandler->keycodeToModifiers (event->keycode))
 	return false;
 
     bool handled = false;
 
     foreach (CompOption &option, options)
     {
-	if (isBound (option, CompAction::BindingTypeKey, state, &action))
-	{
-	    bindMods = modHandler->virtualToRealModMask (action->key ().modifiers ());
+	CompAction *action;
 
-	    bool match = false;
-	    if ((bindMods & modMask) == 0)
-		match = ((unsigned int) action->key ().keycode () ==
-		         (unsigned int) event->keycode);
-	    else if (!xkbEvent.get() && ((mods & modMask & bindMods) != bindMods))
-	        match = true;
+	if (isBound (option, CompAction::BindingTypeKey, state, &action) &&
+	    shouldTriggerKeyReleaseAction (action, event))
+		handled |= eventManager.triggerRelease (action, state, arguments);
+    }
 
-	    handled |= match && eventManager.triggerRelease (action, state, arguments);
-	}
+    foreach (CompAction &action, actions)
+    {
+	if (isBound (action, CompAction::BindingTypeKey, state) &&
+	    shouldTriggerKeyReleaseAction (&action, event))
+		handled |= eventManager.triggerRelease (&action, state, arguments);
     }
 
     return handled;
 }
 
 bool
+PrivateScreen::shouldTriggerModifierPressAction (CompAction          *action,
+						 XkbStateNotifyEvent *event)
+{
+    if (action->key ().keycode ())
+	return false;
+
+    unsigned int modMask = REAL_MOD_MASK & ~modHandler->ignoredModMask ();
+    unsigned int bindMods = modHandler->virtualToRealModMask (action->key ().modifiers ());
+    unsigned int eventMods = event->mods & modMask;
+
+    return eventMods == bindMods;
+}
+
+bool
+PrivateScreen::shouldTriggerModifierReleaseAction (CompAction          *action,
+						   XkbStateNotifyEvent *event)
+{
+    unsigned int modMask = REAL_MOD_MASK & ~modHandler->ignoredModMask ();
+    unsigned int bindMods = modHandler->virtualToRealModMask (action->key ().modifiers ());
+
+    if (event->mods && ((event->mods & modMask) != bindMods))
+	return true;
+
+    unsigned int eventCodeMod = modHandler->keycodeToModifiers (event->keycode);
+
+    if (!event->mods && (eventCodeMod == bindMods))
+	return true;
+
+    int bindCode = action->key ().keycode ();
+    unsigned int bindCodeMod = bindCode ? modHandler->keycodeToModifiers (bindCode) : 0;
+
+    return bindCodeMod && event->keycode == bindCode &&
+	 ((bindMods | bindCodeMod) == ((event->mods & modMask) | eventCodeMod));
+}
+
+bool
 PrivateScreen::triggerStateNotifyBindings (CompOption::Vector  &options,
+					   CompAction::Vector  &actions,
 					   XkbStateNotifyEvent *event,
 					   CompOption::Vector  &arguments)
 {
     CompAction::State state;
-    CompAction        *action;
-    unsigned int      ignored = modHandler->ignoredModMask ();
-    unsigned int      modMask = REAL_MOD_MASK & ~ignored;
-    unsigned int      bindMods;
 
     if (event->event_type == KeyPress)
     {
@@ -486,20 +588,20 @@ PrivateScreen::triggerStateNotifyBindings (CompOption::Vector  &options,
 
 	foreach (CompOption &option, options)
 	{
-	    if (isBound (option, CompAction::BindingTypeKey, state, &action))
-	    {
-		if (action->key ().keycode () == 0)
-		{
-		    bindMods =
-			modHandler->virtualToRealModMask (action->key ().modifiers ());
+	    CompAction *action;
 
-		    if ((event->mods & modMask) == bindMods)
-		    {
-		        if (eventManager.triggerPress (action, state, arguments))
-			    return true;
-		    }
-		}
-	    }
+	    if (isBound (option, CompAction::BindingTypeKey, state, &action) &&
+		shouldTriggerModifierPressAction (action, event) &&
+		eventManager.triggerPress (action, state, arguments))
+		    return true;
+	}
+
+	foreach (CompAction &action, actions)
+	{
+	    if (isBound (action, CompAction::BindingTypeKey, state) &&
+		shouldTriggerModifierPressAction (&action, event) &&
+		eventManager.triggerPress (&action, state, arguments))
+		    return true;
 	}
     }
     else if (event->event_type == KeyRelease)
@@ -509,19 +611,18 @@ PrivateScreen::triggerStateNotifyBindings (CompOption::Vector  &options,
 
 	foreach (CompOption &option, options)
 	{
-	    if (isBound (option, CompAction::BindingTypeKey, state, &action))
-	    {
-		bindMods = modHandler->virtualToRealModMask (
-		    action->key ().modifiers ());
-		unsigned int modKey =
-		    modHandler->keycodeToModifiers (event->keycode);
+	    CompAction *action;
 
-		if ((event->mods && ((event->mods & modMask) != bindMods)) ||
-		    (!event->mods && (modKey == bindMods)))
-		{
+	    if (isBound (option, CompAction::BindingTypeKey, state, &action) &&
+		shouldTriggerModifierReleaseAction (action, event))
 		    handled |= eventManager.triggerRelease (action, state, arguments);
-		}
-	    }
+	}
+
+	foreach (CompAction &action, actions)
+	{
+	    if (isBound (action, CompAction::BindingTypeKey, state) &&
+		shouldTriggerModifierReleaseAction (&action, event))
+		    handled |= eventManager.triggerRelease (&action, state, arguments);
 	}
 
 	if (handled)
@@ -843,7 +944,8 @@ PrivateScreen::handleActionEvent (XEvent *event)
 	foreach (CompPlugin *p, CompPlugin::getPlugins ())
 	{
 	    CompOption::Vector &options = p->vTable->getOptions ();
-	    if (triggerKeyPressBindings (options, &event->xkey, o))
+	    CompAction::Vector &actions = p->vTable->getActions ();
+	    if (triggerKeyPressBindings (options, actions, &event->xkey, o))
 		return true;
 	}
 	break;
@@ -867,7 +969,8 @@ PrivateScreen::handleActionEvent (XEvent *event)
 	foreach (CompPlugin *p, CompPlugin::getPlugins ())
 	{
 	    CompOption::Vector &options = p->vTable->getOptions ();
-	    handled |= triggerKeyReleaseBindings (options, &event->xkey, o);
+	    CompAction::Vector &actions = p->vTable->getActions ();
+	    handled |= triggerKeyReleaseBindings (options, actions, &event->xkey, o);
 	}
 
         if (handled)
@@ -1068,15 +1171,13 @@ PrivateScreen::handleActionEvent (XEvent *event)
 		arg[3].value ().set ((int) xkbEvent->time);
 		arg[7].value ().set ((int) xkbEvent->time);
 
-		if (stateEvent->event_type == KeyPress)
-		    eventManager.resetPossibleTap();
-
 		bool handled = false;
 
 		foreach (CompPlugin *p, CompPlugin::getPlugins ())
 		{
 		    CompOption::Vector &options = p->vTable->getOptions ();
-		    handled |= triggerStateNotifyBindings (options, stateEvent, arg);
+		    CompAction::Vector &actions = p->vTable->getActions ();
+		    handled |= triggerStateNotifyBindings (options, actions, stateEvent, arg);
 		}
 
 		if (handled)
@@ -1903,17 +2004,6 @@ static const unsigned short _NET_WM_STATE_TOGGLE = 2;
 		    leaveShowDesktopMode (NULL);
 	    }
 	}
-	else if (event->xclient.message_type == Atoms::numberOfDesktops)
-	{
-	    if (event->xclient.window == privateScreen.rootWindow())
-	    {
-		CompOption::Value value;
-
-		value.set ((int) event->xclient.data.l[0]);
-
-		setOptionForPlugin ("core", "number_of_desktops", value);
-	    }
-	}
 	else if (event->xclient.message_type == Atoms::currentDesktop)
 	{
 	    if (event->xclient.window == privateScreen.rootWindow())
@@ -2243,6 +2333,8 @@ static const unsigned short _NET_WM_STATE_TOGGLE = 2;
     case FocusOut:
 	if (event->xfocus.mode == NotifyUngrab)
 	    privateScreen.eventManager.ungrabNotified ();
+	else if (event->xfocus.mode == NotifyWhileGrabbed)
+	    privateScreen.eventManager.grabNotified ();
 	break;
     case EnterNotify:
 	if (event->xcrossing.root == privateScreen.rootWindow())

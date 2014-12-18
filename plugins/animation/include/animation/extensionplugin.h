@@ -11,6 +11,8 @@ public:
 			  CompOption::Vector *effectOptions,
 			  unsigned int firstEffectOptionIndex);
      
+     virtual ~ExtensionPluginInfo () {}
+
      CompString name;
      unsigned int nEffects;
      AnimEffect *effects;

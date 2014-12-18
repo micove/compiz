@@ -48,7 +48,7 @@ public:
 
     Glib::RefPtr <Glib::MainContext> mc;
     Glib::RefPtr <Glib::MainLoop> ml;
-    CompTimeoutSource *ts;
+    Glib::RefPtr <CompTimeoutSource> ts;
     std::deque <CompTimer *> timers;
 
     int lastTimerTriggered;

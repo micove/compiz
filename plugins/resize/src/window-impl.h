@@ -201,6 +201,16 @@ class CompWindowImpl : public CompWindowInterface
 	    mImpl->maximize (state);
 	}
 
+	virtual XWindowChanges & saveWc ()
+	{
+	    return mImpl->saveWc ();
+	}
+
+	virtual int & saveMask ()
+	{
+	    return mImpl->saveMask ();
+	}
+
 	virtual bool evaluate (CompMatch &match)
 	{
 	    return match.evaluate (mImpl);

@@ -37,37 +37,9 @@
 #include <X11/extensions/Xrender.h>
 #include <X11/Xregion.h>
 
-#ifdef HAVE_GTK_2_24
-
-#ifndef GDK_DISABLE_DEPRECATED
-#define GDK_DISABLE_DEPRECATED
-#endif
-
-#define create_foreign_window(xid)						       \
-    gdk_x11_window_foreign_new_for_display (gdk_display_get_default (),	       \
-					    xid)
-#else
-
-#define create_foreign_window(xid)						       \
-    gdk_window_foreign_new (xid)
-
-#ifdef GDK_DISABLE_DEPRECATED
-#undef GDK_DISABLE_DEPRECATED
-#endif
-
-#endif
-
-#ifndef GTK_DISABLE_DEPRECATED
-#define GTK_DISABLE_DEPRECATED
-#endif
-
 #include <gtk/gtk.h>
 #include <gdk/gdkx.h>
 #include <gdk/gdk.h>
-
-#ifdef USE_GCONF
-#include <gconf/gconf-client.h>
-#endif
 
 #ifdef USE_DBUS_GLIB
 #define DBUS_API_SUBJECT_TO_CHANGE
@@ -77,11 +49,6 @@
 
 #define WNCK_I_KNOW_THIS_IS_UNSTABLE
 #include <libwnck/libwnck.h>
-#include <libwnck/window-action-menu.h>
-
-#ifndef HAVE_LIBWNCK_2_19_4
-#define wnck_window_get_client_window_geometry wnck_window_get_geometry
-#endif
 
 #include <cairo.h>
 #include <cairo-xlib.h>
@@ -110,62 +77,6 @@
 #endif
 
 #include <gwd-fwd.h>
-
-#define METACITY_GCONF_DIR "/apps/metacity/general"
-#define MUTTER_GCONF_DIR "/apps/mutter/general"
-
-#define COMPIZ_USE_SYSTEM_FONT_KEY		    \
-METACITY_GCONF_DIR "/titlebar_uses_system_font"
-		    
-#define COMPIZ_TITLEBAR_FONT_KEY	\
-METACITY_GCONF_DIR "/titlebar_font"
-
-#define COMPIZ_DOUBLE_CLICK_TITLEBAR_KEY	       \
-METACITY_GCONF_DIR "/action_double_click_titlebar"
-
-#define COMPIZ_MIDDLE_CLICK_TITLEBAR_KEY	       \
-METACITY_GCONF_DIR "/action_middle_click_titlebar"
-
-#define COMPIZ_RIGHT_CLICK_TITLEBAR_KEY	       \
-METACITY_GCONF_DIR "/action_right_click_titlebar"
-
-#define MUTTER_DRAGGABLE_BORDER_WIDTH_KEY \
-MUTTER_GCONF_DIR "/draggable_border_width"
-
-#define MUTTER_ATTACH_MODAL_DIALOGS_KEY \
-MUTTER_GCONF_DIR "/attach_modal_dialogs"
-
-#define META_THEME_KEY		\
-METACITY_GCONF_DIR "/theme"
-
-#define META_BUTTON_LAYOUT_KEY		\
-METACITY_GCONF_DIR "/button_layout"
-
-#define GCONF_DIR "/apps/gwd"
-
-#define USE_META_THEME_KEY	    \
-GCONF_DIR "/use_metacity_theme"
-
-#define META_THEME_OPACITY_KEY	        \
-GCONF_DIR "/metacity_theme_opacity"
-
-#define META_THEME_SHADE_OPACITY_KEY	      \
-GCONF_DIR "/metacity_theme_shade_opacity"
-
-#define META_THEME_ACTIVE_OPACITY_KEY	       \
-GCONF_DIR "/metacity_theme_active_opacity"
-
-#define META_THEME_ACTIVE_SHADE_OPACITY_KEY          \
-GCONF_DIR "/metacity_theme_active_shade_opacity"
-
-#define BLUR_TYPE_KEY	   \
-GCONF_DIR "/blur_type"
-
-#define WHEEL_ACTION_KEY   \
-GCONF_DIR "/mouse_wheel_action"
-
-#define USE_TOOLTIPS_KEY \
-GCONF_DIR "/use_tooltips"
 
 #define DBUS_DEST       "org.freedesktop.compiz"
 #define DBUS_PATH       "/org/freedesktop/compiz/decor/screen0"
@@ -393,8 +304,8 @@ typedef struct _decor {
     Box		      *last_pos_entered;
     guint	      button_states[BUTTON_NUM];
     Pixmap            x11Pixmap;
-    GdkPixmap	      *pixmap;
-    GdkPixmap	      *buffer_pixmap;
+    cairo_surface_t   *surface;
+    cairo_surface_t   *buffer_surface;
     GdkWindow	      *frame_window;
     GtkWidget         *decor_window;
     GtkWidget	      *decor_event_box;
@@ -414,7 +325,7 @@ typedef struct _decor {
     PangoLayout	      *layout;
     gchar	      *name;
     cairo_pattern_t   *icon;
-    GdkPixmap	      *icon_pixmap;
+    cairo_surface_t   *icon_surface;
     GdkPixbuf	      *icon_pixbuf;
     WnckWindowState   state;
     WnckWindowActions actions;
@@ -780,32 +691,24 @@ cairo_get_shadow (decor_frame_t *, decor_shadow_options_t *opts, gboolean active
 
 /* gdk.c */
 
-void
-gdk_cairo_set_source_color_alpha (cairo_t  *cr,
-				  GdkColor *color,
-				  double   alpha);
-
 GdkWindow *
 create_gdk_window (Window xframe);
 
-GdkColormap *
-get_colormap_for_drawable (GdkDrawable *d);
-
 XRenderPictFormat *
-get_format_for_drawable (decor_t *d, GdkDrawable *drawable);
+get_format_for_surface (decor_t *d, cairo_surface_t *surface);
 
-GdkPixmap *
-create_pixmap (int	 w,
+cairo_surface_t *
+create_surface (int	 w,
 	       int	 h,
 	       GtkWidget *parent_style_window);
 
-GdkPixmap *
-create_native_pixmap_and_wrap (int	  w,
+cairo_surface_t *
+create_native_surface_and_wrap (int	  w,
 			       int	  h,
 			       GtkWidget *parent_style_window);
 
-GdkPixmap *
-pixmap_new_from_pixbuf (GdkPixbuf *pixbuf, GtkWidget *parent);
+cairo_surface_t *
+surface_new_from_pixbuf (GdkPixbuf *pixbuf, GtkWidget *parent);
 
 /* metacity.c */
 #ifdef USE_METACITY
@@ -1120,15 +1023,6 @@ get_window_prop (Window xwindow,
 
 unsigned int
 get_mwm_prop (Window xwindow);
-
-
-/* style.c */
-
-void
-update_style (GtkWidget *widget);
-
-void
-style_changed (GtkWidget *widget, void *user_data /* PangoContext */);
 
 /* settings.c */
 

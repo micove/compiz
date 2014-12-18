@@ -69,6 +69,7 @@ class WaitForSuccessDeathTask :
 	    mProcessState (procState)
 	{
 	}
+	virtual ~WaitForSuccessDeathTask () {}
 
     private:
 

@@ -97,17 +97,16 @@ class AnimPluginVTable :
     public CompPlugin::VTableForScreenAndWindow<AnimScreen, AnimWindow, ANIMATION_ABI>
 {
 public:
+
     bool init ();
     void fini ();
 };
 
 COMPIZ_PLUGIN_20090315 (animation, AnimPluginVTable);
 
-static const unsigned short FAKE_ICON_SIZE = 4;
-
-const unsigned short LAST_ANIM_DIRECTION = 5;
-
-const unsigned short NUM_EFFECTS = 16;
+static const unsigned short FAKE_ICON_SIZE      = 4;
+const unsigned short        LAST_ANIM_DIRECTION = 5;
+const unsigned short        NUM_EFFECTS         = 16;
 
 const char *eventNames[AnimEventNum] =
 {"Open", "Close", "Minimize", "Unminimize", "Shade", "Focus"};
@@ -167,11 +166,12 @@ int durationOptionIds[AnimEventNum] =
 // provided by a plugin, otherwise set it to None.
 void
 PrivateAnimScreen::updateEventEffects (AnimEvent e,
-				       bool forRandom,
-				       bool callPost)
+				       bool      forRandom,
+				       bool      callPost)
 {
     CompOption::Value::Vector *listVal;
     EffectSet *effectSet;
+
     if (forRandom)
     {
 	listVal = &getOptions ()[(unsigned)randomEffectOptionIds[e]].value ().
@@ -184,6 +184,7 @@ PrivateAnimScreen::updateEventEffects (AnimEvent e,
 	    list ();
 	effectSet = &mEventEffects[e];
     }
+
     unsigned int n = listVal->size ();
 
     effectSet->effects.clear ();
@@ -191,7 +192,7 @@ PrivateAnimScreen::updateEventEffects (AnimEvent e,
 
     AnimEffectVector &eventEffectsAllowed = mEventEffectsAllowed[e];
 
-    for (unsigned int r = 0; r < n; r++) // for each row
+    for (unsigned int r = 0; r < n; ++r) // for each row
     {
 	const CompString &animName = (*listVal)[r].s ();
 
@@ -208,7 +209,7 @@ PrivateAnimScreen::updateEventEffects (AnimEvent e,
 
     if (callPost)
     {
-    	foreach (ExtensionPluginInfo *extPlugin, mExtensionPlugins)
+	foreach (ExtensionPluginInfo *extPlugin, mExtensionPlugins)
 	    extPlugin->postUpdateEventEffects (e, forRandom);
     }
 }
@@ -227,20 +228,22 @@ PrivateAnimScreen::updateAllEventEffects ()
 
 bool
 PrivateAnimScreen::isAnimEffectInList (AnimEffect theEffect,
-				       EffectSet &effectList)
+				       EffectSet  &effectList)
 {
     for (unsigned int i = 0; i < effectList.effects.size (); ++i)
 	if (effectList.effects[i] == theEffect)
 	    return true;
+
     return false;
 }
 
 bool
 PrivateAnimScreen::isAnimEffectPossibleForEvent (AnimEffect theEffect,
-						 AnimEvent event)
+						 AnimEvent  event)
 {
     // Check all rows to see if the effect is chosen there
     unsigned int nRows = mEventEffects[event].effects.size ();
+
     for (unsigned int i = 0; i < nRows; ++i)
     {
 	AnimEffect chosenEffect = mEventEffects[event].effects[i];
@@ -253,6 +256,7 @@ PrivateAnimScreen::isAnimEffectPossibleForEvent (AnimEffect theEffect,
 	    isAnimEffectInList (theEffect, mRandomEffects[event]))
 	    return true;
     }
+
     return false;
 }
 
@@ -262,6 +266,7 @@ PrivateAnimScreen::isAnimEffectPossible (AnimEffect theEffect)
     for (int e = 0; e < AnimEventNum; ++e)
 	if (isAnimEffectPossibleForEvent (theEffect, (AnimEvent)e))
 	    return true;
+
     return false;
 }
 
@@ -275,9 +280,11 @@ PrivateAnimScreen::isRestackAnimPossible ()
     {
 	AnimEffect chosenEffect = mEventEffects[(unsigned)AnimEventFocus].
 	    effects[i];
+
 	if (chosenEffect->isRestackAnim)
 	    return true;
     }
+
     return false;
 }
 
@@ -297,7 +304,7 @@ AnimScreen::addExtension (ExtensionPluginInfo *extensionPluginInfo)
 
 void
 PrivateAnimScreen::addExtension (ExtensionPluginInfo *extensionPluginInfo,
-				 bool shouldInitPersistentData)
+				 bool                shouldInitPersistentData)
 {
     mExtensionPlugins.push_back (extensionPluginInfo);
 
@@ -324,20 +331,24 @@ PrivateAnimScreen::addExtension (ExtensionPluginInfo *extensionPluginInfo,
     }
 
     for (int e = 0; e < AnimEventNum; ++e)
+    {
 	if (eventEffectsNeedUpdate[e])
 	{
 	    updateEventEffects ((AnimEvent)e, false, false);
+
 	    if (e != AnimEventFocus)
 		updateEventEffects ((AnimEvent)e, true, false);
 	}
+    }
 
     if (shouldInitPersistentData)
     {
 	const CompWindowList &pl = pushLockedPaintList ();
+	AnimWindow           *aw;
 	// Initialize persistent window data for the extension plugin
 	foreach (CompWindow *w, pl)
 	{
-	    AnimWindow *aw = AnimWindow::get (w);
+	    aw = AnimWindow::get (w);
 	    extensionPluginInfo->initPersistentData (aw);
 	}
 
@@ -357,9 +368,12 @@ PrivateAnimScreen::removeExtension (ExtensionPluginInfo *extensionPluginInfo)
     // Stop all ongoing animations
     const CompWindowList &pl = pushLockedPaintList ();
 
+    PrivateAnimWindow *aw;
+
     foreach (CompWindow *w, pl)
     {
-	PrivateAnimWindow *aw = AnimWindow::get (w)->priv;
+	aw = AnimWindow::get (w)->priv;
+
 	if (aw->curAnimation ())
 	    aw->postAnimationCleanUp ();
     }
@@ -379,7 +393,6 @@ PrivateAnimScreen::removeExtension (ExtensionPluginInfo *extensionPluginInfo)
 
     if (extensionPluginInfo->nEffects == 0)
 	return; // no animation effects -> we're done here
-
 
     // Also delete the "allowed effect" entries for that plugin
 
@@ -409,6 +422,7 @@ PrivateAnimScreen::removeExtension (ExtensionPluginInfo *extensionPluginInfo)
 
 	// Update event effects to complete removal
 	updateEventEffects ((AnimEvent)e, false);
+
 	if (e != AnimEventFocus)
 	    updateEventEffects ((AnimEvent)e, true);
     }
@@ -425,11 +439,11 @@ PrivateAnimScreen::removeExtension (ExtensionPluginInfo *extensionPluginInfo)
     popLockedPaintList ();
 }
 
-ExtensionPluginInfo::ExtensionPluginInfo (const CompString &name,
-					  unsigned int nEffects,
-					  AnimEffect *effects,
+ExtensionPluginInfo::ExtensionPluginInfo (const CompString   &name,
+					  unsigned int       nEffects,
+					  AnimEffect         *effects,
 					  CompOption::Vector *effectOptions,
-					  unsigned int firstEffectOptionIndex) :
+					  unsigned int       firstEffectOptionIndex) :
     name (name),
     nEffects (nEffects),
     effects (effects),
@@ -440,11 +454,11 @@ ExtensionPluginInfo::ExtensionPluginInfo (const CompString &name,
 
 // End of extension functions
 
-Animation::Animation (CompWindow *w,
-		      WindowEvent curWindowEvent,
-		      float duration,
+Animation::Animation (CompWindow       *w,
+		      WindowEvent      curWindowEvent,
+		      float            duration,
 		      const AnimEffect info,
-		      const CompRect &icon) :
+		      const CompRect   &icon) :
     mWindow (w),
     mAWindow (AnimWindow::get (w)),
     mTotalTime (duration),
@@ -461,11 +475,11 @@ Animation::Animation (CompWindow *w,
     if (curWindowEvent == WindowEventShade ||
 	curWindowEvent == WindowEventUnshade)
     {
-	mDecorTopHeight = w->output ().top;
+	mDecorTopHeight    = w->output ().top;
 	mDecorBottomHeight = w->output ().bottom;
     }
 
-    texturesCache = new GLTexture::List (GLWindow::get (w)->textures ());
+    texturesCache         = new GLTexture::List (GLWindow::get (w)->textures ());
     PrivateAnimScreen *as = mAWindow->priv->paScreen ();
 
     mTimestep = as->optionGetTimeStep ();
@@ -494,26 +508,32 @@ Animation::reverse ()
 
     switch (mCurWindowEvent) // the old event
     {
-    case WindowEventOpen:
-	mCurWindowEvent = WindowEventClose;
-	break;
-    case WindowEventClose:
-	mCurWindowEvent = WindowEventOpen;
-	break;
-    case WindowEventMinimize:
-	mCurWindowEvent = WindowEventUnminimize;
-	break;
-    case WindowEventUnminimize:
-	mCurWindowEvent = WindowEventMinimize;
-	break;
-    case WindowEventShade:
-	mCurWindowEvent = WindowEventUnshade;
-	break;
-    case WindowEventUnshade:
-	mCurWindowEvent = WindowEventShade;
-	break;
-    default:
-	break;
+	case WindowEventOpen:
+	    mCurWindowEvent = WindowEventClose;
+	    break;
+
+	case WindowEventClose:
+	    mCurWindowEvent = WindowEventOpen;
+	    break;
+
+	case WindowEventMinimize:
+	    mCurWindowEvent = WindowEventUnminimize;
+	    break;
+
+	case WindowEventUnminimize:
+	    mCurWindowEvent = WindowEventMinimize;
+	    break;
+
+	case WindowEventShade:
+	    mCurWindowEvent = WindowEventUnshade;
+	    break;
+
+	case WindowEventUnshade:
+	    mCurWindowEvent = WindowEventShade;
+	    break;
+
+	default:
+	    break;
     }
 
     // 1: forward, 2: backward  (3 - progressDir is opposite direction)
@@ -521,13 +541,14 @@ Animation::reverse ()
 
     switch (mCurWindowEvent) // the new event
     {
-    case WindowEventClose:
-    case WindowEventMinimize:
-    case WindowEventShade:
-	progressDir = 2;
-	break;
-    default:
-	break;
+	case WindowEventClose:
+	case WindowEventMinimize:
+	case WindowEventShade:
+	    progressDir = 2;
+	    break;
+
+	default:
+	    break;
     }
 
     if (mOverrideProgressDir == 0)
@@ -536,11 +557,11 @@ Animation::reverse ()
 	mOverrideProgressDir = 0; // disable override
 }
 
-PartialWindowAnim::PartialWindowAnim (CompWindow *w,
-				      WindowEvent curWindowEvent,
-				      float duration,
+PartialWindowAnim::PartialWindowAnim (CompWindow       *w,
+				      WindowEvent      curWindowEvent,
+				      float            duration,
 				      const AnimEffect info,
-				      const CompRect &icon) :
+				      const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     mUseDrawRegion (false),
     mDrawRegion ()
@@ -574,8 +595,9 @@ PrivateAnimScreen::getMatchingAnimSelection (CompWindow *w,
 	getOptions ()[(unsigned)customOptionOptionIds[e]].value ();
 
     unsigned int nRows = valMatch.list ().size ();
-    if (nRows != eventEffects->effects.size () ||
-	nRows != valDuration.list ().size () ||
+
+    if (nRows != eventEffects->effects.size ()	||
+	nRows != valDuration.list ().size ()	||
 	nRows != valCustomOptions.list ().size ())
     {
 	compLogMessage ("animation", CompLogLevelError,
@@ -605,15 +627,16 @@ PrivateAnimScreen::getMatchingAnimSelection (CompWindow *w,
 
 AnimEffect
 PrivateAnimScreen::getActualEffect (AnimEffect effect,
-				    AnimEvent animEvent)
+				    AnimEvent  animEvent)
 {
-    bool allRandom = optionGetAllRandom ();
+    bool             allRandom      = optionGetAllRandom ();
     AnimEffectVector *randomEffects = &mRandomEffects[animEvent].effects;
-    unsigned int nRandomEffects = randomEffects->size ();
+    unsigned int     nRandomEffects = randomEffects->size ();
 
     if ((effect == AnimEffectRandom) || allRandom)
     {
 	unsigned int nFirstRandomEffect = 0;
+
 	if (nRandomEffects == 0) // no random animation selected, assume "all"
 	{
 	    randomEffects = &mEventEffectsAllowed[animEvent];
@@ -622,8 +645,10 @@ PrivateAnimScreen::getActualEffect (AnimEffect effect,
 	    nFirstRandomEffect = 2;
 	    nRandomEffects = randomEffects->size () - 2;
 	}
+
 	unsigned int index = nFirstRandomEffect +
 	    (unsigned int)(nRandomEffects * (double)rand () / RAND_MAX);
+
 	return (*randomEffects)[index];
     }
     else
@@ -634,12 +659,10 @@ PrivateAnimScreen::getActualEffect (AnimEffect effect,
 /// to an actual direction (up, down, left, or right).
 AnimDirection
 Animation::getActualAnimDirection (AnimDirection dir,
-				   bool openDir)
+				   bool          openDir)
 {
     if (dir == AnimDirectionRandom)
-    {
 	dir = (AnimDirection)(rand () % 4);
-    }
     else if (dir == AnimDirectionAuto)
     {
 	CompRect outRect (mAWindow->savedRectsValid () ?
@@ -647,8 +670,8 @@ Animation::getActualAnimDirection (AnimDirection dir,
 			  mWindow->outputRect ());
 
 	// away from icon
-	int centerX = outRect.x () + outRect.width () / 2 ;
-	int centerY = outRect.y () + outRect.height () / 2 ;
+	int   centerX  = outRect.centerX ();
+	int   centerY  = outRect.centerY ();
 	float relDiffX = ((float)centerX - mIcon.x ()) / outRect.width ();
 	float relDiffY = ((float)centerY - mIcon.y ()) / outRect.height ();
 
@@ -683,14 +706,13 @@ Animation::getActualAnimDirection (AnimDirection dir,
 float
 Animation::progressLinear ()
 {
-    float forwardProgress =
-	1 - mRemainingTime / (mTotalTime - mTimestep);
-    forwardProgress = MIN (forwardProgress, 1);
-    forwardProgress = MAX (forwardProgress, 0);
+    float forwardProgress = 1 - mRemainingTime / (mTotalTime - mTimestep);
+    forwardProgress       = MIN (forwardProgress, 1);
+    forwardProgress       = MAX (forwardProgress, 0);
 
-    if (mCurWindowEvent == WindowEventOpen ||
-	mCurWindowEvent == WindowEventUnminimize ||
-	mCurWindowEvent == WindowEventUnshade ||
+    if (mCurWindowEvent == WindowEventOpen	    ||
+	mCurWindowEvent == WindowEventUnminimize    ||
+	mCurWindowEvent == WindowEventUnshade	    ||
 	mCurWindowEvent == WindowEventFocus)
 	forwardProgress = 1 - forwardProgress;
 
@@ -700,19 +722,17 @@ Animation::progressLinear ()
 float
 Animation::progressEaseInEaseOut ()
 {
-    float forwardProgress =
-	1 - mRemainingTime / (mTotalTime - mTimestep);
-    forwardProgress = MIN (forwardProgress, 1);
-    forwardProgress = MAX (forwardProgress, 0);
+    float forwardProgress = 1 - mRemainingTime / (mTotalTime - mTimestep);
+    forwardProgress       = MIN (forwardProgress, 1);
+    forwardProgress       = MAX (forwardProgress, 0);
 
     // Apply sigmoid and normalize
-    forwardProgress =
-	(sigmoid (forwardProgress) - sigmoid (0)) /
-	(sigmoid (1) - sigmoid (0));
+    forwardProgress = (sigmoid (forwardProgress) - sigmoid (0)) /
+		      (sigmoid (1) - sigmoid (0));
 
-    if (mCurWindowEvent == WindowEventOpen ||
-	mCurWindowEvent == WindowEventUnminimize ||
-	mCurWindowEvent == WindowEventUnshade ||
+    if (mCurWindowEvent == WindowEventOpen	    ||
+	mCurWindowEvent == WindowEventUnminimize    ||
+	mCurWindowEvent == WindowEventUnshade	    ||
 	mCurWindowEvent == WindowEventFocus)
 	forwardProgress = 1 - forwardProgress;
 
@@ -725,7 +745,9 @@ Animation::progressEaseInEaseOut ()
 /// where minx and maxx are the
 /// starting and ending points on the sigmoid.
 float
-Animation::progressDecelerateCustom (float progress, float minx, float maxx)
+Animation::progressDecelerateCustom (float progress,
+				     float minx,
+				     float maxx)
 {
     float x = 1 - progress;
     float s = 8;
@@ -770,16 +792,20 @@ AnimWindow::expandBBWithBox (Box &source)
 
     if (source.x1 < target.x1)
 	target.x1 = source.x1;
+
     if (source.x2 > target.x2)
 	target.x2 = source.x2;
+
     if (source.y1 < target.y1)
 	target.y1 = source.y1;
+
     if (source.y2 > target.y2)
 	target.y2 = source.y2;
 }
 
 void
-AnimWindow::expandBBWithPoint (float fx, float fy)
+AnimWindow::expandBBWithPoint (float fx,
+			       float fy)
 {
     Box &target = priv->BB ();
 
@@ -794,6 +820,7 @@ AnimWindow::expandBBWithPoint (float fx, float fy)
 	target.y2 = y + 1;
 	return;
     }
+
     if (x < target.x1)
 	target.x1 = x;
     else if (x > target.x2)
@@ -817,14 +844,19 @@ AnimWindow::expandBBWithPoint2DTransform (GLVector &coords,
 }
 
 static bool
-project (float objx, float objy, float objz, 
-         const float modelview[16], const float projection[16],
-         const GLint viewport[4],
-         float *winx, float *winy, float *winz)
+project (float       objx,
+	 float       objy,
+	 float       objz,
+	 const float modelview[16],
+	 const float projection[16],
+	 const GLint viewport[4],
+	 float       *winx,
+	 float       *winy,
+	 float       *winz)
 {
     unsigned int i;
-    float in[4];
-    float out[4];
+    float        in[4];
+    float        out[4];
 
     in[0] = objx;
     in[1] = objy;
@@ -870,11 +902,11 @@ project (float objx, float objy, float objz,
 
 /// Either points or objects should be non-0.
 bool
-AnimWindow::expandBBWithPoints3DTransform (CompOutput     &output,
-					   GLMatrix       &transform,
-					   const float    *points,
+AnimWindow::expandBBWithPoints3DTransform (CompOutput                      &output,
+					   GLMatrix                        &transform,
+					   const float                     *points,
 					   GridAnim::GridModel::GridObject *objects,
-					   unsigned int   nPoints)
+					   unsigned int                    nPoints)
 {
     GLfloat x, y, z;
     GLint viewport[4] =
@@ -884,16 +916,16 @@ AnimWindow::expandBBWithPoints3DTransform (CompOutput     &output,
 	 output.height ()};
 
     const float *projection =
-        GLScreen::get (::screen)->projectionMatrix ()->getMatrix ();
+	GLScreen::get (::screen)->projectionMatrix ()->getMatrix ();
 
     if (points) // use points
     {
-	for (; nPoints; nPoints--, points += 3)
+	for (; nPoints; --nPoints, points += 3)
 	{
 	    if (!project (points[0], points[1], points[2],
-	                  transform.getMatrix (), projection,
-	                  viewport,
-	                  &x, &y, &z))
+			  transform.getMatrix (), projection,
+			  viewport,
+			  &x, &y, &z))
 		return false;
 
 	    expandBBWithPoint (x + 0.5, (::screen->height () - y) + 0.5);
@@ -902,14 +934,15 @@ AnimWindow::expandBBWithPoints3DTransform (CompOutput     &output,
     else // use grid model objects
     {
 	GridAnim::GridModel::GridObject *object = objects;
+
 	for (; nPoints; --nPoints, ++object)
 	{
 	    if (!project (object->position ().x (),
-	                  object->position ().y (),
-	                  object->position ().z (),
-	                  transform.getMatrix (), projection,
-	                  viewport,
-	                  &x, &y, &z))
+			  object->position ().y (),
+			  object->position ().z (),
+			  transform.getMatrix (), projection,
+			  viewport,
+			  &x, &y, &z))
 		return false;
 
 	    expandBBWithPoint (x + 0.5, (::screen->height () - y) + 0.5);
@@ -924,7 +957,8 @@ AnimWindow::expandBBWithWindow ()
     CompRect outRect (savedRectsValid () ?
 		      savedOutRect () :
 		      mWindow->outputRect ());
-    Box windowBox = {
+    Box windowBox =
+    {
 	static_cast <short int> (outRect.x ()), static_cast <short int> (outRect.x () + outRect.width ()),
 	static_cast <short int> (outRect.y ()), static_cast <short int> (outRect.y () + outRect.height ())
     };
@@ -941,8 +975,8 @@ AnimWindow::expandBBWithScreen ()
 
 void
 Animation::prepareTransform (CompOutput &output,
-			     GLMatrix &resultTransform,
-			     GLMatrix &transform)
+			     GLMatrix   &resultTransform,
+			     GLMatrix   &transform)
 {
     GLMatrix sTransform;
     sTransform.toScreenSpace (&output, -DEFAULT_Z_CAMERA);
@@ -954,9 +988,9 @@ AnimWindow::resetStepRegionWithBB ()
 {
     // Have a 1 pixel margin to prevent occasional 1 pixel line artifact
     CompRegion region (priv->mBB.x1 - 1,
-    		       priv->mBB.y1 - 1,
-    		       priv->mBB.x2 - priv->mBB.x1 + 2,
-    		       priv->mBB.y2 - priv->mBB.y1 + 2);
+		       priv->mBB.y1 - 1,
+		       priv->mBB.x2 - priv->mBB.x1 + 2,
+		       priv->mBB.y2 - priv->mBB.y1 + 2);
     priv->mStepRegion = region;
 }
 
@@ -978,7 +1012,8 @@ AnimScreen::output ()
 }
 
 bool
-AnimScreen::getMousePointerXY (short *x, short *y)
+AnimScreen::getMousePointerXY (short *x,
+			       short *y)
 {
     Window w1, w2;
     int xp, yp, xj, yj;
@@ -998,21 +1033,21 @@ unsigned int
 PrivateAnimWindow::getState ()
 {
     Atom actual;
-    int result, format;
+    int format;
     unsigned long n, left;
     unsigned char *data;
     unsigned int retval = WithdrawnState;
 
-    result = XGetWindowProperty (::screen->dpy (), mWindow->id (),
-				 Atoms::wmState, 0L,
-				 1L, false,
-				 Atoms::wmState,
-				 &actual, &format, &n, &left, &data);
+    int result = XGetWindowProperty (::screen->dpy (), mWindow->id (),
+				     Atoms::wmState, 0L,
+				     1L, false,
+				     Atoms::wmState,
+				     &actual, &format, &n, &left, &data);
 
     if (result == Success && data)
     {
 	if (n)
-    	    memcpy (&retval, data, sizeof (int));
+	    memcpy (&retval, data, sizeof (int));
 
 	XFree ((void *)data);
     }
@@ -1039,6 +1074,7 @@ PrivateAnimScreen::eventMatchesChanged (CompOption                *opt,
 {
     if (mExtensionPlugins.empty ())
 	initAnimationList ();
+
     foreach (CompOption::Value &val, opt->value ().list ())
 	val.match ().update ();
 }
@@ -1049,6 +1085,7 @@ PrivateAnimScreen::eventOptionsChanged (CompOption                *opt,
 {
     if (mExtensionPlugins.empty ())
 	initAnimationList ();
+
     updateOptionSets (getCorrespondingAnimEvent (num));
 }
 
@@ -1058,6 +1095,7 @@ PrivateAnimScreen::eventEffectsChanged (CompOption                *opt,
 {
     if (mExtensionPlugins.empty ())
 	initAnimationList ();
+
     updateEventEffects (getCorrespondingAnimEvent (num), false);
 }
 
@@ -1067,6 +1105,7 @@ PrivateAnimScreen::eventRandomEffectsChanged (CompOption                *opt,
 {
     if (mExtensionPlugins.empty ())
 	initAnimationList ();
+
     updateEventEffects (getCorrespondingAnimEvent (num), true);
 }
 
@@ -1076,22 +1115,21 @@ PrivateAnimWindow::postAnimationCleanUpCustom (bool closing,
 					       bool clearMatchingRow)
 {
     bool shouldDamageWindow = false;
-    
+
     notifyAnimation (false);
 
-    if (mCurAnimation)
-    {
-	if (mCurAnimation->shouldDamageWindowOnEnd ())
-	    shouldDamageWindow = true;
-    }
+    if (mCurAnimation &&
+	mCurAnimation->shouldDamageWindowOnEnd ())
+	shouldDamageWindow = true;
+
     enablePainting (false);
 
     if (shouldDamageWindow)
 	mAWindow->expandBBWithWindow ();
 
     if (shouldDamageWindow ||
-	(mCurAnimation &&
-	 !mCurAnimation->stepRegionUsed () &&
+	(mCurAnimation			    &&
+	 !mCurAnimation->stepRegionUsed ()  &&
 	 mAWindow->BB ()->x1 != MAXSHORT)) // BB intialized
 	mAWindow->resetStepRegionWithBB ();
 
@@ -1113,16 +1151,20 @@ PrivateAnimWindow::postAnimationCleanUpCustom (bool closing,
 	mCurAnimSelectionRow = -1;
 
     mFinishingAnim = true;
+
     if (!destructing)
     {
 	mIgnoreDamage = true;
+
 	while (mUnmapCnt > 0)
 	{
 	    mWindow->unmap ();
 	    --mUnmapCnt;
 	}
+
 	if (mUnmapCnt < 0)
 	    mUnmapCnt = 0;
+
 	mIgnoreDamage = false;
     }
 
@@ -1131,6 +1173,7 @@ PrivateAnimWindow::postAnimationCleanUpCustom (bool closing,
 	mWindow->destroy ();
 	--mDestroyCnt;
     }
+
     mFinishingAnim = false;
 
     foreach (ExtensionPluginInfo *extPlugin, mPAScreen->mExtensionPlugins)
@@ -1175,12 +1218,10 @@ PrivateAnimScreen::activateEvent (bool activating)
 	    return;
     }
     else
-    {
 	// Animations have finished for all windows
 	// (Keep preparePaint enabled)
-
 	aScreen->enableCustomPaintList (false);
-    }
+
     cScreen->donePaintSetEnabled (this, activating);
     gScreen->glPaintOutputSetEnabled (this, activating);
 
@@ -1200,49 +1241,56 @@ PrivateAnimScreen::activateEvent (bool activating)
 void
 PrivateAnimWindow::notifyAnimation (bool activation)
 {
-    CompOption::Vector o (0);
-    
     if (!mCurAnimation)
 	return;
-    
+
+    CompOption::Vector o (0);
+
     o.push_back (CompOption ("root", CompOption::TypeInt));
     o.push_back (CompOption ("window", CompOption::TypeInt));
     o.push_back (CompOption ("type", CompOption::TypeString));
     o.push_back (CompOption ("active", CompOption::TypeBool));
-    
+
     o[0].value ().set ((int) ::screen->root ());
     o[1].value ().set ((int) mWindow->id ());
-        
+
     switch (mCurAnimation->curWindowEvent ())
     {
 	case WindowEventOpen:
 	    o[2].value ().set ("open");
 	    break;
+
 	case WindowEventClose:
 	    o[2].value ().set ("close");
 	    break;
+
 	case WindowEventMinimize:
 	    o[2].value ().set ("minimize");
 	    break;
+
 	case WindowEventUnminimize:
 	    o[2].value ().set ("unminimize");
 	    break;
+
 	case WindowEventShade:
 	    o[2].value ().set ("shade");
 	    break;
+
 	case WindowEventUnshade:
 	    o[2].value ().set ("unshade");
 	    break;
+
 	case WindowEventFocus:
 	    o[2].value ().set ("focus");
 	    break;
+
 	case WindowEventNum:
 	case WindowEventNone:
 	default:
 	    o[2].value ().set ("none");
 	    break;
     }
-    
+
     o[3].value ().set (activation);
 
     screen->handleCompizEvent ("animation", "window_animation", o);
@@ -1254,6 +1302,7 @@ PrivateAnimScreen::otherPluginsActive ()
     for (int i = 0; i < WatchedScreenPluginNum; ++i)
 	if (mPluginActive[i])
 	    return true;
+
     return false;
 }
 
@@ -1261,6 +1310,7 @@ bool
 Animation::shouldSkipFrame (int msSinceLastPaintActual)
 {
     mTimeElapsedWithinTimeStep += msSinceLastPaintActual;
+
     if (mTimeElapsedWithinTimeStep < mTimestep) // if timestep not yet completed
 	return true;
 
@@ -1304,7 +1354,7 @@ PrivateAnimScreen::preparePaint (int msSinceLastPaint)
 	extPlugin->prePreparePaintGeneral ();
 
     if (mAnimInProgress)
-    {	
+    {
 	int msSinceLastPaintActual;
 	const CompWindowList &pl = pushLockedPaintList ();
 	CompWindowList       windowsFinishedAnimations;
@@ -1325,14 +1375,19 @@ PrivateAnimScreen::preparePaint (int msSinceLastPaint)
 	mLastRedrawTime = curTime; // Store current time for next time
 	mLastRedrawTimeFresh = true;
 
+	CompWindow        *w;
+	AnimWindow        *animWin;
+	PrivateAnimWindow *aw;
+	Animation         *curAnim;
+
 	/* Paint list includes destroyed windows */
 	for (CompWindowList::const_reverse_iterator rit = pl.rbegin ();
 	     rit != pl.rend (); ++rit)
 	{
-	    CompWindow *w = (*rit);
-	    AnimWindow *animWin = AnimWindow::get (w);
-	    PrivateAnimWindow *aw = animWin->priv;
-	    Animation *curAnim = aw->curAnimation ();
+	    w       = (*rit);
+	    animWin = AnimWindow::get (w);
+	    aw      = animWin->priv;
+	    curAnim = aw->curAnimation ();
 
 	    if (curAnim)
 	    {		
@@ -1393,6 +1448,7 @@ PrivateAnimScreen::preparePaint (int msSinceLastPaint)
 			    // so reset step region here with BB.
 			    animWin->resetStepRegionWithBB ();
 			}
+
 			if (!(cScreen->damageMask () &
 			      COMPOSITE_SCREEN_DAMAGE_ALL_MASK))
 			    aw->damageThisAndLastStepRegion ();
@@ -1400,6 +1456,7 @@ PrivateAnimScreen::preparePaint (int msSinceLastPaint)
 		}
 
 		bool finished = (curAnim->remainingTime () <= 0);
+
 		if (finished) // Animation is done
 		    windowsFinishedAnimations.push_back (w);
 	    }
@@ -1408,6 +1465,7 @@ PrivateAnimScreen::preparePaint (int msSinceLastPaint)
 	foreach (CompWindow *w, pl)
 	{
 	    PrivateAnimWindow *aw = AnimWindow::get (w)->priv;
+
 	    if (aw->curAnimation ())
 		aw->curAnimation ()->postPreparePaint ();
 	}
@@ -1423,6 +1481,7 @@ PrivateAnimScreen::preparePaint (int msSinceLastPaint)
     if (mStartCountdown)
     {
 	--mStartCountdown;
+
 	if (!mStartCountdown)
 	{
 	    foreach (ExtensionPluginInfo *extPlugin, mExtensionPlugins)
@@ -1440,19 +1499,24 @@ PrivateAnimScreen::donePaint ()
     CompWindowList       windowsFinishedAnimations;
 
     bool animStillInProgress = false;
+    CompWindow        *w;
+    AnimWindow        *animWin;
+    PrivateAnimWindow *aw;
+    Animation         *curAnim;
 
     /* Paint list includes destroyed windows */
     for (CompWindowList::const_reverse_iterator rit = pl.rbegin ();
 	 rit != pl.rend (); ++rit)
     {
-	CompWindow *w = (*rit);
-	AnimWindow *animWin = AnimWindow::get (w);
-	PrivateAnimWindow *aw = animWin->priv;
-	Animation *curAnim = aw->curAnimation ();
+	w       = (*rit);
+	animWin = AnimWindow::get (w);
+	aw      = animWin->priv;
+	curAnim = aw->curAnimation ();
 
 	if (curAnim)
 	{
 	    bool finished = (curAnim->remainingTime () <= 0);
+
 	    if (finished) // Animation is done
 		windowsFinishedAnimations.push_back (w);
 	    else
@@ -1518,16 +1582,16 @@ PrivateAnimWindow::glAddGeometry (const GLTexture::MatrixList &matrix,
 bool
 Animation::shouldDamageWindowOnStart ()
 {
-    return (mCurWindowEvent == WindowEventClose ||
-	    mCurWindowEvent == WindowEventMinimize ||
+    return (mCurWindowEvent == WindowEventClose	    ||
+	    mCurWindowEvent == WindowEventMinimize  ||
 	    mCurWindowEvent == WindowEventShade);
 }
 
 bool
 Animation::shouldDamageWindowOnEnd ()
 {
-    return (mCurWindowEvent == WindowEventOpen ||
-	    mCurWindowEvent == WindowEventUnminimize ||
+    return (mCurWindowEvent == WindowEventOpen		||
+	    mCurWindowEvent == WindowEventUnminimize	||
 	    mCurWindowEvent == WindowEventUnshade);
 }
 
@@ -1563,15 +1627,13 @@ PartialWindowAnim::addGeometry (const GLTexture::MatrixList &matrix,
 }
 
 void
-PrivateAnimWindow::glDrawTexture (GLTexture          *texture,
-                                  const GLMatrix     &transform,
-                                  const GLWindowPaintAttrib &attrib,
-				  unsigned int       mask)
+PrivateAnimWindow::glDrawTexture (GLTexture                 *texture,
+				  const GLMatrix            &transform,
+				  const GLWindowPaintAttrib &attrib,
+				  unsigned int              mask)
 {
     if (mCurAnimation)
-    {
 	mCurAnimation->setCurPaintAttrib (attrib);
-    }
 
     gWindow->glDrawTexture (texture, transform, attrib, mask);
 }
@@ -1586,16 +1648,14 @@ PrivateAnimWindow::glDrawGeometry ()
 	    mCurAnimation->drawGeometry ();
     }
     else
-    {
 	gWindow->glDrawGeometry ();
-    }
 }
 #endif
 
 void
-Animation::drawTexture (GLTexture          *texture,
-                        const GLWindowPaintAttrib &attrib,
-			unsigned int       mask)
+Animation::drawTexture (GLTexture                 *texture,
+			const GLWindowPaintAttrib &attrib,
+			unsigned int              mask)
 {
     mCurPaintAttrib = attrib;
 }
@@ -1610,8 +1670,9 @@ Animation::drawGeometry ()
 
 bool
 PrivateAnimWindow::glPaint (const GLWindowPaintAttrib &attrib,
-			    const GLMatrix &transform,
-			    const CompRegion &region, unsigned int mask)
+			    const GLMatrix            &transform,
+			    const CompRegion          &region,
+			    unsigned int              mask)
 {
     bool status;
 
@@ -1694,7 +1755,7 @@ PrivateAnimScreen::pushLockedPaintList ()
 {
     if (!mLockedPaintListCnt)
     {
-    	const CompWindowList &pl = cScreen->getWindowPaintList ();
+	const CompWindowList &pl = cScreen->getWindowPaintList ();
 	mLockedPaintList = &pl;
 
 	if (!mGetWindowPaintListEnableCnt)
@@ -1705,6 +1766,7 @@ PrivateAnimScreen::pushLockedPaintList ()
     }
 
     ++mLockedPaintListCnt;
+
     return *mLockedPaintList;
 }
 
@@ -1734,6 +1796,7 @@ PrivateAnimScreen::getWindowPaintList ()
 
     ExtensionPluginAnimation *extPlugin =
 	static_cast<ExtensionPluginAnimation *> (mExtensionPlugins[0]);
+
     return extPlugin->getWindowPaintList ();
 }
 
@@ -1803,6 +1866,7 @@ PrivateAnimScreen::handleCompizEvent (const char         *pluginName,
     ::screen->handleCompizEvent (pluginName, eventName, options);
 
     for (int i = 0; i < WatchedScreenPluginNum; ++i)
+    {
 	if (strcmp (pluginName, watchedScreenPlugins[i].pluginName) == 0)
 	{
 	    if (strcmp (eventName, 
@@ -1813,17 +1877,18 @@ PrivateAnimScreen::handleCompizEvent (const char         *pluginName,
 
 		if (!mPluginActive[i] &&
 		    (i == WatchedPluginSwitcher ||
-		     i == WatchedPluginRing ||
-		     i == WatchedPluginShift ||
+		     i == WatchedPluginRing	||
+		     i == WatchedPluginShift	||
 		     i == WatchedPluginScale))
-		{
 		    mSwitcherPostWait = 1;
-		}
 	    }
+
 	    break;
 	}
+    }
 
     for (int i = 0; i < WatchedWindowPluginNum; ++i)
+    {
 	if (strcmp (pluginName,
 		    watchedWindowPlugins[i].pluginName) == 0)
 	{
@@ -1845,14 +1910,17 @@ PrivateAnimScreen::handleCompizEvent (const char         *pluginName,
 								    false);
 		}
 	    }
+
 	    break;
 	}
+    }
 }
 
 /// Returns true for windows that don't have a pixmap or certain properties,
 /// like the dimming layer of gksudo and x-session-manager.
 inline bool
-PrivateAnimScreen::shouldIgnoreWindowForAnim (CompWindow *w, bool checkPixmap)
+PrivateAnimScreen::shouldIgnoreWindowForAnim (CompWindow *w,
+					      bool       checkPixmap)
 {
     AnimWindow *aw = AnimWindow::get (w);
 
@@ -1889,6 +1957,7 @@ PrivateAnimScreen::initiateCloseAnim (PrivateAnimWindow *aw)
 
     if (shouldIgnoreWindowForAnim (w, true))
 	return;
+
     int duration = 200;
     AnimEffect chosenEffect =
 	getMatchingAnimSelection (w, AnimEventClose, &duration);
@@ -1921,9 +1990,7 @@ PrivateAnimScreen::initiateCloseAnim (PrivateAnimWindow *aw)
 		}
 	    }*/
 	    else
-	    {
 		aw->postAnimationCleanUpPrev (true, false);
-	    }
 	}
 
 	if (startingNew)
@@ -1989,35 +2056,35 @@ PrivateAnimScreen::initiateCloseAnim (PrivateAnimWindow *aw)
 
     // Make sure non-animated closing windows get a damage.
     if (!aw->curAnimation ())
-    {
 	aw->mAWindow->expandBBWithWindow ();
-    }
 }
 
 CompRect
-PrivateAnimScreen::getIcon (CompWindow *w, bool alwaysUseMouse)
+PrivateAnimScreen::getIcon (CompWindow *w,
+			    bool       alwaysUseMouse)
 {
     CompRect icon;
 
     if (!alwaysUseMouse)
-    {
 	icon = w->iconGeometry ();
-    }
+
     if (alwaysUseMouse ||
-	(icon.x () == 0 &&
-	 icon.y () == 0 &&
+	(icon.x () == 0	    &&
+	 icon.y () == 0	    &&
 	 icon.width () == 0 &&
 	 icon.height () == 0)) // that is, couldn't get icon from window
     {
 	// Minimize to mouse pointer if there is no
 	// window list or if the window skips taskbar
 	short x, y;
+
 	if (!aScreen->getMousePointerXY (&x, &y))
 	{
 	    // Use screen center if can't get mouse coords
 	    x = ::screen->width () / 2;
 	    y = ::screen->height () / 2;
 	}
+
 	icon.setX (x);
 	icon.setY (y);
 	icon.setWidth (FAKE_ICON_SIZE);
@@ -2053,7 +2120,7 @@ PrivateAnimScreen::initiateMinimizeAnim (PrivateAnimWindow *aw)
 
     if (chosenEffect != AnimEffectNone)
     {
-	bool startingNew = true;
+	bool        startingNew    = true;
 	WindowEvent curWindowEvent = WindowEventNone;
 
 	if (aw->curAnimation ())
@@ -2062,9 +2129,7 @@ PrivateAnimScreen::initiateMinimizeAnim (PrivateAnimWindow *aw)
 	if (curWindowEvent != WindowEventNone)
 	{
 	    if (curWindowEvent != WindowEventUnminimize)
-	    {
 		aw->postAnimationCleanUpPrev (false, false);
-	    }
 	    else
 	    {
 		startingNew = false;
@@ -2112,17 +2177,16 @@ PrivateAnimScreen::initiateShadeAnim (PrivateAnimWindow *aw)
 
     if (chosenEffect != AnimEffectNone)
     {
-	bool startingNew = true;
+	bool        startingNew    = true;
 	WindowEvent curWindowEvent = WindowEventNone;
+
 	if (aw->curAnimation ())
 	    curWindowEvent = aw->curAnimation ()->curWindowEvent ();
 
 	if (curWindowEvent != WindowEventNone)
 	{
 	    if (curWindowEvent != WindowEventUnshade)
-	    {
 		aw->postAnimationCleanUpPrev (false, false);
-	    }
 	    else
 	    {
 		startingNew = false;
@@ -2169,6 +2233,7 @@ PrivateAnimScreen::initiateOpenAnim (PrivateAnimWindow *aw)
 	extPlugin->preInitiateOpenAnim (aw->mAWindow);
 
     WindowEvent curWindowEvent = WindowEventNone;
+
     if (aw->curAnimation ())
 	curWindowEvent = aw->curAnimation ()->curWindowEvent ();
 
@@ -2185,9 +2250,7 @@ PrivateAnimScreen::initiateOpenAnim (PrivateAnimWindow *aw)
 	if (curWindowEvent != WindowEventNone)
 	{
 	    if (curWindowEvent != WindowEventClose)
-	    {
 		aw->postAnimationCleanUpPrev (false, false);
-	    }
 	    else
 	    {
 		startingNew = false;
@@ -2251,15 +2314,14 @@ PrivateAnimScreen::initiateUnminimizeAnim (PrivateAnimWindow *aw)
 
 	// TODO Refactor the rest? (almost the same in other initiateX methods)
 	WindowEvent curWindowEvent = WindowEventNone;
+
 	if (aw->curAnimation ())
 	    curWindowEvent = aw->curAnimation ()->curWindowEvent ();
 
 	if (curWindowEvent != WindowEventNone)
 	{
 	    if (curWindowEvent != WindowEventMinimize)
-	    {
 		aw->postAnimationCleanUpPrev (false, false);
-	    }
 	    else
 	    {
 		startingNew = false;
@@ -2316,15 +2378,14 @@ PrivateAnimScreen::initiateUnshadeAnim (PrivateAnimWindow *aw)
 	bool playEffect = true;
 
 	WindowEvent curWindowEvent = WindowEventNone;
+
 	if (aw->curAnimation ())
 	    curWindowEvent = aw->curAnimation ()->curWindowEvent ();
 
 	if (curWindowEvent != WindowEventNone)
 	{
 	    if (curWindowEvent != WindowEventShade)
-	    {
 		aw->postAnimationCleanUpPrev (false, false);
-	    }
 	    else
 	    {
 		startingNew = false;
@@ -2363,8 +2424,8 @@ PrivateAnimScreen::initiateUnshadeAnim (PrivateAnimWindow *aw)
 bool
 PrivateAnimScreen::initiateFocusAnim (PrivateAnimWindow *aw)
 {
-    CompWindow *w = aw->mWindow;
-    int duration = 200;
+    CompWindow *w       = aw->mWindow;
+    int        duration = 200;
 
     if (aw->curAnimation () || otherPluginsActive () ||
 	// Check the "switcher post-wait" counter that effectively prevents
@@ -2407,19 +2468,19 @@ PrivateAnimWindow::resizeNotify (int dx,
 	mUnshadePending = false;
 	mPAScreen->initiateUnshadeAnim (this);
     }
-    else if (mCurAnimation && mCurAnimation->inProgress () &&
+    else if (mCurAnimation && mCurAnimation->inProgress ()	&&
 	// Don't let transient window open anim be interrupted with a resize notify
-	!(mCurAnimation->curWindowEvent () == WindowEventOpen &&
+	!(mCurAnimation->curWindowEvent () == WindowEventOpen	&&
 	  (mWindow->wmType () &
-	   (CompWindowTypeDropdownMenuMask |
-	    CompWindowTypePopupMenuMask |
-       	    CompWindowTypeMenuMask |
-	    CompWindowTypeTooltipMask |
-	    CompWindowTypeNotificationMask |
-	    CompWindowTypeComboMask |
-	    CompWindowTypeDndMask))) &&
+	   (CompWindowTypeDropdownMenuMask  |
+	    CompWindowTypePopupMenuMask	    |
+	    CompWindowTypeMenuMask	    |
+	    CompWindowTypeTooltipMask	    |
+	    CompWindowTypeNotificationMask  |
+	    CompWindowTypeComboMask	    |
+	    CompWindowTypeDndMask)))				&&
 	// Ignore resize with dx=0, dy=0, dwidth=0, dheight=0
-	!(dx == 0 && dy == 0 && dwidth == 0 && dheight == 0) &&
+	!(dx == 0 && dy == 0 && dwidth == 0 && dheight == 0)	&&
 	!mCurAnimation->resizeUpdate (dx, dy, dwidth, dheight))
     {
 	postAnimationCleanUp ();
@@ -2445,9 +2506,7 @@ PrivateAnimScreen::updateAnimStillInProgress ()
 	    break;
 	}
 	else
-	{
 	    aw->notifyAnimation (false);
-	}
     }
 
     popLockedPaintList ();
@@ -2462,11 +2521,11 @@ PrivateAnimWindow::moveNotify (int  dx,
 			       bool immediate)
 {
     if (mCurAnimation && mCurAnimation->inProgress () &&
-    	(mGrabbed || !mCurAnimation->moveUpdate (dx, dy)))
+	(mGrabbed || !mCurAnimation->moveUpdate (dx, dy)))
     {
 	// Stop the animation
-    	postAnimationCleanUp ();
-    	mPAScreen->updateAnimStillInProgress ();
+	postAnimationCleanUp ();
+	mPAScreen->updateAnimStillInProgress ();
     }
 
     mWindow->moveNotify (dx, dy, immediate);
@@ -2496,7 +2555,7 @@ PrivateAnimScreen::glPaintOutput (const GLScreenPaintAttrib &attrib,
 				  const GLMatrix            &matrix,
 				  const CompRegion          &region,
 				  CompOutput                *output,
-				  unsigned int               mask)
+				  unsigned int              mask)
 {
     assert (mAnimInProgress);
 
@@ -2530,46 +2589,88 @@ AnimEffectUsedFor AnimEffectUsedFor::none ()
 
 AnimEffectUsedFor& AnimEffectUsedFor::exclude (AnimEvent event)
 {
-  switch (event) {
-    case AnimEventOpen: open = false; break;
-    case AnimEventClose: close = false; break;
-    case AnimEventMinimize: minimize = false; break;
-    case AnimEventUnminimize: unminimize = false; break;
-    case AnimEventShade: shade = false; break;
-    case AnimEventFocus: focus = false; break;
-    default: break;
-  }
-  return *this;
+    switch (event)
+    {
+	case AnimEventOpen:
+	    open = false;
+	    break;
+
+	case AnimEventClose:
+	    close = false;
+	    break;
+
+	case AnimEventMinimize:
+	    minimize = false;
+	    break;
+
+	case AnimEventUnminimize:
+	    unminimize = false;
+	    break;
+
+	case AnimEventShade:
+	    shade = false;
+	    break;
+
+	case AnimEventFocus:
+	    focus = false;
+	    break;
+
+	default:
+	    break;
+    }
+
+    return *this;
 }
 
 AnimEffectUsedFor& AnimEffectUsedFor::include (AnimEvent event)
 {
-  switch (event) {
-    case AnimEventOpen: open = true; break;
-    case AnimEventClose: close = true; break;
-    case AnimEventMinimize: minimize = true; break;
-    case AnimEventUnminimize: unminimize = true; break;
-    case AnimEventShade: shade = true; break;
-    case AnimEventFocus: focus = true; break;
-    default: break;
-  }
+    switch (event)
+    {
+	case AnimEventOpen:
+	    open = true;
+	    break;
+
+	case AnimEventClose:
+	    close = true;
+	    break;
+
+	case AnimEventMinimize:
+	    minimize = true;
+	    break;
+
+	case AnimEventUnminimize:
+	    unminimize = true;
+	    break;
+
+	case AnimEventShade:
+	    shade = true;
+	    break;
+
+	case AnimEventFocus:
+	    focus = true;
+	    break;
+
+	default:
+	    break;
+    }
+
   return *this;
 }
 
-AnimEffectInfo::AnimEffectInfo (const char *name,
-                               AnimEffectUsedFor usedFor,
-				CreateAnimFunc create,
-				bool isRestackAnim) :
+AnimEffectInfo::AnimEffectInfo (const char        *name,
+				AnimEffectUsedFor usedFor,
+				CreateAnimFunc    create,
+				bool              isRestackAnim) :
     name (name),
     create (create),
     isRestackAnim (isRestackAnim)
 {
-    usedForEvents[AnimEventOpen] = usedFor.open;
-    usedForEvents[AnimEventClose] = usedFor.close;
-    usedForEvents[AnimEventMinimize] = usedFor.minimize;
+    usedForEvents[AnimEventOpen]       = usedFor.open;
+    usedForEvents[AnimEventClose]      = usedFor.close;
+    usedForEvents[AnimEventMinimize]   = usedFor.minimize;
     usedForEvents[AnimEventUnminimize] = usedFor.unminimize;
-    usedForEvents[AnimEventShade] = usedFor.shade;
-    usedForEvents[AnimEventFocus] = usedFor.focus;
+    usedForEvents[AnimEventShade]      = usedFor.shade;
+    usedForEvents[AnimEventFocus]      = usedFor.focus;
 }
 
 bool
@@ -2587,7 +2688,7 @@ AnimEffectInfo::matchesPluginName (const CompString &pluginName)
 AnimEffect animEffects[NUM_EFFECTS];
 
 ExtensionPluginAnimation animExtensionPluginInfo (CompString ("animation"),
-                                                  NUM_EFFECTS, animEffects, 0,
+						  NUM_EFFECTS, animEffects, 0,
 						  NUM_NONEFFECT_OPTIONS);
 ExtensionPluginInfo *
 Animation::getExtensionPluginInfo ()
@@ -2695,86 +2796,86 @@ PrivateAnimScreen::initAnimationList ()
     int i = 0;
 
     animEffects[i++] = AnimEffectNone =
-	new AnimEffectInfo ("animation:None",
-                            AnimEffectUsedFor::all(),
-                            0);
+	    new AnimEffectInfo ("animation:None",
+				AnimEffectUsedFor::all(),
+				0);
 
     animEffects[i++] = AnimEffectRandom =
-	new AnimEffectInfo ("animation:Random",
-                           AnimEffectUsedFor::all().exclude(AnimEventFocus),
-                           0);
+	    new AnimEffectInfo ("animation:Random",
+				AnimEffectUsedFor::all().exclude(AnimEventFocus),
+				0);
 
     animEffects[i++] = AnimEffectCurvedFold =
-	new AnimEffectInfo ("animation:Curved Fold",
-                           AnimEffectUsedFor::all().exclude(AnimEventFocus),
-			    &createAnimation<CurvedFoldAnim>);
-        
+	    new AnimEffectInfo ("animation:Curved Fold",
+				AnimEffectUsedFor::all().exclude(AnimEventFocus),
+				&createAnimation<CurvedFoldAnim>);
+
     animEffects[i++] = AnimEffectDodge =
-	new AnimEffectInfo ("animation:Dodge", 
-                           AnimEffectUsedFor::none().include(AnimEventFocus),
-			    &createAnimation<DodgeAnim>,
-			    true);
-        
+	    new AnimEffectInfo ("animation:Dodge",
+				AnimEffectUsedFor::none().include(AnimEventFocus),
+				&createAnimation<DodgeAnim>,
+				true);
+
     animEffects[i++] = AnimEffectDream =
-	new AnimEffectInfo ("animation:Dream", 
-                           AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
-			    &createAnimation<DreamAnim>);
+	    new AnimEffectInfo ("animation:Dream",
+				AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
+				&createAnimation<DreamAnim>);
 
     animEffects[i++] = AnimEffectFade =
-	new AnimEffectInfo ("animation:Fade",
-                           AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
-			    &createAnimation<FadeAnim>);
-        
+	    new AnimEffectInfo ("animation:Fade",
+				AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
+				&createAnimation<FadeAnim>);
+
     animEffects[i++] = AnimEffectFocusFade =
-	new AnimEffectInfo ("animation:Focus Fade", 
-                           AnimEffectUsedFor::none().include(AnimEventFocus),
-			    &createAnimation<FocusFadeAnim>,
-			    true);
-        
+	    new AnimEffectInfo ("animation:Focus Fade",
+				AnimEffectUsedFor::none().include(AnimEventFocus),
+				&createAnimation<FocusFadeAnim>,
+				true);
+
     animEffects[i++] = AnimEffectGlide1 =
-	new AnimEffectInfo ("animation:Glide 1",
-                           AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
-			    &createAnimation<GlideAnim>);
-        
+	    new AnimEffectInfo ("animation:Glide 1",
+				AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
+				&createAnimation<GlideAnim>);
+
     animEffects[i++] = AnimEffectGlide2 =
-	new AnimEffectInfo ("animation:Glide 2",
-                           AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
-			    &createAnimation<Glide2Anim>);
-        
+	    new AnimEffectInfo ("animation:Glide 2",
+				AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
+				&createAnimation<Glide2Anim>);
+
     animEffects[i++] = AnimEffectHorizontalFolds =
-	new AnimEffectInfo ("animation:Horizontal Folds",
-                           AnimEffectUsedFor::all().exclude(AnimEventFocus),
-			    &createAnimation<HorizontalFoldsAnim>);
-        
+	    new AnimEffectInfo ("animation:Horizontal Folds",
+				AnimEffectUsedFor::all().exclude(AnimEventFocus),
+				&createAnimation<HorizontalFoldsAnim>);
+
     animEffects[i++] = AnimEffectMagicLamp =
-	new AnimEffectInfo ("animation:Magic Lamp",
-                           AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
-			    &createAnimation<MagicLampAnim>);
-        
+	    new AnimEffectInfo ("animation:Magic Lamp",
+				AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
+				&createAnimation<MagicLampAnim>);
+
     animEffects[i++] = AnimEffectMagicLampWavy =
-	new AnimEffectInfo ("animation:Magic Lamp Wavy",
-                           AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
-			    &createAnimation<MagicLampWavyAnim>);
-        
+	    new AnimEffectInfo ("animation:Magic Lamp Wavy",
+				AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
+				&createAnimation<MagicLampWavyAnim>);
+
     animEffects[i++] = AnimEffectRollUp =
-	new AnimEffectInfo ("animation:Roll Up",
-                           AnimEffectUsedFor::none().include(AnimEventShade),
-			    &createAnimation<RollUpAnim>);
-        
+	    new AnimEffectInfo ("animation:Roll Up",
+				AnimEffectUsedFor::none().include(AnimEventShade),
+				&createAnimation<RollUpAnim>);
+
     animEffects[i++] = AnimEffectSidekick =
-	new AnimEffectInfo ("animation:Sidekick",
-                           AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
-			    &createAnimation<SidekickAnim>);
-        
+	    new AnimEffectInfo ("animation:Sidekick",
+				AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
+				&createAnimation<SidekickAnim>);
+
     animEffects[i++] = AnimEffectWave =
-	new AnimEffectInfo ("animation:Wave",
-                           AnimEffectUsedFor::all().exclude(AnimEventShade),
-			    &createAnimation<WaveAnim>);
-    
+	    new AnimEffectInfo ("animation:Wave",
+				AnimEffectUsedFor::all().exclude(AnimEventShade),
+				&createAnimation<WaveAnim>);
+
     animEffects[i++] = AnimEffectZoom =
-	new AnimEffectInfo ("animation:Zoom", 
-                           AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
-			    &createAnimation<ZoomAnim>);
+	    new AnimEffectInfo ("animation:Zoom",
+				AnimEffectUsedFor::all().exclude(AnimEventFocus).exclude(AnimEventShade),
+				&createAnimation<ZoomAnim>);
 
     animExtensionPluginInfo.effectOptions = &getOptions ();
 
@@ -2804,7 +2905,8 @@ PrivateAnimWindow::PrivateAnimWindow (CompWindow *w,
     mDestroyCnt (0),
     mIgnoreDamage (false),
     mFinishingAnim (false),
-    mCurAnimSelectionRow (-1)
+    mCurAnimSelectionRow (-1),
+    mPrevAnimSelectionRow (-1)
 {
     mBB.x1 = mBB.y1 = MAXSHORT;
     mBB.x2 = mBB.y2 = MINSHORT;
@@ -2813,18 +2915,14 @@ PrivateAnimWindow::PrivateAnimWindow (CompWindow *w,
 	mPluginActive[i] = false;
 
     if (w->minimized ())
-    {
 	mState = mNewState = IconicState;
-    }
     else if (w->shaded ())
     {
 	mState = mNewState = NormalState;
 	mNowShaded = true;
     }
     else
-    {
 	mState = mNewState = getState ();
-    }
 
     WindowInterface::setHandler (mWindow, true);
     GLWindowInterface::setHandler (gWindow, false);
@@ -2846,27 +2944,34 @@ PrivateAnimWindow::windowNotify (CompWindowNotify n)
 	    mPAScreen->initiateMinimizeAnim (this);
 	    mEventNotOpenClose = true;
 	    break;
+
 	case CompWindowNotifyLeaveShowDesktopMode:
 	case CompWindowNotifyUnminimize:
 	    mPAScreen->initiateUnminimizeAnim (this);
 	    mEventNotOpenClose = true;
 	    break;
+
 	case CompWindowNotifyShade:
 	    mPAScreen->initiateShadeAnim (this);
 	    mEventNotOpenClose = true;
 	    break;
+
 	case CompWindowNotifyUnshade:
 	    if (mNowShaded &&
 		mCurAnimation &&
 		mCurAnimation->curWindowEvent () == WindowEventShade)
 		mPAScreen->initiateUnshadeAnim (this); // reverse the shade anim
+
 	    break;
+
 	case CompWindowNotifyClose:
 	    if (!(mCurAnimation &&
 		  (mCurAnimation->curWindowEvent () == WindowEventClose ||
 		   mCurAnimation->curWindowEvent () == WindowEventUnminimize)))
 		mPAScreen->initiateCloseAnim (this);
+
 	    break;
+
 	case CompWindowNotifyShow:
 	case CompWindowNotifyBeforeMap:
 	    // Prevent dialog disappearing when a dialog is reopened during
@@ -2877,7 +2982,9 @@ PrivateAnimWindow::windowNotify (CompWindowNotify n)
 		mPAScreen->initiateOpenAnim (this);
 		mEventNotOpenClose = false;
 	    }
+
 	    break;
+
 	case CompWindowNotifyMap:
 	    if (mNowShaded)
 		mUnshadePending = true;
@@ -2890,7 +2997,9 @@ PrivateAnimWindow::windowNotify (CompWindowNotify n)
 			mCurAnimation->curWindowEvent () == WindowEventOpen)))
 		mPAScreen->initiateOpenAnim (this);
 	    mEventNotOpenClose = false;
+
 	    break;
+
 	case CompWindowNotifyBeforeUnmap:
 	    if (mCurAnimation && mCurAnimation->curWindowEvent () == WindowEventMinimize)
 	    {
@@ -2898,28 +3007,29 @@ PrivateAnimWindow::windowNotify (CompWindowNotify n)
 		mWindow->incrementUnmapReference ();
 	    }
 	    break;
+
 	case CompWindowNotifyBeforeDestroy:
 	    if (!mFinishingAnim)
 	    {
-		if (mPAScreen->shouldIgnoreWindowForAnim (mWindow, true))
-		    break;
-
-		/* Don't increment the destroy reference count unless
-		 * the window is already animated */
-		if (!mCurAnimation)
+		if (mPAScreen->shouldIgnoreWindowForAnim (mWindow, true) ||
+		    /* Don't increment the destroy reference count unless
+		     * the window is already animated */
+		    !mCurAnimation)
 		    break;
 
 		++mDestroyCnt;
 		mWindow->incrementDestroyReference ();
 	    }
+
 	    break;
+
 	case CompWindowNotifyUnreparent:
-	    if (!mFinishingAnim)
-	    {
-		if (mPAScreen->shouldIgnoreWindowForAnim (mWindow, false))
-		    break;
-	    }
+	    if (!mFinishingAnim &&
+		mPAScreen->shouldIgnoreWindowForAnim (mWindow, false))
+		break;
+
 	    break;
+
 	case CompWindowNotifyFocusChange:
 	    if (!mPAScreen->mLastActiveWindow ||
 	    	mPAScreen->mLastActiveWindow != mWindow->id ())
@@ -2942,6 +3052,7 @@ PrivateAnimWindow::windowNotify (CompWindowNotify n)
 	    }
 
 	    break;
+
 	case CompWindowNotifyRestack:
 	{
 	    // Prevent menu disappearing when a menu is reopened during
@@ -2956,18 +3067,17 @@ PrivateAnimWindow::windowNotify (CompWindowNotify n)
 	    }
 
 	    // Handle CompWindowNotifyRestack only when necessary.
-	    if (!mPAScreen->isRestackAnimPossible ())
-		break;
-
-	    if (mPAScreen->mStartCountdown) // Don't animate at startup
+	    if (!mPAScreen->isRestackAnimPossible () ||
+		mPAScreen->mStartCountdown) // Don't animate at startup
 		break;
 
 	    foreach (ExtensionPluginInfo *extPlugin,
-	    	     mPAScreen->mExtensionPlugins)
+		     mPAScreen->mExtensionPlugins)
 		extPlugin->handleRestackNotify (mAWindow);
 
 	    break;
 	}
+
 	default:
 	    break;
     }
@@ -2983,8 +3093,8 @@ AnimWindow::curAnimation ()
 
 AnimEffect
 AnimScreen::getMatchingAnimSelection (CompWindow *w,
-				      AnimEvent e,
-				      int *duration)
+				      AnimEvent  e,
+				      int        *duration)
 {
     return priv->getMatchingAnimSelection (w, e, duration);
 }
@@ -3009,7 +3119,8 @@ AnimScreen::initiateFocusAnim (AnimWindow *aw)
 
 /// If duration is 0, it should be set to a positive value later.
 void
-AnimWindow::createFocusAnimation (AnimEffect effect, int duration)
+AnimWindow::createFocusAnimation (AnimEffect effect,
+				  int        duration)
 {
     priv->createFocusAnimation (effect, duration);
 }
@@ -3017,8 +3128,8 @@ AnimWindow::createFocusAnimation (AnimEffect effect, int duration)
 void
 AnimWindow::deletePersistentData (const char *name)
 {
-    PersistentDataMap::iterator itData =
-	persistentData.find (name);
+    PersistentDataMap::iterator itData = persistentData.find (name);
+
     if (itData != persistentData.end ()) // if found
     {
 	delete itData->second;
@@ -3027,13 +3138,13 @@ AnimWindow::deletePersistentData (const char *name)
 }
 
 void
-PrivateAnimWindow::createFocusAnimation (AnimEffect effect, int duration)
+PrivateAnimWindow::createFocusAnimation (AnimEffect effect,
+					 int        duration)
 {
-    mCurAnimation =
-	effect->create (mWindow, WindowEventFocus,
-			duration,
-			effect,
-			CompRect ());
+    mCurAnimation = effect->create (mWindow, WindowEventFocus,
+				    duration,
+				    effect,
+				    CompRect ());
     enablePainting (true);
 }
 
@@ -3069,6 +3180,7 @@ AnimWindow::~AnimWindow ()
 
     // Destroy each persistent data object
     PersistentDataMap::iterator itData = persistentData.begin ();
+
     for (; itData != persistentData.end (); ++itData)
 	delete itData->second;
 

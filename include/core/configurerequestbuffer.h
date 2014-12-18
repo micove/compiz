@@ -39,6 +39,7 @@ class Releasable
 {
     public:
 
+	virtual ~Releasable () {}
 	typedef boost::shared_ptr <Releasable> Ptr;
 
 	virtual void release () = 0;

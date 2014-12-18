@@ -439,8 +439,9 @@ class NumberSetting(StockSetting):
             self.Inc = info[2]
         inc = self.Inc
         self.NoneValue = info[0]
-        self.Adj = gtk.Adjustment(self.Get(), info[0], info[1], inc, inc*10)
+        self.Adj = gtk.Adjustment(0, info[0], info[1], inc, inc*10)
         self.Spin = gtk.SpinButton(self.Adj)
+        self.Spin.set_value(self.Get())
 
         self.Scale = gtk.HScale(self.Adj)
 
@@ -965,7 +966,7 @@ class KeySetting (EditableActionSetting):
 
     def ReorderKeyString (self, accel):
         key, mods = gtk.accelerator_parse (accel)
-        return gtk.accelerator_name (key, mods)
+        return GetAcceleratorName (key, mods)
 
     def GetDialogText (self):
         return self.current
@@ -997,7 +998,7 @@ class KeySetting (EditableActionSetting):
                 dialog.resize (1, 1)
 
         def HandleGrabberChanged (grabber, key, mods, label, selector):
-            new = gtk.accelerator_name (key, mods)
+            new = GetAcceleratorName (key, mods)
             mods = ""
             for mod in KeyModifier:
                 if "%s_L" % mod in new:

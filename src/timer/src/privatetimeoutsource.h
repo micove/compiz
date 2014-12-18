@@ -37,7 +37,7 @@ class CompTimeoutSource :
 
 	virtual ~CompTimeoutSource ();
 
-	static CompTimeoutSource * create  (Glib::RefPtr <Glib::MainContext> &ctx);
+	static Glib::RefPtr<CompTimeoutSource> create (Glib::RefPtr <Glib::MainContext> &ctx);
 	sigc::connection connect (const sigc::slot <bool> &slot);
 
     protected:

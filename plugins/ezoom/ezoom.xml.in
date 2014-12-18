@@ -156,7 +156,7 @@
 		    <_short>Fitting</_short>
 		    <option type="key" name="fit_to_zoom_key">
 			<_short>Fit the window to the zoom level</_short>
-			<_long>Resize the window so it matches the current zoom level.  </_long>
+			<_long>Resize the window so it matches the current zoom level.</_long>
 			<default></default>
 		    </option>
 		    <option type="key" name="fit_to_window_key">

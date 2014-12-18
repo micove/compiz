@@ -29,7 +29,7 @@ class CCSGSettingsWrapperTest :
 
 	CCSGSettingsWrapperTest () :
 	    mockSchema ("org.compiz.mock"),
-	    mockPath ("/org/compiz/mock/mock")
+	    mockPath ("/org/compiz/mock/mock/")
 	{
 	}
 

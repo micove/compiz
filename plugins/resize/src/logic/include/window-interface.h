@@ -74,6 +74,8 @@ class CompWindowInterface
 	virtual int outputDevice () = 0;
 	virtual const CompSize serverSize () const = 0;
 	virtual void maximize (unsigned int state = 0) = 0;
+	virtual XWindowChanges & saveWc () = 0;
+	virtual int & saveMask () = 0;
 
 	/* equivalent of CompMatch::evaluate  */
 	virtual bool evaluate (CompMatch &match) = 0;

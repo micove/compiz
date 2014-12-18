@@ -467,8 +467,10 @@ PrivateWindow::setFullscreenMonitors (CompFullscreenMonitorSet *monitors)
     {
 	CompRect fsRect (screen->outputDevs ()[monitors->left].x1 (),
 			 screen->outputDevs ()[monitors->top].y1 (),
-			 screen->outputDevs ()[monitors->right].x2 (),
-			 screen->outputDevs ()[monitors->bottom].y2 ());
+			 screen->outputDevs ()[monitors->right].x2 () -
+				screen->outputDevs ()[monitors->left].x1 (),
+			 screen->outputDevs ()[monitors->bottom].y2 () -
+				screen->outputDevs ()[monitors->top].y1 ());
 
 	if (fsRect.x1 () < fsRect.x2 () && fsRect.y1 () < fsRect.y2 ())
 	{
@@ -3553,10 +3555,19 @@ PrivateWindow::addWindowSizeChanges (XWindowChanges       *xwc,
     int       mask = 0;
     CompPoint viewport;
 
-    if (old.intersects (CompRect (0, 0, screen->width (), screen->height ())))
+    if (old.intersects (CompRect (0, 0, screen->width (), screen->height ())) && 
+	!(state & CompWindowStateMaximizedHorzMask || state & CompWindowStateMaximizedVertMask))
 	viewport = screen->vp ();
+    else if ((state & CompWindowStateMaximizedHorzMask || state & CompWindowStateMaximizedVertMask) &&
+	     window->moved ())
+	viewport = initialViewport;
     else
 	screen->viewportForGeometry (old, viewport);
+
+    if (viewport.x () > screen->vpSize ().width () - 1)
+	viewport.setX (screen->vpSize ().width () - 1);
+    if (viewport.y () > screen->vpSize ().height () - 1)
+	viewport.setY (screen->vpSize ().height () - 1);
 
     int x = (viewport.x () - screen->vp ().x ()) * screen->width ();
     int y = (viewport.y () - screen->vp ().y ()) * screen->height ();
@@ -3630,6 +3641,31 @@ PrivateWindow::addWindowSizeChanges (XWindowChanges       *xwc,
 	}
 	else
 	    mask |= restoreGeometry (xwc, CWX | CWWidth);
+
+	/* Check to see if a monitor has disappeared that had a maximized window and if so,
+	 * adjust the window to restore in the current viewport instead of the 
+	 * coordinates of a different viewport. */
+	if (window->moved () &&
+	    !(state & CompWindowStateMaximizedVertMask || state & CompWindowStateMaximizedHorzMask))
+	{
+	    if (xwc->x > screen->width () ||
+		xwc->y > screen->height ())
+	    {
+		/* The removed monitor may have had a much different resolution than the
+		 * the current monitor, so let's just orient the window in the top left
+		 * of the workarea. */
+		xwc->x = workArea.x () + window->border ().left;
+		xwc->y = workArea.y () + window->border ().top;
+
+		if (xwc->width > workArea.width ())
+		    xwc->width = workArea.width () - (window->border ().left + window->border ().right);
+
+		if (xwc->height > workArea.height ())
+		    xwc->height = workArea.height () - (window->border ().top + window->border ().bottom);
+	    }
+
+	    window->priv->moved = false;
+	}
 
 	/* constrain window width if smaller than minimum width */
 	if (!(mask & CWWidth) && (int) old.width () < sizeHints.min_width)
@@ -3996,6 +4032,8 @@ CompWindow::moveResize (XWindowChanges *xwc,
 
     if (placed)
 	priv->placed = true;
+
+    priv->initialViewport = defaultViewport ();
 }
 
 bool
@@ -4648,6 +4686,8 @@ CompWindow::maximize (unsigned int state)
 {
     if (overrideRedirect ())
 	return;
+
+    priv->initialViewport = screen->vp ();
 
     state = constrainWindowState (state, priv->actions);
 
@@ -5599,7 +5639,7 @@ PrivateWindow::updatePassiveButtonGrabs ()
 	screen->updatePassiveButtonGrabs(serverFrame);
     else
     {
-	/* Grab everything */
+	/* Grab all buttons */
 	XGrabButton (screen->dpy (),
 		     AnyButton,
 		     AnyModifier,
@@ -5609,6 +5649,18 @@ PrivateWindow::updatePassiveButtonGrabs ()
 		     GrabModeAsync,
 		     None,
 		     None);
+
+	if (!(priv->type & CompWindowTypeDesktopMask))
+	{
+	    /* Ungrab Buttons 4 & 5 for vertical scrolling if the window is not the desktop window */
+	    for (int i = Button4; i <= Button5; ++i)
+	    {
+		XUngrabButton (screen->dpy (), i, 0, frame);
+		XUngrabButton (screen->dpy (), i, LockMask, frame);
+		XUngrabButton (screen->dpy (), i, Mod2Mask, frame);
+		XUngrabButton (screen->dpy (), i, LockMask | Mod2Mask, frame);
+	    }
+	}
     }
 }
 
@@ -5800,6 +5852,10 @@ CompWindow::moveToViewportPosition (int  x,
 	xwc.y = serverGeometry ().y () + wy;
 
 	configureXWindow (valueMask, &xwc);
+
+	if ((state () & CompWindowStateMaximizedHorzMask || state () & CompWindowStateMaximizedVertMask) &&
+            (defaultViewport () == screen->vp ()))
+            priv->initialViewport = screen->vp ();
     }
 }
 
@@ -6185,6 +6241,8 @@ CompWindow::~CompWindow ()
 
     if (!priv->destroyed)
     {
+    	CompWindowExtents empty;
+    	setWindowFrameExtents (&empty, &empty);
 	StackDebugger *dbg = StackDebugger::Default ();
 
 	screen->unhookWindow (this);
@@ -6359,6 +6417,8 @@ PrivateWindow::PrivateWindow () :
     lastPong (0),
     alive (true),
 
+    moved (false),
+
     struts (0),
 
     icons (0),
@@ -6503,6 +6563,12 @@ CompWindow::alive () const
     return priv->alive;
 }
 
+bool
+CompWindow::moved () const
+{
+    return priv->moved;
+}
+
 unsigned int
 CompWindow::mwmDecor () const
 {
@@ -6588,20 +6654,18 @@ CompWindow::setWindowFrameExtents (const CompWindowExtents *b,
 
 	CompSize sizeDelta;
 
-	/* We don't want to change the size of the window the first time we
-	 * decorate it, but we do thereafter */
-	if (priv->alreadyDecorated)
+	/* We don't want to change the size of the window in general, but this is
+	 * needed in case the window was maximized or fullscreen, so that it
+	 * will be extended to use the whole available space. */
+	if ((priv->state & MAXIMIZE_STATE) == MAXIMIZE_STATE ||
+	    (priv->state & CompWindowStateFullscreenMask) ||
+	    (priv->type & CompWindowTypeFullscreenMask))
 	{
 	    sizeDelta.setWidth (-((b->left + b->right) -
 				  (priv->border.left + priv->border.right)));
 	    sizeDelta.setHeight (-((b->top + b->bottom) -
 				   (priv->border.top + priv->border.bottom)));
 	}
-	else
-	    priv->alreadyDecorated = true;
-
-	priv->serverInput = *i;
-	priv->border      = *b;
 
 	/* Offset client for any new decoration size */
 	XWindowChanges xwc;
@@ -6610,6 +6674,50 @@ CompWindow::setWindowFrameExtents (const CompWindowExtents *b,
 	xwc.y = movement.y () + priv->serverGeometry.y ();
 	xwc.width = sizeDelta.width () + priv->serverGeometry.width ();
 	xwc.height = sizeDelta.height () + priv->serverGeometry.height ();
+
+	if (!priv->alreadyDecorated)
+	{
+	    /* Make sure we don't move the window outside the workarea */
+	    CompRect const& workarea = screen->getWorkareaForOutput (outputDevice ());
+	    CompPoint boffset((b->left + b->right) - (priv->border.left + priv->border.right),
+			      (b->top + b->bottom) - (priv->border.top + priv->border.bottom));
+
+	    if (xwc.x + xwc.width > workarea.x2 ())
+	    {
+		xwc.x -= boffset.x ();
+
+		if (xwc.x < workarea.x ())
+		    xwc.x = workarea.x () + movement.x ();
+
+		if (xwc.x - boffset.x () < workarea.x ())
+		    xwc.x += boffset.x ();
+	    }
+
+	    if (xwc.y + xwc.height > workarea.y2 ())
+	    {
+		xwc.y -= boffset.y ();
+
+		if (xwc.y < workarea.y ())
+		    xwc.y = workarea.y () + movement.y ();
+
+		if (xwc.y - boffset.y () < workarea.y ())
+		    xwc.y += boffset.y ();
+	    }
+
+	    if (priv->actions & CompWindowActionResizeMask)
+	    {
+		if (xwc.width + boffset.x () > workarea.width ())
+		    xwc.width = workarea.width () - boffset.x ();
+
+		if (xwc.height + boffset.y () > workarea.height ())
+		    xwc.height = workarea.height () - boffset.y ();
+	    }
+
+	    priv->alreadyDecorated = true;
+	}
+
+	priv->serverInput = *i;
+	priv->border      = *b;
 
 	configureXWindow (CWX | CWY | CWWidth | CWHeight, &xwc);
 

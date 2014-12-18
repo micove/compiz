@@ -76,6 +76,7 @@ class GearsScreen :
     private:
 
 	bool damage;
+	bool warningPrinted;
 
 	float contentRotation;
 	GLuint gear1, gear2, gear3;

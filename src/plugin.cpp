@@ -638,3 +638,9 @@ CompPlugin::VTable::setOption (const CompString  &name,
 {
     return false;
 }
+
+CompAction::Vector &
+CompPlugin::VTable::getActions ()
+{
+    return noActions ();
+}

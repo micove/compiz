@@ -204,6 +204,20 @@ void GearsScreen::cubePaintInside (const GLScreenPaintAttrib &sAttrib,
 				   int                       size,
 				   const GLVector            &normal)
 {
+    /* we do not want to paint 3d gears if the camera is inside
+     * the cube, because the gears would obstruct our view */
+    if (csScreen->invert () == -1)
+    {
+	/* it is enough to print the warning once */
+	if (!warningPrinted)
+	{
+	    compLogMessage ("gears", CompLogLevelWarn, "Gears are disabled when viewing the cube from the inside");
+	    warningPrinted = true;
+	}
+
+	return;
+    }
+
 //    CUBE_SCREEN (screen);
 
     static GLfloat white[4] = { 1.0, 1.0, 1.0, 1.0 };
@@ -331,6 +345,7 @@ GearsScreen::GearsScreen (CompScreen *screen) :
     gScreen (GLScreen::get (screen)),
     csScreen (CubeScreen::get (screen)),
     damage(false),
+    warningPrinted (false),
     contentRotation(0.0),
     angle(0.0),
     a1(0.0),

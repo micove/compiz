@@ -514,6 +514,8 @@ class CompWindow :
 
 	bool alive () const;
 
+	bool moved () const;
+
 	bool overrideRedirect () const;
 
 	bool isMapped () const;

@@ -56,7 +56,7 @@ get_frame_type (WnckWindow *win)
 					 0L, 1024L, FALSE, XA_ATOM, &actual, &format,
 					 &n, &left, &data);
 	    gdk_flush ();
-	    gdk_error_trap_pop ();
+	    gdk_error_trap_pop_ignored ();
 
 	    if (result == Success && data)
 	    {
@@ -254,9 +254,7 @@ restack_window (WnckWindow *win,
 
     if (action_menu_mapped)
     {
-	gtk_object_destroy (GTK_OBJECT (action_menu));
-	action_menu_mapped = FALSE;
-	action_menu = NULL;
+	gtk_widget_destroy (action_menu);
 	return;
     }
 
@@ -323,19 +321,11 @@ add_frame_window (WnckWindow *win,
 
     if (mode)
     {
-	GdkColormap *colormap;
-
 	d->frame_window = create_gdk_window (frame);
 	d->decor_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-
-	colormap = get_colormap_for_drawable (GDK_DRAWABLE (d->frame_window));
-
 	d->decor_image = gtk_image_new ();
-
-	gtk_widget_set_colormap (d->decor_window, colormap);
-	gtk_widget_set_colormap (d->decor_image, colormap);
-
 	d->decor_event_box = gtk_event_box_new ();
+
 	gtk_event_box_set_visible_window (GTK_EVENT_BOX (d->decor_event_box),
 					  FALSE);
 	gtk_widget_set_events (d->decor_event_box, GDK_BUTTON_PRESS_MASK |
@@ -467,6 +457,8 @@ remove_frame_window (WnckWindow *win)
     {
 	int i, j;
 
+	gdk_error_trap_push ();
+
 	for (i = 0; i < 3; ++i)
 	{
 	    for (j = 0; j < 3; ++j)
@@ -483,18 +475,20 @@ remove_frame_window (WnckWindow *win)
 
 	    d->button_states[i] = 0;
 	}
+
+	gdk_error_trap_pop_ignored ();
     }
 
-    if (d->pixmap)
+    if (d->surface)
     {
-	g_object_unref (G_OBJECT (d->pixmap));
-	d->pixmap = NULL;
+	cairo_surface_destroy (d->surface);
+	d->surface = NULL;
     }
 
-    if (d->buffer_pixmap)
+    if (d->buffer_surface)
     {
-	g_object_unref (G_OBJECT (d->buffer_pixmap));
-	d->buffer_pixmap = NULL;
+	cairo_surface_destroy (d->buffer_surface);
+	d->buffer_surface = NULL;
     }
 
     if (d->cr)
@@ -527,10 +521,10 @@ remove_frame_window (WnckWindow *win)
 	d->icon = NULL;
     }
 
-    if (d->icon_pixmap)
+    if (d->icon_surface)
     {
-	g_object_unref (G_OBJECT (d->icon_pixmap));
-	d->icon_pixmap = NULL;
+	cairo_surface_destroy (d->icon_surface);
+	d->icon_surface = NULL;
     }
 
     if (d->icon_pixbuf)
@@ -580,7 +574,7 @@ remove_frame_window (WnckWindow *win)
     gdk_error_trap_push ();
     XDeleteProperty (xdisplay, wnck_window_get_xid (win), win_decor_atom);
     gdk_display_sync (gdk_display_get_default ());
-    gdk_error_trap_pop ();
+    gdk_error_trap_pop_ignored ();
 
     d->width  = 0;
     d->height = 0;
@@ -692,7 +686,7 @@ active_window_changed (WnckScreen *screen)
 	    if (d->win != NULL &&
 		!request_update_window_decoration_size (d->win) &&
 		d->decorated &&
-		d->pixmap)
+		d->surface)
 		queue_decor_draw (d);
 
 	}
@@ -761,7 +755,7 @@ active_window_changed (WnckScreen *screen)
 	    if (d->win != NULL &&
 		!request_update_window_decoration_size (d->win) &&
 		d->decorated &&
-		d->pixmap)
+		d->surface)
 		queue_decor_draw (d);
 
 	}
@@ -813,9 +807,9 @@ window_opened (WnckScreen *screen,
     d->draw = theme_draw_window_decoration;
 
     d->created = FALSE;
-    d->pixmap = NULL;
+    d->surface = NULL;
     d->cr = NULL;
-    d->buffer_pixmap = NULL;
+    d->buffer_surface = NULL;
     d->picture = None;
 
     connect_window (win);

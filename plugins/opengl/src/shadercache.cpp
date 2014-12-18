@@ -40,6 +40,16 @@ public:
 
 };
 
+GLShaderData::GLShaderData(const std::string &name,
+                           const std::string &vertexShader,
+                           const std::string &fragmentShader) :
+    name(name),
+    vertexShader(vertexShader),
+    fragmentShader(fragmentShader),
+    isCached(false)
+{
+}
+
 typedef std::map<GLShaderParameters, GLShaderData, GLShaderParametersComparer> ShaderMapType;
 
 /** 
@@ -125,11 +135,10 @@ GLShaderCache::getShaderData (const GLShaderParameters &params)
 ShaderMapType::const_iterator
 PrivateShaderCache::addShaderData (const GLShaderParameters &params)
 {
-    GLShaderData shaderData;
-
-    shaderData.name = params.id ();
-    shaderData.fragmentShader = createFragmentShader (params);
-    shaderData.vertexShader = createVertexShader (params);
+    GLShaderData shaderData (params.id (),
+                             createVertexShader (params),
+                             createFragmentShader (params));
+    shaderData.isCached = true;
 
     std::pair<ShaderMapType::iterator, bool> ret =
         shaderMap.insert(std::pair<GLShaderParameters, GLShaderData>(params,shaderData));
@@ -236,16 +245,16 @@ PrivateShaderCache::createFragmentShader (const GLShaderParameters &params)
     }
 
     if (params.brightness) {
-	ss << "color.rgb = color.rgb * paintAttrib.y" <<
-	      (params.opacity ? " * paintAttrib.x;\n" : ";\n") <<
-	      (params.opacity ? "color.a = color.a * paintAttrib.x;\n" : "");
-    }
-    else if (params.opacity) {
-	ss << "color = color * paintAttrib.x;\n";
+	ss << "color.rgb = color.rgb * paintAttrib.y;\n";
     }
 
     ss << "gl_FragColor = color;\n";
-    ss << "@FRAGMENT_FUNCTION_CALLS@\n}";
+    ss << "@FRAGMENT_FUNCTION_CALLS@\n";
+
+    if (params.opacity) {
+	ss << "gl_FragColor = gl_FragColor * paintAttrib.x;\n";
+    }
+    ss << "}\n";
 
     return ss.str();
 }

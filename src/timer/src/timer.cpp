@@ -56,10 +56,6 @@ CompTimeoutSource::CompTimeoutSource (Glib::RefPtr <Glib::MainContext> &ctx) :
     set_priority (G_PRIORITY_DEFAULT);
     attach (ctx);
 
-    /* We have to unreference the source so that it is destroyed
-     * when the main context destroys it */
-    unreference ();
-
     connect (sigc::mem_fun <bool, CompTimeoutSource> (this, &CompTimeoutSource::callback));
 }
 
@@ -73,10 +69,10 @@ CompTimeoutSource::connect (const sigc::slot <bool> &slot)
     return connect_generic (slot);
 }
 
-CompTimeoutSource *
+Glib::RefPtr<CompTimeoutSource>
 CompTimeoutSource::create (Glib::RefPtr <Glib::MainContext> &ctx)
 {
-    return new CompTimeoutSource (ctx);
+    return Glib::RefPtr<CompTimeoutSource> (new CompTimeoutSource (ctx));
 }
 
 static const unsigned short COMPIZ_TIMEOUT_WAIT = 15;

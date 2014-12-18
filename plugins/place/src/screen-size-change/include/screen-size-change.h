@@ -36,6 +36,7 @@ namespace compiz
 {
 namespace place
 {
+    const unsigned int WindowMaximized = 1 << 2;
 
 class ScreenSizeChangeObject
 {
@@ -50,6 +51,7 @@ class ScreenSizeChangeObject
 	virtual const CompPoint & getViewport () const = 0;
 	virtual const CompRect & getWorkarea (const compiz::window::Geometry &g) const = 0;
 	virtual const compiz::window::extents::Extents & getExtents () const = 0;
+	virtual unsigned int getState () const = 0;
 
 	compiz::window::Geometry adjustForSize (const CompSize &oldSize,
 						const CompSize &newSize);

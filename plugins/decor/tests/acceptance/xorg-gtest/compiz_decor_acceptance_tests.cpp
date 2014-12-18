@@ -33,6 +33,7 @@
 
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
+#include <X11/extensions/shape.h>
 
 #include "decoration.h"
 
@@ -48,7 +49,10 @@
 namespace xt = xorg::testing;
 namespace ct = compiz::testing;
 
+using ::testing::AllOf;
 using ::testing::AtLeast;
+using ::testing::Eq;
+using ::testing::Field;
 using ::testing::ReturnNull;
 using ::testing::Return;
 using ::testing::MatcherInterface;
@@ -1208,6 +1212,17 @@ Window FindParent (Display *dpy,
     return parent;
 }
 
+bool WaitForReparent (::Display *dpy,
+		      Window  w)
+{
+    return Advance (dpy,
+		    ct::WaitForEventOfTypeOnWindow (dpy,
+						    w,
+						    ReparentNotify,
+						    -1,
+						    -1));
+}
+
 void FreeWindowArray (Window *array)
 {
     if (array)
@@ -1667,6 +1682,188 @@ TEST_F (DecorWithPixmapDefaultsAcceptance, FallbackNormalWindowInputOnFrame)
 					      inputExtents));
 }
 
+class DecorPixmapShapeSetAcceptance :
+    public DecorWithPixmapDefaultsAcceptance
+{
+    public:
+
+	virtual void SetUp ();
+
+    protected:
+
+	int shapeEvent;
+	int shapeError;
+
+	int shapeMajor;
+	int shapeMinor;
+};
+
+void
+DecorPixmapShapeSetAcceptance::SetUp ()
+{
+    DecorWithPixmapDefaultsAcceptance::SetUp ();
+
+    if (!XShapeQueryVersion (Display (), &shapeMajor, &shapeMinor))
+	throw std::runtime_error ("Unable to query shape extension version");
+
+    if (!XShapeQueryExtension (Display (), &shapeEvent, &shapeError))
+	throw std::runtime_error ("Unable to initialize shape extension");
+}
+
+std::ostream &
+operator<< (std::ostream &os, const XRectangle &r)
+{
+    os << "XRectangle: "
+       << " x: " << r.x
+       << " y: " << r.y
+       << " width: " << r.width
+       << " height: " << r.height;
+
+    return os;
+}
+
+namespace
+{
+void FreeXRectangleArray (XRectangle *array)
+{
+    XFree (array);
+}
+
+boost::shared_array <XRectangle>
+ShapeRectangles (::Display    *dpy,
+		 Window       w,
+		 int          &n,
+		 int          &order)
+{
+    XRectangle *rects = XShapeGetRectangles(dpy,
+					    w,
+					    ShapeInput,
+					    &n,
+					    &order);
+
+    return boost::shared_array <XRectangle> (rects,
+					     boost::bind (FreeXRectangleArray,
+							  _1));
+}
+}
+
+TEST_F (DecorPixmapShapeSetAcceptance, FrameWindowHasInitialFullShape)
+{
+    Window w = ct::CreateNormalWindow (Display ());
+
+    RecievePropertyNotifyEvents (Display (), w);
+    XMapRaised (Display (), w);
+    WaitForPropertyNotify (Display (), w, "_NET_FRAME_EXTENTS");
+
+    Window parent = FindParent (Display (), w);
+
+    int x, y;
+    unsigned int width, height, border;
+
+    ct::AbsoluteWindowGeometry (Display (),
+				parent,
+				x,
+				y,
+				width,
+				height,
+				border);
+
+    int n, order;
+    boost::shared_array <XRectangle> rects (ShapeRectangles (Display (),
+							     parent,
+							     n,
+							     order));
+
+    ASSERT_THAT (n, Eq (1));
+    EXPECT_THAT (rects[0],
+		 AllOf (Field (&XRectangle::x, Eq (0)),
+			Field (&XRectangle::y, Eq (0)),
+			Field (&XRectangle::width, Eq (width)),
+			Field (&XRectangle::height, Eq (height))));
+}
+
+TEST_F (DecorPixmapShapeSetAcceptance, FrameWindowShapeIsUpdated)
+{
+    Window w = ct::CreateNormalWindow (Display ());
+
+    RecievePropertyNotifyEvents (Display (), w);
+    XMapRaised (Display (), w);
+    WaitForReparent (Display (), w);
+    WaitForPropertyNotify (Display (), w, DECOR_INPUT_FRAME_ATOM_NAME);
+
+    Window parent = FindParent (Display (), w);
+
+    int clientX, clientY;
+    unsigned int clientWidth, clientHeight, border;
+
+    ct::AbsoluteWindowGeometry (Display (),
+				w,
+				clientX,
+				clientY,
+				clientWidth,
+				clientHeight,
+				border);
+
+    /* Get the input frame remove its input shape completely */
+    boost::shared_ptr <unsigned char> inputFramePropertyData;
+    FetchAndVerifyProperty (Display (),
+			    w,
+			    mDecorationInputFrameAtom,
+			    XA_WINDOW,
+			    32,
+			    1,
+			    0L,
+			    inputFramePropertyData);
+
+    Window inputFrame = *(reinterpret_cast <Window *> (inputFramePropertyData.get ()));
+
+    /* Sync first, and then combine rectangles on the input frame */
+    XSync (Display (), false);
+    XShapeSelectInput (Display (), parent, ShapeNotifyMask);
+    XShapeCombineRectangles (Display (),
+			     inputFrame,
+			     ShapeInput,
+			     0,
+			     0,
+			     NULL,
+			     0,
+			     ShapeSet,
+			     0);
+
+    clientX += ActiveBorderExtent;
+    clientY += ActiveBorderExtent;
+
+    /* Wait for a shape event on the frame window */
+    ct::ShapeNotifyXEventMatcher matcher (ShapeInput,
+					  clientX,
+					  clientY,
+					  clientWidth,
+					  clientHeight,
+					  1);
+    Advance (Display (),
+	     ct::WaitForEventOfTypeOnWindowMatching (Display (),
+						     parent,
+						     shapeEvent + ShapeNotify,
+						     -1,
+						     0,
+						     matcher));
+
+    /* Grab the shape rectangles of the parent, they should
+     * be equal to the client window size */
+    int n, order;
+    boost::shared_array <XRectangle> rects (ShapeRectangles (Display (),
+							     parent,
+							     n,
+							     order));
+
+    ASSERT_THAT (n, Eq (1));
+    EXPECT_THAT (rects[0],
+		 AllOf (Field (&XRectangle::x, Eq (clientX)),
+			Field (&XRectangle::y, Eq (clientY)),
+			Field (&XRectangle::width, Eq (clientWidth)),
+			Field (&XRectangle::height, Eq (clientHeight))));
+}
+
 /* TODO: Get bare decorations tests */
 
 /* Helper class with some useful member functions */
@@ -1745,12 +1942,7 @@ PixmapDecoratorAcceptance::MapAndReparent (::Display *display,
     XMapRaised (display, window);
 
     /* Wait for the window to be reparented */
-    Advance (Display (),
-	     ct::WaitForEventOfTypeOnWindow (display,
-					     window,
-					     ReparentNotify,
-					     -1,
-					     -1));
+    WaitForReparent (display, window);
 
     /* Select for StructureNotify on the parent and wrapper
      * windows */
@@ -2159,6 +2351,8 @@ TEST_F (PixmapDecoratedWindowAcceptance, MaximizeBorderExtentsOnMaximize)
 			 AddState,
 			 "_NET_WM_STATE_MAXIMIZED_VERT",
 			 mTestWindow);
+			 
+    WaitForPropertyNotify (Display (), mTestWindow, "_NET_FRAME_EXTENTS");
 
     ChangeStateOfWindow (Display (),
 			 AddState,
@@ -2180,7 +2374,7 @@ TEST_F (PixmapDecoratedWindowAcceptance, MaximizeBorderExtentsOnMaximize)
     EXPECT_THAT (frameExtents, IsExtents (MaxEx, MaxEx, MaxEx, MaxEx));
 }
 
-TEST_F (PixmapDecoratedWindowAcceptance, MaximizeBorderExtentsOnVertMaximize)
+TEST_F (PixmapDecoratedWindowAcceptance, RestoredBorderExtentsOnVertMaximize)
 {
     ChangeStateOfWindow (Display (),
 			 AddState,
@@ -2197,12 +2391,12 @@ TEST_F (PixmapDecoratedWindowAcceptance, MaximizeBorderExtentsOnVertMaximize)
     unsigned long *frameExtents =
 	reinterpret_cast <unsigned long *> (data.get ());
 
-    unsigned int MaxEx = MaximizedBorderExtent;
+    unsigned int ActEx = RealDecorationActiveBorderExtent;
 
-    EXPECT_THAT (frameExtents, IsExtents (MaxEx, MaxEx, MaxEx, MaxEx));
+    EXPECT_THAT (frameExtents, IsExtents (ActEx, ActEx, ActEx, ActEx));
 }
 
-TEST_F (PixmapDecoratedWindowAcceptance, MaximizeBorderExtentsOnHorzMaximize)
+TEST_F (PixmapDecoratedWindowAcceptance, RestoredBorderExtentsOnHorzMaximize)
 {
     ChangeStateOfWindow (Display (),
 			 AddState,
@@ -2219,9 +2413,9 @@ TEST_F (PixmapDecoratedWindowAcceptance, MaximizeBorderExtentsOnHorzMaximize)
     unsigned long *frameExtents =
 	reinterpret_cast <unsigned long *> (data.get ());
 
-    unsigned int MaxEx = MaximizedBorderExtent;
-
-    EXPECT_THAT (frameExtents, IsExtents (MaxEx, MaxEx, MaxEx, MaxEx));
+    unsigned int ActEx = RealDecorationActiveBorderExtent;
+    
+    EXPECT_THAT (frameExtents, IsExtents (ActEx, ActEx, ActEx, ActEx));
 }
 
 TEST_F (PixmapDecoratedWindowAcceptance, MaximizeFrameWindowSizeEqOutputSize)
@@ -2258,7 +2452,7 @@ TEST_F (PixmapDecoratedWindowAcceptance, MaximizeFrameWindowSizeEqOutputSize)
 								  matcher)));
 }
 
-TEST_F (PixmapDecoratedWindowAcceptance, VertMaximizeFrameWindowSizeEqOutputYHeight)
+TEST_F (PixmapDecoratedWindowAcceptance, VertMaximizeFrameWindowYHeight)
 {
     XWindowAttributes attrib;
     XGetWindowAttributes (Display (), DefaultRootWindow (Display ()), &attrib);
@@ -2268,12 +2462,13 @@ TEST_F (PixmapDecoratedWindowAcceptance, VertMaximizeFrameWindowSizeEqOutputYHei
 			 "_NET_WM_STATE_MAXIMIZED_VERT",
 			 mTestWindow);
 
+    int offset = RealDecorationActiveBorderExtent - ActiveInputExtent;
     ct::ConfigureNotifyXEventMatcher matcher (None,
 					      0,
 					      0,
+					      offset,
 					      0,
-					      0,
-					      attrib.height,
+					      attrib.height - 2 * offset,
 					      CWY | CWHeight);
 
     EXPECT_TRUE (Advance (Display (),
@@ -2285,7 +2480,7 @@ TEST_F (PixmapDecoratedWindowAcceptance, VertMaximizeFrameWindowSizeEqOutputYHei
 								  matcher)));
 }
 
-TEST_F (PixmapDecoratedWindowAcceptance, HorzMaximizeFrameWindowSizeEqOutputXWidth)
+TEST_F (PixmapDecoratedWindowAcceptance, HorzMaximizeFrameWindowXWidth)
 {
     XWindowAttributes attrib;
     XGetWindowAttributes (Display (), DefaultRootWindow (Display ()), &attrib);
@@ -2295,11 +2490,12 @@ TEST_F (PixmapDecoratedWindowAcceptance, HorzMaximizeFrameWindowSizeEqOutputXWid
 			 "_NET_WM_STATE_MAXIMIZED_HORZ",
 			 mTestWindow);
 
+    int offset = RealDecorationActiveBorderExtent - ActiveInputExtent;
     ct::ConfigureNotifyXEventMatcher matcher (None,
 					      0,
+					      offset,
 					      0,
-					      0,
-					      attrib.width,
+					      attrib.width - 2 * offset,
 					      0,
 					      CWX | CWWidth);
 
@@ -2312,34 +2508,11 @@ TEST_F (PixmapDecoratedWindowAcceptance, HorzMaximizeFrameWindowSizeEqOutputXWid
 								  matcher)));
 }
 
-namespace
-{
-void WindowBorderPositionAttributes (Display *dpy,
-				     Window  w,
-				     XWindowAttributes &attrib,
-				     unsigned int ActiveBorderExtent,
-				     unsigned int ActiveInputExtent)
-{
-    XGetWindowAttributes (dpy, w, &attrib);
-
-    /* Remove input - border offset */
-    attrib.x += (ActiveInputExtent - ActiveBorderExtent);
-    attrib.y += (ActiveInputExtent - ActiveBorderExtent);
-    attrib.width -= (ActiveInputExtent - ActiveBorderExtent) * 2;
-    attrib.height -= (ActiveInputExtent - ActiveBorderExtent) * 2;
-}
-}
-
 TEST_F (PixmapDecoratedWindowAcceptance, VertMaximizeFrameWindowSizeSameXWidth)
 {
     XWindowAttributes rootAttrib, attrib;
     XGetWindowAttributes (Display (), DefaultRootWindow (Display ()), &rootAttrib);
-
-    WindowBorderPositionAttributes (Display (),
-				    mTestWindowParent,
-				    attrib,
-				    RealDecorationActiveBorderExtent,
-				    ActiveInputExtent);
+    XGetWindowAttributes (Display (), mTestWindowParent, &attrib);
 
     ChangeStateOfWindow (Display (),
 			 AddState,
@@ -2347,12 +2520,13 @@ TEST_F (PixmapDecoratedWindowAcceptance, VertMaximizeFrameWindowSizeSameXWidth)
 			 mTestWindow);
 
     /* Wait for the window to be maximized first */
+    int offset = RealDecorationActiveBorderExtent - ActiveInputExtent;
     WaitForConfigureOn (Display (),
 			mTestWindowParent,
 			0,
+			offset,
 			0,
-			0,
-			rootAttrib.height,
+			rootAttrib.height - 2 * offset,
 			CWY | CWHeight);
 
     /* Query the window geometry and ensure that the width and
@@ -2372,12 +2546,7 @@ TEST_F (PixmapDecoratedWindowAcceptance, HorzMaximizeFrameWindowSizeSameYHeight)
 {
     XWindowAttributes rootAttrib, attrib;
     XGetWindowAttributes (Display (), DefaultRootWindow (Display ()), &rootAttrib);
-
-    WindowBorderPositionAttributes (Display (),
-				    mTestWindowParent,
-				    attrib,
-				    RealDecorationActiveBorderExtent,
-				    ActiveInputExtent);
+    XGetWindowAttributes (Display (), mTestWindowParent, &attrib);
 
     ChangeStateOfWindow (Display (),
 			 AddState,
@@ -2385,11 +2554,12 @@ TEST_F (PixmapDecoratedWindowAcceptance, HorzMaximizeFrameWindowSizeSameYHeight)
 			 mTestWindow);
 
     /* Wait for the window to be maximized first */
+    int offset = RealDecorationActiveBorderExtent - ActiveInputExtent;
     WaitForConfigureOn (Display (),
 			mTestWindowParent,
+			offset,
 			0,
-			0,
-			rootAttrib.width,
+			rootAttrib.width - 2 * offset,
 			0,
 			CWX | CWWidth);
 

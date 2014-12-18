@@ -30,13 +30,15 @@
 
 #include <X11/extensions/Xcomposite.h>
 
-#define COMPIZ_COMPOSITE_ABI 5
+#define COMPIZ_COMPOSITE_ABI 6
 
 #include "core/pluginclasshandler.h"
 #include "core/timer.h"
 #include "core/output.h"
 #include "core/screen.h"
 #include "core/wrapsystem.h"
+
+#include "composite/agedamagequery.h"
 
 #define COMPOSITE_SCREEN_DAMAGE_PENDING_MASK (1 << 0)
 #define COMPOSITE_SCREEN_DAMAGE_REGION_MASK  (1 << 1)
@@ -98,18 +100,19 @@ namespace compiz
 namespace composite
 {
 class PaintHandler {
-public:
-    virtual ~PaintHandler () {};
+    public:
+	virtual ~PaintHandler () {};
 
-    virtual void paintOutputs (CompOutput::ptrList &outputs,
-			       unsigned int        mask,
-			       const CompRegion    &region) = 0;
+	virtual void paintOutputs (CompOutput::ptrList &outputs,
+				   unsigned int        mask,
+				   const CompRegion    &region) = 0;
 
-    virtual bool hasVSync () { return false; };
-    virtual bool requiredForcedRefreshRate () { return false; };
+	virtual bool hasVSync () { return false; };
+	virtual bool requiredForcedRefreshRate () { return false; };
 
-    virtual void prepareDrawing () {};
-    virtual bool compositingActive () { return false; };
+	virtual void prepareDrawing () {};
+	virtual bool compositingActive () { return false; };
+	virtual unsigned int getFrameAge () { return 1; }
 };
 }
 }
@@ -173,12 +176,19 @@ class CompositeScreenInterface :
 	 * Hookable function to damage regions directly
 	 */
 	virtual void damageRegion (const CompRegion &r);
+
+	/**
+	 * Hookable function to notify plugins that the last damage
+	 * event for this frame has been received, and all further damage
+	 * events will be for the next frame
+	 */
+	virtual void damageCutoff ();
 };
 
 extern template class PluginClassHandler<CompositeScreen, CompScreen, COMPIZ_COMPOSITE_ABI>;
 
 class CompositeScreen :
-    public WrapableHandler<CompositeScreenInterface, 7>,
+    public WrapableHandler<CompositeScreenInterface, 8>,
     public PluginClassHandler<CompositeScreen, CompScreen, COMPIZ_COMPOSITE_ABI>,
     public CompOption::Class
 {
@@ -203,6 +213,34 @@ class CompositeScreen :
 	void damageScreen ();
 
 	void damagePending ();
+
+	/**
+	 * Causes the damage that was recorded on N - 1 number of
+	 * frames ago to be added to the current frame, applied
+	 * culmulatively. An age of "zero" means that the entire frame
+	 * is considered undefined and must be completely repaired,
+	 * wheras an age of 1 means that this frame is the same as the
+	 * last frame, so no damage is required.
+	 */
+	void applyDamageForFrameAge (unsigned int);
+	unsigned int getFrameAge ();
+
+	/**
+	 * @brief recordDamageOnCurrentFrame
+	 *
+	 * Causes damage to be recorded on one-frame ago. Ideally this
+	 * should be used in the case where damage was already recorded
+	 * for a frame, but due to an unforeseen circumstance at the time
+	 * additional painting area needed to be allocated at paint-time.
+	 */
+	void recordDamageOnCurrentFrame (const CompRegion &);
+
+	typedef compiz::composite::buffertracking::AgeDamageQuery DamageQuery;
+	typedef DamageQuery::AreaShouldBeMarkedDirty AreaShouldBeMarkedDirty;
+
+	DamageQuery::Ptr
+	getDamageQuery (AreaShouldBeMarkedDirty callback =
+			    AreaShouldBeMarkedDirty ());
 	
 
 	unsigned int damageMask ();
@@ -248,6 +286,7 @@ class CompositeScreen :
 	 * event loop
 	 */
 	WRAPABLE_HND (6, CompositeScreenInterface, void, damageRegion, const CompRegion &);
+	WRAPABLE_HND (7, CompositeScreenInterface, void, damageCutoff);
 
 	friend class PrivateCompositeDisplay;
 

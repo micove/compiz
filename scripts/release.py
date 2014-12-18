@@ -26,11 +26,11 @@ from launchpadlib.launchpad import Launchpad
 import datetime
 
 def usage ():
-    print ("release.py VERSION")
+    print ("release.py VERSION [SINCE]")
     print ("Make a release and bump version to VERSION")
     sys.exit (1)
 
-if len(sys.argv) != 2:
+if len(sys.argv) < 2:
     usage ()
 
 if not "release.py" in os.listdir ("."):
@@ -56,13 +56,23 @@ tags = compiz_branch.tags.get_tag_dict ().items ()
 
 most_recent_revision = 0
 
-# Find the last tagged revision
+since = None
+
+if len (sys.argv) == 3:
+    since = sys.argv[2];
+
+# Find the last tagged revision or the specified tag
 for tag, revid in tags:
     try:
         revision = compiz_branch.revision_id_to_dotted_revno (revid)[0]
 
-        if int (revision) > most_recent_revision:
+        if since != None:
+            if tag == since:
+                most_recent_revision = revision
+ 
+        elif int (revision) > most_recent_revision:
             most_recent_revision = revision
+
     except (errors.NoSuchRevision,
             errors.GhostRevisionsHaveNoRevno,
             errors.UnsupportedOperation):

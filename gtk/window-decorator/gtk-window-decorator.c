@@ -61,9 +61,6 @@ const float META_ACTIVE_OPACITY       = 1.0f;
 
 guint cmdline_options = 0;
 
-GdkPixmap *decor_normal_pixmap = NULL;
-GdkPixmap *decor_active_pixmap = NULL;
-
 Atom frame_input_window_atom;
 Atom frame_output_window_atom;
 Atom win_decor_atom;
@@ -360,7 +357,7 @@ main (int argc, char *argv[])
 
     if (!minimal)
     {
-	GdkWindow *root = create_foreign_window (gdk_x11_get_default_root_xwindow ());
+	GdkWindow *root = gdk_x11_window_foreign_new_for_display (gdk_display_get_default (), gdk_x11_get_default_root_xwindow ());
 
  	gdk_window_add_filter (NULL,
  			       event_filter_func,
@@ -371,7 +368,7 @@ main (int argc, char *argv[])
 
 	for (i = 0; i < nchildren; ++i)
 	{
-	    GdkWindow *toplevel = create_foreign_window  (children[i]);
+	    GdkWindow *toplevel = gdk_x11_window_foreign_new_for_display (gdk_display_get_default (), children[i]);
 
 	    /* Need property notify on all windows */
 

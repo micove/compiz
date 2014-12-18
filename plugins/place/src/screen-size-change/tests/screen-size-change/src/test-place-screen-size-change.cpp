@@ -62,6 +62,7 @@ class StubScreenSizeChangeObject :
 	const CompPoint & getViewport () const;
 	const CompRect &  getWorkarea (const cw::Geometry &g) const;
 	const cw::extents::Extents & getExtents () const;
+	unsigned int getState () const;
 
 	void setVp (const CompPoint &);
 	void setWorkArea (const CompRect &);
@@ -212,6 +213,12 @@ const cw::extents::Extents &
 StubScreenSizeChangeObject::getExtents () const
 {
     return mCurrentExtents;
+}
+
+unsigned int
+StubScreenSizeChangeObject::getState () const
+{
+    return 0;
 }
 
 void

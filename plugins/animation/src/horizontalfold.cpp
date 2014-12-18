@@ -38,11 +38,11 @@
 
 // =====================  Effect: Horizontal Folds  =========================
 
-HorizontalFoldsAnim::HorizontalFoldsAnim (CompWindow *w,
-					  WindowEvent curWindowEvent,
-					  float duration,
+HorizontalFoldsAnim::HorizontalFoldsAnim (CompWindow       *w,
+					  WindowEvent      curWindowEvent,
+					  float            duration,
 					  const AnimEffect info,
-					  const CompRect &icon) :
+					  const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     TransformAnim::TransformAnim (w, curWindowEvent, duration, info, icon),
     FoldAnim::FoldAnim (w, curWindowEvent, duration, info, icon)
@@ -53,6 +53,7 @@ void
 HorizontalFoldsAnim::initGrid ()
 {
     mGridWidth = 2;
+
     if (mCurWindowEvent == WindowEventShade ||
 	mCurWindowEvent == WindowEventUnshade)
 	mGridHeight = 3 + 2 *
@@ -64,10 +65,10 @@ HorizontalFoldsAnim::initGrid ()
 
 float
 HorizontalFoldsAnim::getObjectZ (GridAnim::GridModel *mModel,
-				 float forwardProgress,
-				 float sinForProg,
-				 float relDistToFoldCenter,
-				 float foldMaxAmp)
+				 float               forwardProgress,
+				 float               sinForProg,
+				 float               relDistToFoldCenter,
+				 float               foldMaxAmp)
 {
     return -(sinForProg *
 	     foldMaxAmp *
@@ -101,17 +102,15 @@ HorizontalFoldsAnim::step ()
     int oheight = outRect.height ();
 
     float winHeight = 0;
+
     if (mCurWindowEvent == WindowEventShade ||
 	mCurWindowEvent == WindowEventUnshade)
-    {
 	winHeight = winRect.height ();
-    }
     else
-    {
 	winHeight = inRect.height ();
-    }
-    int nHalfFolds =
-	2.0 * optValI (AnimationOptions::HorizontalFoldsNumFolds);
+
+    int nHalfFolds = 2.0 * optValI (AnimationOptions::HorizontalFoldsNumFolds);
+
     float foldMaxAmp =
 	0.3 * pow ((winHeight / nHalfFolds) / ::screen->height (), 0.3) *
 	optValF (AnimationOptions::HorizontalFoldsAmpMult);
@@ -122,6 +121,7 @@ HorizontalFoldsAnim::step ()
 
     GridModel::GridObject *object = mModel->objects ();
     unsigned int n = mModel->numObjects ();
+
     for (unsigned int i = 0; i < n; ++i, ++object)
     {
 	Point3d &objPos = object->position ();
@@ -134,11 +134,10 @@ HorizontalFoldsAnim::step ()
 	    float origy = (wy +
 			   (oheight * objGridY -
 			    outExtents.top) * mModel->scale ().y ());
+
 	    if (mCurWindowEvent == WindowEventShade ||
 		mCurWindowEvent == WindowEventUnshade)
-	    {
-		// Execute shade mode
-
+	    {	 // Execute shade mode
 		if (objGridY == 0)
 		{
 		    objPos.setY (oy);
@@ -164,10 +163,8 @@ HorizontalFoldsAnim::step ()
 				    relDistToFoldCenter, foldMaxAmp));
 		}
 	    }
-	    else
+	    else // Execute normal mode
 	    {
-		// Execute normal mode
-
 		float relDistToFoldCenter = (rowNo % 2 == 0 ? 0.5 : 0);
 
 		objPos.setY (
@@ -201,4 +198,3 @@ HorizontalFoldsAnim::zoomToIcon ()
 	     mCurWindowEvent == WindowEventUnminimize) &&
 	    optValB (AnimationOptions::HorizontalFoldsZoomToTaskbar));
 }
-

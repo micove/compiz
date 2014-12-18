@@ -37,6 +37,13 @@
 #else
 #include <GL/gl.h>
 #include <GL/glx.h>
+
+/* Some implementations have not yet given a definition
+ * to GLX_BACK_BUFFER_AGE_EXT but this is the token as defined
+ * in the spec (https://www.opengl.org/registry/specs/EXT/glx_buffer_age.txt)
+ */
+#define GLX_BACK_BUFFER_AGE_EXT 0x20F4
+
 #endif
 
 #include <core/size.h>
@@ -50,7 +57,7 @@
 #include <opengl/programcache.h>
 #include <opengl/shadercache.h>
 
-#define COMPIZ_OPENGL_ABI 6
+#define COMPIZ_OPENGL_ABI 7
 
 /*
  * Some plugins check for #ifdef USE_MODERN_COMPIZ_GL. Support it for now, but
@@ -529,6 +536,7 @@ namespace GL {
     extern bool  shaders;
     extern bool  stencilBuffer;
     extern GLint maxTextureUnits;
+    extern bool  bufferAge;
 
     extern bool canDoSaturated;
     extern bool canDoSlightlySaturated;
@@ -667,6 +675,11 @@ class GLScreenInterface :
 					      unsigned int         mask);
 
 	/**
+	 * Return true if glPaintCompositedOutput is required for this frame
+	 */
+	virtual bool glPaintCompositedOutputRequired ();
+
+	/**
 	 * Hookable function used by plugins to determine stenciling mask
 	 */
 	virtual void glBufferStencil (const GLMatrix       &matrix,
@@ -678,7 +691,7 @@ class GLScreenInterface :
 extern template class PluginClassHandler<GLScreen, CompScreen, COMPIZ_OPENGL_ABI>;
 
 class GLScreen :
-    public WrapableHandler<GLScreenInterface, 8>,
+    public WrapableHandler<GLScreenInterface, 9>,
     public PluginClassHandler<GLScreen, CompScreen, COMPIZ_OPENGL_ABI>,
     public CompOption::Class
 {
@@ -792,7 +805,9 @@ class GLScreen :
 	WRAPABLE_HND (6, GLScreenInterface, void, glPaintCompositedOutput,
 		      const CompRegion &, GLFramebufferObject *, unsigned int);
 
-	WRAPABLE_HND (7, GLScreenInterface, void, glBufferStencil, const GLMatrix &,
+	WRAPABLE_HND (7, GLScreenInterface, bool, glPaintCompositedOutputRequired);
+
+	WRAPABLE_HND (8, GLScreenInterface, void, glBufferStencil, const GLMatrix &,
 		      GLVertexBuffer &,
 		      CompOutput *);
 

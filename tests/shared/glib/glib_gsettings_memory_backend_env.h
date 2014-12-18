@@ -29,6 +29,8 @@ class CompizGLibGSettingsMemoryBackendTestingEnv
 {
     public:
 
+	virtual ~CompizGLibGSettingsMemoryBackendTestingEnv () {}
+
 	virtual void SetUpEnv (const std::string &MOCK_PATH)
 	{
 	    g_setenv ("GSETTINGS_SCHEMA_DIR", MOCK_PATH.c_str (), true);

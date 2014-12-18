@@ -155,6 +155,7 @@ class GObjectPropertyMatcher :
 	    mGetFunc (func)
 	{
 	}
+	virtual ~GObjectPropertyMatcher () {}
 
 	virtual bool MatchAndExplain (GValue *value, MatchResultListener *listener) const
 	{
@@ -242,7 +243,6 @@ class GWDSettingsTestCommon :
 	virtual void SetUp ()
 	{
 	    env.SetUpEnv ();
-	    g_type_init ();
 	}
 	virtual void TearDown ()
 	{

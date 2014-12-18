@@ -120,6 +120,7 @@ class BaseSwitchWindow
 	};
 
 	BaseSwitchWindow (BaseSwitchScreen *, CompWindow *);
+	virtual ~BaseSwitchWindow () {}
 
 	void paintThumb (const GLWindowPaintAttrib &attrib,
 			 const GLMatrix            &transform,

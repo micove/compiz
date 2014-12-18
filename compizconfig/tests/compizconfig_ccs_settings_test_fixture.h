@@ -41,6 +41,8 @@ class CCSSettingsConceptTestEnvironmentInterface
 {
     public:
 
+	virtual ~CCSSettingsConceptTestEnvironmentInterface () {}
+
 	virtual void SetUp () = 0;
 	virtual void TearDown () = 0;
 

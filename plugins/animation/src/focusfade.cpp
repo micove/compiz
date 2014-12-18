@@ -55,14 +55,14 @@ GLushort
 FocusFadeAnim::computeOpacity (GLushort opacityInt)
 {
     float progress = 1 - progressLinear ();
-    float opacity = opacityInt / (float)OPAQUE;
+    float opacity  = opacityInt / (float)OPAQUE;
     float multiplier;
 
     bool newCopy = overNewCopy ();
 
     // flip opacity behavior for the other side of the cross-fade
     if (newCopy)
-        progress = 1 - progress;
+	progress = 1 - progress;
 
     if (mWindow->alpha () || (newCopy && opacity >= 0.91f))
 	multiplier = progressDecelerate (progress);
@@ -81,10 +81,10 @@ FocusFadeAnim::computeOpacity (GLushort opacityInt)
     else
 	multiplier = progress;
 
-    multiplier = 1 - multiplier;
+    multiplier         = 1 - multiplier;
     float finalOpacity = opacity * multiplier;
-    finalOpacity = MIN (finalOpacity, 1);
-    finalOpacity = MAX (finalOpacity, 0);
+    finalOpacity       = MIN (finalOpacity, 1);
+    finalOpacity       = MAX (finalOpacity, 0);
 
     return (GLushort)(finalOpacity * OPAQUE);
 }
@@ -99,7 +99,7 @@ void
 FocusFadeAnim::processCandidate (CompWindow *candidateWin,
 				 CompWindow *subjectWin,
 				 CompRegion &candidateAndSubjectIntersection,
-				 int &numSelectedCandidates)
+				 int        &numSelectedCandidates)
 {
     AnimWindow *aCandidateWin = AnimWindow::get (candidateWin);
     RestackPersistentData *data = static_cast<RestackPersistentData *>
@@ -117,10 +117,12 @@ FocusFadeAnim::cleanUp (bool closing, bool destructing)
     {
 	AnimWindow *aw = AnimWindow::get (w);
 	PersistentDataMap::iterator itData = aw->persistentData.find ("restack");
+
 	if (itData != aw->persistentData.end ()) // if found
 	{
 	    RestackPersistentData *data =
 		static_cast<RestackPersistentData *> (itData->second);
+
 	    if (data->mWinPassingThrough == mWindow)
 		data->mWinPassingThrough = 0;
 	}
@@ -128,4 +130,3 @@ FocusFadeAnim::cleanUp (bool closing, bool destructing)
 
     RestackAnim::cleanUp (closing, destructing);
 }
-
