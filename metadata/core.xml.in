@@ -141,11 +141,6 @@
 			<_long>Focus prevention windows</_long>
 			<default>any</default>
 			</option>
-			<option type="bool" name="remember_vp_focus">
-			<_short>Remember Focus</_short>
-			<_long>Remember Focus Per Workspace</_long>
-			<default>true</default>
-			</option>
 		</group>
 		<group>
 		<_short>Key bindings</_short>

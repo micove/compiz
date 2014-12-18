@@ -59,6 +59,11 @@
 		<_long>Use glXSwapBuffers to display every frame. This eliminates visible tearing with most drivers and dramatically improves visual smoothness. Automatically enabled when framebuffer_object is on.</_long>
 		<default>true</default>
 	    </option>
+	    <option name="enable_x11_sync" type="bool">
+		<_short>X11 Sync objects</_short>
+		<_long>Use X11 Sync fences to synchronize rendering between X11 and OpenGL (GL_EXT_x11_sync_object). Without this, the contents of windows may not be completely redrawn.</_long>
+		<default>true</default>
+	    </option>
 	    <option name="unredirect_driver_blacklist" type="string">
 		<_short>Unredirect Driver Blacklist</_short>
 		<_long>If non-empty, specifies a POSIX (extended) regular expression to match against the OpenGL driver strings (newline separated): "GL_VENDOR\nGL_RENDERER\nGL_VERSION". If the regular expression matches a substring of that concatenation then no windows will ever be unredirected while using that particular graphics driver.</_long>

@@ -47,7 +47,6 @@
 
 #include "core_options.h"
 
-#include <map>
 #include <set>
 
 CompPlugin::VTable * getCoreVTable ();
@@ -88,17 +87,6 @@ struct CompStartupSequence {
     SnStartupSequence		*sequence;
     unsigned int		viewportX;
     unsigned int		viewportY;
-};
-
-// to allow using CompPoint as std::map keys
-struct PointCompare
-{
-    bool operator () (const CompPoint& p1, const CompPoint& p2)
-    {
-	if (p1.x () == p2.x ())
-	    return p1.y () < p2.y ();
-	return p1.x () < p2.x ();
-    }
 };
 
 namespace compiz
@@ -1177,9 +1165,6 @@ class CompScreenImpl : public CompScreen,
 
         bool handlePingTimeout();
 
-	void saveViewportFocus ();
-	CompWindow * findViewportFocusCandidate ();
-
         Window below;
 	CompTimer autoRaiseTimer_;
 	Window    autoRaiseWindow_;
@@ -1190,8 +1175,6 @@ class CompScreenImpl : public CompScreen,
         PrivateScreen privateScreen;
         compiz::private_screen::WindowManager windowManager;
         unsigned int showingDesktopMask_;
-	typedef std::map<CompPoint, Window, PointCompare> FocusMap;
-	FocusMap savedViewportFocus;
 };
 
 #endif

@@ -1,5 +1,3 @@
-compiz_pkg_check_modules (HAVE_XRENDER_0_9_3 xrender>=0.9.3)
-
 configure_file (
     ${CMAKE_CURRENT_SOURCE_DIR}/config.h.libdecoration.in
     ${CMAKE_CURRENT_BINARY_DIR}/config.h
@@ -17,7 +15,7 @@ add_definitions (
 )
 
 link_directories (
-    ${LIBDECORATION_LINK_DIRS}
+    ${LIBDECORATION_LIBRARY_DIRS}
 )
 
 add_library (decoration SHARED

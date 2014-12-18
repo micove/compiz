@@ -1057,7 +1057,7 @@ TEST (privatescreen_ButtonPressEventManagementTest, NoTriggerOnUnboundAction)
     MockTriggerableAction triggerableAction;
     ce::EventArguments    arguments;
 
-    option.set (value);
+    ASSERT_FALSE (option.set (value));
 
     const ce::ActionModsMatchesEventStateFunc &matchEventState =
 	    GetMatchEventStateFuncForMock (triggerableAction);
@@ -1091,7 +1091,7 @@ TEST (privatescreen_ButtonPressEventManagementTest, NoTriggerOnUnboundInactiveAc
     cps::EventManager     eventManager;
     ce::EventArguments    arguments;
 
-    option.set (value);
+    ASSERT_TRUE (option.set (value));
     option.value ().action ().setInitiate (initiate);
     option.value ().action ().setState (CompAction::StateInitButton);
     ca::setActionActiveState (option.value ().action (), false);
@@ -1123,7 +1123,7 @@ TEST (privatescreen_ButtonPressEventManagementTest, NoTriggerOnMismatchedButtonN
     cps::EventManager     eventManager;
     ce::EventArguments    arguments;
 
-    option.set (value);
+    ASSERT_TRUE (option.set (value));
     option.value ().action ().setInitiate (initiate);
     option.value ().action ().setState (CompAction::StateInitButton);
     ca::setActionActiveState (option.value ().action (), true);
@@ -1155,7 +1155,7 @@ TEST (privatescreen_ButtonPressEventManagementTest, NoTriggerOnMismatchedButtonS
     cps::EventManager     eventManager;
     ce::EventArguments    arguments;
 
-    option.set (value);
+    ASSERT_TRUE (option.set (value));
     option.value ().action ().setInitiate (initiate);
     option.value ().action ().setState (CompAction::StateInitButton);
     ca::setActionActiveState (option.value ().action (), true);
@@ -1189,7 +1189,7 @@ TEST (privatescreen_ButtonPressEventManagementTest, TriggerWhenStateAndButtonMat
     cps::EventManager     eventManager;
     ce::EventArguments    arguments;
 
-    option.set (value);
+    ASSERT_TRUE (option.set (value));
     option.value ().action ().setInitiate (initiate);
     option.value ().action ().setState (CompAction::StateInitButton);
     ca::setActionActiveState (option.value ().action (), true);
@@ -1217,7 +1217,7 @@ TEST (privatescreen_ButtonPressEdgeEventManagementTest, NoTriggerOnInvalidEdge)
     ce::EventArguments    arguments;
     int                   edgeMask = -1;
 
-    option.set (value);
+    ASSERT_FALSE (option.set (value));
 
     const ce::ActionModsMatchesEventStateFunc &matchEventState =
 	    GetMatchEventStateFuncForMock (triggerableAction);
@@ -1241,7 +1241,7 @@ TEST (privatescreen_ButtonPressEdgeEventManagementTest, NoTriggerOnUnboundAction
     ce::EventArguments    arguments;
     int                   edgeMask = 1 << SCREEN_EDGE_TOP;
 
-    option.set (value);
+    ASSERT_FALSE (option.set (value));
 
     const ce::ActionModsMatchesEventStateFunc &matchEventState =
 	    GetMatchEventStateFuncForMock (triggerableAction);
@@ -1276,7 +1276,7 @@ TEST (privatescreen_ButtonPressEdgeEventManagementTest, NoTriggerOnMismatchedEdg
     ce::EventArguments    arguments;
 
 
-    option.set (value);
+    ASSERT_TRUE (option.set (value));
     option.value ().action ().setInitiate (initiate);
     option.value ().action ().setState (CompAction::StateInitButton);
     ca::setActionActiveState (option.value ().action (), true);
@@ -1312,7 +1312,7 @@ TEST (privatescreen_ButtonPressEdgeEventManagementTest, NoTriggerOnMismatchedBut
     ce::EventArguments    arguments;
 
 
-    option.set (value);
+    ASSERT_TRUE (option.set (value));
     option.value ().action ().setInitiate (initiate);
     option.value ().action ().setState (CompAction::StateInitButton);
     ca::setActionActiveState (option.value ().action (), true);
@@ -1348,7 +1348,7 @@ TEST (privatescreen_ButtonPressEdgeEventManagementTest, NoTriggerOnMismatchedBut
     cps::EventManager     eventManager;
     ce::EventArguments    arguments;
 
-    option.set (value);
+    ASSERT_TRUE (option.set (value));
     option.value ().action ().setInitiate (initiate);
     option.value ().action ().setState (CompAction::StateInitButton);
     ca::setActionActiveState (option.value ().action (), true);
@@ -1385,7 +1385,7 @@ TEST (privatescreen_ButtonPressEdgeEventManagementTest, TriggerWhenStateButtonAn
     cps::EventManager     eventManager;
     ce::EventArguments    arguments;
 
-    option.set (value);
+    ASSERT_TRUE (option.set (value));
     option.value ().action ().setInitiate (initiate);
     option.value ().action ().setState (CompAction::StateInitButton |
 					CompAction::StateInitEdge);

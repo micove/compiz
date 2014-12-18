@@ -1,5 +1,6 @@
 /*
  * Copyright © 2005 Novell, Inc.
+ * Copyright 2014 Canonical Ltd.
  *
  * Permission to use, copy, modify, distribute, and sell this software
  * and its documentation for any purpose is hereby granted without
@@ -412,53 +413,59 @@ CompPlugin::unload (CompPlugin *p)
     delete p;
 }
 
+#ifndef COMPIZ_LIBDIR
+# define COMPIZ_LIBDIR "/usr/lib/compiz"
+#endif
+
+typedef std::vector<std::string> PluginSearchPath;
+
+static PluginSearchPath
+create_plugin_search_path ()
+{
+    PluginSearchPath plugin_search_path;
+
+    if (char* plugin_dir_override = getenv ("COMPIZ_PLUGIN_DIR"))
+    {
+	std::vector <std::string> paths;
+	boost::split (paths, plugin_dir_override, boost::is_any_of (":"));
+	foreach (const std::string &path, paths)
+	{
+	    if (!path.empty ())
+		plugin_search_path.push_back (path);
+	}
+    }
+    if (char* home = getenv ("HOME"))
+    {
+	plugin_search_path.push_back (std::string (home) + HOME_PLUGINDIR);
+    }
+    plugin_search_path.push_back (PLUGINDIR);
+    plugin_search_path.push_back (COMPIZ_LIBDIR);
+    return plugin_search_path;
+}
+
 CompPlugin *
 CompPlugin::load (const char *name)
 {
-    char *compiz_plugin_dir_override = getenv ("COMPIZ_PLUGIN_DIR");
-    std::auto_ptr<CompPlugin>p(new CompPlugin ());
-
+    std::auto_ptr <CompPlugin> p (new CompPlugin ());
     p->devPrivate.uval = 0;
     p->devType	       = "";
     p->vTable	       = 0;
 
     compLogMessage (here, CompLogLevelInfo, "Loading plugin: %s", name);
 
-    if (compiz_plugin_dir_override)
+    PluginSearchPath plugin_search_path = create_plugin_search_path ();
+    foreach (const std::string &path, plugin_search_path)
     {
-	std::vector <std::string> paths;
-	boost::split (paths,
-		      compiz_plugin_dir_override,
-		      boost::is_any_of (":"));
-
-	foreach (const std::string &path, paths)
-	{
-	    if (path.empty ())
-		continue;
-
-	    if (loaderLoadPlugin (p.get (), path.c_str (), name))
-		return p.release ();
-	}
+	if (loaderLoadPlugin (p.get (), path.c_str (), name))
+	  return p.release();
     }
 
-    if (char* home = getenv ("HOME"))
-    {
-        boost::scoped_array<char> plugindir(new char [strlen (home) + strlen (HOME_PLUGINDIR) + 3]);
-        sprintf (plugindir.get(), "%s/%s", home, HOME_PLUGINDIR);
-
-        if (loaderLoadPlugin (p.get(), plugindir.get(), name))
-            return p.release();
-    }
-
-    if (loaderLoadPlugin (p.get(), PLUGINDIR, name))
-        return p.release();
-
-    if (loaderLoadPlugin (p.get(), NULL, name))
-        return p.release();
+    if (loaderLoadPlugin (p.get (), NULL, name))
+      return p.release();
 
     compLogMessage (here, CompLogLevelError, "Failed to load plugin: %s", name);
 
-    return 0;
+    return NULL;
 }
 
 bool

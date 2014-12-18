@@ -8,6 +8,7 @@ set (COMPIZ_CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${COMPIZ_CMAKE_MODULE_PATH})
 
 include (CTest)
+include (GNUInstallDirs)
 
 set (MEMORYCHECK_COMMAND_OPTIONS --trace-children=yes)
 set (MEMORYCHECK_SUPPRESSIONS_FILE ${CMAKE_SOURCE_DIR}/tests/experimental-memcheck/compiz.supp CACHE FILEPATH "" FORCE)
@@ -64,15 +65,15 @@ set (DECOR_INTERFACE_VERSION 20110504)
 if (COMPIZ_PACKAGING_ENABLED)
     set (prefix ${CMAKE_INSTALL_PREFIX}                   CACHE PATH "prefix")
     set (exec_prefix ${CMAKE_INSTALL_PREFIX}/bin          CACHE PATH "bindir")
-    set (libdir ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}  CACHE PATH "libdir")
-    set (includedir ${CMAKE_INSTALL_PREFIX}/include       CACHE PATH "includedir")
-    set (datadir ${CMAKE_INSTALL_PREFIX}/share            CACHE PATH "datadir")
+    set (libdir ${CMAKE_INSTALL_FULL_LIBDIR}              CACHE PATH "libdir")
+    set (includedir ${CMAKE_INSTALL_FULL_INCLUDEDIR}      CACHE PATH "includedir")
+    set (datadir ${CMAKE_INSTALL_FULL_DATAROOTDIR}        CACHE PATH "datadir")
 else (COMPIZ_PACKAGING_ENABLED)
     set (prefix ${CMAKE_INSTALL_PREFIX}                 )
     set (exec_prefix ${CMAKE_INSTALL_PREFIX}/bin        )
-    set (libdir ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
-    set (includedir ${CMAKE_INSTALL_PREFIX}/include     )
-    set (datadir ${CMAKE_INSTALL_PREFIX}/share          )
+    set (libdir ${CMAKE_INSTALL_FULL_LIBDIR}            )
+    set (includedir ${CMAKE_INSTALL_FULL_INCLUDEDIR}    )
+    set (datadir ${CMAKE_INSTALL_FULL_DATAROOTDIR}      )
 endif (COMPIZ_PACKAGING_ENABLED)
 
 set (compiz_plugindir ${libdir}/compiz)
@@ -114,7 +115,7 @@ set (COMPIZ_REQUIRES
     "libstartup-notification-1.0 >= 0.7"
 )
 
-set (DECORATION_REQUIRES xrender)
+set (DECORATION_REQUIRES xrender>=0.9.3)
 
 compiz_pkg_check_modules (COMPIZ REQUIRED ${COMPIZ_REQUIRES})
 compiz_pkg_check_modules (LIBDECORATION REQUIRED ${DECORATION_REQUIRES})

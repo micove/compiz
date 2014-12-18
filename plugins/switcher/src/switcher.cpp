@@ -534,9 +534,9 @@ SwitchScreen::windowRemove (CompWindow *w)
 
 	allWindowsWidth = windows.size () * WIDTH;
 
-	foreach (CompWindow *w, windows)
+	foreach (CompWindow *win, windows)
 	{
-	    selectedWindow = w;
+	    selectedWindow = win;
 
 	    if (selectedWindow == selected)
 		break;

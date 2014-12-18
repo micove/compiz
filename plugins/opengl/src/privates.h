@@ -35,6 +35,7 @@
 
 #include <composite/composite.h>
 #include <opengl/opengl.h>
+#include <opengl/xtoglsync.h>
 #include <core/atoms.h>
 #include <core/configurerequestbuffer.h>
 
@@ -184,6 +185,12 @@ class PrivateGLScreen :
 
 	void updateView ();
 
+	bool syncObjectsInitialized () const;
+	bool syncObjectsEnabled ();
+	void initXToGLSyncs ();
+	void destroyXToGLSyncs ();
+	void updateXToGLSyncs ();
+
 	bool driverIsBlacklisted (const char *regex) const;
 
 	bool postprocessRequiredForCurrentFrame ();
@@ -253,6 +260,12 @@ class PrivateGLScreen :
 	bool postprocessingRequired;
 	mutable CompString prevRegex;
 	mutable bool       prevBlacklisted;
+
+	std::vector<XToGLSync*> xToGLSyncs;
+	std::map<XSyncAlarm, XToGLSync*> alarmToSync;
+	std::vector<XToGLSync*>::size_type currentSyncNum;
+	XToGLSync *currentSync;
+	std::vector<XToGLSync*>::size_type warmupSyncs;
 };
 
 class PrivateGLWindow :

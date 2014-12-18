@@ -77,6 +77,6 @@ if (GSETTINGS_UTIL_FOUND)
                            ${GSETTINGS_UTIL_LIBRARIES})
 
     install (TARGETS compizconfig_gsettings_backend
-	     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+             DESTINATION ${libdir})
 
 endif (GSETTINGS_UTIL_FOUND)
