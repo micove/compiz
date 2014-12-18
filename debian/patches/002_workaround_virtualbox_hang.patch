@@ -3,7 +3,7 @@ Bug: https://bugs.launchpad.net/bugs/1127866
 
 --- a/plugins/opengl/include/opengl/opengl.h
 +++ b/plugins/opengl/include/opengl/opengl.h
-@@ -582,6 +582,17 @@
+@@ -590,6 +590,17 @@
  
  extern GLScreenPaintAttrib defaultScreenPaintAttrib;
  
@@ -21,7 +21,7 @@ Bug: https://bugs.launchpad.net/bugs/1127866
  class GLScreen;
  class GLFramebufferObject;
  class GLScreenInterface;
-@@ -774,6 +785,13 @@
+@@ -787,6 +798,13 @@
  
  	bool glInitContext (XVisualInfo *);
  
@@ -62,15 +62,15 @@ Bug: https://bugs.launchpad.net/bugs/1127866
  class GLDoubleBuffer :
      public compiz::opengl::DoubleBuffer
  {
-@@ -123,6 +141,7 @@
- class PrivateGLScreen :
+@@ -141,6 +159,7 @@
      public ScreenInterface,
+     public CompositeScreenInterface,
      public compiz::composite::PaintHandler,
 +    public compiz::opengl::internal::DriverWorkaroundQuery,
      public OpenglOptions
  {
      public:
-@@ -207,6 +226,7 @@
+@@ -232,6 +251,7 @@
  	std::vector<GLTexture::BindPixmapProc> bindPixmap;
  	bool hasCompositing;
  	bool commonFrontbuffer;
@@ -78,8 +78,8 @@ Bug: https://bugs.launchpad.net/bugs/1127866
  	bool incorrectRefreshRate; // hack for NVIDIA specifying an incorrect
  				   // refresh rate, causing us to miss vblanks
  
-@@ -226,6 +246,10 @@
- 
+@@ -253,6 +273,10 @@
+ 	bool postprocessingRequired;
  	mutable CompString prevRegex;
  	mutable bool       prevBlacklisted;
 +
@@ -99,8 +99,8 @@ Bug: https://bugs.launchpad.net/bugs/1127866
  
  namespace GL {
      #ifdef USE_GLES
-@@ -359,6 +360,18 @@
- #endif
+@@ -537,6 +538,18 @@
+ };
  
  bool
 +PrivateGLScreen::unsafeForExternalBinds () const
@@ -118,7 +118,7 @@ Bug: https://bugs.launchpad.net/bugs/1127866
  GLScreen::glInitContext (XVisualInfo *visinfo)
  {
  #ifndef USE_GLES
-@@ -677,6 +690,7 @@
+@@ -855,6 +868,7 @@
  
      priv->commonFrontbuffer = true;
      priv->incorrectRefreshRate = false;
@@ -126,7 +126,7 @@ Bug: https://bugs.launchpad.net/bugs/1127866
      if (glRenderer != NULL && strstr (glRenderer, "on llvmpipe"))
      {
  	/*
-@@ -697,6 +711,18 @@
+@@ -875,6 +889,18 @@
  	priv->incorrectRefreshRate = true;
      }
  
@@ -155,15 +155,14 @@ Bug: https://bugs.launchpad.net/bugs/1127866
  
  #ifdef USE_GLES
  std::map<Damage, EglTexture*> boundPixmapTex;
-@@ -648,6 +649,13 @@
-         !GL::textureFromPixmap)
- 	return GLTexture::List ();
- 
+@@ -662,6 +663,12 @@
+ 				 int               depth,
+ 				 cgl::PixmapSource source)
+ {
 +    GLScreen *gs = GLScreen::get (screen);
 +    const cglint::DriverWorkaroundQuery &query (gs->fetchDriverWorkarounds ());
 +
-+    if (query.unsafeForExternalBinds () &&
-+	source == cgl::ExternallyManaged)
++    if (query.unsafeForExternalBinds () && source == cgl::ExternallyManaged)
 +	return GLTexture::List ();
 +
      GLTexture::List   rv (1);

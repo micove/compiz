@@ -5,8 +5,8 @@ Author: Miguel A. Colón Vélez <debian.micove@gmail.com>
 Forwarded: no
 Last-Update: 2012-03-12
 
---- compiz-fusion-plugins-main-0.9.7.0.orig/plugins/ring/ring.xml.in
-+++ compiz-fusion-plugins-main-0.9.7.0/plugins/ring/ring.xml.in
+--- a/plugins/ring/ring.xml.in
++++ b/plugins/ring/ring.xml.in
 @@ -13,6 +13,7 @@
  			</relation>
  			<requirement>

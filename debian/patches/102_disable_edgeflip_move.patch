@@ -13,9 +13,9 @@ Author: Miguel A. Colón Vélez <debian.micove@gmail.com>
 Forwarded: no
 Last-Update: 2012-03-12
 
---- compiz-fusion-plugins-main-0.9.7.0.orig/plugins/wall/wall.xml.in
-+++ compiz-fusion-plugins-main-0.9.7.0/plugins/wall/wall.xml.in
-@@ -351,7 +351,7 @@
+--- a/plugins/wall/wall.xml.in
++++ b/plugins/wall/wall.xml.in
+@@ -356,7 +356,7 @@
  				<option name="edgeflip_move" type="bool">
  					<_short>Edge Flip Move</_short>
  					<_long>Flip viewport when moving a window to a screen edge</_long>

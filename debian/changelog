@@ -54,14 +54,12 @@ compiz (0.9.12.0-0.1) experimental; urgency=low
       + 001_ubuntu-config_adapted_to_debian.patch. Some of the compiz defaults
         cause bugs and crashes. Remove Ubuntu related configurations and use
         their sane defaults.
-      + 002_valid_ccsm_desktop_file.patch. Remove invalid entries from the
-        desktop file.
+      + 002_workaround_virtualbox_hang.patch. Compiz hangs in VirtualBox.
       + 003_ccsm_remove_redundant_sliders.patch. Remove potentially dangerous
         sliders.
       + 004_bug326995.patch. Adds a more realistic reflection scale.
       + 005_disable_desktop_vpswitch.patch. Disable switching between desktops
         with a mousewheel over the desktop background by default.
-      + 006_workaround_virtualbox_hang.patch. Compiz hangs in VirtualBox.
     - Add a patch to fix the exec_prefix entries in some pc files.
     - Add a patch to add text as a dependency of ring.
     - Add a patch to disable edge flip move in the wall plugin. It can

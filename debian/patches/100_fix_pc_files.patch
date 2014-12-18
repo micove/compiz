@@ -3,8 +3,8 @@ Author: Miguel A. Colón Vélez <debian.micove@gmail.com>
 Forwarded: no
 Last-Update: 2012-03-10
 
---- compiz-0.9.7.0.orig/plugins/compiztoolbox/compiz-compiztoolbox.pc.in
-+++ compiz-0.9.7.0/plugins/compiztoolbox/compiz-compiztoolbox.pc.in
+--- a/plugins/compiztoolbox/compiz-compiztoolbox.pc.in
++++ b/plugins/compiztoolbox/compiz-compiztoolbox.pc.in
 @@ -1,5 +1,5 @@
  prefix=@prefix@
 -exec_prefix=@prefix@
@@ -12,11 +12,12 @@ Last-Update: 2012-03-10
  libdir=@libdir@
  includedir=@includedir@
  
---- compiz-fusion-plugins-extra-0.9.7.0.orig/plugins/animationaddon/compiz-animationaddon.pc.in
-+++ compiz-fusion-plugins-extra-0.9.7.0/plugins/animationaddon/compiz-animationaddon.pc.in
+--- a/plugins/animationaddon/compiz-animationaddon.pc.in
++++ b/plugins/animationaddon/compiz-animationaddon.pc.in
 @@ -1,5 +1,5 @@
  prefix=@prefix@
 -exec_prefix=@prefix@
 +exec_prefix=@exec_prefix@
  libdir=@libdir@
  includedir=@includedir@
+ 

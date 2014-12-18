@@ -1,10 +1,7 @@
 Description: Miscellaneous fixes and workarounds from Ubuntu.
 
-=== modified file 'metadata/core.xml.in'
-Index: compiz-0.9.7.0~bzr2995/metadata/core.xml.in
-===================================================================
---- compiz-0.9.7.0~bzr2995.orig/metadata/core.xml.in	2012-02-09 16:32:07.000000000 +0100
-+++ compiz-0.9.7.0~bzr2995/metadata/core.xml.in	2012-02-22 17:50:56.282923343 +0100
+--- a/metadata/core.xml.in
++++ b/metadata/core.xml.in
 @@ -139,7 +139,7 @@
  			<option name="focus_prevention_match" type="match">
  			<_short>Focus Prevention Windows</_short>
@@ -12,12 +9,10 @@ Index: compiz-0.9.7.0~bzr2995/metadata/core.xml.in
 -			<default>any</default>
 +			<default>!(class=Polkit-gnome-authentication-agent-1)</default>
  			</option>
- 		</group>
- 		<group>
-Index: compiz-0.9.7.0~bzr2995/plugins/fade/fade.xml.in
-===================================================================
---- compiz-0.9.7.0~bzr2995.orig/plugins/fade/fade.xml.in	2012-02-09 16:32:07.000000000 +0100
-+++ compiz-0.9.7.0~bzr2995/plugins/fade/fade.xml.in	2012-02-22 17:47:03.465768869 +0100
+ 			<option type="bool" name="remember_vp_focus">
+ 			<_short>Remember Focus</_short>
+--- a/plugins/fade/fade.xml.in
++++ b/plugins/fade/fade.xml.in
 @@ -10,6 +10,7 @@
  	    </requirement>
  	    <relation type="after">
@@ -35,26 +30,9 @@ Index: compiz-0.9.7.0~bzr2995/plugins/fade/fade.xml.in
  	    </option>
  	    <option name="visual_bell" type="bell">
  		<_short>Visual Bell</_short>
-Index: compiz-0.9.7.0~bzr2995/plugins/place/place.xml.in
-===================================================================
---- compiz-0.9.7.0~bzr2995.orig/plugins/place/place.xml.in	2012-02-09 16:32:07.000000000 +0100
-+++ compiz-0.9.7.0~bzr2995/plugins/place/place.xml.in	2012-02-22 17:47:03.473768903 +0100
-@@ -20,8 +20,8 @@
- 	    <option name="mode" type="int">
- 		<_short>Placement Mode</_short>
- 		<_long>Algorithm to use for window placement</_long>
--		<default>0</default>
--		<min>2</min>
-+		<default>2</default>
-+		<min>0</min>
- 		<max>5</max>
- 		<desc>
- 		    <value>0</value>
-Index: compiz-0.9.7.0~bzr2995/plugins/gnomecompat/gnomecompat.xml.in
-===================================================================
---- compiz-0.9.7.0~bzr2995.orig/plugins/gnomecompat/gnomecompat.xml.in	2012-02-09 16:32:07.000000000 +0100
-+++ compiz-0.9.7.0~bzr2995/plugins/gnomecompat/gnomecompat.xml.in	2012-02-22 17:47:03.473768903 +0100
-@@ -53,6 +53,7 @@
+--- a/plugins/gnomecompat/gnomecompat.xml.in
++++ b/plugins/gnomecompat/gnomecompat.xml.in
+@@ -54,6 +54,7 @@
  		<option name="run_command_terminal_key" type="key">
  		    <_short>Open a terminal</_short>
  		    <_long>Open a terminal</_long>
