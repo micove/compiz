@@ -4,6 +4,8 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
 CORE_ABIVERSION := $(shell sed -rn 's/^\#define[[:space:]]+CORE_ABIVERSION[[:space:]]+//p' include/core/abiversion.h )
 DEFAULT_PLUGINS = "core composite opengl decor mousepoll snap compiztoolbox resize gnomecompat wall grid regex vpswitch place move session animation expo workarounds ezoom staticswitcher fade scale"
 
@@ -45,9 +47,9 @@ PKD   = $(abspath $(dir $(MAKEFILE_LIST)))
 PKG   = $(word 2,$(shell dpkg-parsechangelog -l$(PKD)/changelog | grep ^Source))
 UVER  = $(shell dpkg-parsechangelog -l$(PKD)/changelog | perl -ne 'print $$1 if m{^Version:\s+(?:\d+:)?(\d.*)(?:\-\d+.*)};')
 DTYPE = +repack
-VER   = $(subst $(DTYPE),,$(UVER))
-UURL ?= lp:compiz/0.9.10
-REV  ?= tag:v$(VER)
+VER  ?= $(subst $(DTYPE),,$(UVER))
+UURL ?= lp:compiz/0.9.12
+REV  ?= tag:$(VER)
 
 get-orig-source:
 	@echo "# Downloading..."
@@ -56,14 +58,10 @@ get-orig-source:
 	|| $(RM) -r $(PKG)-$(VER)
 	@echo "# Cleaning-up..."
 	cd $(PKG)-$(VER) \
-	&& mv debian debian-upstream
-	@echo "# Updating time stamps of directories..."
-	BZR_TIME=$$(bzr version-info -r $(REV) $(UURL) | \
-		sed -rne 's,^date: (.*),\1,p') ;\
-	find $(PKG)-$(VER) -type d | xargs -r touch -d "$$BZR_TIME"
+	&& $(RM) -r .gitignore debian
 	@echo "# Packing..."
-	XZ_OPT="-6v" tar -caf "$(PKG)_$(VER)$(DTYPE).orig.tar.xz" \
-		--numeric-owner --owner 0 --group 0 $(PKG)-$(VER) \
+	find -L "$(PKG)-$(VER)" -xdev -type f -print | LC_ALL=C sort \
+	| XZ_OPT="-6v" tar -caf "$(PKG)_$(VER)$(DTYPE).orig.tar.xz" -T- --owner=root --group=root --mode=a+rX \
 	&& $(RM) -r "$(PKG)-$(VER)"
 
 .PHONY: get-orig-source
