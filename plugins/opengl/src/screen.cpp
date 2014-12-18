@@ -68,6 +68,16 @@ class DetectionWorkaround
 
 using namespace compiz::opengl;
 
+/**
+ * The number of X11 sync objects to create.
+ */
+static const size_t NUM_X11_SYNCS = 16;
+
+/**
+ * The maximum time to wait for a sync object, in nanoseconds.
+ */
+static const GLuint64 MAX_SYNC_WAIT_TIME = 1000000000ull; // One second
+
 namespace GL {
     #ifdef USE_GLES
     EGLCreateImageKHRProc  createImage;
@@ -170,6 +180,14 @@ namespace GL {
     GLBindRenderbufferProc bindRenderbuffer = NULL;
     GLRenderbufferStorageProc renderbufferStorage = NULL;
 
+    GLFenceSyncProc      fenceSync = NULL;
+    GLDeleteSyncProc     deleteSync = NULL;
+    GLClientWaitSyncProc clientWaitSync = NULL;
+    GLWaitSyncProc       waitSync = NULL;
+    GLGetSyncivProc      getSynciv = NULL;
+
+    GLImportSyncProc importSync = NULL;
+
     bool  textureFromPixmap = true;
     bool  textureRectangle = false;
     bool  textureNonPowerOfTwo = false;
@@ -187,6 +205,9 @@ namespace GL {
     bool  shaders = false;
     GLint maxTextureUnits = 1;
     bool  bufferAge = false;
+
+    bool sync = false;
+    bool xToGLSync = false;
 
     bool canDoSaturated = false;
     bool canDoSlightlySaturated = false;
@@ -1054,6 +1075,36 @@ GLScreen::glInitContext (XVisualInfo *visinfo)
     if (strstr (glExtensions, "GL_ARB_texture_compression"))
 	GL::textureCompression = true;
 
+    if (strstr (glExtensions, "GL_ARB_sync"))
+    {
+	GL::fenceSync = (GL::GLFenceSyncProc)
+	    getProcAddress ("glFenceSync");
+	GL::deleteSync = (GL::GLDeleteSyncProc)
+	    getProcAddress ("glDeleteSync");
+	GL::clientWaitSync = (GL::GLClientWaitSyncProc)
+	    getProcAddress ("glClientWaitSync");
+	GL::waitSync = (GL::GLWaitSyncProc)
+	    getProcAddress ("glWaitSync");
+	GL::getSynciv = (GL::GLGetSyncivProc)
+	    getProcAddress ("glGetSynciv");
+
+	if (GL::fenceSync      &&
+	    GL::deleteSync     &&
+	    GL::clientWaitSync &&
+	    GL::waitSync       &&
+	    GL::getSynciv)
+	    GL::sync = true;
+    }
+
+    if (strstr (glExtensions, "GL_EXT_x11_sync_object"))
+    {
+	GL::importSync = (GL::GLImportSyncProc)
+	    getProcAddress ("glImportSyncEXT");
+
+	if (GL::importSync)
+	    GL::xToGLSync = true;
+    }
+
     glClearColor (0.0, 0.0, 0.0, 1.0);
     glBlendFunc (GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glEnable (GL_CULL_FACE);
@@ -1257,6 +1308,8 @@ GLScreen::GLScreen (CompScreen *s) :
 	    getProcAddress ("glXSwapIntervalSGI");
     }
 
+    priv->initXToGLSyncs ();
+
     fbConfigs = (*GL::getFBConfigs) (dpy, s->screenNum (), &nElements);
 
     GL::stencilBuffer = false;
@@ -1411,6 +1464,9 @@ GLScreen::GLScreen (CompScreen *s) :
 
 GLScreen::~GLScreen ()
 {
+    // Must occur before context is destroyed.
+    priv->destroyXToGLSyncs ();
+
     if (priv->hasCompositing)
 	CompositeScreen::get (screen)->unregisterPaintHandler ();
 
@@ -1471,7 +1527,10 @@ PrivateGLScreen::PrivateGLScreen (GLScreen   *gs) :
     glVersion (NULL),
     postprocessingRequired (false),
     prevRegex (),
-    prevBlacklisted (false)
+    prevBlacklisted (false),
+    currentSyncNum (0),
+    currentSync (0),
+    warmupSyncs (0)
 {
     ScreenInterface::setHandler (screen);
     CompositeScreenInterface::setHandler (cScreen);
@@ -1562,6 +1621,16 @@ PrivateGLScreen::handleEvent (XEvent *event)
 		 * window gets a damage event, which means that we'd
 		 * be recopying the root window pixmap all the time
 		 * which is no good, so don't do that */
+	    }
+	    else if (event->type == screen->syncEvent () + XSyncAlarmNotify)
+	    {
+		XSyncAlarmNotifyEvent *ae =
+		    reinterpret_cast<XSyncAlarmNotifyEvent*>(event);
+		std::map<XSyncAlarm, XToGLSync*>::iterator it =
+		    alarmToSync.find (ae->alarm);
+
+		if (it != alarmToSync.end ())
+		    it->second->handleEvent (ae);
 	    }
 	    break;
     }
@@ -2026,6 +2095,101 @@ GLDoubleBuffer::GLDoubleBuffer (Display                                         
 {
 }
 
+bool
+PrivateGLScreen::syncObjectsInitialized () const
+{
+    return !xToGLSyncs.empty ();
+}
+
+bool
+PrivateGLScreen::syncObjectsEnabled ()
+{
+    return GL::sync && GL::xToGLSync && optionGetEnableX11Sync ();
+}
+
+void
+PrivateGLScreen::initXToGLSyncs ()
+{
+    assert (!syncObjectsInitialized ());
+    assert (xToGLSyncs.empty ());
+    assert (alarmToSync.empty ());
+
+    if (syncObjectsEnabled () && !syncObjectsInitialized ())
+    {
+	xToGLSyncs.resize (NUM_X11_SYNCS, NULL);
+
+	foreach (XToGLSync*& sync, xToGLSyncs)
+	{
+	    sync = new XToGLSync ();
+	    alarmToSync[sync->alarm ()] = sync;
+	}
+
+	currentSyncNum = 0;
+	currentSync = xToGLSyncs[0];
+	warmupSyncs = 0;
+    }
+}
+
+void
+PrivateGLScreen::destroyXToGLSyncs ()
+{
+    if (syncObjectsInitialized ())
+    {
+	foreach (XToGLSync* sync, xToGLSyncs)
+	    delete sync;
+	xToGLSyncs.resize (0);
+    }
+    alarmToSync.clear ();
+    currentSyncNum = 0;
+    currentSync = NULL;
+    warmupSyncs = 0;
+}
+
+void
+PrivateGLScreen::updateXToGLSyncs ()
+{
+    const std::vector<XToGLSync*>::size_type numSyncs = xToGLSyncs.size ();
+
+    if (numSyncs)
+    {
+	if (warmupSyncs >= numSyncs / 2)
+	{
+	    const std::vector<XToGLSync*>::size_type resetSyncIdx =
+		(currentSyncNum + (numSyncs / 2)) % numSyncs;
+
+	    XToGLSync* syncToReset = xToGLSyncs[resetSyncIdx];
+
+	    GLenum status = syncToReset->checkUpdateFinished (0);
+	    if (status == GL_TIMEOUT_EXPIRED)
+	    {
+		status = syncToReset->checkUpdateFinished (MAX_SYNC_WAIT_TIME);
+	    }
+
+	    if (status != GL_ALREADY_SIGNALED && status != GL_CONDITION_SATISFIED)
+	    {
+		// This should never happen. If there was an error somewhere,
+		// then we don't want to risk a hang here, so just destroy the
+		// sync objects. We'll recreate them again in the next call to
+		// prepareDrawing.
+		compLogMessage ("opengl", CompLogLevelError, "Timed out waiting for sync object.");
+		destroyXToGLSyncs ();
+		return;
+	    }
+
+	    syncToReset->reset ();
+	}
+	else
+	{
+	    warmupSyncs++;
+	}
+
+	currentSyncNum++;
+	currentSyncNum %= numSyncs;
+
+	currentSync = xToGLSyncs[currentSyncNum];
+    }
+}
+
 #ifndef USE_GLES
 
 void
@@ -2199,6 +2363,9 @@ PrivateGLScreen::paintOutputs (CompOutput::ptrList &outputs,
 	    glClear (GL_COLOR_BUFFER_BIT);
     }
 
+    if (currentSync)
+	currentSync->insertWait ();
+
     // Disable everything that we don't usually need and could slow us down
     glDisable (GL_BLEND);
     glDisable (GL_STENCIL_TEST);
@@ -2352,6 +2519,8 @@ PrivateGLScreen::paintOutputs (CompOutput::ptrList &outputs,
     doubleBuffer.render (paintRegion, fullscreen);
 
     lastMask = mask;
+
+    updateXToGLSyncs ();
 }
 
 unsigned int
@@ -2447,6 +2616,55 @@ PrivateGLScreen::prepareDrawing ()
     {
 	updateFrameProvider ();
 	CompositeScreen::get (screen)->damageScreen ();
+    }
+
+    // Check if the option to use sync objects has been enabled or disabled.
+    if (syncObjectsEnabled () && !syncObjectsInitialized ())
+    {
+	initXToGLSyncs ();
+    }
+    else if (!syncObjectsEnabled () && syncObjectsInitialized ())
+    {
+	destroyXToGLSyncs ();
+    }
+
+    if (currentSync)
+    {
+	if (!currentSync->isReady ())
+	{
+	    for (std::vector<XToGLSync*>::size_type i = xToGLSyncs.size () / 2; i > 0; i--)
+	    {
+		// try to check next sync
+		updateXToGLSyncs ();
+
+		// method updateXToGLSync may disable syncs
+		if (!currentSync)
+		    break;
+
+		if (currentSync->isReady ())
+		    break;
+	    }
+	}
+    }
+
+    if (currentSync)
+    {
+	if (!currentSync->isReady ())
+	{
+	    // If this happens, then we must have missed an event or update
+	    // somewhere. Destroy and recreate the sync objects to put us back
+	    // into a good state.
+	    destroyXToGLSyncs ();
+	    initXToGLSyncs ();
+	}
+    }
+
+    if (currentSync)
+    {
+	// Tell the server to trigger the fence object after all rendering has
+	// completed.
+	assert (currentSync->isReady ());
+	currentSync->trigger ();
     }
 }
 

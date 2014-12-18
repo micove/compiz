@@ -451,6 +451,9 @@ meta_get_decoration_geometry (decor_t		*d,
 			      MetaFrameType	frame_type,
 			      GdkRectangle      *clip)
 {
+#ifdef HAVE_METACITY_3_14_0
+    MetaFrameBorders borders;
+#endif
     gint left_width, right_width, top_height, bottom_height;
 
     if (!(frame_type < META_FRAME_TYPE_LAST))
@@ -525,6 +528,17 @@ meta_get_decoration_geometry (decor_t		*d,
     if (d->state & WNCK_WINDOW_STATE_ABOVE)
 	*flags |= (MetaFrameFlags ) META_FRAME_ABOVE;
 
+#ifdef HAVE_METACITY_3_14_0
+    meta_theme_get_frame_borders (theme,
+				  frame_type,
+				  d->frame->text_height,
+				  *flags,
+				  &borders);
+    top_height = borders.visible.top;
+    bottom_height = borders.visible.bottom;
+    left_width = borders.visible.left;
+    right_width = borders.visible.right;
+#else
     meta_theme_get_frame_borders (theme,
 				  frame_type,
 				  d->frame->text_height,
@@ -533,6 +547,7 @@ meta_get_decoration_geometry (decor_t		*d,
 				  &bottom_height,
 				  &left_width,
 				  &right_width);
+#endif
 
     clip->x = d->context->left_space - left_width;
     clip->y = d->context->top_space - top_height;
@@ -1552,6 +1567,9 @@ void
 meta_update_border_extents (decor_frame_t *frame)
 {
     MetaTheme *theme = meta_theme_get_current ();
+#ifdef HAVE_METACITY_3_14_0
+    MetaFrameBorders borders;
+#endif
 
     gwd_decor_frame_ref (frame);
     MetaFrameType frame_type = meta_frame_type_from_string (frame->type);
@@ -1560,6 +1578,17 @@ meta_update_border_extents (decor_frame_t *frame)
     if (!(frame_type < META_FRAME_TYPE_LAST))
 	frame_type = META_FRAME_TYPE_NORMAL;
 
+#ifdef HAVE_METACITY_3_14_0
+    meta_theme_get_frame_borders (theme,
+				  frame_type,
+				  frame->text_height,
+				  0,
+				  &borders);
+    top_height = borders.visible.top;
+    bottom_height = borders.visible.bottom;
+    left_width = borders.visible.left;
+    right_width = borders.visible.right;
+#else
     meta_theme_get_frame_borders (theme,
 				  frame_type,
 				  frame->text_height,
@@ -1568,6 +1597,7 @@ meta_update_border_extents (decor_frame_t *frame)
 				  &bottom_height,
 				  &left_width,
 				  &right_width);
+#endif
 
     frame->win_extents.top    = frame->win_extents.top;
     frame->win_extents.bottom = bottom_height;
@@ -1576,6 +1606,17 @@ meta_update_border_extents (decor_frame_t *frame)
 
     frame->titlebar_height = top_height - frame->win_extents.top;
 
+#ifdef HAVE_METACITY_3_14_0
+    meta_theme_get_frame_borders (theme,
+				  frame_type,
+				  frame->text_height,
+				  META_FRAME_MAXIMIZED,
+				  &borders);
+    top_height = borders.visible.top;
+    bottom_height = borders.visible.bottom;
+    left_width = borders.visible.left;
+    right_width = borders.visible.right;
+#else
     meta_theme_get_frame_borders (theme,
 				  frame_type,
 				  frame->text_height,
@@ -1584,6 +1625,7 @@ meta_update_border_extents (decor_frame_t *frame)
 				  &bottom_height,
 				  &left_width,
 				  &right_width);
+#endif
 
     frame->max_win_extents.top    = frame->win_extents.top;
     frame->max_win_extents.bottom = bottom_height;

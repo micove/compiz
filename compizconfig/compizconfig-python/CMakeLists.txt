@@ -95,7 +95,7 @@ else ($ENV{COMPIZ_DEB_BUILD})
     set (INSTALL_LAYOUT_DIR site-packages)
 endif ($ENV{COMPIZ_DEB_BUILD})
 
-set (PYTHON_MODULE_DIR ${libdir}/python${PY_VERSION}/${INSTALL_LAYOUT_DIR})
+set (PYTHON_MODULE_DIR ${CMAKE_INSTALL_PREFIX}/lib/python${PY_VERSION}/${INSTALL_LAYOUT_DIR})
 
 install (TARGETS compizconfig_python_module
 	 DESTINATION ${PYTHON_MODULE_DIR})

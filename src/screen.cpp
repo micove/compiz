@@ -2688,11 +2688,6 @@ CompScreenImpl::focusDefaultWindow ()
 	    }
 	}
     }
-    else
-    {
-	// check if there was a focused window stored
-	focus = findViewportFocusCandidate ();
-    }
 
     if (!focus)
     {
@@ -3788,8 +3783,6 @@ CompScreenImpl::moveViewport (int tx, int ty, bool sync)
 
     if (!tx && !ty)
 	return;
-
-    saveViewportFocus ();
 
     privateScreen.viewPort.vp.setX (privateScreen.viewPort.vp.x () + tx);
     privateScreen.viewPort.vp.setY (privateScreen.viewPort.vp.y () + ty);
@@ -5160,37 +5153,6 @@ PrivateScreen::initDisplay (const char *name, cps::History& history, unsigned in
     sendStartupMessageToClients (dpy, true);
 
     return true;
-}
-
-void
-CompScreenImpl::saveViewportFocus ()
-{
-    if ((privateScreen.optionGetHsize () > 1 || privateScreen.optionGetVsize () > 1) &&
-	privateScreen.optionGetRememberVpFocus ())
-    {
-	Window id = activeWindow ();
-	if (id != None)
-	{
-	    savedViewportFocus[privateScreen.viewPort.vp] = id;
-	}
-    }
-}
-
-CompWindow *
-CompScreenImpl::findViewportFocusCandidate ()
-{
-    if ((privateScreen.optionGetHsize () > 1 || privateScreen.optionGetVsize () > 1) &&
-	privateScreen.optionGetRememberVpFocus ())
-    {
-	FocusMap::iterator it = savedViewportFocus.find (privateScreen.viewPort.vp);
-	if (it != savedViewportFocus.end ())
-	{
-	    Window id = it->second;
-	    savedViewportFocus.erase (it);
-	    return findWindow (id);
-	}
-    }
-    return NULL;
 }
 
 CompScreenImpl::~CompScreenImpl ()

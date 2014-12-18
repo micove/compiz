@@ -232,6 +232,9 @@ DodgeAnim::postPreparePaint ()
 	DodgeAnim *animDodger =
 	    dynamic_cast<DodgeAnim *> (adw->curAnimation ());
 
+	if (!animDodger)
+	    continue;
+
 	if (!(animDodger->mTransformProgress > 0.5f))
 	    break;
     }
@@ -456,6 +459,8 @@ DodgeAnim::cleanUp (bool closing,
 		if (curAnim && curAnim->info () == AnimEffectDodge)
 		{
 		    DodgeAnim *animDodger = dynamic_cast<DodgeAnim *> (curAnim);
+		    if (!animDodger)
+			continue;
 
 		    if (animDodger->mDodgeSubjectWin == mWindow)
 			animDodger->mDodgeSubjectWin = NULL;
@@ -604,6 +609,8 @@ DodgeAnim::postInitiateRestackAnim (int        numSelectedCandidates,
 	}
 
 	DodgeAnim *animDodger = dynamic_cast<DodgeAnim *> (adw->curAnimation ());
+	if (!animDodger)
+	    continue;
 
 	animDodger->mDodgeSubjectWin = mWindow;
 
@@ -823,6 +830,8 @@ DodgeAnim::calculateDodgeAmounts ()
 		continue;
 
 	    DodgeAnim *dodgeAnim = dynamic_cast<DodgeAnim *> (curAnim);
+	    if (!dodgeAnim)
+		continue;
 
 	    dodgeAnim->mDodgeMaxAmountX = dodgeAmountX + offsetX;
 	    dodgeAnim->mDodgeMaxAmountY = dodgeAmountY + offsetY;

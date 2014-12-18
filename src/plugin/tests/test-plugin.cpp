@@ -90,6 +90,8 @@ class PluginTest :
 	MockPluginFilesystem mockfs;
 };
 
+#define COMPIZ_LIBDIR "/usr/lib/compiz"
+
 TEST_F (PluginTest, load_non_existant_plugin_must_fail)
 {
     using namespace testing;
@@ -98,6 +100,9 @@ TEST_F (PluginTest, load_non_existant_plugin_must_fail)
 	WillOnce(Return(false));
 
     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(PLUGINDIR), StrEq("dummy"))).
+	WillOnce(Return(false));
+
+    EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(COMPIZ_LIBDIR), StrEq("dummy"))).
 	WillOnce(Return(false));
 
     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), Eq((void*)0), StrEq("dummy"))).
@@ -116,6 +121,9 @@ TEST_F (PluginTest, load_plugin_from_HOME_PLUGINDIR_succeeds)
 	WillOnce(Return(true));
 
     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(PLUGINDIR), StrEq("dummy"))).
+	Times(AtMost(0));
+
+    EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(COMPIZ_LIBDIR), StrEq("dummy"))).
 	Times(AtMost(0));
 
     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), Eq((void*)0), StrEq("dummy"))).
@@ -138,6 +146,9 @@ TEST_F (PluginTest, load_plugin_from_PLUGINDIR_succeeds)
 
     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(PLUGINDIR), StrEq("dummy"))).
 	WillOnce(Return(true));
+
+    EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(COMPIZ_LIBDIR), StrEq("dummy"))).
+	Times(AtMost(0));
 
     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), Eq((void*)0), StrEq("dummy"))).
 	    Times(AtMost(0));;
@@ -164,6 +175,9 @@ TEST_F (PluginTest, load_plugin_from_COMPIZ_PLUGIN_DIR_env_succeeds)
 	Times(AtMost(0));
 
     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(PLUGINDIR), StrEq("dummy"))).
+	Times(AtMost(0));
+
+    EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(COMPIZ_LIBDIR), StrEq("dummy"))).
 	Times(AtMost(0));
 
     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), Eq((void*)0), StrEq("dummy"))).
@@ -205,6 +219,9 @@ TEST_F (PluginTest, load_plugin_from_multi_COMPIZ_PLUGIN_DIR_env_succeeds)
 				   EndsWith(PLUGINDIR), StrEq("dummy"))).
 	Times(AtMost(0));
 
+    EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(COMPIZ_LIBDIR), StrEq("dummy"))).
+	Times(AtMost(0));
+
     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0),
 				   Eq((void*)0), StrEq("dummy"))).
 	    Times(AtMost(0));
@@ -225,6 +242,9 @@ TEST_F (PluginTest, load_plugin_from_void_succeeds)
 	WillOnce(Return(false));
 
     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(PLUGINDIR), StrEq("dummy"))).
+	WillOnce(Return(false));
+
+    EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(COMPIZ_LIBDIR), StrEq("dummy"))).
 	WillOnce(Return(false));
 
     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), Eq((void*)0), StrEq("dummy"))).
