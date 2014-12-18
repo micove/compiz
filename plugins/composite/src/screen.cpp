@@ -29,6 +29,8 @@
 #  include <config.h>
 #endif
 
+#include <boost/make_shared.hpp>
+
 #include <sys/time.h>
 
 #include <X11/Xlib.h>
@@ -46,6 +48,8 @@
 #include <core/timer.h>
 
 template class WrapableInterface<CompositeScreen, CompositeScreenInterface>;
+
+namespace bt = compiz::composite::buffertracking;
 
 static const int FALLBACK_REFRESH_RATE = 60;   /* if all else fails */
 
@@ -265,6 +269,15 @@ CompositeScreen::~CompositeScreen ()
     delete priv;
 }
 
+namespace
+{
+bool alwaysMarkDirty ()
+{
+    return true;
+}
+}
+
+
 PrivateCompositeScreen::PrivateCompositeScreen (CompositeScreen *cs) :
     cScreen (cs),
     compositeEvent (0),
@@ -282,6 +295,7 @@ PrivateCompositeScreen::PrivateCompositeScreen (CompositeScreen *cs) :
     randrEvent (0),
     randrError (0),
     damageMask (COMPOSITE_SCREEN_DAMAGE_ALL_MASK),
+    currentlyTrackingDamage (DamageForCurrentFrame),
     overlay (None),
     output (None),
     exposeRects (),
@@ -293,12 +307,16 @@ PrivateCompositeScreen::PrivateCompositeScreen (CompositeScreen *cs) :
     scheduled (false),
     painting (false),
     reschedule (false),
+    damageRequiresRepaintReschedule (true),
     slowAnimations (false),
     pHnd (NULL),
     FPSLimiterMode (CompositeFPSLimiterModeDefault),
     withDestroyedWindows (),
     cmSnAtom (0),
-    newCmSnOwner (None)
+    newCmSnOwner (None),
+    roster (*screen,
+	    ageingBuffers,
+	    boost::bind (alwaysMarkDirty))
 {
     gettimeofday (&lastRedraw, 0);
     // wrap outputChangeNotify
@@ -474,22 +492,62 @@ CompositeScreen::compositingActive ()
     return false;
 }
 
+const CompRegion *
+PrivateCompositeScreen::damageTrackedBuffer (const CompRegion &region)
+{
+    const CompRegion *currentDamage = NULL;
+
+    switch (currentlyTrackingDamage)
+    {
+	case DamageForCurrentFrame:
+	    currentDamage = &(roster.currentFrameDamage ());
+	    ageingBuffers.markAreaDirty (region);
+	    break;
+	case DamageForLastFrame:
+	    currentDamage = &(lastFrameDamage);
+	    lastFrameDamage += region;
+	    break;
+	case DamageFinalPaintRegion:
+	    currentDamage = &(tmpRegion);
+	    tmpRegion += region;
+	    break;
+	default:
+	    compLogMessage ("composite", CompLogLevelFatal, "unreachable section");
+	    assert (false);
+	    abort ();
+    }
+
+    assert (currentDamage);
+    return currentDamage;
+}
+
 void
 CompositeScreen::damageScreen ()
 {
+    /* Don't tell plugins about damage events when the damage buffer is already full */
     bool alreadyDamaged = priv->damageMask & COMPOSITE_SCREEN_DAMAGE_ALL_MASK;
+    alreadyDamaged |= ((currentDamage () & screen->region ()) == screen->region ());
 
     priv->damageMask |= COMPOSITE_SCREEN_DAMAGE_ALL_MASK;
     priv->damageMask &= ~COMPOSITE_SCREEN_DAMAGE_REGION_MASK;
 
-    priv->scheduleRepaint ();
+    if (priv->damageRequiresRepaintReschedule)
+	priv->scheduleRepaint ();
 
     /*
      * Call through damageRegion since plugins listening for incoming damage
      * may need to know that the whole screen was redrawn
      */
     if (!alreadyDamaged)
+    {
 	damageRegion (CompRegion (0, 0, screen->width (), screen->height ()));
+
+	/* Set the damage region as the fullscreen region, because if
+	 * windows are unredirected we need to correctly subtract from
+	 * it later
+	 */
+	priv->damageTrackedBuffer (screen->region ());
+    }
 }
 
 void
@@ -500,7 +558,12 @@ CompositeScreen::damageRegion (const CompRegion &region)
     if (priv->damageMask & COMPOSITE_SCREEN_DAMAGE_ALL_MASK)
 	return;
 
-    priv->damage += region;
+    /* Don't cause repaints to be scheduled for empty damage
+     * regions */
+    if (region.isEmpty ())
+        return;
+
+    const CompRegion *currentDamage = priv->damageTrackedBuffer (region);
     priv->damageMask |= COMPOSITE_SCREEN_DAMAGE_REGION_MASK;
 
     /* If the number of damage rectangles grows two much between repaints,
@@ -509,17 +572,72 @@ CompositeScreen::damageRegion (const CompRegion &region)
      * the whole screen if we have a lot of damage rects
      */
 
-    if (priv->damage.numRects () > 100)
+    if (currentDamage->numRects () > 100)
 	damageScreen ();
 
-    priv->scheduleRepaint ();
+    if (priv->damageRequiresRepaintReschedule)
+	priv->scheduleRepaint ();
+}
+
+void
+CompositeScreen::damageCutoff ()
+{
+    WRAPABLE_HND_FUNCTN (damageCutoff);
 }
 
 void
 CompositeScreen::damagePending ()
 {
     priv->damageMask |= COMPOSITE_SCREEN_DAMAGE_PENDING_MASK;
-    priv->scheduleRepaint ();
+
+    if (priv->damageRequiresRepaintReschedule)
+	priv->scheduleRepaint ();
+}
+
+void
+CompositeScreen::applyDamageForFrameAge (unsigned int age)
+{
+    /* Track into "last frame damage" */
+    priv->currentlyTrackingDamage = DamageForLastFrame;
+    damageRegion (priv->roster.damageForFrameAge (age));
+    priv->currentlyTrackingDamage = DamageForCurrentFrame;
+}
+
+unsigned int
+CompositeScreen::getFrameAge ()
+{
+    if (priv->pHnd)
+	return priv->pHnd->getFrameAge ();
+
+    return 1;
+}
+
+void
+CompositeScreen::recordDamageOnCurrentFrame (const CompRegion &r)
+{
+    priv->ageingBuffers.markAreaDirtyOnLastFrame (r);
+}
+
+typedef CompositeScreen::AreaShouldBeMarkedDirty ShouldMarkDirty;
+
+namespace
+{
+    bool alwaysDirty ()
+    {
+	return true;
+    }
+}
+
+CompositeScreen::DamageQuery::Ptr
+CompositeScreen::getDamageQuery (ShouldMarkDirty callback)
+{
+    /* No initial damage */
+    bt::AgeingDamageBufferObserver &observer (priv->ageingBuffers);
+    return boost::make_shared <bt::FrameRoster> (*screen,
+						 boost::ref (observer),
+						 !callback.empty () ?
+						     callback :
+						     boost::bind (alwaysDirty));
 }
 
 unsigned int
@@ -682,6 +800,15 @@ PrivateCompositeScreen::detectRefreshRate ()
     }
     else
     {
+	if (forceRefreshRate && (optionGetRefreshRate () < FALLBACK_REFRESH_RATE))
+	{
+	    CompOption::Value value;
+
+	    value.set ((int) FALLBACK_REFRESH_RATE);
+
+	    screen->setOptionForPlugin ("composite", "refresh_rate", value);
+	}
+
 	redrawTime = 1000 / optionGetRefreshRate ();
 	optimalRedrawTime = redrawTime;
     }
@@ -758,6 +885,10 @@ CompositeScreen::handlePaintTimeout ()
 
     if (priv->damageMask)
     {
+	/* Damage that accumulates here does not require a repaint reschedule
+	 * as it will end up on this frame */
+	priv->damageRequiresRepaintReschedule = false;
+
 	if (priv->pHnd)
 	    priv->pHnd->prepareDrawing ();
 
@@ -792,7 +923,7 @@ CompositeScreen::handlePaintTimeout ()
 		    continue;
 
 		if (!CompositeWindow::get (w)->redirected ())
-		    priv->damage -= w->region ();
+		    priv->ageingBuffers.subtractObscuredArea (w->region ());
 
 		break;
 	    }
@@ -804,7 +935,13 @@ CompositeScreen::handlePaintTimeout ()
 	    }
 	}
 
-	priv->tmpRegion = priv->damage & screen->region ();
+	/* All further damage is for the next frame now, as
+	 * priv->tmpRegion will be assigned. Notify plugins that do
+	 * damage tracking of this */
+	damageCutoff ();
+
+	priv->tmpRegion = (priv->roster.currentFrameDamage () + priv->lastFrameDamage) & screen->region ();
+	priv->currentlyTrackingDamage = DamageFinalPaintRegion;
 
 	if (priv->damageMask & COMPOSITE_SCREEN_DAMAGE_REGION_MASK &&
 	    priv->tmpRegion == screen->region ())
@@ -826,7 +963,9 @@ CompositeScreen::handlePaintTimeout ()
 	XSync (dpy, False);
 	priv->damages.clear ();
 
-	priv->damage = CompRegion ();
+	/* Any more damage requires a repaint reschedule */
+	priv->damageRequiresRepaintReschedule = true;
+	priv->lastFrameDamage = CompRegion ();
 
 	int mask = priv->damageMask;
 	priv->damageMask = 0;
@@ -844,8 +983,12 @@ CompositeScreen::handlePaintTimeout ()
 	else
 	    outputs.push_back (&screen->fullscreenOutput ());
 
-	paint (outputs, mask);
+	priv->currentlyTrackingDamage = DamageForCurrentFrame;
 
+	/* All new damage goes on the next frame */
+	priv->ageingBuffers.incrementAges ();
+
+	paint (outputs, mask);
 
 	donePaint ();
 
@@ -1003,8 +1146,12 @@ void
 CompositeScreenInterface::damageRegion (const CompRegion &r)
     WRAPABLE_DEF (damageRegion, r);
 
+void
+CompositeScreenInterface::damageCutoff ()
+    WRAPABLE_DEF (damageCutoff);
+
 const CompRegion &
 CompositeScreen::currentDamage () const
 {
-    return priv->damage;
+    return priv->roster.currentFrameDamage ();
 }

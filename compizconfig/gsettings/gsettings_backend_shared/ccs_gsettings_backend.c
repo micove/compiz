@@ -28,6 +28,12 @@ struct _CCSGSettingsBackendPrivate
     CCSGNOMEValueChangeData *valueChangeData;
 };
 
+static void
+ccsGSettingsWrapperDestroyNotify (gpointer o)
+{
+    ccsGSettingsWrapperUnref ((CCSGSettingsWrapper *) o);
+}
+
 void
 ccsGSettingsSetIntegration (CCSBackend *backend, CCSIntegration *integration)
 {
@@ -177,6 +183,8 @@ ccsGSettingsBackendUpdateProfileDefault (CCSBackend *backend, CCSContext *contex
     const char *ccsProfile = ccsGetProfile (context);
     char *profile = NULL;
 
+    CCSGSettingsBackendPrivate *priv = (CCSGSettingsBackendPrivate *) ccsObjectGetPrivate (backend);
+
     if (!ccsProfile)
 	profile = strdup (DEFAULTPROF);
     else
@@ -189,7 +197,11 @@ ccsGSettingsBackendUpdateProfileDefault (CCSBackend *backend, CCSContext *contex
     }
 
     if (g_strcmp0 (profile, currentProfile))
+    {
 	ccsGSettingsBackendUpdateCurrentProfileName (backend, profile);
+	g_list_free_full (priv->settingsList, ccsGSettingsWrapperDestroyNotify);
+	priv->settingsList = NULL;
+    }
 
     free (profile);
 
@@ -373,12 +385,6 @@ addPrivateToBackend (CCSBackend *backend, CCSObjectAllocationInterface *ai)
 
     ccsObjectSetPrivate (backend, (CCSPrivate *) priv);
     return priv;
-}
-
-static void
-ccsGSettingsWrapperDestroyNotify (gpointer o)
-{
-    ccsGSettingsWrapperUnref ((CCSGSettingsWrapper *) o);
 }
 
 void

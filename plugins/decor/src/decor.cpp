@@ -44,6 +44,34 @@ COMPIZ_PLUGIN_20090315 (decor, DecorPluginVTable)
 
 namespace cwe = compiz::window::extents;
 
+namespace
+{
+void updateRegionWithShapeRectangles (Display    *dpy,
+				      Window     w,
+				      CompRegion &region)
+{
+    int n = 0;
+    int order = 0;
+    XRectangle *shapeRects = NULL;
+
+    shapeRects =
+	XShapeGetRectangles (dpy,
+	    w, ShapeInput,
+	    &n, &order);
+    if (!shapeRects)
+	return;
+
+    for (int i = 0; i < n; i++)
+	region +=
+	    CompRegion (shapeRects[i].x,
+			shapeRects[i].y,
+			shapeRects[i].width,
+			shapeRects[i].height);
+
+    XFree (shapeRects);
+}
+}
+
 MatchedDecorClipGroup::MatchedDecorClipGroup (const CompMatch &match) :
     mMatch (match)
 {
@@ -1590,13 +1618,6 @@ DecorWindow::update (bool allowDecoration)
         lastMaximizedStateDecorated == decorMaximizeState)
 	return false;
 
-    /* Destroy the old WindowDecoration */
-    if (old)
-    {
-	WindowDecoration::destroy (wd);
-	wd = NULL;
-    }
-
     /* If a decoration was found for this window, create
      * a new WindowDecoration for it and set the frame
      * extents accordingly. We should also move the
@@ -1608,7 +1629,7 @@ DecorWindow::update (bool allowDecoration)
 	/* Set extents based on maximize/unmaximize state
 	 * FIXME: With the new type system, this should be
 	 * removed */
-	if (decorMaximizeState)
+	if (decorMaximizeState == MAXIMIZE_STATE)
 	    window->setWindowFrameExtents (&decoration->maxBorder,
 					   &decoration->maxInput);
 	else if (!window->hasUnmapReference ())
@@ -1622,6 +1643,8 @@ DecorWindow::update (bool allowDecoration)
 	if (decorate ||
 	    shadowOnly)
 	{
+	    if (wd)
+		WindowDecoration::destroy (wd);
 	    wd = WindowDecoration::create (decoration);
 	    if (!wd)
 	    {
@@ -1649,7 +1672,12 @@ DecorWindow::update (bool allowDecoration)
     else
     {
 	CompWindowExtents emptyExtents;
-	wd = NULL;
+
+	if (wd)
+	{
+	    WindowDecoration::destroy (wd);
+	    wd = NULL;
+	}
 
 	/* _NET_FRAME_EXTENTS should be updated before the frame
 	 * atom is */
@@ -1779,7 +1807,7 @@ DecorWindow::updateInputFrame ()
 	parent = window->frame ();
 
     /* Determine frame extents */
-    if ((window->state () & MAXIMIZE_STATE))
+    if ((window->state () & MAXIMIZE_STATE) == MAXIMIZE_STATE)
     {
 	border = wd->decor->maxBorder;
 	input = wd->decor->maxInput;
@@ -1903,6 +1931,13 @@ DecorWindow::updateInputFrame ()
 				 ShapeSet, YXBanded);
 
 	frameRegion = CompRegion ();
+
+	/* Immediately query shape rectangles so that we can
+	 * report them if core asks for them */
+	updateRegionWithShapeRectangles (screen->dpy (),
+					 inputFrame,
+					 frameRegion);
+	window->updateFrameRegion ();
     }
 
     XUngrabServer (screen->dpy ());
@@ -1935,7 +1970,7 @@ DecorWindow::updateOutputFrame ()
     CompWindowExtents	 input;
 
     /* Determine frame extents */
-    if ((window->state () & MAXIMIZE_STATE))
+    if ((window->state () & MAXIMIZE_STATE) == MAXIMIZE_STATE)
 	input = wd->decor->maxInput;
     else
 	input = wd->decor->input;
@@ -2045,6 +2080,13 @@ DecorWindow::updateOutputFrame ()
 				 ShapeSet, YXBanded);
 
 	frameRegion = CompRegion ();
+
+	/* Immediately query shape rectangles so that we can
+	 * report them if core asks for them */
+	updateRegionWithShapeRectangles (screen->dpy (),
+					 outputFrame,
+					 frameRegion);
+	window->updateFrameRegion ();
     }
 
     XUngrabServer (screen->dpy ());
@@ -2168,6 +2210,7 @@ void
 DecorWindow::updateFrameRegion (CompRegion &region)
 {
     window->updateFrameRegion (region);
+
     if (wd)
     {
 	if (!frameRegion.isEmpty ())
@@ -2179,10 +2222,6 @@ DecorWindow::updateFrameRegion (CompRegion &region)
 
 	    region += frameRegion.translated (x - wd->decor->input.left,
 					      y - wd->decor->input.top);
-	}
-	else
-	{
-	    region += infiniteRegion;
 	}
     }
 
@@ -2602,54 +2641,24 @@ DecorScreen::handleEvent (XEvent *event)
 			if (dw->inputFrame ==
 			    ((XShapeEvent *) event)->window)
 			{
-			    XRectangle *shapeRects = 0;
-			    int order, n;
-
 			    dw->frameRegion = CompRegion ();
 
-			    shapeRects =
-				XShapeGetRectangles (screen->dpy (),
-				    dw->inputFrame, ShapeInput,
-				    &n, &order);
-			    if (!shapeRects || !n)
-				break;
-
-			    for (int i = 0; i < n; i++)
-				dw->frameRegion +=
-				    CompRegion (shapeRects[i].x,
-					        shapeRects[i].y,
-						shapeRects[i].width,
-						shapeRects[i].height);
+			    updateRegionWithShapeRectangles (screen->dpy (),
+							     dw->inputFrame,
+							     dw->frameRegion);
 
 			    w->updateFrameRegion ();
-
-			    XFree (shapeRects);
 			}
 			else if (dw->outputFrame ==
 			         ((XShapeEvent *) event)->window)
 			{
-			    XRectangle *shapeRects = 0;
-			    int order, n;
-
 			    dw->frameRegion = CompRegion ();
 
-			    shapeRects =
-				XShapeGetRectangles (screen->dpy (),
-				    dw->outputFrame, ShapeBounding,
-				    &n, &order);
-			    if (!n || !shapeRects)
-				break;
-
-			    for (int i = 0; i < n; i++)
-				dw->frameRegion +=
-				    CompRegion (shapeRects[i].x,
-					        shapeRects[i].y,
-						shapeRects[i].width,
-						shapeRects[i].height);
+			    updateRegionWithShapeRectangles (screen->dpy (),
+							     dw->outputFrame,
+							     dw->frameRegion);
 
 			    w->updateFrameRegion ();
-
-			    XFree (shapeRects);
 			}
 		    }
 		}

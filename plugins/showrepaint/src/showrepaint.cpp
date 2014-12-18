@@ -49,25 +49,55 @@ ShowrepaintScreen::glPaintOutput (const GLScreenPaintAttrib &attrib,
     color[1] = (rand () & 7) * color[3] / 8;
     color[2] = (rand () & 7) * color[3] / 8;
 
-    glColor4usv (color);
-    glPushMatrix ();
-    glLoadMatrixf (sTransform.getMatrix ());
-    glEnable (GL_BLEND);
+    GLboolean glBlendEnabled = glIsEnabled (GL_BLEND);
 
-    glBegin (GL_QUADS);
+    if (!glBlendEnabled)
+	glEnable (GL_BLEND);
+
+    std::vector<GLfloat> vertices;
+    /* for each rectangle, use two triangles to display it */
     foreach (const CompRect &box, tmpRegion.rects ())
     {
-	glVertex2i (box.x1 (), box.y1 ());
-	glVertex2i (box.x1 (), box.y2 ());
-	glVertex2i (box.x2 (), box.y2 ());
-	glVertex2i (box.x2 (), box.y1 ());
+	//first triangle
+	vertices.push_back (box.x1 ());
+	vertices.push_back (box.y1 ());
+	vertices.push_back (0.0f);
+
+	vertices.push_back (box.x1 ());
+	vertices.push_back (box.y2 ());
+	vertices.push_back (0.0f);
+
+	vertices.push_back (box.x2 ());
+	vertices.push_back (box.y2 ());
+	vertices.push_back (0.0f);
+
+	//second triangle
+	vertices.push_back (box.x2 ());
+	vertices.push_back (box.y2 ());
+	vertices.push_back (0.0f);
+
+	vertices.push_back (box.x2 ());
+	vertices.push_back (box.y1 ());
+	vertices.push_back (0.0f);
+
+	vertices.push_back (box.x1 ());
+	vertices.push_back (box.y1 ());
+	vertices.push_back (0.0f);
     }
-    glEnd ();
 
-    glDisable (GL_BLEND);
-    glPopMatrix();
+    GLVertexBuffer *stream = GLVertexBuffer::streamingBuffer ();
 
-    glColor4usv (defaultColor);
+    stream->begin (GL_TRIANGLES);
+    stream->color4f ((float)color[0] / 65535.0f, (float)color[1] / 65535.0f, (float)color[2] / 65535.0f, (float)color[3] / 65535.0f);
+    stream->addVertices (vertices.size () / 3, &vertices[0]);
+    if (stream->end ())
+	stream->render (sTransform);
+
+    stream->colorDefault ();
+
+    /* only disable blending if it was disabled before */
+    if (!glBlendEnabled)
+	glDisable (GL_BLEND);
 
     return status;
 }

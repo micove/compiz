@@ -40,6 +40,7 @@ class PaintRedirector
     Q_OBJECT
     public:
         PaintRedirector( QWidget* widget );
+        virtual ~PaintRedirector() {}
         QPixmap performPendingPaint();
         virtual bool eventFilter( QObject* o, QEvent* e );
         QRegion pendingRegion() const;

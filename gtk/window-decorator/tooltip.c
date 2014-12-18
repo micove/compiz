@@ -34,23 +34,25 @@
 static void
 show_tooltip (const char *text)
 {
-    GdkDisplay     *gdkdisplay;
+    GdkDeviceManager *device_manager;
+    GdkDevice *pointer;
     GtkRequisition requisition;
     gint	   x, y, w, h;
     GdkScreen	   *screen;
     gint	   monitor_num;
     GdkRectangle   monitor;
 
-    gdkdisplay = gdk_display_get_default ();
-
     gtk_label_set_text (GTK_LABEL (tip_label), text);
 
-    gtk_widget_size_request (tip_window, &requisition);
+    gtk_widget_get_preferred_size (tip_window, &requisition, NULL);
 
     w = requisition.width;
     h = requisition.height;
 
-    gdk_display_get_pointer (gdkdisplay, &screen, &x, &y, NULL);
+    device_manager = gdk_display_get_device_manager (gdk_display_get_default ());
+    pointer = gdk_device_manager_get_client_pointer (device_manager);
+
+    gdk_device_get_position (pointer, &screen, &x, &y);
 
     x -= (w / 2 + 4);
 
@@ -130,15 +132,14 @@ tooltip_start_delay (const char *text)
 }
 
 static gint
-tooltip_paint_window (GtkWidget *tooltip)
+tooltip_paint_window (GtkWidget *tooltip,
+                      cairo_t   *cr)
 {
     GtkRequisition req;
 
-    gtk_widget_size_request (tip_window, &req);
-    gtk_paint_flat_box (tip_window->style, tip_window->window,
-			GTK_STATE_NORMAL, GTK_SHADOW_OUT,
-			NULL, GTK_WIDGET (tip_window), "tooltip",
-			0, 0, req.width, req.height);
+    gtk_widget_get_preferred_size (tip_window, &req, NULL);
+    gtk_render_background (gtk_widget_get_style_context (tip_window),
+                           cr, 0, 0, req.width, req.height);
 
     return FALSE;
 }
@@ -153,14 +154,11 @@ create_tooltip_window (void)
     gtk_widget_set_name (tip_window, "gtk-tooltips");
     gtk_container_set_border_width (GTK_CONTAINER (tip_window), 4);
 
-#if GTK_CHECK_VERSION (2, 10, 0)
-    if (!gtk_check_version (2, 10, 0))
-	gtk_window_set_type_hint (GTK_WINDOW (tip_window),
-				  GDK_WINDOW_TYPE_HINT_TOOLTIP);
-#endif
+    gtk_window_set_type_hint (GTK_WINDOW (tip_window),
+                              GDK_WINDOW_TYPE_HINT_TOOLTIP);
 
     g_signal_connect_swapped (tip_window,
-			      "expose_event",
+			      "draw",
 			      G_CALLBACK (tooltip_paint_window),
 			      0);
 
@@ -170,8 +168,6 @@ create_tooltip_window (void)
     gtk_widget_show (tip_label);
 
     gtk_container_add (GTK_CONTAINER (tip_window), tip_label);
-
-    gtk_widget_ensure_style (tip_window);
 
     return TRUE;
 }

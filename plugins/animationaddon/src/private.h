@@ -45,7 +45,7 @@ public:
 			      unsigned int firstEffectOptionIndex) :
 	ExtensionPluginInfo (name, nEffects, effects, effectOptions,
 			     firstEffectOptionIndex) {}
-    ~ExtensionPluginAnimAddon () {}
+    virtual ~ExtensionPluginAnimAddon () {}
 
     void prePaintOutput (CompOutput *output);
     const CompOutput *output () { return mOutput; }

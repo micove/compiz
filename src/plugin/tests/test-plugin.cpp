@@ -13,11 +13,6 @@
 #include <gtest_shared_tmpenv.h>
 #include <gtest_shared_autodestroy.h>
 
-/* This is a link-seam so that we don't have to include screen.h */
-class CompAction
-{
-};
-
 class CompMatch
 {
 };

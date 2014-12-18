@@ -71,8 +71,11 @@ PrivateCompositeScreen::setOption (const CompString  &name,
     {
 	case CompositeOptions::DetectRefreshRate:
 	    if (optionGetDetectRefreshRate ())
+	    {
 		detectRefreshRate ();
-	    break;
+		break;
+	    }
+	    /* Fall through when DetectRefreshRate is unchecked */
 
 	case CompositeOptions::RefreshRate:
 	    if (optionGetDetectRefreshRate ())

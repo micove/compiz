@@ -820,7 +820,7 @@
 						<max>5000</max>
 					</option>
 					<option name="darken" type="float">
-						<_short>Darken backgound</_short>
+                                                <_short>Darken background</_short>
 						<_long>Darken background under particles</_long>
 						<default>0.9</default>
 						<min>0.0</min>

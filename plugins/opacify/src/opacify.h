@@ -123,12 +123,6 @@ class OpacifyWindow :
 	handleEnter ();
 };
 
-#define OPACIFY_SCREEN(s)						       \
-    OpacifyScreen *os = OpacifyScreen::get (s);
-
-#define OPACIFY_WINDOW(w)						       \
-    OpacifyWindow *ow = OpacifyWindow::get (w);
-
 class OpacifyPluginVTable :
     public CompPlugin::VTableForScreenAndWindow <OpacifyScreen, OpacifyWindow>
 {

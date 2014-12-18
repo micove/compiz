@@ -38,7 +38,7 @@ class EventDispatcherCompiz :
 
     public:
 	EventDispatcherCompiz (QObject *parent = 0);
-	~EventDispatcherCompiz ();
+	virtual ~EventDispatcherCompiz ();
 	
 	virtual void flush ();
 	virtual bool hasPendingEvents ();

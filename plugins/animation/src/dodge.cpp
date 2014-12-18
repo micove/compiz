@@ -57,7 +57,8 @@ DodgeAnim::applyDodgeTransform ()
 }
 
 bool
-DodgeAnim::moveUpdate (int dx, int dy)
+DodgeAnim::moveUpdate (int dx,
+		       int dy)
 {
     if (mDodgeData->isDodgeSubject &&
     	mDodgeDirection == DodgeDirectionXY)
@@ -73,16 +74,19 @@ DodgeAnim::moveUpdate (int dx, int dy)
     // Update dodge amount for the dodgers of all subjects
     // in the restack chain
     RestackPersistentData *dataCur;
+
     for (CompWindow *wCur = wBottommost; wCur;
 	 wCur = dataCur->mMoreToBePaintedNext)
     {
 	AnimWindow *awCur = AnimWindow::get (wCur);
 	dataCur = static_cast<RestackPersistentData *>
 	    (awCur->persistentData["restack"]);
+
 	if (!dataCur)
 	    break;
 
 	Animation *curAnim = awCur->curAnimation ();
+
 	if (!curAnim || curAnim->info () != AnimEffectDodge)
 	    continue;
 
@@ -99,14 +103,13 @@ DodgeAnim::moveUpdate (int dx, int dy)
 
 	    DodgeAnim *animDodger =
 		dynamic_cast<DodgeAnim *> (adw->curAnimation ());
+
 	    if (!animDodger)
 		continue;
 
 	    if (animDodger->mDodgeSubjectWin &&
 		animDodger->mTransformProgress <= 0.5f)
-	    {
 		animDodger->updateDodgerDodgeAmount ();
-	    }
 	}
     }
 
@@ -132,15 +135,11 @@ DodgeAnim::updateDodgerDodgeAmount ()
     if (((mDodgeDirection == DodgeDirectionDown && newDodgeAmount > 0) ||
 	 (mDodgeDirection == DodgeDirectionUp && newDodgeAmount < 0)) &&
 	abs (newDodgeAmount) > abs (mDodgeMaxAmountY))
-    {
 	mDodgeMaxAmountY = newDodgeAmount;
-    }
     else if (((mDodgeDirection == DodgeDirectionRight && newDodgeAmount > 0) ||
 	      (mDodgeDirection == DodgeDirectionLeft && newDodgeAmount < 0)) &&
 	     abs (newDodgeAmount) > abs (mDodgeMaxAmountX))
-    {
 	mDodgeMaxAmountX = newDodgeAmount;
-    }
 }
 
 float
@@ -160,9 +159,10 @@ DodgeAnim::step ()
     mTransformProgress = 0;
 
     float forwardProgress = dodgeProgress ();
+
     if (forwardProgress > mTransformStartProgress)
     {
-    	// Compute transform progress and normalize
+	// Compute transform progress and normalize
 	mTransformProgress =
 	    (forwardProgress - mTransformStartProgress) /
 	    (1 - mTransformStartProgress);
@@ -182,31 +182,32 @@ void
 DodgeAnim::postPreparePaint ()
 {
     // Only dodge subjects (with dodger chains) should be processed here
-    if (!mDodgeData || !mDodgeData->isDodgeSubject ||
-    	!mDodgeData->dodgeChainStart)
-	return;
-
-    if (!mRestackData || !mRestackData->restackInfo ())
-	return;
-
-    if (mDodgeData->skipPostPrepareScreen)
+    if (!mDodgeData			||
+	!mDodgeData->isDodgeSubject	||
+	!mDodgeData->dodgeChainStart	||
+	!mRestackData			||
+	!mRestackData->restackInfo ()	||
+	mDodgeData->skipPostPrepareScreen)
 	return;
 
     // Find the bottommost subject in restack chain
     CompWindow *wBottommost = mWindow;
     RestackPersistentData *dataCur;
+
     for (CompWindow *wCur = mRestackData->mMoreToBePaintedPrev; wCur;
-    	 wCur = dataCur->mMoreToBePaintedPrev)
+	 wCur = dataCur->mMoreToBePaintedPrev)
     {
-    	wBottommost = wCur;
-    	dataCur = static_cast<RestackPersistentData *>
-    	    (AnimWindow::get (wCur)->persistentData["restack"]);
-    	if (!dataCur)
-    	    break;
+	wBottommost = wCur;
+	dataCur = static_cast<RestackPersistentData *>
+		  (AnimWindow::get (wCur)->persistentData["restack"]);
+
+	if (!dataCur)
+	    break;
     }
+
     AnimWindow *awBottommost = AnimWindow::get (wBottommost);
     RestackPersistentData *restackDataBottommost =
-    	static_cast<RestackPersistentData *>
+	static_cast<RestackPersistentData *>
 	(awBottommost->persistentData["restack"]);
 
     // Find the first dodging window that hasn't yet
@@ -215,11 +216,14 @@ DodgeAnim::postPreparePaint ()
     // if subject is being lowered).
     RestackPersistentData *restackDataDodger = NULL;
     DodgePersistentData *dodgeDataDodger = NULL;
+
     CompWindow *dw;
+
     for (dw = mDodgeData->dodgeChainStart; dw;
 	 dw = dodgeDataDodger->dodgeChainNext)
     {
 	AnimWindow *adw = AnimWindow::get (dw);
+
 	restackDataDodger = static_cast<RestackPersistentData *>
 	    (adw->persistentData["restack"]);
 	dodgeDataDodger = static_cast<DodgePersistentData *>
@@ -233,12 +237,13 @@ DodgeAnim::postPreparePaint ()
     }
 
     RestackInfo *bottommostRestackInfo = restackDataBottommost->restackInfo ();
+
     if (!bottommostRestackInfo)
     	return;
 
     if (bottommostRestackInfo->raised &&
 	// if mWindow's host should change
-    	dw != restackDataBottommost->mWinThisIsPaintedBefore)
+	dw != restackDataBottommost->mWinThisIsPaintedBefore)
     {
 	if (restackDataBottommost->mWinThisIsPaintedBefore)
 	{
@@ -252,13 +257,12 @@ DodgeAnim::postPreparePaint ()
 	}
 	// if a dodger win. is still at <0.5 progress
 	if (dw && restackDataDodger)
-	{
 	    // Put subject right behind new host
 	    restackDataDodger->mWinToBePaintedBeforeThis = wBottommost;
-	}
-	// otherwise all dodger win.s have passed 0.5 progress
 
+	// otherwise all dodger win.s have passed 0.5 progress
 	CompWindow *wCur = wBottommost;
+
 	while (wCur)
 	{
 	    RestackPersistentData *dataCur =
@@ -281,14 +285,11 @@ DodgeAnim::postPreparePaint ()
 	if (dw && dodgeDataDodger)
 	{
 	    if (dodgeDataDodger->dodgeChainPrev)
-	    {
 	    	wDodgeChainAbove = dodgeDataDodger->dodgeChainPrev;
-	    }
 	    else
-	    {
 	    	// Use the wOldAbove of topmost subject
 		wDodgeChainAbove = mRestackData->restackInfo ()->wOldAbove;
-	    }
+
 	    if (!wDodgeChainAbove)
 		compLogMessage ("animation", CompLogLevelError,
 				"%s: error at line %d", __FILE__, __LINE__);
@@ -318,6 +319,7 @@ DodgeAnim::postPreparePaint ()
 	// otherwise all dodger win.s have passed 0.5 progress
 
 	CompWindow *wCur = wBottommost;
+
 	while (wCur)
 	{
 	    RestackPersistentData *dataCur =
@@ -335,7 +337,7 @@ DodgeAnim::shouldDamageWindowOnStart ()
 {
     // for dodging windows only, when subject is fixed
     return !(mDodgeMode == AnimationOptions::DodgeModeFixedClickedWindow &&
-    	     mDodgeData->isDodgeSubject);
+	     mDodgeData->isDodgeSubject);
 }
 
 void
@@ -344,11 +346,11 @@ DodgeAnim::updateBB (CompOutput &output)
     TransformAnim::updateBB (output);
 }
 
-DodgeAnim::DodgeAnim (CompWindow *w,
-		      WindowEvent curWindowEvent,
-		      float duration,
+DodgeAnim::DodgeAnim (CompWindow       *w,
+		      WindowEvent      curWindowEvent,
+		      float            duration,
 		      const AnimEffect info,
-		      const CompRect &icon) :
+		      const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     RestackAnim::RestackAnim (w, curWindowEvent, duration, info, icon),
     TransformAnim::TransformAnim (w, curWindowEvent, duration, info, icon),
@@ -369,7 +371,7 @@ DodgeAnim::cleanUp (bool closing,
     // Remove this window from its subject's dodger chain
     if (mDodgeSubjectWin)
     {
-    	CompWindow *w = mDodgeSubjectWin;
+	CompWindow *w = mDodgeSubjectWin;
 	AnimWindow *aw = AnimWindow::get (w);
 	Animation *curAnim = aw->curAnimation ();
 	DodgePersistentData *dodgeData = static_cast<DodgePersistentData *>
@@ -389,10 +391,12 @@ DodgeAnim::cleanUp (bool closing,
 		AnimWindow *adw = AnimWindow::get (dw);
 		dodgeDataDodger = static_cast<DodgePersistentData *>
 		    (adw->persistentData["dodge"]);
+
 		if (dw == mWindow)
 		{
 		    // Remove mWindow from the chain
 		    CompWindow *dwNext = dodgeDataDodger->dodgeChainNext;
+
 		    if (dwNext)
 		    {
 			AnimWindow *adwNext = AnimWindow::get (dwNext);
@@ -402,7 +406,9 @@ DodgeAnim::cleanUp (bool closing,
 			dodgeDataDodgerNext->dodgeChainPrev =
 			    dodgeDataDodger->dodgeChainPrev;
 		    }
+
 		    CompWindow *dwPrev = dodgeDataDodger->dodgeChainPrev;
+
 		    if (dwPrev)
 		    {
 			AnimWindow *adwPrev = AnimWindow::get (dwPrev);
@@ -412,9 +418,11 @@ DodgeAnim::cleanUp (bool closing,
 			dodgeDataDodgerPrev->dodgeChainNext =
 			    dodgeDataDodger->dodgeChainNext;
 		    }
+
 		    if (dodgeData->dodgeChainStart == mWindow)
 			dodgeData->dodgeChainStart =
 			    dodgeDataDodger->dodgeChainNext;
+
 		    dodgeDataDodger->dodgeChainPrev = 0;
 		    dodgeDataDodger->dodgeChainNext = 0;
 		}
@@ -431,12 +439,15 @@ DodgeAnim::cleanUp (bool closing,
 	    // Update this window's dodgers so that they no longer point
 	    // to this window as their subject
 	    DodgePersistentData *dodgeDataDodger;
+
 	    for (CompWindow *dw = dodgeData->dodgeChainStart; dw;
 		 dw = dodgeDataDodger->dodgeChainNext)
 	    {
 		AnimWindow *adw = AnimWindow::get (dw);
+
 		if (!adw)
 		    break;
+
 		dodgeDataDodger = static_cast<DodgePersistentData *>
 		    (adw->persistentData["dodge"]);
 
@@ -445,6 +456,7 @@ DodgeAnim::cleanUp (bool closing,
 		if (curAnim && curAnim->info () == AnimEffectDodge)
 		{
 		    DodgeAnim *animDodger = dynamic_cast<DodgeAnim *> (curAnim);
+
 		    if (animDodger->mDodgeSubjectWin == mWindow)
 			animDodger->mDodgeSubjectWin = NULL;
 		}
@@ -463,8 +475,8 @@ DodgeAnim::cleanUp (bool closing,
 }
 
 int
-DodgeAnim::getDodgeAmount (CompRect &rect,
-			   CompWindow *dw,
+DodgeAnim::getDodgeAmount (CompRect       &rect,
+			   CompWindow     *dw,
 			   DodgeDirection dir)
 {
     CompRect dRect (dw->borderRect ().x () +
@@ -477,23 +489,29 @@ DodgeAnim::getDodgeAmount (CompRect &rect,
 		     dw->outputRect ().height ()) / 2);
 
     int amount = 0;
+
     switch (dir)
     {
 	case DodgeDirectionUp:
 	    amount = (rect.y () - (dRect.y () + dRect.height ()));
 	    break;
+
 	case DodgeDirectionDown:
 	    amount = (rect.y () + rect.height () - dRect.y ());
 	    break;
+
 	case DodgeDirectionLeft:
 	    amount = (rect.x () - (dRect.x () + dRect.width ()));
 	    break;
+
 	case DodgeDirectionRight:
 	    amount = (rect.x () + rect.width () - dRect.x ());
 	    break;
+
 	default:
 	    break;
     }
+
     return amount;
 }
 
@@ -501,41 +519,45 @@ void
 DodgeAnim::processCandidate (CompWindow *candidateWin,
 			     CompWindow *subjectWin,
 			     CompRegion &candidateAndSubjectIntersection,
-			     int &numSelectedCandidates)
+			     int        &numSelectedCandidates)
 {
     AnimWindow *aCandidateWin = AnimWindow::get (candidateWin);
-    AnimScreen *as = AnimScreen::get (::screen);
+    AnimScreen *as            = AnimScreen::get (::screen);
 
     if ((!aCandidateWin->curAnimation () ||
 	 aCandidateWin->curAnimation ()->info () == AnimEffectDodge) &&
 	candidateWin != subjectWin) // don't let the subject dodge itself
     {
 	// Mark this window for dodge
-
 	bool nonMatching = false;
+
 	if (as->getMatchingAnimSelection (candidateWin, AnimEventFocus, 0) !=
 	    AnimEffectDodge)
 	    nonMatching = true;
 
 	++numSelectedCandidates;
+
 	DodgePersistentData *data = static_cast<DodgePersistentData *>
 	    (aCandidateWin->persistentData["dodge"]);
+
 	data->dodgeOrder = numSelectedCandidates;
+
 	if (nonMatching) // Use neg. values for non-matching windows
 	    data->dodgeOrder *= -1;
     }
 }
 
 void
-DodgeAnim::postInitiateRestackAnim (int numSelectedCandidates,
-				    int duration,
+DodgeAnim::postInitiateRestackAnim (int        numSelectedCandidates,
+				    int        duration,
 				    CompWindow *wStart,
 				    CompWindow *wEnd,
-				    bool raised)
+				    bool       raised)
 {
     DodgePersistentData *dataSubject = mDodgeData;
+
     if (!dataSubject)
-    	return;
+	return;
 
     dataSubject->isDodgeSubject = true;
     dataSubject->dodgeChainStart = 0;
@@ -564,11 +586,13 @@ DodgeAnim::postInitiateRestackAnim (int numSelectedCandidates,
 	// Initiate dodge for this window
 
 	bool stationaryDodger = false;
+
 	if (dataDodger->dodgeOrder < 0)
 	{
 	    dataDodger->dodgeOrder *= -1; // Make it positive again
 	    stationaryDodger = true;
 	}
+
 	if (!adw->curAnimation ())
 	{
 	    // Create dodge animation for dodger
@@ -579,8 +603,7 @@ DodgeAnim::postInitiateRestackAnim (int numSelectedCandidates,
 	    extPlugin->incrementCurRestackAnimCount ();
 	}
 
-	DodgeAnim *animDodger =
-	    dynamic_cast<DodgeAnim *> (adw->curAnimation ());
+	DodgeAnim *animDodger = dynamic_cast<DodgeAnim *> (adw->curAnimation ());
 
 	animDodger->mDodgeSubjectWin = mWindow;
 
@@ -598,8 +621,7 @@ DodgeAnim::postInitiateRestackAnim (int numSelectedCandidates,
 		    (1 - (float)dataDodger->dodgeOrder / numSelectedCandidates);
 	}
 
-	float transformTotalProgress =
-	    1 + animDodger->mTransformStartProgress;
+	float transformTotalProgress = 1 + animDodger->mTransformStartProgress;
 
 	if (maxTransformTotalProgress < transformTotalProgress)
 	    maxTransformTotalProgress = transformTotalProgress;
@@ -625,17 +647,15 @@ DodgeAnim::postInitiateRestackAnim (int numSelectedCandidates,
 		static_cast<DodgePersistentData *>
 		(AnimWindow::get (wDodgeChainLastVisited)->
 		 persistentData["dodge"]);
+
 	    if (raised)
-	    {
 		dataDodgeChainLastVisited->dodgeChainNext = dw;
-	    }
 	    else
 		dataDodgeChainLastVisited->dodgeChainPrev = dw;
 	}
 	else if (raised) // mark chain start
-	{
 	    dataSubject->dodgeChainStart = dw;
-	}
+
 	if (raised)
 	{
 	    dataDodger->dodgeChainPrev = wDodgeChainLastVisited;
@@ -679,6 +699,7 @@ DodgeAnim::calculateDodgeAmounts ()
     // Go through each dodger, calculating its dodge amount.
     // dw: Dodger window
     DodgePersistentData *dodgeDataDodger;
+
     for (CompWindow *dw = mDodgeData->dodgeChainStart; dw;
 	 dw = dodgeDataDodger->dodgeChainNext)
     {
@@ -687,8 +708,8 @@ DodgeAnim::calculateDodgeAmounts ()
 	dodgeDataDodger = static_cast<DodgePersistentData *>
 	    (adw->persistentData["dodge"]);
 
-	DodgeAnim *animDodger =
-	    dynamic_cast<DodgeAnim *> (adw->curAnimation ());
+	DodgeAnim *animDodger = dynamic_cast<DodgeAnim *> (adw->curAnimation ());
+
 	if (!animDodger)
 	    continue;
 
@@ -703,9 +724,11 @@ DodgeAnim::calculateDodgeAmounts ()
 	int amountMinActual = dodgeAmount[0];
 	int amountMinAbs = abs (amountMinActual);
 	int iMin = 0;
-	for (int i=1; i < 4; ++i)
+
+	for (int i = 1; i < 4; ++i)
 	{
 	    int absAmount = abs (dodgeAmount[i]);
+
 	    if (amountMinAbs > absAmount)
 	    {
 		amountMinAbs = absAmount;
@@ -713,11 +736,13 @@ DodgeAnim::calculateDodgeAmounts ()
 		iMin = i;
 	    }
 	}
+
 	if (iMin == DodgeDirectionUp ||
 	    iMin == DodgeDirectionDown)
 	{
 	    animDodger->mDodgeMaxAmountX = 0;
 	    animDodger->mDodgeMaxAmountY = dodgeAmount[iMin];
+
 	    if (mDodgeMode == AnimationOptions::DodgeModeAllMoving &&
 	    	maxDistY < amountMinAbs)
 	    {
@@ -729,6 +754,7 @@ DodgeAnim::calculateDodgeAmounts ()
 	{
 	    animDodger->mDodgeMaxAmountX = dodgeAmount[iMin];
 	    animDodger->mDodgeMaxAmountY = 0;
+
 	    if (mDodgeMode == AnimationOptions::DodgeModeAllMoving && maxDistX < amountMinAbs)
 	    {
 		maxDistX = amountMinAbs;
@@ -786,13 +812,16 @@ DodgeAnim::calculateDodgeAmounts ()
 	    AnimWindow *awCur = AnimWindow::get (wCur);
 
 	    dataCur = static_cast<RestackPersistentData *>
-	    	(awCur->persistentData["restack"]);
+		(awCur->persistentData["restack"]);
+
 	    if (!dataCur)
-	    	break;
+		break;
 
 	    Animation *curAnim = awCur->curAnimation ();
+
 	    if (!curAnim || curAnim->info () != AnimEffectDodge)
 		continue;
+
 	    DodgeAnim *dodgeAnim = dynamic_cast<DodgeAnim *> (curAnim);
 
 	    dodgeAnim->mDodgeMaxAmountX = dodgeAmountX + offsetX;
@@ -808,6 +837,7 @@ DodgeAnim::calculateDodgeAmounts ()
 	    // subject(s) is dodging in that axis (X or Y).
 	    // dw: Dodger window
 	    DodgePersistentData *dodgeDataDodger;
+
 	    for (CompWindow *dw = mDodgeData->dodgeChainStart; dw;
 		 dw = dodgeDataDodger->dodgeChainNext)
 	    {
@@ -818,6 +848,7 @@ DodgeAnim::calculateDodgeAmounts ()
 
 		DodgeAnim *animDodger =
 		    dynamic_cast<DodgeAnim *> (adw->curAnimation ());
+
 		if (!animDodger)
 		    continue;
 
@@ -825,11 +856,9 @@ DodgeAnim::calculateDodgeAmounts ()
 		if (subjectDodgesInX && animDodger->mDodgeMaxAmountX != 0)
 		{
 		    if (animDodger->mDodgeMaxAmountX *
-		    	(animDodger->mDodgeMaxAmountX + dodgeAmountX) < 0)
-		    {
-		    	// If the sign is going to change, just reset instead
+			(animDodger->mDodgeMaxAmountX + dodgeAmountX) < 0)
+			// If the sign is going to change, just reset instead
 			animDodger->mDodgeMaxAmountX = 0;
-		    }
 		    else
 		    	animDodger->mDodgeMaxAmountX += dodgeAmountX;
 		}
@@ -838,13 +867,13 @@ DodgeAnim::calculateDodgeAmounts ()
 		if (subjectDodgesInY && animDodger->mDodgeMaxAmountY != 0)
 		{
 		    if (animDodger->mDodgeMaxAmountY *
-		    	(animDodger->mDodgeMaxAmountY + dodgeAmountY) < 0)
+			(animDodger->mDodgeMaxAmountY + dodgeAmountY) < 0)
 		    {
-		    	// If the sign is going to change, just reset instead
+			// If the sign is going to change, just reset instead
 			animDodger->mDodgeMaxAmountY = 0;
 		    }
 		    else
-		    	animDodger->mDodgeMaxAmountY += dodgeAmountY;
+			animDodger->mDodgeMaxAmountY += dodgeAmountY;
 		}
 	    }
 	}
@@ -873,4 +902,3 @@ DodgePersistentData::DodgePersistentData () :
     dodgeChainNext (0)
 {
 }
-

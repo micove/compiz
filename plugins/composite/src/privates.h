@@ -36,11 +36,19 @@
 #include <map>
 
 #include "pixmapbinding.h"
+#include "backbuffertracking.h"
 #include "composite_options.h"
 
 extern CompPlugin::VTable *compositeVTable;
 
 extern CompWindow *lastDamagedWindow;
+
+enum DamageTracking
+{
+    DamageForCurrentFrame = 0,
+    DamageForLastFrame = 1,
+    DamageFinalPaintRegion
+};
 
 class PrivateCompositeScreen :
     ScreenInterface,
@@ -66,6 +74,8 @@ class PrivateCompositeScreen :
 
 	void scheduleRepaint ();
 
+	const CompRegion * damageTrackedBuffer (const CompRegion &);
+
     public:
 
 	CompositeScreen *cScreen;
@@ -80,10 +90,12 @@ class PrivateCompositeScreen :
 	bool randrExtension;
 	int  randrEvent, randrError;
 
-	CompRegion    damage;
+	CompRegion    lastFrameDamage;
 	unsigned long damageMask;
 
-	CompRegion    tmpRegion;
+	CompRegion     tmpRegion;
+
+	DamageTracking currentlyTrackingDamage;
 
 	Window	      overlay;
 	Window	      output;
@@ -99,6 +111,7 @@ class PrivateCompositeScreen :
 	int            redrawTime;
 	int            optimalRedrawTime;
 	bool           scheduled, painting, reschedule;
+	bool           damageRequiresRepaintReschedule;
 
 	bool slowAnimations;
 
@@ -115,6 +128,9 @@ class PrivateCompositeScreen :
 
 	/* Map Damage handle to its bounding box */
 	std::map<Damage, XRectangle> damages;
+
+	compiz::composite::buffertracking::AgeingDamageBuffers ageingBuffers;
+	compiz::composite::buffertracking::FrameRoster         roster;
 };
 
 class PrivateCompositeWindow :

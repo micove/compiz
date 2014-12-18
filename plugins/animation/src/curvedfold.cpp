@@ -63,11 +63,11 @@ FoldAnim::getFadeProgress ()
     return progressLinear ();
 }
 
-CurvedFoldAnim::CurvedFoldAnim (CompWindow *w,
-				WindowEvent curWindowEvent,
-				float duration,
+CurvedFoldAnim::CurvedFoldAnim (CompWindow       *w,
+				WindowEvent      curWindowEvent,
+				float            duration,
 				const AnimEffect info,
-				const CompRect &icon) :
+				const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     TransformAnim::TransformAnim (w, curWindowEvent, duration, info, icon),
     FoldAnim::FoldAnim (w, curWindowEvent, duration, info, icon)
@@ -83,10 +83,10 @@ CurvedFoldAnim::initGrid ()
 
 float
 CurvedFoldAnim::getObjectZ (GridAnim::GridModel *mModel,
-			    float forwardProgress,
-			    float sinForProg,
-			    float relDistToCenter,
-			    float curveMaxAmp)
+			    float               forwardProgress,
+			    float               sinForProg,
+			    float               relDistToCenter,
+			    float               curveMaxAmp)
 {
     return -(sinForProg *
 	     (1 - pow (pow (2 * relDistToCenter, 1.3), 2)) *
@@ -102,24 +102,20 @@ CurvedFoldAnim::step ()
     float forwardProgress = getActualProgress ();
 
     CompRect winRect (mAWindow->savedRectsValid () ?
-		      mAWindow->saveWinRect () :
-		      mWindow->geometry ());
+		      mAWindow->saveWinRect () : mWindow->geometry ());
     CompRect inRect (mAWindow->savedRectsValid () ?
-		     mAWindow->savedInRect () :
-		     mWindow->borderRect ());
+		     mAWindow->savedInRect () : mWindow->borderRect ());
     CompRect outRect (mAWindow->savedRectsValid () ?
-		      mAWindow->savedOutRect () :
-		      mWindow->outputRect ());
+		      mAWindow->savedOutRect () : mWindow->outputRect ());
     CompWindowExtents outExtents (mAWindow->savedRectsValid () ?
-				  mAWindow->savedOutExtents () :
-				  mWindow->output ());
+				  mAWindow->savedOutExtents () : mWindow->output ());
 
-    int wx = winRect.x ();
-    int wy = winRect.y ();
+    int wx      = winRect.x ();
+    int wy      = winRect.y ();
     int wheight = winRect.height ();
 
-    int oy = outRect.y ();
-    int owidth = outRect.width ();
+    int oy      = outRect.y ();
+    int owidth  = outRect.width ();
     int oheight = outRect.height ();
 
     float curveMaxAmp = (0.4 * pow ((float)oheight /
@@ -130,6 +126,7 @@ CurvedFoldAnim::step ()
 
     GridModel::GridObject *object = mModel->objects ();
     unsigned int n = mModel->numObjects ();
+
     for (unsigned int i = 0; i < n; ++i, ++object)
     {
 	Point3d &objPos = object->position ();
@@ -229,6 +226,7 @@ CurvedFoldAnim::updateBB (CompOutput &output)
 
     GridModel::GridObject *objects = mModel->objects ();
     unsigned int n = mModel->numObjects ();
+
     for (unsigned int i = 0; i < n; ++i)
     {
 	Point3d &pos = objects[i].position ();

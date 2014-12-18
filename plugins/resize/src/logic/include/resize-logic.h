@@ -176,6 +176,9 @@ class ResizeLogic
 			    unsigned int output,
 			    int		&op,
 			    int		&wap);
+
+	unsigned int lastMaskX;
+	unsigned int lastMaskY;
 };
 
 #endif /* RESIZELOGIC_H */

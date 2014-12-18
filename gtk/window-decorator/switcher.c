@@ -74,7 +74,8 @@ draw_switcher_background (decor_t *d)
 {
     Display	  *xdisplay = GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
     cairo_t	  *cr;
-    GtkStyle	  *style;
+    GtkStyleContext *context;
+    GdkRGBA bg, fg;
     decor_color_t color;
     double	  alpha = SWITCHER_ALPHA / 65535.0;
     double	  x1, y1, x2, y2, h;
@@ -82,16 +83,18 @@ draw_switcher_background (decor_t *d)
     unsigned long pixel;
     ushort	  a = SWITCHER_ALPHA;
 
-    if (!d->buffer_pixmap)
+    if (!d->buffer_surface)
 	return;
 
-    style = gtk_widget_get_style (d->frame->style_window_rgba);
+    context = gtk_widget_get_style_context (d->frame->style_window_rgba);
+    gtk_style_context_get_background_color (context, GTK_STATE_FLAG_NORMAL, &bg);
+    gtk_style_context_get_color (context, GTK_STATE_FLAG_NORMAL, &fg);
 
-    color.r = style->bg[GTK_STATE_NORMAL].red   / 65535.0;
-    color.g = style->bg[GTK_STATE_NORMAL].green / 65535.0;
-    color.b = style->bg[GTK_STATE_NORMAL].blue  / 65535.0;
+    color.r = bg.red;
+    color.g = bg.green;
+    color.b = bg.blue;
 
-    cr = gdk_cairo_create (GDK_DRAWABLE (d->buffer_pixmap));
+    cr = cairo_create (d->buffer_surface);
 
     cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
 
@@ -188,9 +191,8 @@ draw_switcher_background (decor_t *d)
 		     y1 + top,
 		     x2 - x1 - d->frame->win_extents.left - d->frame->win_extents.right,
 		     h);
-    gdk_cairo_set_source_color_alpha (cr,
-				      &style->bg[GTK_STATE_NORMAL],
-				      alpha);
+    bg.alpha = alpha;
+    gdk_cairo_set_source_rgba (cr, &bg);
     cairo_fill (cr);
 
     cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
@@ -239,9 +241,8 @@ draw_switcher_background (decor_t *d)
 		       CORNER_TOPLEFT | CORNER_TOPRIGHT | CORNER_BOTTOMLEFT |
 		       CORNER_BOTTOMRIGHT);
 
-    gdk_cairo_set_source_color_alpha (cr,
-				      &style->fg[GTK_STATE_NORMAL],
-				      alpha);
+    fg.alpha = alpha;
+    gdk_cairo_set_source_rgba (cr, &fg);
 
     cairo_stroke (cr);
 
@@ -249,10 +250,10 @@ draw_switcher_background (decor_t *d)
 
     copy_to_front_buffer (d);
 
-    pixel = ((((a * style->bg[GTK_STATE_NORMAL].blue ) >> 24) & 0x0000ff) |
-	     (((a * style->bg[GTK_STATE_NORMAL].green) >> 16) & 0x00ff00) |
-	     (((a * style->bg[GTK_STATE_NORMAL].red  ) >>  8) & 0xff0000) |
-	     (((a & 0xff00) << 16)));
+    pixel  = (((a * (int) (bg.blue * 65535.0)) >> 24) & 0x0000ff);
+    pixel |= (((a * (int) (bg.green * 65535.0)) >> 16) & 0x00ff00);
+    pixel |= (((a * (int) (bg.red * 65535.0)) >> 8) & 0xff0000);
+    pixel |= ((a & 0xff00) << 16);
 
     decor_update_switcher_property (d);
 
@@ -261,7 +262,7 @@ draw_switcher_background (decor_t *d)
     XClearWindow (xdisplay, d->prop_xid);
 
     gdk_display_sync (gdk_display_get_default ());
-    gdk_error_trap_pop ();
+    gdk_error_trap_pop_ignored ();
 
     d->prop_xid = 0;
 }
@@ -270,15 +271,18 @@ static void
 draw_switcher_foreground (decor_t *d)
 {
     cairo_t	  *cr;
-    GtkStyle	  *style;
+    GtkStyleContext *context;
+    GdkRGBA bg, fg;
     double	  alpha = SWITCHER_ALPHA / 65535.0;
 
-    if (!d->pixmap || !d->buffer_pixmap)
+    if (!d->surface || !d->buffer_surface)
 	return;
 
-    style = gtk_widget_get_style (d->frame->style_window_rgba);
+    context = gtk_widget_get_style_context (d->frame->style_window_rgba);
+    gtk_style_context_get_background_color (context, GTK_STATE_FLAG_NORMAL, &bg);
+    gtk_style_context_get_color (context, GTK_STATE_FLAG_NORMAL, &fg);
 
-    cr = gdk_cairo_create (GDK_DRAWABLE (d->buffer_pixmap));
+    cr = cairo_create (d->buffer_surface);
 
     cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
 
@@ -288,9 +292,8 @@ draw_switcher_foreground (decor_t *d)
 		     d->frame->window_context_active.right_space,
 		     SWITCHER_SPACE);
 
-    gdk_cairo_set_source_color_alpha (cr,
-				      &style->bg[GTK_STATE_NORMAL],
-				      alpha);
+    bg.alpha = alpha;
+    gdk_cairo_set_source_rgba (cr, &bg);
     cairo_fill (cr);
 
     if (d->layout)
@@ -299,9 +302,8 @@ draw_switcher_foreground (decor_t *d)
 
 	cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
 
-	gdk_cairo_set_source_color_alpha (cr,
-					  &style->fg[GTK_STATE_NORMAL],
-					  1.0);
+	fg.alpha = 1.0;
+	gdk_cairo_set_source_rgba (cr, &fg);
 
 	pango_layout_get_pixel_size (d->layout, &w, NULL);
 
@@ -338,11 +340,11 @@ switcher_window_closed ()
     if (d->name)
 	g_free (d->name);
 
-    if (d->pixmap)
-	g_object_unref (G_OBJECT (d->pixmap));
+    if (d->surface)
+	cairo_surface_destroy (d->surface);
 
-    if (d->buffer_pixmap)
-	g_object_unref (G_OBJECT (d->buffer_pixmap));
+    if (d->buffer_surface)
+	cairo_surface_destroy (d->buffer_surface);
 
     if (d->cr)
 	cairo_destroy (d->cr);
@@ -375,7 +377,7 @@ update_switcher_window (Window     popup,
 			Window     selected)
 {
     decor_t           *d = switcher_window;
-    GdkPixmap         *pixmap, *buffer_pixmap = NULL;
+    cairo_surface_t   *surface, *buffer_surface = NULL;
     unsigned int      height, width = 0, border, depth;
     int		      x, y;
     Window	      root_return;
@@ -472,27 +474,27 @@ update_switcher_window (Window     popup,
 	switcher_selected_window = selected;
     }
 
-    pixmap = create_native_pixmap_and_wrap (width, height, d->frame->style_window_rgba);
-    if (!pixmap)
+    surface = create_native_surface_and_wrap (width, height, d->frame->style_window_rgba);
+    if (!surface)
 	return FALSE;
 
-    buffer_pixmap = create_pixmap (width, height, d->frame->style_window_rgba);
-    if (!buffer_pixmap)
+    buffer_surface = create_surface (width, height, d->frame->style_window_rgba);
+    if (!buffer_surface)
     {
-	g_object_unref (G_OBJECT (pixmap));
+	cairo_surface_destroy (surface);
 	return FALSE;
     }
 
-    if (d->pixmap)
-	g_object_unref (G_OBJECT (d->pixmap));
+    if (d->surface)
+	cairo_surface_destroy (d->surface);
 
     if (d->x11Pixmap)
 	decor_post_delete_pixmap (xdisplay,
-				  wnck_window_get_xid (d->win),
+				  0,
 				  d->x11Pixmap);
 
-    if (d->buffer_pixmap)
-	g_object_unref (G_OBJECT (d->buffer_pixmap));
+    if (d->buffer_surface)
+	cairo_surface_destroy (d->buffer_surface);
 
     if (d->cr)
 	cairo_destroy (d->cr);
@@ -500,13 +502,13 @@ update_switcher_window (Window     popup,
     if (d->picture)
 	XRenderFreePicture (xdisplay, d->picture);
 
-    d->pixmap	     = pixmap;
-    d->x11Pixmap     = GDK_PIXMAP_XID (d->pixmap);
-    d->buffer_pixmap = buffer_pixmap;
-    d->cr	     = gdk_cairo_create (pixmap);
+    d->surface        = surface;
+    d->x11Pixmap      = cairo_xlib_surface_get_drawable (d->surface);
+    d->buffer_surface = buffer_surface;
+    d->cr             = cairo_create (surface);
 
-    format = get_format_for_drawable (d, GDK_DRAWABLE (d->buffer_pixmap));
-    d->picture = XRenderCreatePicture (xdisplay, GDK_PIXMAP_XID (buffer_pixmap),
+    format = get_format_for_surface (d, d->buffer_surface);
+    d->picture = XRenderCreatePicture (xdisplay, cairo_xlib_surface_get_drawable (buffer_surface),
 				       format, 0, NULL);
 
     d->width  = width;

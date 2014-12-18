@@ -218,6 +218,8 @@ class CCSBackendConceptTestParamInterface
 {
     public:
 
+	virtual ~CCSBackendConceptTestParamInterface () {}
+
 	typedef boost::shared_ptr <CCSBackendConceptTestParamInterface> Ptr;
 
 	typedef void (CCSBackendConceptTestEnvironmentInterface::*NativeWriteMethod) (const std::string &plugin,
@@ -253,6 +255,8 @@ class CCSBackendConceptTestParam :
     public CCSBackendConceptTestParamInterface
 {
     public:
+
+	virtual ~CCSBackendConceptTestParam () {}
 
 	typedef boost::shared_ptr <CCSBackendConceptTestParam <I> > Ptr;
 

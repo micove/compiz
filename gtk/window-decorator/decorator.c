@@ -139,18 +139,23 @@ void
 frame_update_titlebar_font (decor_frame_t *frame)
 {
     const PangoFontDescription *font_desc;
-    PangoFontMetrics	       *metrics;
-    PangoLanguage	       *lang;
+    PangoFontDescription *free_font_desc;
+    PangoFontMetrics *metrics;
+    PangoLanguage *lang;
 
+    free_font_desc = NULL;
     frame = gwd_decor_frame_ref (frame);
 
     font_desc = get_titlebar_font (frame);
     if (!font_desc)
     {
-	GtkStyle *default_style;
+        GtkCssProvider *provider = gtk_css_provider_get_default ();
+        GtkStyleContext *context = gtk_style_context_new ();
 
-	default_style = gtk_widget_get_default_style ();
-	font_desc = default_style->font_desc;
+        gtk_style_context_add_provider (context, GTK_STYLE_PROVIDER (provider), GTK_STYLE_PROVIDER_PRIORITY_FALLBACK);
+
+        gtk_style_context_get (context, GTK_STATE_FLAG_NORMAL, "font", &free_font_desc, NULL);
+        font_desc = (const PangoFontDescription *) free_font_desc;
     }
 
     pango_context_set_font_description (frame->pango_context, font_desc);
@@ -164,6 +169,9 @@ frame_update_titlebar_font (decor_frame_t *frame)
     gwd_decor_frame_unref (frame);
 
     pango_font_metrics_unref (metrics);
+
+    if (free_font_desc)
+        pango_font_description_free (free_font_desc);
 }
 
 void
@@ -324,21 +332,11 @@ update_event_windows (WnckWindow *win)
 	    WNCK_WINDOW_ACTION_MINIMIZE,
 	    0,
 	    WNCK_WINDOW_ACTION_SHADE,
-
-#ifdef HAVE_LIBWNCK_2_18_1
 	    WNCK_WINDOW_ACTION_ABOVE,
 	    WNCK_WINDOW_ACTION_STICK,
 	    WNCK_WINDOW_ACTION_UNSHADE,
 	    WNCK_WINDOW_ACTION_ABOVE,
 	    WNCK_WINDOW_ACTION_UNSTICK
-#else
-	    0,
-	    0,
-	    0,
-	    0,
-	    0
-#endif
-
 	};
 
 	/* Reparenting mode - if a box was set and we no longer need it reset its geometry */
@@ -372,9 +370,9 @@ update_event_windows (WnckWindow *win)
 		 (*theme_get_button_position) (d, i, width, height,
 					       &x, &y, &w, &h))
 	{
-	    Window win = d->button_windows[i].window;
-	    XMapWindow (xdisplay, win);
-	    XMoveResizeWindow (xdisplay, win, x, y, w, h);
+	    Window x11_win = d->button_windows[i].window;
+	    XMapWindow (xdisplay, x11_win);
+	    XMoveResizeWindow (xdisplay, x11_win, x, y, w, h);
 	}
 	else if (!d->frame_window)
 	{
@@ -383,7 +381,7 @@ update_event_windows (WnckWindow *win)
     }
 
     gdk_display_sync (gdk_display_get_default ());
-    gdk_error_trap_pop ();
+    gdk_error_trap_pop_ignored ();
 }
 
 /*
@@ -393,15 +391,12 @@ update_event_windows (WnckWindow *win)
  * Description: Wrapper function to either get the name of the window or
  * return NULL
  */
-
-#ifdef HAVE_WNCK_WINDOW_HAS_NAME
 static const char *
 wnck_window_get_real_name (WnckWindow *win)
 {
     return wnck_window_has_name (win) ? wnck_window_get_name (win) : NULL;
 }
 #define wnck_window_get_name wnck_window_get_real_name
-#endif
 
 /*
  * max_window_name_width
@@ -538,10 +533,10 @@ update_window_decoration_icon (WnckWindow *win)
 	d->icon = NULL;
     }
 
-    if (d->icon_pixmap)
+    if (d->icon_surface)
     {
-	g_object_unref (G_OBJECT (d->icon_pixmap));
-	d->icon_pixmap = NULL;
+	cairo_surface_destroy (d->icon_surface);
+	d->icon_surface = NULL;
     }
 
     if (d->icon_pixbuf)
@@ -557,12 +552,12 @@ update_window_decoration_icon (WnckWindow *win)
 
 	/* 32 bit pixmap on pixmap mode, 24 for reparenting */
 	if (d->frame_window)
-	    d->icon_pixmap = pixmap_new_from_pixbuf (d->icon_pixbuf,
-						     d->frame->style_window_rgb);
+	    d->icon_surface = surface_new_from_pixbuf (d->icon_pixbuf,
+	                                               d->frame->style_window_rgb);
 	else
-	    d->icon_pixmap = pixmap_new_from_pixbuf (d->icon_pixbuf,
-						     d->frame->style_window_rgba);
-	cr = gdk_cairo_create (GDK_DRAWABLE (d->icon_pixmap));
+	    d->icon_surface = surface_new_from_pixbuf (d->icon_pixbuf,
+	                                               d->frame->style_window_rgba);
+	cr = cairo_create (d->icon_surface);
 	d->icon = cairo_pattern_create_for_surface (cairo_get_target (cr));
 	cairo_destroy (cr);
     }
@@ -629,7 +624,7 @@ gboolean
 update_window_decoration_size (WnckWindow *win)
 {
     decor_t           *d;
-    GdkPixmap         *pixmap, *buffer_pixmap = NULL;
+    cairo_surface_t   *surface, *buffer_surface = NULL;
     Picture           picture;
     Display           *xdisplay;
     XRenderPictFormat *format;
@@ -649,52 +644,54 @@ update_window_decoration_size (WnckWindow *win)
     /* Get the correct depth for the frame window in reparenting mode, otherwise
      * enforce 32 */
     if (d->frame_window)
-	pixmap = create_native_pixmap_and_wrap (d->width, d->height, d->frame->style_window_rgb);
+	surface = create_native_surface_and_wrap (d->width, d->height, d->frame->style_window_rgb);
     else
-	pixmap = create_native_pixmap_and_wrap (d->width, d->height, d->frame->style_window_rgba);
+	surface = create_native_surface_and_wrap (d->width, d->height, d->frame->style_window_rgba);
 
     gdk_flush ();
 
     /* Handle failure */
-    if (!pixmap || gdk_error_trap_pop ())
+    if (!surface || gdk_error_trap_pop ())
     {
-	memset (pixmap, 0, sizeof (*pixmap));
+	if (surface)
+	    cairo_surface_destroy (surface);
 	return FALSE;
     }
 
     gdk_error_trap_push ();
 
     if (d->frame_window)
-	buffer_pixmap = create_pixmap (d->width, d->height, d->frame->style_window_rgb);
+	buffer_surface = create_surface (d->width, d->height, d->frame->style_window_rgb);
     else
-	buffer_pixmap = create_pixmap (d->width, d->height, d->frame->style_window_rgba);
+	buffer_surface = create_surface (d->width, d->height, d->frame->style_window_rgba);
 
     gdk_flush ();
 
     /* Handle failure */
-    if (!buffer_pixmap || gdk_error_trap_pop ())
+    if (!buffer_surface || gdk_error_trap_pop ())
     {
-	memset (buffer_pixmap, 0, sizeof (*buffer_pixmap));
-	g_object_unref (G_OBJECT (pixmap));
+	if (buffer_surface)
+	    cairo_surface_destroy (buffer_surface);
+	cairo_surface_destroy (surface);
 	return FALSE;
     }
 
     /* Create XRender context */
-    format = get_format_for_drawable (d, GDK_DRAWABLE (buffer_pixmap));
-    picture = XRenderCreatePicture (xdisplay, GDK_PIXMAP_XID (buffer_pixmap),
+    format = get_format_for_surface (d, buffer_surface);
+    picture = XRenderCreatePicture (xdisplay, cairo_xlib_surface_get_drawable (buffer_surface),
 				    format, 0, NULL);
 
     /* Destroy the old pixmaps and pictures */
-    if (d->pixmap)
-	g_object_unref (d->pixmap);
+    if (d->surface)
+	cairo_surface_destroy (d->surface);
 
     if (d->x11Pixmap)
 	decor_post_delete_pixmap (xdisplay,
 				  wnck_window_get_xid (d->win),
 				  d->x11Pixmap);
 
-    if (d->buffer_pixmap)
-	g_object_unref (G_OBJECT (d->buffer_pixmap));
+    if (d->buffer_surface)
+	cairo_surface_destroy (d->buffer_surface);
 
     if (d->picture)
 	XRenderFreePicture (xdisplay, d->picture);
@@ -703,10 +700,10 @@ update_window_decoration_size (WnckWindow *win)
 	cairo_destroy (d->cr);
 
     /* Assign new pixmaps and pictures */
-    d->pixmap	     = pixmap;
-    d->x11Pixmap     = GDK_PIXMAP_XID (d->pixmap);
-    d->buffer_pixmap = buffer_pixmap;
-    d->cr	     = gdk_cairo_create (pixmap);
+    d->surface        = surface;
+    d->x11Pixmap      = cairo_xlib_surface_get_drawable (d->surface);
+    d->buffer_surface = buffer_surface;
+    d->cr             = cairo_create (surface);
 
     d->picture = picture;
 
@@ -738,10 +735,10 @@ draw_border_shape (Display	   *xdisplay,
 		   void		   *closure)
 {
     static XRenderColor white = { 0xffff, 0xffff, 0xffff, 0xffff };
-    GdkColormap		*colormap;
     decor_t		d;
     decor_shadow_info_t *info = (decor_shadow_info_t *) closure;
     double		save_decoration_alpha;
+    GdkScreen           *screen;
 
     memset (&d, 0, sizeof (d));
 
@@ -760,8 +757,13 @@ draw_border_shape (Display	   *xdisplay,
 	d.active = TRUE;
     }
 
-    d.pixmap  = gdk_pixmap_foreign_new_for_display (gdk_display_get_default (),
-						    pixmap);
+    screen = gdk_screen_get_default ();
+
+    d.surface = cairo_xlib_surface_create (GDK_SCREEN_XDISPLAY (screen),
+                                           pixmap,
+                                           GDK_VISUAL_XVISUAL (gdk_screen_get_rgba_visual (screen)),
+                                           width,
+                                           height);
     d.width   = width;
     d.height  = height;
     d.active  = TRUE;
@@ -776,9 +778,6 @@ draw_border_shape (Display	   *xdisplay,
 	d.state = 0;
 
     decor_get_default_layout (c, 1, 1, &d.border_layout);
-
-    colormap = get_colormap_for_drawable (GDK_DRAWABLE (d.pixmap));
-    gdk_drawable_set_colormap (d.pixmap, colormap);
 
     /* create shadow from opaque decoration
      * FIXME: Should not modify settings value
@@ -799,7 +798,7 @@ draw_border_shape (Display	   *xdisplay,
     if (!info)
 	gwd_decor_frame_unref (d.frame);
 
-    g_object_unref (G_OBJECT (d.pixmap));
+    cairo_surface_destroy (d.surface);
 }
 
 
@@ -1409,8 +1408,8 @@ update_default_decorations (GdkScreen *screen)
 
         if (default_frames[i].d)
         {
-            if (default_frames[i].d->pixmap)
-                g_object_unref (G_OBJECT (default_frames[i].d->pixmap));
+            if (default_frames[i].d->surface)
+                cairo_surface_destroy (default_frames[i].d->surface);
 
             free (default_frames[i].d);
         }
@@ -1432,9 +1431,9 @@ update_default_decorations (GdkScreen *screen)
         extents.top += frame->titlebar_height;
 
         default_frames[i].d->draw = theme_draw_window_decoration;
-	default_frames[i].d->pixmap = create_native_pixmap_and_wrap (default_frames[i].d->width,
-								     default_frames[i].d->height,
-								     frame->style_window_rgba);
+	default_frames[i].d->surface = create_native_surface_and_wrap (default_frames[i].d->width,
+	                                                               default_frames[i].d->height,
+	                                                               frame->style_window_rgba);
 
 	unsigned int j, k;
 
@@ -1452,7 +1451,7 @@ update_default_decorations (GdkScreen *screen)
 	    default_frames[i].d->button_states[j] = 0;
 	}
 
-        if (default_frames[i].d->pixmap)
+        if (default_frames[i].d->surface)
         {
             gint	    nQuad;
             unsigned int   frame_type = populate_frame_type (default_frames[i].d);
@@ -1464,12 +1463,12 @@ update_default_decorations (GdkScreen *screen)
                                                      &default_frames[i].d->border_layout);
 
             default_frames[i].d->picture = XRenderCreatePicture (xdisplay,
-                                                                          GDK_PIXMAP_XID (default_frames[i].d->pixmap),
-                                                                          xformat_rgba, 0, NULL);
+                                                                 cairo_xlib_surface_get_drawable (default_frames[i].d->surface),
+                                                                 xformat_rgba, 0, NULL);
 
             (*default_frames[i].d->draw) (default_frames[i].d);
 
-            decor_quads_to_property (data, i, GDK_PIXMAP_XID (default_frames[i].d->pixmap),
+            decor_quads_to_property (data, i, cairo_xlib_surface_get_drawable (default_frames[i].d->surface),
                                      &extents, &extents,
                                      &extents, &extents, 0, 0, quads, nQuad, frame_type, frame_state, frame_actions);
         }
@@ -1496,10 +1495,10 @@ update_default_decorations (GdkScreen *screen)
 void
 copy_to_front_buffer (decor_t *d)
 {
-    if (!d->buffer_pixmap)
+    if (!d->buffer_surface)
 	return;
 
     cairo_set_operator (d->cr, CAIRO_OPERATOR_SOURCE);
-    gdk_cairo_set_source_pixmap (d->cr, d->buffer_pixmap, 0, 0);
+    cairo_set_source_surface (d->cr, d->buffer_surface, 0, 0);
     cairo_paint (d->cr);
 }

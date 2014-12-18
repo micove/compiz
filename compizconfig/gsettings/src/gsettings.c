@@ -423,13 +423,19 @@ writeSetting (CCSBackend *backend,
 static void
 updateSetting (CCSBackend *backend, CCSContext *context, CCSPlugin *plugin, CCSSetting *setting)
 {
+    Bool status;
     CCSIntegratedSetting *integrated = ccsGSettingsBackendGetIntegratedSetting (backend, setting);
 
-    ccsBackendReadInit (backend, context);
-    if (!readOption (backend, setting))
+    if (ccsGetIntegrationEnabled (context) &&
+	integrated)
     {
-	ccsResetToDefault (setting, TRUE);
+	status = readIntegratedOption (backend, setting, integrated);
     }
+    else
+	status = readOption (backend, setting);
+
+    if (!status)
+	ccsResetToDefault (setting, TRUE);
 
     if (ccsGetIntegrationEnabled (context) &&
 	integrated)

@@ -64,6 +64,7 @@ class WaterScreen :
 
 	void handleEvent (XEvent *);
 
+	bool glPaintCompositedOutputRequired ();
 	void glPaintCompositedOutput (const CompRegion    &region,
 				      GLFramebufferObject *fbo,
 				      unsigned int         mask);

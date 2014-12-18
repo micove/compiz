@@ -97,6 +97,17 @@ public:
 	EXPECT_CALL (mockWindow, border ())
 	    .WillRepeatedly (ReturnRef (mockWindowBorder));
 
+        mockSaveWc.x = 1;
+        mockSaveWc.y = 2;
+        mockSaveWc.width = 3;
+        mockSaveWc.height = 4; 
+	EXPECT_CALL (mockWindow, saveWc ())
+	    .WillRepeatedly (ReturnRef (mockSaveWc));
+
+        mockSaveMask = 1;
+	EXPECT_CALL (mockWindow, saveMask ())
+	    .WillRepeatedly (ReturnRef (mockSaveMask));
+
 	EXPECT_CALL (mockWindow, grabNotify (_,_,_,_))
 	    .Times(AnyNumber());
 
@@ -202,6 +213,8 @@ public:
     CompWindow::Geometry mockWindowServerGeometry;
     unsigned int mockWindowState;
     CompWindowExtents mockWindowBorder;
+    XWindowChanges mockSaveWc;
+    int mockSaveMask;
 };
 
 

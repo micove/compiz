@@ -639,6 +639,7 @@ class ValueContainer
 {
     public:
 
+	virtual ~ValueContainer () {}
 	typedef boost::shared_ptr <ValueContainer> Ptr;
 
 	virtual const SettingValueType &
@@ -703,6 +704,10 @@ ContainNormal (const SettingValueType &value)
 class ListValueContainerBase :
     public ValueContainer <CCSSettingValueList>
 {
+	public:
+
+	virtual ~ListValueContainerBase () {}
+
     protected:
 
 	const CCSSettingValuePtr &
@@ -817,6 +822,7 @@ class ChildValueListValueContainer :
 	    mRawChildValue (value)
 	{
 	}
+	virtual ~ChildValueListValueContainer () {}
 
     private:
 
@@ -1404,6 +1410,7 @@ class SetFailureParam :
 					      nonDefault)
 	{
 	}
+	virtual ~SetFailureParam () {}
 
 	virtual CCSSetStatus setToFailValue (SetMethod method)
 	{

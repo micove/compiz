@@ -47,9 +47,7 @@ class CompWatchFd :
 	virtual ~CompWatchFd ();
 
 	static
-	CompWatchFd * create (int,
-			      Glib::IOCondition,
-			      FdWatchCallBack);
+	Glib::RefPtr<CompWatchFd> create (int, Glib::IOCondition, FdWatchCallBack);
 
     protected:
 

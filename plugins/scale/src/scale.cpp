@@ -30,7 +30,7 @@
 #include <sys/time.h>
 
 #include <X11/Xatom.h>
-#include <X11/cursorfont.h>
+#include <X11/extensions/shape.h>
 
 #include <core/atoms.h>
 #include <scale/scale.h>
@@ -48,6 +48,8 @@ class ScalePluginVTable :
 };
 
 COMPIZ_PLUGIN_20090315 (scale, ScalePluginVTable)
+static ScaleScreen *sScreen = NULL;
+static PrivateScaleScreen *spScreen = NULL;
 
 bool
 PrivateScaleWindow::isNeverScaleWin () const
@@ -132,14 +134,14 @@ ScaleWindow::scalePaintDecoration (const GLWindowPaintAttrib& attrib,
 {
     WRAPABLE_HND_FUNCTN (scalePaintDecoration, attrib, transform, region, mask)
 
-    if (priv->spScreen->optionGetOverlayIcon () != ScaleOptions::OverlayIconNone)
+    if (spScreen->optionGetOverlayIcon () != ScaleOptions::OverlayIconNone)
     {
 	GLWindowPaintAttrib sAttrib (attrib);
 	GLTexture           *icon;
 
 	icon = priv->gWindow->getIcon (512, 512);
 	if (!icon)
-	    icon = priv->spScreen->gScreen->defaultIcon ();
+	    icon = spScreen->gScreen->defaultIcon ();
 
 	if (icon)
 	{
@@ -151,7 +153,7 @@ ScaleWindow::scalePaintDecoration (const GLWindowPaintAttrib& attrib,
 	    scaledWinWidth  = priv->window->width () * priv->scale;
 	    scaledWinHeight = priv->window->height () * priv->scale;
 
-	    switch (priv->spScreen->optionGetOverlayIcon ()) {
+	    switch (spScreen->optionGetOverlayIcon ()) {
 		case ScaleOptions::OverlayIconNone:
 		case ScaleOptions::OverlayIconEmblem:
 		    scale = 1.0f;
@@ -167,7 +169,7 @@ ScaleWindow::scalePaintDecoration (const GLWindowPaintAttrib& attrib,
 	    width  = icon->width () * scale;
 	    height = icon->height () * scale;
 
-	    switch (priv->spScreen->optionGetOverlayIcon ()) {
+	    switch (spScreen->optionGetOverlayIcon ()) {
 		case ScaleOptions::OverlayIconNone:
 		case ScaleOptions::OverlayIconEmblem:
 		    x = priv->window->x () + scaledWinWidth - icon->width ();
@@ -242,6 +244,70 @@ ScaleWindow::scalePaintDecoration (const GLWindowPaintAttrib& attrib,
 	    }
 	}
     }
+
+    if (spScreen->optionGetDndTimeoutSpinner () &&
+	priv->window->id() == spScreen->selectedWindow &&
+	priv->slot &&
+	spScreen->hover.active ())
+    {
+	GLTexture* spinner = NULL;
+
+	if (!spScreen->dndSpinners.empty ())
+	{
+	    int speed = spScreen->optionGetDndTimeoutSpinnerSpeed ();
+	    unsigned dndSpinnerIdx = (spScreen->hover.minTime() - spScreen->hover.minLeft()) / speed;
+	    const GLTexture::List& tex_list = spScreen->dndSpinners[dndSpinnerIdx % spScreen->dndSpinners.size()];
+	    spinner = tex_list.empty() ? NULL : tex_list.front();
+	}
+
+	if (spinner)
+	{
+	    float  scale;
+	    int    x, y;
+	    int    size;
+	    int    scaledWinWidth, scaledWinHeight;
+	    int    spinnerMaxSize = spinner->width();
+
+	    scaledWinWidth  = priv->window->width () * priv->scale;
+	    scaledWinHeight = priv->window->height () * priv->scale;
+
+	    size = MIN (spinnerMaxSize, MIN (scaledWinWidth, scaledWinHeight));
+	    x = priv->tx + priv->window->x () + (scaledWinWidth - size) / 2;
+	    y = priv->ty + priv->window->y () + (scaledWinHeight - size) / 2;
+	    scale = 1.0;
+
+	    if (size != spinnerMaxSize)
+	    {
+		size = spinnerMaxSize;
+		scale = MIN (scaledWinWidth, scaledWinHeight) / (float) spinnerMaxSize;
+	    }
+
+	    priv->cWindow->addDamageRect (CompRect (x, y, size / scale, size / scale));
+
+	    mask |= PAINT_WINDOW_BLEND_MASK;
+
+	    CompRegion            iconReg (0, 0, size, size);
+	    GLTexture::MatrixList ml (1);
+
+	    ml[0] = spinner->matrix ();
+	    priv->gWindow->vertexBuffer ()->begin ();
+
+	    if (size)
+		priv->gWindow->glAddGeometry (ml, iconReg, iconReg);
+
+	    if (priv->gWindow->vertexBuffer ()->end ())
+	    {
+		GLMatrix            wTransform (transform);
+		GLWindowPaintAttrib sAttrib (attrib);
+
+		wTransform.scale (scale, scale, 1.0f);
+		wTransform.translate (x / scale, y / scale, 0.0f);
+		sAttrib.brightness *= 0.65f;
+
+		priv->gWindow->glDrawTexture (spinner, wTransform, sAttrib, mask);
+	    }
+	}
+    }
 }
 
 bool
@@ -258,7 +324,8 @@ ScaleWindow::setScaledPaintAttributes (GLWindowPaintAttrib& attrib)
     /* Windows that wouldn't be visible before and after entering
      * scale mode (because some plugin modified CompWindow::focus)
      * should be faded in and out */
-    if (window->state () & CompWindowStateHiddenMask)
+    if (window->state () & CompWindowStateHiddenMask &&
+	!window->inShowDesktopMode ())
     {
 	GLfloat factor = 0;
 	GLfloat targetX, targetY, targetScale;
@@ -320,21 +387,21 @@ ScaleWindow::setScaledPaintAttributes (GLWindowPaintAttrib& attrib)
 	attrib.opacity *= factor;
     }
 
-    if (priv->adjust || priv->slot)
+    if ((priv->adjust || priv->slot) && priv->isScaleWin())
     {
-	if (priv->window->id ()     != priv->spScreen->selectedWindow &&
-	    priv->spScreen->opacity != OPAQUE                         &&
-	    priv->spScreen->state   != ScaleScreen::In)
+	if (priv->window->id () != spScreen->selectedWindow &&
+	    spScreen->opacity != OPAQUE                     &&
+	    spScreen->state   != ScaleScreen::In)
 	{
 	    /* modify opacity of windows that are not active */
-	    attrib.opacity = (attrib.opacity * priv->spScreen->opacity) >> 16;
+	    attrib.opacity = (attrib.opacity * spScreen->opacity) >> 16;
 	}
 
 	drawScaled = true;
     }
-    else if (priv->spScreen->state != ScaleScreen::In)
+    else if (spScreen->state != ScaleScreen::In)
     {
-	if (priv->spScreen->optionGetDarkenBack ())
+	if (spScreen->optionGetDarkenBack ())
 	{
 	    /* modify brightness of the other windows */
 	    attrib.brightness = attrib.brightness / 2;
@@ -346,7 +413,7 @@ ScaleWindow::setScaledPaintAttributes (GLWindowPaintAttrib& attrib)
 	{
 	    int moMode, output;
 
-	    moMode = priv->spScreen->getMultioutputMode ();
+	    moMode = spScreen->getMultioutputMode ();
 
 	    switch (moMode) {
 		case ScaleOptions::MultioutputModeOnCurrentOutputDevice:
@@ -359,6 +426,12 @@ ScaleWindow::setScaledPaintAttributes (GLWindowPaintAttrib& attrib)
 		    break;
 	    }
 	}
+
+	if (priv->window->id() == spScreen->selectedWindow)
+	    spScreen->selectedWindow = 0;
+
+	if (priv->window->id() == spScreen->hoveredWindow)
+	    spScreen->hoveredWindow = 0;
     }
 
     return drawScaled;
@@ -435,15 +508,15 @@ PrivateScaleScreen::layoutSlotsForArea (const CompRect& workArea,
     int spacing = optionGetSpacing ();
     int nSlots  = 0;
 
-    y      = workArea.y () + spacing;
-    height = (workArea.height () - (lines + 1) * spacing) / lines;
+    y      = optionGetYOffset() + workArea.y () + spacing;
+    height = (workArea.height () - optionGetYOffset() - (lines + 1) * spacing) / lines;
 
     for (int i = 0; i < lines; i++)
     {
 	n = MIN (nWindows - nSlots, ceilf ((float) nWindows / lines));
 
-	x     = workArea.x () + spacing;
-	width = (workArea.width () - (n + 1) * spacing) / n;
+	x     = optionGetXOffset() + workArea.x () + spacing;
+	width = (workArea.width () - optionGetXOffset() - (n + 1) * spacing) / n;
 
 	for (int j = 0; j < n; j++)
 	{
@@ -706,7 +779,7 @@ PrivateScaleScreen::layoutThumbsAll ()
 
     slots.resize (windows.size ());
 
-    return ScaleScreen::get (screen)->layoutSlotsAndAssignWindows ();
+    return sScreen->layoutSlotsAndAssignWindows ();
 }
 
 bool
@@ -745,7 +818,7 @@ PrivateScaleScreen::layoutThumbsSingle ()
 	    if (!windows.empty ())
 	    {
 		slots.resize (windows.size ());
-		ret |= ScaleScreen::get (screen)->layoutSlotsAndAssignWindows ();
+		ret |= sScreen->layoutSlotsAndAssignWindows ();
 
 		foreach (ScaleWindow *sw, windows)
 		    slotWindows[sw] = *sw->priv->slot;
@@ -915,6 +988,7 @@ PrivateScaleScreen::donePaint ()
 		activateEvent (false);
 		state = ScaleScreen::Idle;
 
+		screen->handleEventSetEnabled (this, false);
 		cScreen->preparePaintSetEnabled (this, false);
 		cScreen->donePaintSetEnabled (this, false);
 		gScreen->glPaintOutputSetEnabled (this, false);
@@ -973,7 +1047,7 @@ PrivateScaleScreen::checkForWindowAt (int x, int y)
 }
 
 void
-PrivateScaleScreen::sendDndStatusMessage (Window source)
+PrivateScaleScreen::sendDndStatusMessage (Window source, bool asks)
 {
     XEvent xev;
 
@@ -985,10 +1059,35 @@ PrivateScaleScreen::sendDndStatusMessage (Window source)
     xev.xclient.window	     = source;
 
     xev.xclient.data.l[0] = dndTarget;
-    xev.xclient.data.l[1] = 2;
+    xev.xclient.data.l[1] = 0;
     xev.xclient.data.l[2] = 0;
     xev.xclient.data.l[3] = 0;
     xev.xclient.data.l[4] = None;
+
+    if (asks)
+    {
+	xev.xclient.data.l[1] = 1 << 0 | 1 << 1;
+	xev.xclient.data.l[4] = xdndActionAsk;
+    }
+
+    XSendEvent (screen->dpy (), source, false, 0, &xev);
+}
+
+void
+PrivateScaleScreen::sendDndFinishedMessage (Window source)
+{
+    XEvent xev;
+
+    xev.xclient.type    = ClientMessage;
+    xev.xclient.display = screen->dpy ();
+    xev.xclient.format  = 32;
+
+    xev.xclient.message_type = xdndFinished;
+    xev.xclient.window	     = source;
+
+    xev.xclient.data.l[0] = dndTarget;
+    xev.xclient.data.l[1] = 0; // Not accepted
+    xev.xclient.data.l[2] = None;
 
     XSendEvent (screen->dpy (), source, false, 0, &xev);
 }
@@ -1028,7 +1127,10 @@ PrivateScaleScreen::scaleTerminate (CompAction         *action,
     }
 
     if (ss->priv->dndTarget)
+    {
+	ss->priv->dndCheck.stop ();
 	XUnmapWindow (::screen->dpy (), ss->priv->dndTarget);
+    }
 
     ss->priv->grab = false;
 
@@ -1094,9 +1196,9 @@ PrivateScaleScreen::ensureDndRedirectWindow ()
     if (!dndTarget)
     {
 	XSetWindowAttributes attr;
-	long		     xdndVersion = 3;
+	long		     xdndVersion = 5;
 
-	attr.override_redirect = true;
+	attr.override_redirect = True;
 
 	dndTarget = XCreateWindow (screen->dpy (), screen->root (),
 				   0, 0, 1, 1, 0, CopyFromParent,
@@ -1109,9 +1211,20 @@ PrivateScaleScreen::ensureDndRedirectWindow ()
 			 (unsigned char *) &xdndVersion, 1);
     }
 
+    if (screen->XShape ())
+    {
+	CompRegion workAreaRegion;
+
+	foreach (const CompOutput& output, screen->outputDevs ())
+	    workAreaRegion |= output.workArea ();
+
+	XShapeCombineRegion (screen->dpy (), dndTarget, ShapeBounding, 0, 0, workAreaRegion.handle (), ShapeSet);
+    }
+
     XMoveResizeWindow (screen->dpy (), dndTarget,
 		       0, 0, screen->width (), screen->height ());
     XMapRaised (screen->dpy (), dndTarget);
+    XSync (screen->dpy (), False);
 
     return true;
 }
@@ -1203,7 +1316,7 @@ PrivateScaleScreen::scaleInitiateCommon (CompAction         *action,
 	}
 	else if (!grabIndex)
 	{
-	    grabIndex = screen->pushGrab (cursor, "scale");
+	    grabIndex = screen->pushGrab (screen->normalCursor (), "scale");
 	    if (grabIndex)
 		grab = true;
 	}
@@ -1240,6 +1353,7 @@ PrivateScaleScreen::scaleInitiateCommon (CompAction         *action,
 
 	cScreen->damageScreen ();
 
+	screen->handleEventSetEnabled (this, true);
 	cScreen->preparePaintSetEnabled (this, true);
 	cScreen->donePaintSetEnabled (this, true);
 	gScreen->glPaintOutputSetEnabled (this, true);
@@ -1273,14 +1387,14 @@ ScaleWindow::scaleSelectWindow ()
 {
     WRAPABLE_HND_FUNCTN (scaleSelectWindow)
 
-    if (priv->spScreen->selectedWindow != priv->window->id ())
+    if (spScreen->selectedWindow != priv->window->id ())
     {
 	CompWindow *oldW, *newW;
 
-	oldW = screen->findWindow (priv->spScreen->selectedWindow);
+	oldW = screen->findWindow (spScreen->selectedWindow);
 	newW = screen->findWindow (priv->window->id ());
 
-	priv->spScreen->selectedWindow = priv->window->id ();
+	spScreen->selectedWindow = priv->window->id ();
 
 	if (oldW)
 	    CompositeWindow::get (oldW)->addDamage ();
@@ -1479,7 +1593,8 @@ PrivateScaleScreen::moveFocusWindow (int dx,
 	lastActiveNum    = focus->activeNum ();
 	lastActiveWindow = focus->id ();
 
-	focus->moveInputFocusTo ();
+	if (!focus->focused ())
+	    focus->moveInputFocusTo ();
     }
 }
 
@@ -1521,24 +1636,26 @@ PrivateScaleScreen::windowRemove (CompWindow *w)
 	    }
 	    else
 	    {
-		CompOption::Vector o (0);
-		CompAction         *action;
-
 		/* terminate scale mode if the recently closed
 		 * window was the last scaled window */
-
-		o.push_back (CompOption ("root", CompOption::TypeInt));
-		o[0].value ().set ((int) screen->root ());
-
-		action = &optionGetInitiateEdge ();
-		scaleTerminate (action, CompAction::StateCancel, o);
-
-		action = &optionGetInitiateKey ();
-		scaleTerminate (action, CompAction::StateCancel, o);
+		terminateScale (false);
 		break;
 	    }
 	}
     }
+}
+
+void PrivateScaleScreen::terminateScale (bool accept)
+{
+    CompOption::Vector o (0);
+
+    o.push_back (CompOption ("root", CompOption::TypeInt));
+    o[0].value ().set ((int) screen->root ());
+
+    scaleTerminate (&optionGetInitiateEdge (), accept ? 0 : CompAction::StateCancel, o);
+    scaleTerminate (&optionGetInitiateKey (), accept ? 0 : CompAction::StateCancel, o);
+
+    activateEvent (false);
 }
 
 bool
@@ -1546,10 +1663,7 @@ PrivateScaleScreen::hoverTimeout ()
 {
     if (grab && state != ScaleScreen::In)
     {
-	CompWindow         *w;
-	CompOption::Vector o (0);
-
-	w = screen->findWindow (selectedWindow);
+	CompWindow *w = screen->findWindow (selectedWindow);
 	if (w)
 	{
 	    lastActiveNum    = w->activeNum ();
@@ -1558,13 +1672,39 @@ PrivateScaleScreen::hoverTimeout ()
 	    w->moveInputFocusTo ();
 	}
 
-	o.push_back (CompOption ("root", CompOption::TypeInt));
-	o[0].value ().set ((int) screen->root ());
-
-	scaleTerminate (&optionGetInitiateEdge (), 0, o);
-	scaleTerminate (&optionGetInitiateKey (), 0, o);
+	terminateScale (true);
     }
 
+    return false;
+}
+
+bool
+PrivateScaleScreen::dndCheckTimeout ()
+{
+    if (!dndTarget)
+	return false;
+
+    CompWindow *w = screen->findWindow (dndTarget);
+
+    if (!w || !w->isMapped ())
+	return false;
+
+    Window drag_owner = XGetSelectionOwner (screen->dpy (), xdndSelection);
+
+    if (drag_owner)
+    {
+	// evil hack because some apps (Qt) don't release the selection owner on drag finished
+	Window root_r, child_r;
+	int root_x_r, root_y_r, win_x_r, win_y_r;
+	unsigned int mask;
+	XQueryPointer (screen->dpy (), screen->root (), &root_r, &child_r,
+		       &root_x_r, &root_y_r, &win_x_r, &win_y_r, &mask);
+
+	if (mask & (Button1Mask | Button2Mask | Button3Mask))
+	    return true;
+    }
+
+    terminateScale (false);
     return false;
 }
 
@@ -1596,30 +1736,29 @@ PrivateScaleScreen::handleEvent (XEvent *event)
 		state != ScaleScreen::In)
 	    {
 		XButtonEvent       *button = &event->xbutton;
-		CompOption::Vector o (0);
-
-		o.push_back (CompOption ("root", CompOption::TypeInt));
-		o[0].value ().set ((int) screen->root ());
 
 		/* Button1 terminates scale mode, other buttons can select
 		 * windows */
-		if (selectWindowAt (button->x_root, button->y_root, true) &&
-		    event->xbutton.button == Button1)
+		if (event->xbutton.button != Button1)
+		    break;
+
+		if (selectWindowAt (button->x_root, button->y_root, true))
 		{
-		    scaleTerminate (&optionGetInitiateEdge (), 0, o);
-		    scaleTerminate (&optionGetInitiateKey (), 0, o);
+		    terminateScale (true);
 		}
-		else if (optionGetShowDesktop () &&
-			 event->xbutton.button == Button1)
+		else if (optionGetClickOnDesktop () != ScaleOptions::ClickOnDesktopNone)
 		{
 		    CompPoint pointer (button->x_root, button->y_root);
 		    CompRect  workArea (screen->workArea ());
+		    workArea.setX (workArea.x() + optionGetXOffset ());
+		    workArea.setY (workArea.y() + optionGetYOffset ());
 
 		    if (workArea.contains (pointer))
 		    {
-			scaleTerminate (&optionGetInitiateEdge (), 0, o);
-			scaleTerminate (&optionGetInitiateKey (), 0, o);
-			screen->enterShowDesktopMode ();
+			terminateScale (false);
+
+			if (optionGetClickOnDesktop () == ScaleOptions::ClickOnDesktopShowDesktop)
+			    screen->enterShowDesktopMode ();
 		    }
 		}
 	    }
@@ -1643,33 +1782,31 @@ PrivateScaleScreen::handleEvent (XEvent *event)
 	    w = screen->findWindow (event->xdestroywindow.window);
 	    break;
 	case UnmapNotify:
-
 	     w = screen->findWindow (event->xunmap.window);
 	     break;
 	case ClientMessage:
 	    if (event->xclient.message_type == Atoms::xdndPosition)
 	    {
-		w = screen->findWindow (event->xclient.window);
-		if (w)
+		if (event->xclient.window == dndTarget)
 		{
-		    if (w->id () == dndTarget)
-			sendDndStatusMessage (event->xclient.data.l[0]);
+		    bool acceptsDnd = false;
 
-		    if (grab			 &&
-			state != ScaleScreen::In &&
-			w->id () == dndTarget)
+		    if (grab && state != ScaleScreen::In)
 		    {
+			dndCheck.stop ();
+
 			ScaleWindow *sw = checkForWindowAt (pointerX, pointerY);
 			if (sw && sw->priv->isScaleWin ())
 			{
 			    int time;
 
 			    time = optionGetHoverTime ();
+			    acceptsDnd = true;
 
 			    if (hover.active ())
 			    {
 				int lastMotion = sqrt (pow (pointerX - lastPointerX, 2) + pow (pointerY - lastPointerY, 2));
-				
+
 				if (sw->window->id () != selectedWindow || lastMotion > optionGetDndDistance ())
 				    hover.stop ();
 			    }
@@ -1687,24 +1824,35 @@ PrivateScaleScreen::handleEvent (XEvent *event)
 				hover.stop ();
 			}
 		    }
+
+		    sendDndStatusMessage (event->xclient.data.l[0], acceptsDnd);
 		}
 	    }
-	    else if (event->xclient.message_type == Atoms::xdndDrop ||
-		     event->xclient.message_type == Atoms::xdndLeave)
+	    else if (event->xclient.message_type == Atoms::xdndEnter)
 	    {
-		w = screen->findWindow (event->xclient.window);
-		if (w)
+		if (event->xclient.window == dndTarget &&
+		    grab && state != ScaleScreen::In)
 		{
-		    if (grab			 &&
-			state != ScaleScreen::In &&
-			w->id () == dndTarget)
-		    {
-			CompOption::Vector o (0);
-			o.push_back (CompOption ("root", CompOption::TypeInt));
-			o[0].value ().set ((int) screen->root ());
+		    dndCheck.stop ();
+		}
+	    }
+	    else if (event->xclient.message_type == Atoms::xdndLeave)
+	    {
+		if (event->xclient.window == dndTarget &&
+		    grab && state != ScaleScreen::In)
+		{
+		    dndCheck.start ();
+		}
+	    }
+	    else if (event->xclient.message_type == Atoms::xdndDrop)
+	    {
+		if (event->xclient.window == dndTarget)
+		{
+		    sendDndFinishedMessage (event->xclient.data.l[0]);
 
-			scaleTerminate (&optionGetInitiateEdge (), 0, o);
-			scaleTerminate (&optionGetInitiateKey (), 0, o);
+		    if (grab && state != ScaleScreen::In)
+		    {
+			terminateScale (true);
 		    }
 		}
 	    }
@@ -1720,6 +1868,7 @@ PrivateScaleScreen::handleEvent (XEvent *event)
 
     switch (event->type) {
 	case UnmapNotify:
+	    dndCheck.start ();
 	    if (w)
 		windowRemove (w);
 	    break;
@@ -1768,11 +1917,15 @@ ScaleScreen::ScaleScreen (CompScreen *s) :
     PluginClassHandler<ScaleScreen, CompScreen, COMPIZ_SCALE_ABI> (s),
     priv (new PrivateScaleScreen (s))
 {
+    sScreen = this;
+    spScreen = priv;
 }
 
 ScaleScreen::~ScaleScreen ()
 {
     delete priv;
+    sScreen = NULL;
+    spScreen = NULL;
 }
 
 template class PluginClassHandler<ScaleWindow, CompWindow, COMPIZ_SCALE_ABI>;
@@ -1802,9 +1955,11 @@ PrivateScaleScreen::PrivateScaleScreen (CompScreen *s) :
     grab (false),
     grabIndex (0),
     dndTarget (None),
+    xdndSelection (XInternAtom (screen->dpy (), "XdndSelection", False)),
+    xdndFinished (XInternAtom (screen->dpy (), "XdndFinished", False)),
+    xdndActionAsk (XInternAtom (screen->dpy (), "XdndActionAsk", False)),
     state (ScaleScreen::Idle),
     moreAdjust (false),
-    cursor (0),
     nSlots (0)
 {
     leftKeyCode  = XKeysymToKeycode (screen->dpy (), XStringToKeysym ("Left"));
@@ -1812,11 +1967,11 @@ PrivateScaleScreen::PrivateScaleScreen (CompScreen *s) :
     upKeyCode    = XKeysymToKeycode (screen->dpy (), XStringToKeysym ("Up"));
     downKeyCode  = XKeysymToKeycode (screen->dpy (), XStringToKeysym ("Down"));
 
-    cursor = XCreateFontCursor (screen->dpy (), XC_left_ptr);
-
     opacity = (OPAQUE * optionGetOpacity ()) / 100;
 
     hover.setCallback (boost::bind (&PrivateScaleScreen::hoverTimeout, this));
+    dndCheck.setCallback (boost::bind (&PrivateScaleScreen::dndCheckTimeout, this));
+    dndCheck.setTimes (200);
 
     optionSetOpacityNotify (boost::bind (&PrivateScaleScreen::updateOpacity, this));
 
@@ -1853,15 +2008,35 @@ PrivateScaleScreen::PrivateScaleScreen (CompScreen *s) :
 
 #undef SCALEBIND
 
+    CompString pluginName("scale");
+    CompSize size;
+    CompString file;
+
+    file = "dnd-spinner-000.png";
+    dndSpinners.push_back(GLTexture::readImageToTexture(file, pluginName, size));
+    file = "dnd-spinner-125.png";
+    dndSpinners.push_back(GLTexture::readImageToTexture(file, pluginName, size));
+    file = "dnd-spinner-250.png";
+    dndSpinners.push_back(GLTexture::readImageToTexture(file, pluginName, size));
+    file = "dnd-spinner-375.png";
+    dndSpinners.push_back(GLTexture::readImageToTexture(file, pluginName, size));
+    file = "dnd-spinner-500.png";
+    dndSpinners.push_back(GLTexture::readImageToTexture(file, pluginName, size));
+    file = "dnd-spinner-625.png";
+    dndSpinners.push_back(GLTexture::readImageToTexture(file, pluginName, size));
+    file = "dnd-spinner-750.png";
+    dndSpinners.push_back(GLTexture::readImageToTexture(file, pluginName, size));
+    file = "dnd-spinner-875.png";
+    dndSpinners.push_back(GLTexture::readImageToTexture(file, pluginName, size));
+
     ScreenInterface::setHandler (s);
     CompositeScreenInterface::setHandler (cScreen, false);
     GLScreenInterface::setHandler (gScreen, false);
-}
 
-PrivateScaleScreen::~PrivateScaleScreen ()
-{
-    if (cursor)
-	XFreeCursor (screen->dpy (), cursor);
+    screen->handleEventSetEnabled (this, false);
+    cScreen->preparePaintSetEnabled (this, false);
+    cScreen->donePaintSetEnabled (this, false);
+    gScreen->glPaintOutputSetEnabled (this, false);
 }
 
 void
@@ -1889,8 +2064,6 @@ PrivateScaleWindow::PrivateScaleWindow (CompWindow *w) :
     cWindow (CompositeWindow::get (w)),
     gWindow (GLWindow::get (w)),
     sWindow (ScaleWindow::get (w)),
-    sScreen (ScaleScreen::get (screen)),
-    spScreen (sScreen->priv),
     slot (NULL),
     sid (0),
     distance (0.0),

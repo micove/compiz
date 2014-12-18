@@ -524,6 +524,8 @@ class CCSGNOMEIntegrationTestWithMocksIntegratedMouseButtonModifiers
 {
     public:
 
+	virtual ~CCSGNOMEIntegrationTestWithMocksIntegratedMouseButtonModifiers () {}
+
 	CCSGNOMEIntegrationTestWithMocksIntegratedMouseButtonModifiers () :
 	    mIntegratedSettingMBM (AutoDestroy (ccsMockIntegratedSettingNew (&ccsDefaultObjectAllocator),
 						ccsIntegratedSettingUnref)),

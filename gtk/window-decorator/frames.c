@@ -31,6 +31,45 @@ typedef struct _decor_frame_type_info
 GHashTable    *frame_info_table;
 GHashTable    *frames_table;
 
+static void
+update_style (GtkWidget *widget)
+{
+    GtkStyleContext *context;
+    GdkRGBA bg;
+    decor_color_t spot_color;
+
+    context = gtk_widget_get_style_context (widget);
+    gtk_style_context_get_background_color (context, GTK_STATE_FLAG_SELECTED, &bg);
+
+    spot_color.r = bg.red;
+    spot_color.g = bg.green;
+    spot_color.b = bg.blue;
+
+    shade (&spot_color, &_title_color[0], 1.05);
+    shade (&_title_color[0], &_title_color[1], 0.85);
+}
+
+static void
+style_updated (GtkWidget *widget,
+               void      *user_data)
+{
+    GdkDisplay *gdkdisplay;
+    GdkScreen  *gdkscreen;
+    WnckScreen *screen;
+
+    PangoContext *context = (PangoContext *) user_data;
+
+    gdkdisplay = gdk_display_get_default ();
+    gdkscreen  = gdk_display_get_default_screen (gdkdisplay);
+    screen     = wnck_screen_get_default ();
+
+    update_style (widget);
+
+    pango_cairo_context_set_resolution (context, gdk_screen_get_resolution (gdkscreen));
+
+    decorations_changed (screen);
+}
+
 void
 decor_frame_refresh (decor_frame_t *frame)
 {
@@ -201,7 +240,7 @@ decor_frame_t *
 decor_frame_new (const gchar *type)
 {
     GdkScreen     *gdkscreen = gdk_screen_get_default ();
-    GdkColormap   *colormap;
+    GdkVisual     *visual;
     decor_frame_t *frame = malloc (sizeof (decor_frame_t));
 
     if (!frame)
@@ -224,9 +263,9 @@ decor_frame_new (const gchar *type)
 
     frame->style_window_rgba = gtk_window_new (GTK_WINDOW_POPUP);
 
-    colormap = gdk_screen_get_rgba_colormap (gdkscreen);
-    if (colormap)
-	gtk_widget_set_colormap (frame->style_window_rgba, colormap);
+    visual = gdk_screen_get_rgba_visual (gdkscreen);
+    if (visual)
+	gtk_widget_set_visual (frame->style_window_rgba, visual);
 
     gtk_widget_realize (frame->style_window_rgba);
 
@@ -235,23 +274,23 @@ decor_frame_new (const gchar *type)
 
     frame->pango_context = gtk_widget_create_pango_context (frame->style_window_rgba);
 
-    g_signal_connect_data (frame->style_window_rgba, "style-set",
-			   G_CALLBACK (style_changed),
+    g_signal_connect_data (frame->style_window_rgba, "style-updated",
+			   G_CALLBACK (style_updated),
 			   (gpointer) frame->pango_context, 0, 0);
 
     frame->style_window_rgb = gtk_window_new (GTK_WINDOW_POPUP);
 
-    colormap = gdk_screen_get_rgb_colormap (gdkscreen);
-    if (colormap)
-	gtk_widget_set_colormap (frame->style_window_rgb, colormap);
+    visual = gdk_screen_get_system_visual (gdkscreen);
+    if (visual)
+	gtk_widget_set_visual (frame->style_window_rgb, visual);
 
     gtk_widget_realize (frame->style_window_rgb);
 
     gtk_widget_set_size_request (frame->style_window_rgb, 0, 0);
     gtk_window_move (GTK_WINDOW (frame->style_window_rgb), -100, -100);
 
-    g_signal_connect_data (frame->style_window_rgb, "style-set",
-			   G_CALLBACK (style_changed),
+    g_signal_connect_data (frame->style_window_rgb, "style-updated",
+			   G_CALLBACK (style_updated),
 			   (gpointer) frame->pango_context, 0, 0);
 
     return frame;

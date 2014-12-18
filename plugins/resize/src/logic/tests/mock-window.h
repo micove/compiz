@@ -69,6 +69,8 @@ public:
     MOCK_METHOD0(outputDevice, int());
     MOCK_CONST_METHOD0(serverSize, const CompSize());
     MOCK_METHOD1(maximize, void(unsigned int state));
+    MOCK_METHOD0(saveWc, XWindowChanges &());
+    MOCK_METHOD0(saveMask, int &());
     MOCK_METHOD1(evaluate, bool(CompMatch &match));
 
     MOCK_METHOD0(getResizeInterface, ResizeWindowInterface*());

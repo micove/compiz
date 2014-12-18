@@ -100,7 +100,6 @@ class ScaleScreen :
 
 	const CompMatch & getCustomMatch () const;
 	const WindowList& getWindows () const;
-	
 
 	void relayoutSlots (const CompMatch& match);
 

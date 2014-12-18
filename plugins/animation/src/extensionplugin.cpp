@@ -38,11 +38,11 @@
 
 
 ExtensionPluginAnimation::ExtensionPluginAnimation
-    (const CompString &name,
-     unsigned int nEffects,
-     AnimEffect *effects,
+    (const CompString   &name,
+     unsigned int       nEffects,
+     AnimEffect         *effects,
      CompOption::Vector *effectOptions,
-     unsigned int firstEffectOptionIndex) :
+     unsigned int       firstEffectOptionIndex) :
     ExtensionPluginInfo (name, nEffects, effects, effectOptions,
 			 firstEffectOptionIndex),
     mAWinWasRestackedJustNow (false),
@@ -64,8 +64,8 @@ ExtensionPluginAnimation::postPreparePaintGeneral ()
 void
 ExtensionPluginAnimation::cleanUpParentChildChainItem (AnimWindow *aw)
 {
-    PersistentDataMap::iterator itData =
-	aw->persistentData.find ("restack");
+    PersistentDataMap::iterator itData = aw->persistentData.find ("restack");
+
     if (itData != aw->persistentData.end ()) // if found
     {
 	RestackPersistentData *restackData =
@@ -77,15 +77,18 @@ ExtensionPluginAnimation::cleanUpParentChildChainItem (AnimWindow *aw)
 	    RestackPersistentData *dataOther = static_cast<RestackPersistentData *>
 		(AnimWindow::get (restackData->mWinThisIsPaintedBefore)->
 		 persistentData["restack"]);
+
 	    if (dataOther)
 		dataOther->mWinToBePaintedBeforeThis = 0;
 	}
+
 	restackData->mWinThisIsPaintedBefore = 0;
 	restackData->mMoreToBePaintedPrev = 0;
 	restackData->mMoreToBePaintedNext = 0;
     }
 
     itData = aw->persistentData.find ("dodge");
+
     if (itData != aw->persistentData.end ()) // if found
     {
 	DodgePersistentData *dodgeData =
@@ -99,8 +102,9 @@ ExtensionPluginAnimation::cleanUpParentChildChainItem (AnimWindow *aw)
 bool
 ExtensionPluginAnimation::paintShouldSkipWindow (CompWindow *w)
 {
-    AnimWindow *aw = AnimWindow::get (w);
+    AnimWindow                  *aw    = AnimWindow::get (w);
     PersistentDataMap::iterator itData = aw->persistentData.find ("restack");
+
     if (itData != aw->persistentData.end ()) // if found
     {
 	RestackPersistentData *data =
@@ -115,6 +119,7 @@ ExtensionPluginAnimation::paintShouldSkipWindow (CompWindow *w)
 	    dynamic_cast<RestackAnim *> (aw->curAnimation ())->paintedElsewhere ())
 	    return true;
     }
+
     return false;
 }
 
@@ -123,6 +128,7 @@ bool
 ExtensionPluginAnimation::relevantForRestackAnim (CompWindow *w)
 {
     unsigned int wmType = w->wmType ();
+
     if (!((wmType &
 	   // these two are to be used as "host" windows
 	   // to host the painting of windows being focused
@@ -144,30 +150,33 @@ ExtensionPluginAnimation::prePreparePaintGeneral ()
     if (!mAWinWasRestackedJustNow)
 	return;
 
-    bool focusAnimInitiated = false;
-    AnimScreen *as = AnimScreen::get (::screen);
+    bool       focusAnimInitiated = false;
+    AnimScreen *as                = AnimScreen::get (::screen);
 
     // Go in reverse order so that restack chains are handled properly
     for (CompWindowVector::reverse_iterator rit = mLastClientList.rbegin ();
 	 rit != mLastClientList.rend (); ++rit)
     {
-	CompWindow *w = (*rit);
+	CompWindow *w  = (*rit);
 	AnimWindow *aw = AnimWindow::get (w);
 	RestackPersistentData *data = static_cast<RestackPersistentData *>
 	    (aw->persistentData["restack"]);
+
 	if (!data)
 	    continue;
+
 	RestackInfo *restackInfo = data->restackInfo ();
+
 	if (!restackInfo)
 	    continue;
 
 	data->mIsSecondary = false;
 
-	if (as->otherPluginsActive () ||
+	if (as->otherPluginsActive ()	||
 	    // Don't initiate focus anim for current dodgers
-	    aw->curAnimation () ||
+	    aw->curAnimation ()		||
 	    // Don't initiate focus anim for windows being passed thru
-	    data->mWinPassingThrough ||
+	    data->mWinPassingThrough	||
 	    // Don't animate with stale restack info
 	    !restackInfoStillGood (restackInfo))
 	{
@@ -177,11 +186,10 @@ ExtensionPluginAnimation::prePreparePaintGeneral ()
 
 	// Find the first window at a higher stacking order than w
 	CompWindow *nw;
+
 	for (nw = w->next; nw; nw = nw->next)
-	{
 	    if (relevantForRestackAnim (nw))
 		break;
-	}
 
 	// If w is being lowered, there has to be a window
 	// at a higher stacking position than w (like a panel)
@@ -208,7 +216,7 @@ ExtensionPluginAnimation::prePreparePaintGeneral ()
 	    if (dataNext && dataNext->restackInfo () &&
 		wontCreateCircularChain (w, nw))
 	    {
-	    	// Link the two
+		// Link the two
 		dataNext->mMoreToBePaintedPrev = w;
 		data->mMoreToBePaintedNext = nw;
 
@@ -233,10 +241,12 @@ ExtensionPluginAnimation::prePreparePaintGeneral ()
 	AnimWindow *aw = AnimWindow::get (w);
 	RestackPersistentData *data = static_cast<RestackPersistentData *>
 	    (aw->persistentData["restack"]);
+
 	if (!data)
 	    continue;
 
 	RestackInfo *restackInfo = data->restackInfo ();
+
 	if (restackInfo)
 	{
 	    if (as->initiateFocusAnim (aw))
@@ -249,22 +259,24 @@ ExtensionPluginAnimation::prePreparePaintGeneral ()
     if (!focusAnimInitiated)
 	resetStackingInfo ();
 
-    if (!focusAnimInitiated ||
-	as->otherPluginsActive () ||
+    if (!focusAnimInitiated	    ||
+	as->otherPluginsActive ()   ||
 	!as->isAnimEffectPossible (AnimEffectDodge)) // Only dodge stuff below
 	return;
 
     // Calculate dodge amounts
     foreach (CompWindow *w, mLastClientList)
     {
-	AnimWindow *aw = AnimWindow::get (w);
-	Animation *curAnim = aw->curAnimation ();
+	AnimWindow *aw      = AnimWindow::get (w);
+	Animation  *curAnim = aw->curAnimation ();
+
 	if (!curAnim || curAnim->info () != AnimEffectDodge)
 	    continue;
 
 	// Only process subjects with a dodge chain
 	DodgePersistentData *dodgeData = static_cast<DodgePersistentData *>
 		(aw->persistentData["dodge"]);
+
 	if (!dodgeData || !dodgeData->dodgeChainStart ||
 	    !dodgeData->isDodgeSubject)
 	    continue;
@@ -276,30 +288,36 @@ ExtensionPluginAnimation::prePreparePaintGeneral ()
     for (CompWindowVector::reverse_iterator rit = mLastClientList.rbegin ();
 	 rit != mLastClientList.rend (); ++rit)
     {
-	CompWindow *w = (*rit);
-	AnimWindow *aw = AnimWindow::get (w);
+	CompWindow                  *w     = (*rit);
+	AnimWindow                  *aw    = AnimWindow::get (w);
 	PersistentDataMap::iterator itData = aw->persistentData.find ("dodge");
+
 	if (itData == aw->persistentData.end ()) // if not found
 	    continue;
 
 	DodgePersistentData *data = static_cast<DodgePersistentData *>
 	    (itData->second);
+
 	if (!data->isDodgeSubject)
 	    continue;
 
 	bool dodgersAreOnlySubjects = true;
 	CompWindow *dw;
 	DodgePersistentData *dataDodger;
+
 	for (dw = data->dodgeChainStart; dw;
 	     dw = dataDodger->dodgeChainNext)
 	{
 	    dataDodger = static_cast<DodgePersistentData *>
 		(AnimWindow::get (dw)->persistentData["dodge"]);
+
 	    if (!dataDodger)
 		break;
+
 	    if (!dataDodger->isDodgeSubject)
 		dodgersAreOnlySubjects = false;
 	}
+
 	if (dodgersAreOnlySubjects)
 	    data->skipPostPrepareScreen = true;
     }
@@ -312,24 +330,23 @@ ExtensionPluginAnimation::handleRestackNotify (AnimWindow *aw)
 
     // Only handle restack notifies when the window is (or was) on the client
     // list (i.e. not for menus, combos, etc.).
-    if (find (clients.begin (), clients.end (), aw->mWindow) ==
-	    clients.end () &&
-    	find (mLastClientList.begin (), mLastClientList.end (), aw->mWindow) ==
-    	    mLastClientList.end ())
+    if (find (clients.begin (), clients.end (), aw->mWindow) == clients.end () &&
+	find (mLastClientList.begin (), mLastClientList.end (), aw->mWindow) ==
+	    mLastClientList.end ())
 	return;
 
     bool winOpenedClosed = false;
     unsigned int n = clients.size ();
 
     if (n != mLastClientList.size ())
-    {
 	winOpenedClosed = true;
-    }
+
     // if restacking occurred and not window open/close
     if (!winOpenedClosed)
     {
 	RestackPersistentData *data = static_cast<RestackPersistentData *>
 	    (aw->persistentData["restack"]);
+
 	data->mConfigureNotified = true;
 
 	// Find which window is restacked
@@ -394,9 +411,9 @@ ExtensionPluginAnimation::handleRestackNotify (AnimWindow *aw)
 	    bool preferRaised = false;
 	    bool onlyTwo = false;
 
-	    if (wChangeEnd &&
+	    if (wChangeEnd				&&
 		clients[(unsigned)changeEnd] ==
-		mLastClientList[(unsigned)changeStart] &&
+		mLastClientList[(unsigned)changeStart]	&&
 		clients[(unsigned)changeStart] ==
 		mLastClientList[(unsigned)changeEnd])
 	    {
@@ -406,6 +423,7 @@ ExtensionPluginAnimation::handleRestackNotify (AnimWindow *aw)
 		    static_cast<RestackPersistentData *>
 		    (AnimWindow::get (wChangeEnd)->
 		     persistentData["restack"]);
+
 		if (data->mConfigureNotified)
 		    preferRaised = true;
 
@@ -417,6 +435,7 @@ ExtensionPluginAnimation::handleRestackNotify (AnimWindow *aw)
 		RestackPersistentData *data =
 		    static_cast<RestackPersistentData *>
 		    (AnimWindow::get (w2)->persistentData["restack"]);
+
 		data->mConfigureNotified = false;
 	    }
 
@@ -445,11 +464,10 @@ ExtensionPluginAnimation::handleRestackNotify (AnimWindow *aw)
 		wEnd = wChangeEnd;
 		wOldAbove = mLastClientList[(unsigned)(changeEnd + 1)];
 	    }
+
 	    for (; wOldAbove; wOldAbove = wOldAbove->next)
-	    {
 		if (!wOldAbove->destroyed ())
 		    break;
-	    }
 	}
 
 	if (wRestacked && wStart && wEnd && wOldAbove)
@@ -500,7 +518,7 @@ ExtensionPluginAnimation::wontCreateCircularChain (CompWindow *wCur,
 
 void
 ExtensionPluginAnimation::postUpdateEventEffects (AnimEvent e,
-						  bool forRandom)
+						  bool      forRandom)
 {
     AnimScreen *as = AnimScreen::get (::screen);
 
@@ -521,9 +539,11 @@ ExtensionPluginAnimation::postUpdateEventEffects (AnimEvent e,
 		if (aw->persistentData.find ("restack") !=
 		    aw->persistentData.end ())
 		    continue;
+
 		aw->persistentData["restack"] = new RestackPersistentData ();
 	    }
 	}
+
 	if (as->isAnimEffectPossible (AnimEffectDodge))
 	{
 	    foreach (CompWindow *w, CompositeScreen::get (::screen)->getWindowPaintList ())
@@ -533,6 +553,7 @@ ExtensionPluginAnimation::postUpdateEventEffects (AnimEvent e,
 		if (aw->persistentData.find ("dodge") !=
 		    aw->persistentData.end ())
 		    continue;
+
 		aw->persistentData["dodge"] = new DodgePersistentData ();
 	    }
 	}
@@ -550,19 +571,15 @@ ExtensionPluginAnimation::initPersistentData (AnimWindow *aw)
     if (as->isRestackAnimPossible () &&
 	// doesn't exist yet
 	aw->persistentData.find ("restack") == aw->persistentData.end ())
-    {
 	aw->persistentData["restack"] = new RestackPersistentData ();
-    }
+
     if (as->isAnimEffectPossible (AnimEffectDodge) &&
 	// doesn't exist yet
 	aw->persistentData.find ("dodge") == aw->persistentData.end ())
-    {
 	aw->persistentData["dodge"] = new DodgePersistentData ();
-    }
+
     if (aw->persistentData.find ("multi") == aw->persistentData.end ())
-    {
 	aw->persistentData["multi"] = new MultiPersistentData ();
-    }
 }
 
 void
@@ -595,9 +612,9 @@ ExtensionPluginAnimation::decrementCurRestackAnimCount ()
 bool
 ExtensionPluginAnimation::restackInfoStillGood (RestackInfo *restackInfo)
 {
-    bool wStartGood = false;
-    bool wEndGood = false;
-    bool wOldAboveGood = false;
+    bool wStartGood     = false;
+    bool wEndGood       = false;
+    bool wOldAboveGood  = false;
     bool wRestackedGood = false;
 
     foreach (CompWindow *w, CompositeScreen::get (::screen)->getWindowPaintList ())
@@ -609,13 +626,17 @@ ExtensionPluginAnimation::restackInfoStillGood (RestackInfo *restackInfo)
 
 	if (restackInfo->wStart == w)
 	    wStartGood = true;
+
 	if (restackInfo->wEnd == w)
 	    wEndGood = true;
+
 	if (restackInfo->wRestacked == w)
 	    wRestackedGood = true;
+
 	if (restackInfo->wOldAbove == w)
 	    wOldAboveGood = true;
     }
+
     return (wStartGood && wEndGood && wOldAboveGood && wRestackedGood);
 }
 
@@ -626,13 +647,15 @@ ExtensionPluginAnimation::resetStackingInfo ()
     foreach (CompWindow *w, CompositeScreen::get (::screen)->getWindowPaintList ())
     {
 	AnimWindow *aw = AnimWindow::get (w);
-	PersistentDataMap::iterator itData =
-	    aw->persistentData.find ("restack");
+	PersistentDataMap::iterator itData = aw->persistentData.find ("restack");
+
 	if (itData != aw->persistentData.end ()) // if found
 	{
 	    RestackPersistentData *data =
 		static_cast<RestackPersistentData *> (itData->second);
+
 	    data->mConfigureNotified = false;
+
 	    if (data->restackInfo ())
 		data->resetRestackInfo ();
 	}
@@ -654,8 +677,8 @@ ExtensionPluginAnimation::preInitiateOpenAnim (AnimWindow *aw)
 	::screen->clientList ().end (), aw->mWindow) !=
 	::screen->clientList ().end ())
     {
-    	resetStackingInfo ();
-    	updateLastClientList ();
+	resetStackingInfo ();
+	updateLastClientList ();
     }
 }
 
@@ -704,7 +727,9 @@ ExtensionPluginAnimation::getBottommostInExtendedFocusChain (CompWindow *wStartP
 
     RestackPersistentData *dataBottommost = static_cast<RestackPersistentData *>
 	(AnimWindow::get (wBottommost)->persistentData["restack"]);
+
     CompWindow *wPrev = dataBottommost->mMoreToBePaintedPrev;
+
     while (wPrev)
     {
 	wBottommost = wPrev;
@@ -712,6 +737,7 @@ ExtensionPluginAnimation::getBottommostInExtendedFocusChain (CompWindow *wStartP
 	    (AnimWindow::get (wPrev)->persistentData["restack"]);
 	wPrev = dataPrev->mMoreToBePaintedPrev;
     }
+
     return wBottommost;
 }
 
@@ -720,14 +746,16 @@ ExtensionPluginAnimation::getBottommostInExtendedFocusChain (CompWindow *wStartP
 CompWindow *
 ExtensionPluginAnimation::getBottommostInRestackChain (CompWindow *wStartPoint)
 {
-    CompWindow *wBottommost = wStartPoint;
+    CompWindow            *wBottommost = wStartPoint;
     RestackPersistentData *dataCur;
+
     for (CompWindow *wCur = wStartPoint; wCur;
 	 wCur = dataCur->mMoreToBePaintedPrev)
     {
 	wBottommost = wCur;
 	dataCur = static_cast<RestackPersistentData *>
 	    (AnimWindow::get (wCur)->persistentData["restack"]);
+
 	if (!dataCur)
 	    break;
     }
@@ -758,11 +786,13 @@ ExtensionPluginAnimation::walkFirst ()
     resetMarks ();
 
     CompWindow *w =
-    	getBottommostInExtendedFocusChain (*CompositeScreen::get (::screen)->getWindowPaintList ().begin ());
+	getBottommostInExtendedFocusChain (*CompositeScreen::get (::screen)->getWindowPaintList ().begin ());
+
     if (w)
     {
 	RestackPersistentData *data = static_cast<RestackPersistentData *>
 	    (AnimWindow::get (w)->persistentData["restack"]);
+
 	++data->mVisitCount;
     }
     return w;
@@ -781,6 +811,7 @@ ExtensionPluginAnimation::markNewCopy (CompWindow *w)
 	data->mWalkerOverNewCopy = true;
 	return true;
     }
+
     return false;
 }
 
@@ -796,13 +827,9 @@ ExtensionPluginAnimation::walkNext (CompWindow *w)
     {
 	// Within a chain? (not the 1st or 2nd window)
 	if (data->mMoreToBePaintedNext)
-	{
 	    wRet = data->mMoreToBePaintedNext;
-	}
 	else if (data->mWinThisIsPaintedBefore) // 2nd one in chain?
-	{
 	    wRet = data->mWinThisIsPaintedBefore;
-	}
     }
     else
 	data->mWalkerOverNewCopy = false;
@@ -823,6 +850,7 @@ ExtensionPluginAnimation::walkNext (CompWindow *w)
 
 	++dataRet->mVisitCount;
     }
+
     return wRet;
 }
 
@@ -830,9 +858,9 @@ const CompWindowList &
 ExtensionPluginAnimation::getWindowPaintList ()
 {
     mWindowList.clear ();
+
     for (CompWindow *w = walkFirst (); w; w = walkNext (w))
 	mWindowList.push_back (w);
 
     return mWindowList;
 }
-

@@ -126,6 +126,7 @@ if (COMPIZ_TEST_GTK_WINDOW_DECORATOR_FOUND)
     compiz_discover_tests (compiz_test_gwd_cairo_decorations COVERAGE
 			   gtk_window_decorator_cairo_window_decoration_util)
 
+    if (METACITY_FOUND)
     add_executable (compiz_test_gwd_metacity_decorations
 		    ${CMAKE_CURRENT_SOURCE_DIR}/test_gwd_metacity_decorations.cpp)
 
@@ -139,5 +140,6 @@ if (COMPIZ_TEST_GTK_WINDOW_DECORATOR_FOUND)
 
     compiz_discover_tests (compiz_test_gwd_metacity_decorations COVERAGE
 			   gtk_window_decorator_metacity_window_decoration_util)
+    endif (METACITY_FOUND)
 
 endif (COMPIZ_TEST_GTK_WINDOW_DECORATOR_FOUND)

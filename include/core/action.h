@@ -32,8 +32,6 @@
 
 #include <boost/function.hpp>
 
-#include <X11/Xlib-xcb.h>
-
 namespace compiz
 {
 namespace actions
@@ -109,6 +107,9 @@ class CompAction {
 		bool fromString (const CompString &str);
 		CompString toString () const;
 
+		bool operator== (const KeyBinding &k) const;
+		bool operator!= (const KeyBinding &k) const;
+
 	    private:
 		unsigned int mModifiers;
 		int          mKeycode;
@@ -126,6 +127,9 @@ class CompAction {
 		bool fromString (const CompString &str);
 		CompString toString () const;
 
+		bool operator== (const ButtonBinding &b) const;
+		bool operator!= (const ButtonBinding &b) const;
+
 	    private:
 		unsigned int mModifiers;
 		int          mButton;
@@ -133,32 +137,41 @@ class CompAction {
 
 	typedef unsigned int State;
 	typedef unsigned int BindingType;
+	typedef std::vector<CompAction> Vector;
 	typedef boost::function <bool (CompAction *, State, CompOption::Vector &)> CallBack;
+
+	class Container {
+	    public:
+		virtual ~Container() {}
+		virtual Vector & getActions () = 0;
+	};
 
     public:
 	CompAction ();
 	CompAction (const CompAction &);
 	~CompAction ();
 
-	CallBack initiate ();
-	CallBack terminate ();
+	CallBack initiate () const;
+	CallBack terminate () const;
 
 	void setInitiate (const CallBack &initiate);
 	void setTerminate (const CallBack &terminate);
 
-	State state ();
-	BindingType type ();
+	State state () const;
+	BindingType type () const;
 
 	KeyBinding & key ();
+	const KeyBinding & key () const;
 	void setKey (const KeyBinding &key);
 
 	ButtonBinding & button ();
+	const ButtonBinding & button () const;
 	void setButton (const ButtonBinding &button);
 
-	unsigned int edgeMask ();
+	unsigned int edgeMask () const;
 	void setEdgeMask (unsigned int edge);
 
-	bool bell ();
+	bool bell () const;
 	void setBell (bool bell);
 
 	void setState (State state);
@@ -172,13 +185,13 @@ class CompAction {
 	bool buttonFromString (const CompString &str);
 	bool edgeMaskFromString (const CompString &str);
 
-	CompString keyToString ();
-	CompString buttonToString ();
-	CompString edgeMaskToString ();
+	CompString keyToString () const;
+	CompString buttonToString () const;
+	CompString edgeMaskToString () const;
 
 	static CompString edgeToString (unsigned int edge);
 
-	bool active ();
+	bool active () const;
 
 	/* CompAction should be a pure virtual class so
 	 * that we can pass the interface required to for setActionActiveState
@@ -190,5 +203,7 @@ class CompAction {
     private:
 	PrivateAction *priv;
 };
+
+CompAction::Vector & noActions ();
 
 #endif

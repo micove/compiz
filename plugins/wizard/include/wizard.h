@@ -135,6 +135,8 @@ class ParticleSystem
 {
     public:
 
+	ParticleSystem ();
+
 	int      hardLimit;		// Not to be exceeded
 	int      softLimit;		// If exceeded, old particles age faster
 	int      lastCount;		// Living particle count to evaluate softLimit
@@ -142,15 +144,13 @@ class ParticleSystem
 	float    told;		// Particle is old if t < told
 	float    gx;		// Global gravity x
 	float    gy;		// Global gravity y
-	Particle *particles;	// The actual particles
+	std::vector<Particle> particles;	// The actual particles
 	GLuint   tex;		// Particle Texture
-	bool     active;
+	bool     active, init;
 	float    darken;		// Darken background
 	GLuint   blendMode;
-	Emitter  *e;		// All emitters in here
-	GPoint   *g;		// All gravity point sources in here
-	int      ne;		// Emitter count
-	int      ng;		// GPoint count
+	std::vector<Emitter>  e;		// All emitters in here
+	std::vector<GPoint>   g;		// All gravity point sources in here
 
 	/* Cache used in drawParticles 
         It's here to avoid multiple mem allocation 
@@ -159,6 +159,22 @@ class ParticleSystem
 	std::vector<GLfloat>  coords_cache;
 	std::vector<GLushort> colors_cache;
 	std::vector<GLushort> dcolors_cache;
+
+	void
+	initParticles (int f_hardLimit, int f_softLimit);
+
+	void
+	drawParticles (const GLMatrix &transform);
+
+	void
+	updateParticles (float time);
+
+	void
+	genNewParticles (Emitter *e);
+
+	void
+	finiParticles ();
+
 };
 
 class WizardScreen :
@@ -179,16 +195,13 @@ class WizardScreen :
 
 	bool active;
 
-	ParticleSystem *ps;
+	ParticleSystem ps;
 
 	MousePoller pollHandle;
 
-	void loadGPoints (ParticleSystem *ps);
+	void loadGPoints ();
 
-	void loadEmitters (ParticleSystem *ps);
-
-	void drawParticles (ParticleSystem *ps,
-			    const GLMatrix &transform);
+	void loadEmitters ();
 
 	void positionUpdate (const CompPoint &pos);
 
@@ -204,6 +217,8 @@ class WizardScreen :
 		       unsigned int		mask);
 
 	bool toggle ();
+
+	void toggleFunctions(bool enabled);
 
 	void
 	optionChanged (CompOption	      *opt,

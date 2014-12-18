@@ -40,11 +40,11 @@ const float WaveAnim::kMinDuration = 400;
 
 // =====================  Effect: Wave  =========================
 
-WaveAnim::WaveAnim (CompWindow *w,
-		    WindowEvent curWindowEvent,
-		    float duration,
+WaveAnim::WaveAnim (CompWindow       *w,
+		    WindowEvent      curWindowEvent,
+		    float            duration,
 		    const AnimEffect info,
-		    const CompRect &icon) :
+		    const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     TransformAnim::TransformAnim (w, curWindowEvent, duration, info, icon),
     GridTransformAnim::GridTransformAnim (w, curWindowEvent, duration, info,
@@ -86,11 +86,11 @@ WaveAnim::step ()
 				  mAWindow->savedOutExtents () :
 				  mWindow->output ());
 
-    int wx = winRect.x ();
-    int wy = winRect.y ();
+    int wx      = winRect.x ();
+    int wy      = winRect.y ();
 
-    int oy = outRect.y ();
-    int owidth = outRect.width ();
+    int oy      = outRect.y ();
+    int owidth  = outRect.width ();
     int oheight = outRect.height ();
 
     float waveHalfWidth = (oheight * mModel->scale ().y () *
@@ -105,6 +105,7 @@ WaveAnim::step ()
 
     GridModel::GridObject *object = mModel->objects ();
     unsigned int n = mModel->numObjects ();
+
     for (unsigned int i = 0; i < n; ++i, ++object)
     {
 	Point3d &objPos = object->position ();
@@ -141,4 +142,3 @@ WaveAnim::step ()
 	objPos.setX (origx);
     }
 }
-

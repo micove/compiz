@@ -36,11 +36,11 @@
 
 #include "private.h"
 
-TransformAnim::TransformAnim (CompWindow *w,
-			      WindowEvent curWindowEvent,
-			      float duration,
+TransformAnim::TransformAnim (CompWindow       *w,
+			      WindowEvent      curWindowEvent,
+			      float            duration,
 			      const AnimEffect info,
-			      const CompRect &icon) :
+			      const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     mTransformStartProgress (0.0f),
     mTransformProgress (0.0f)
@@ -112,8 +112,8 @@ TransformAnim::perspectiveDistortAndResetZ (GLMatrix &transform)
 
 void
 TransformAnim::applyPerspectiveSkew (CompOutput &output,
-				     GLMatrix &transform,
-				     Point &center)
+				     GLMatrix   &transform,
+				     Point      &center)
 {
     GLfloat skewx = -(((center.x () - output.region ()->extents.x1) -
 		       output.width () / 2) * 1.15);
@@ -143,4 +143,3 @@ TransformAnim::getCenter ()
 		  inRect.y () + inRect.height () / 2);
     return center;
 }
-

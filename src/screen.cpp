@@ -272,12 +272,12 @@ CompWatchFd::~CompWatchFd ()
 {
 }
 
-CompWatchFd *
+Glib::RefPtr<CompWatchFd>
 CompWatchFd::create (int               fd,
 		     Glib::IOCondition events,
 		     FdWatchCallBack   callback)
 {
-    return new CompWatchFd (fd, events, callback);
+    return Glib::RefPtr<CompWatchFd> (new CompWatchFd (fd, events, callback));
 }
 
 CompWatchFdHandle
@@ -308,7 +308,7 @@ cps::EventManager::addWatchFd (int             fd,
     if (events & POLLHUP)
 	gEvents |= Glib::IO_HUP;
 
-    CompWatchFd *watchFd = CompWatchFd::create (fd, gEvents, callBack);
+    Glib::RefPtr<CompWatchFd> watchFd = CompWatchFd::create (fd, gEvents, callBack);
 
     watchFd->attach (ctx);
 
@@ -333,8 +333,8 @@ CompScreenImpl::removeWatchFd (CompWatchFdHandle handle)
 void
 cps::EventManager::removeWatchFd (CompWatchFdHandle handle)
 {
-    std::list<CompWatchFd * >::iterator it;
-    CompWatchFd *			w;
+    std::list<Glib::RefPtr<CompWatchFd> >::iterator it;
+    Glib::RefPtr<CompWatchFd> w;
 
     for (it = watchFds.begin();
 	 it != watchFds.end (); ++it)
@@ -354,7 +354,6 @@ cps::EventManager::removeWatchFd (CompWatchFdHandle handle)
 	return;
     }
 
-    delete w;
     watchFds.erase (it);
 }
 
@@ -740,9 +739,6 @@ PrivateScreen::setOption (const CompString  &name,
 
 	    setVirtualScreenSize (optionGetHsize (), optionGetVsize ());
 	    break;
-	case CoreOptions::NumberOfDesktops:
-	    setNumberOfDesktops (optionGetNumberOfDesktops ());
-	    break;
 	case CoreOptions::DefaultIcon:
 	    return screen->updateDefaultIcon ();
 	    break;
@@ -973,26 +969,25 @@ cps::WindowManager::setWindowActiveness(cps::History& history) const
 }
 
 void
-cps::WindowManager::setNumberOfDesktops(unsigned int desktops) const
-{
-    for (iterator i = windows.begin(); i != windows.end(); ++i)
-    {
-	CompWindow* const w(*i);
-	if (w->desktop () == 0xffffffff)
-	    continue;
-
-	if (w->desktop () >= desktops)
-	    w->setDesktop (desktops - 1);
-    }
-}
-
-void
 cps::WindowManager::updateWindowSizes() const
 {
+    CompWindow::Geometry before, after;
+
     for (iterator i = windows.begin(); i != windows.end(); ++i)
     {
 	CompWindow* const w(*i);
+
+	before = w->priv->serverGeometry;
 	w->priv->updateSize ();
+	after = w->priv->serverGeometry;
+
+	/* A maximized window was adjusted for the new workarea size */
+	if (before != after &&
+	    (w->state () & CompWindowStateMaximizedVertMask ||
+	     w->state () & CompWindowStateMaximizedHorzMask))
+	{
+	    w->priv->moved = true;
+	}
     }
 }
 
@@ -2693,6 +2688,11 @@ CompScreenImpl::focusDefaultWindow ()
 	    }
 	}
     }
+    else
+    {
+	// check if there was a focused window stored
+	focus = findViewportFocusCandidate ();
+    }
 
     if (!focus)
     {
@@ -3212,6 +3212,7 @@ cps::GrabManager::grabUngrabKeys (unsigned int modifiers,
 {
     int             mod, k;
     unsigned int    ignore;
+    unsigned int    modifierForKeycode;
 
     CompScreen::checkForError (screen->dpy());
 
@@ -3220,7 +3221,12 @@ cps::GrabManager::grabUngrabKeys (unsigned int modifiers,
 	if (ignore & ~modHandler->ignoredModMask ())
 	    continue;
 
-	if (keycode != 0)
+	if (keycode == 0)
+	    modifierForKeycode = 0;
+	else
+	    modifierForKeycode = modHandler->keycodeToModifiers (keycode);
+
+	if (keycode != 0 && modifierForKeycode == 0)
 	{
 	    grabUngrabOneKey (modifiers | ignore, keycode, grab);
 	}
@@ -3236,17 +3242,26 @@ cps::GrabManager::grabUngrabKeys (unsigned int modifiers,
 		    {
 			if (modHandler->modMap ()->modifiermap[k])
 			{
-			    grabUngrabOneKey ((modifiers & ~(1 << mod)) |
-					      ignore,
+			    grabUngrabOneKey ((modifiers & ~(1 << mod)) | modifierForKeycode | ignore,
 					      modHandler->modMap ()->modifiermap[k],
 					      grab);
 			}
 		    }
 		}
+		else if (modifierForKeycode == (unsigned int) (1 << mod))
+		{
+		    grabUngrabOneKey (modifiers | ignore,
+				      keycode,
+				      grab);
+		    grabUngrabOneKey (modifiers | modifierForKeycode | ignore,
+				      keycode,
+				      grab);
+		}
 	    }
 
 	    /*
-	     * keycode == 0, so this is a modifier-only keybinding.
+	     * keycode == 0 or modifierForKeycode != 0, so this is a
+	     * modifier-only keybinding.
 	     * Until now I have been trying to:
 	     *     grabUngrabOneKey (modifiers | ignore, AnyKey, grab);
 	     * which does not seem to work at all.
@@ -3259,7 +3274,7 @@ cps::GrabManager::grabUngrabKeys (unsigned int modifiers,
  		int minCode, maxCode;
  		XDisplayKeycodes (screen->dpy(), &minCode, &maxCode);
  		for (k = minCode; k <= maxCode; k++)
- 		    grabUngrabOneKey (modifiers | ignore, k, grab);
+ 		    grabUngrabOneKey (modifiers | modifierForKeycode | ignore, k, grab);
             }
 	}
 
@@ -3335,7 +3350,7 @@ cps::GrabManager::removePassiveKeyGrab (CompAction::KeyBinding &key)
      * for modifier+all_other_keys. See XDisplayKeycodes above to find out why.
      * So we need to refresh all grabs...
      */
-    if (!(mask & CompNoMask) && key.keycode () == 0)
+    if (!(mask & CompNoMask) && (key.keycode () == 0 || modHandler->keycodeToModifiers (key.keycode ()) != 0))
 	updatePassiveKeyGrabs ();
 }
 
@@ -3386,6 +3401,17 @@ cps::GrabManager::addPassiveButtonGrab (CompAction::ButtonBinding &button)
 
 void cps::GrabManager::updatePassiveButtonGrabs(Window serverFrame)
 {
+    CompWindow *window = NULL;
+
+    foreach (CompWindow *w, screen->windows ())
+    {
+	if (w->frame () == serverFrame)
+	{
+	    window = w;
+	    break;
+	}
+    }
+
     /* Grab only we have bindings on */
     foreach (ButtonGrab &bind, buttonGrabs)
     {
@@ -3398,6 +3424,14 @@ void cps::GrabManager::updatePassiveButtonGrabs(Window serverFrame)
 		 ignore <= modHandler->ignoredModMask (); ignore++)
 	{
 	    if (ignore & ~modHandler->ignoredModMask ())
+		continue;
+
+	    /* Do not allow binding of vertical scrolling for windows other than the desktop
+	     * unless there is a modifier defined */
+	    if (window &&
+		!(window->type () & CompWindowTypeDesktopMask) &&
+		(bind.button == Button4 || bind.button == Button5) &&
+		!mods)
 		continue;
 
 	    XGrabButton (screen->dpy(),
@@ -3755,6 +3789,8 @@ CompScreenImpl::moveViewport (int tx, int ty, bool sync)
     if (!tx && !ty)
 	return;
 
+    saveViewportFocus ();
+
     privateScreen.viewPort.vp.setX (privateScreen.viewPort.vp.x () + tx);
     privateScreen.viewPort.vp.setY (privateScreen.viewPort.vp.y () + ty);
 
@@ -3962,22 +3998,6 @@ CompRect
 CompScreenImpl::getCurrentOutputExtents ()
 {
     return privateScreen.outputDevices.getCurrentOutputDev ();
-}
-
-void
-PrivateScreen::setNumberOfDesktops (unsigned int nDesktop)
-{
-    if (nDesktop < 1 || nDesktop >= 0xffffffff || nDesktop == this->nDesktop)
-	return;
-
-    if (currentDesktop >= nDesktop)
-	currentDesktop = nDesktop - 1;
-
-    windowManager.setNumberOfDesktops(nDesktop);
-
-    this->nDesktop = nDesktop;
-
-    setDesktopHints ();
 }
 
 void
@@ -5142,6 +5162,37 @@ PrivateScreen::initDisplay (const char *name, cps::History& history, unsigned in
     return true;
 }
 
+void
+CompScreenImpl::saveViewportFocus ()
+{
+    if ((privateScreen.optionGetHsize () > 1 || privateScreen.optionGetVsize () > 1) &&
+	privateScreen.optionGetRememberVpFocus ())
+    {
+	Window id = activeWindow ();
+	if (id != None)
+	{
+	    savedViewportFocus[privateScreen.viewPort.vp] = id;
+	}
+    }
+}
+
+CompWindow *
+CompScreenImpl::findViewportFocusCandidate ()
+{
+    if ((privateScreen.optionGetHsize () > 1 || privateScreen.optionGetVsize () > 1) &&
+	privateScreen.optionGetRememberVpFocus ())
+    {
+	FocusMap::iterator it = savedViewportFocus.find (privateScreen.viewPort.vp);
+	if (it != savedViewportFocus.end ())
+	{
+	    Window id = it->second;
+	    savedViewportFocus.erase (it);
+	    return findWindow (id);
+	}
+    }
+    return NULL;
+}
+
 CompScreenImpl::~CompScreenImpl ()
 {
     privateScreen.startupSequence.removeAllSequences ();
@@ -5271,10 +5322,10 @@ cps::EventManager::~EventManager ()
     /* Not guaranteed to be created by EventManager's constructor */
     if (timeout)
     {
-	/* This will implicitly call ~CompTimeoutSource
-	 * See LP: #1085590 */
+
 	g_source_destroy (timeout->gobj ());
     }
+
     delete sigintSource;
     delete sigtermSource;
     delete sighupSource;
@@ -5282,12 +5333,11 @@ cps::EventManager::~EventManager ()
     /* Not guaranteed to be created by EventManager's constructor */
     if (source)
     {
-	/* This will implicitly call ~CompEventSource */
 	g_source_destroy (source->gobj ());
     }
 
     /* This will implicitly call ~CompWatchFd */
-    foreach (CompWatchFd *fd, watchFds)
+    foreach (Glib::RefPtr<CompWatchFd> fd, watchFds)
 	g_source_destroy (fd->gobj ());
 
     watchFds.clear ();

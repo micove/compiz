@@ -1,3 +1,131 @@
+Release 0.9.12.0 (2014-11-04 Stephen M. Webb <stephen.webb@canonical.com>)
+========================================================================
+
+     1101630 - animation plugin: initialized mPrevAnimSelectionRow
+     1227449 - opengl plugin: freed shaders and uniforms
+     957600  - window_decorator: renamed a local to unhide a parameter
+     1086165 - removed inappropriate executable permissions from some source
+               and data files
+     1362005 - Forced non-opaque pointer in the ezoom plugin.
+     873384  - upstreamed distro-patch for #873384
+               place plugin: correct min and default placement modes in
+               configuration 
+     1075995 - filtered debian/ from upstream dist tarball
+     1125442 - CompScreen: Save focused window id before changing viewport.
+     1286562 - remove 'extern "C"' hack
+     1356981 - gtk-window-decorator: removed/replaced deprecated functions.
+     1353675 - _NET_WM_FULLSCREEN_MONITORS not handled correctly.
+     1356981 - Re-enabled metacity theme support
+             - gtk-window-decorator: removed gconf
+             - gtk-window-decorator: port to GTK+ 3. 
+             - po/POTFILES.in: remove gtk/window-decorator/gwd.schemas.in
+             - Calculated correct button position in cairo theme. 
+     1333277 - Remove the need to check the viewport we are painting the
+               maximized window in while in Expo mode and only scale maximized
+               windows that are not being dragged.
+     1330198 - Add more button ungrab keymasks, so unfocused Gtk window
+               scrolling will work when NumLock is off and CapsLock is on and
+               any combination thereof.
+
+Release 0.9.11 (2014-6-10 Chris Townsend <christopher.townsend@canonical.com>)
+=============================================================================
+
+Bugs Fixed (https://launchpad.net/compiz/+milestone/0.9.11)
+
+     1019139 - [regression] Horizontally resizing a vertically maximized
+               terminal is now very slow, unresponsive.
+     1019923 - Stuck in scale mode, can't get out without killing compiz
+     1027868 - Changing "Composite > Detect Refresh Rate" is ignored initially
+     1031710 - Multi-Monitor. Workspace switcher on monitor 2 is drawn under
+               launcher
+     1055166 - compiz crashed with SIGSEGV in memmove() from
+               drisw_update_tex_buffer() from dri_set_tex_buffer2() from
+               operator() from compiz::opengl::bindTexImageGLX() from ... from
+               unity::UnityWindow::DrawWindowDecoration
+     1063617 - 1:0.9.8+bzr3319-0ubuntu1 regression: keeps setting gsettings
+               keys to wrong values
+     1087090 - [raring][regression] Window management - Maximized windows
+               aren't fullscreen in the workspace switcher
+     1092323 - Window management - Switching to windows placed on two work
+               spaces causes the workspace to switch
+     1092323 - Window management - Switching to windows placed on two work
+               spaces causes the workspace to switch
+     1104236 - [regression] Unity show desktop fade out makes them invisible in
+               spread.
+     1171342 - mouse scroll wheel not working in gedit & System Monitor
+     1171878 - Adding/Removing an external monitor causes maximized windows to
+               move to another workspace
+     1176898 - Grid: Snap animation uses wrong window
+     1184159 - [saucy] scrolling with a touchpad is jerky with bindings  set in
+               compiz for Desktop-based Viewport Switching
+     1191853 - gtk-window-decorator crashed with SIGSEGV in
+               wnck_window_get_actions()
+     1192028 - Compiz refresh rate resets to 50 Hz automatically w/ Nvidia
+               proprietary driver
+     1200829 - Regression: Enabling typical bindings in  "Desktop-based
+               Viewport Switching" breaks scrollwheel scrolling in some windows
+               with a usb mouse on a laptop
+     1204307 - Regression: The size of all windows grows by the size of the
+               decoration each time Compiz gets restarted
+     1217286 - Regression r3751: Restarting Compiz changes size and position of
+               windows
+     1228352 - [regression] Alt-Tab for all viewports will not switch viewports
+               when selecting a window on another viewport
+     1228507 - Cannot move certain windows via the top half of the titlebar in
+               Ubuntu 13.10
+     1236899 - [regression] Ctrl+Alt+KP_0 should minimize a window
+     1238111 - Compiz causes Motif window shrunk
+     1240957 - Scrolling behaviour and window focus has changed and is
+               inconsistent
+     1244754 - [regression] compiz freezes when dragging a window to the top
+               bar after being semi-maximized
+     1251777 - [regression] Semi-maximizing and then restoring the window does
+               not return it to it's original place using Ctrl-Super-Left/Right
+     1277487 - Create Unity Settings Daemon so can remain on old GNOME Settings
+               Daemon version
+     1280377 - Resizing vertically a window in normal mode doesn't vertically
+               maximize it correctly
+     1280616 - When launcher is in autohide mode the launcher icons are not
+               clickable
+     1281370 - Unity should use "Normal" resize mode by default
+     1282304 - Bottom-edge window placement doesn't take decoration height into
+               consideration
+     1282305 - Repeatedly undecorating and redecorating a window shrinks it
+               vertically
+     1287472 - compiz unnecessarily shrinks new windows
+     1288953 - fix kde4-window-decorator build
+     1289820 - 'Move to Another Workspace' causes window to disappear
+     1292220 - ccsm crashed with UnboundLocalError in AskUser(): local variable
+               'msg_dict' referenced before assignment
+     1294341 - Some of the input fields are blank in CompizConfig Settings
+               Manager
+     1303068 - Regression: rev 3847 No focus on Desktop possible if a window is
+               open
+     1303462 - [Regression] Window titlebars placed behind panel
+     1304531 - Removing an external monitor will move a maximized window to the
+               current workspace
+     1304877 - Functions assigned to extra mouse buttons in compiz do not work
+               anymore.
+     1305586 - Lock screen is unusable when some windows have a keyboard/mouse
+               grab
+     1308112 - Scale should not select a window when clicking on an empty area
+     1311303 - Compiz mouse functions mapped to horizontal scrolling buttons do
+               not work
+     1311788 - compiz lower window:<Alt>Button5 stops working
+     1327478 - E:
+               /var/cache/apt/archives/compiz-plugins_1%3a0.9.11+14.10.20140606-0ubuntu1_amd64.deb:
+               trying to overwrite
+               '/usr/share/compiz/cube/images/freedesktop.png', which is also
+               in package compiz-core 1:0.9.11+14.04.20140423-0ubuntu1
+      347390 - Compiz can't resize a window vertically AND horizontally with
+               keyboard.
+      727904 - Launcher, Window management - Switching between spreads when
+               dragging a file over the Launcher is broken
+      890747 - Keyboard shortcut - Ctrl Alt Del doesn't do what most people
+               typing it would expect
+      992697 - Window management - 'Ctrl-Alt-Numpad 4' and 'Ctrl-Alt-Numpad 6'
+               window placement shortcuts are broken
+
 Release 0.9.10.0 (2013-7-21 Sam Spilsbury <smspillaz@gmail.com>)
 ================================================================
 

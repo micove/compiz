@@ -38,11 +38,11 @@
 
 // =====================  Effect: Glide  =========================
 
-GlideAnim::GlideAnim (CompWindow *w,
-		      WindowEvent curWindowEvent,
-		      float duration,
+GlideAnim::GlideAnim (CompWindow       *w,
+		      WindowEvent      curWindowEvent,
+		      float            duration,
 		      const AnimEffect info,
-		      const CompRect &icon) :
+		      const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     TransformAnim::TransformAnim (w, curWindowEvent, duration, info, icon),
     ZoomAnim::ZoomAnim (w, curWindowEvent, duration, info, icon),
@@ -50,11 +50,11 @@ GlideAnim::GlideAnim (CompWindow *w,
 {
 }
 
-Glide2Anim::Glide2Anim (CompWindow *w,
-			WindowEvent curWindowEvent,
-			float duration,
+Glide2Anim::Glide2Anim (CompWindow       *w,
+			WindowEvent      curWindowEvent,
+			float            duration,
 			const AnimEffect info,
-			const CompRect &icon) :
+			const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     TransformAnim::TransformAnim (w, curWindowEvent, duration, info, icon),
     GlideAnim::GlideAnim (w, curWindowEvent, duration, info, icon)
@@ -67,7 +67,7 @@ GlideAnim::getParams (float *finalDistFac,
 		      float *thickness)
 {
     *finalDistFac = optValF (AnimationOptions::Glide1AwayPosition);
-    *finalRotAng = optValF (AnimationOptions::Glide1AwayAngle);
+    *finalRotAng  = optValF (AnimationOptions::Glide1AwayAngle);
 }
 
 void
@@ -76,7 +76,7 @@ Glide2Anim::getParams (float *finalDistFac,
 		       float *thickness)
 {
     *finalDistFac = optValF (AnimationOptions::Glide2AwayPosition);
-    *finalRotAng = optValF (AnimationOptions::Glide2AwayAngle);
+    *finalRotAng  = optValF (AnimationOptions::Glide2AwayAngle);
 }
 
 float
@@ -128,7 +128,7 @@ GlideAnim::applyTransform ()
 			    0, 0);
     GLVector translation (0, 0, finalz * forwardProgress, 0);
 
-    float rotAngle = finalRotAng * forwardProgress;
+    float rotAngle   = finalRotAng * forwardProgress;
     glideModRotAngle = fmodf (rotAngle + 720, 360.0f);
 
     // put back to window position

@@ -47,6 +47,7 @@
 
 #include "core_options.h"
 
+#include <map>
 #include <set>
 
 CompPlugin::VTable * getCoreVTable ();
@@ -87,6 +88,17 @@ struct CompStartupSequence {
     SnStartupSequence		*sequence;
     unsigned int		viewportX;
     unsigned int		viewportY;
+};
+
+// to allow using CompPoint as std::map keys
+struct PointCompare
+{
+    bool operator () (const CompPoint& p1, const CompPoint& p2)
+    {
+	if (p1.x () == p2.x ())
+	    return p1.y () < p2.y ();
+	return p1.x () < p2.x ();
+    }
 };
 
 namespace compiz
@@ -314,14 +326,11 @@ class EventManager :
 
 	Glib::RefPtr <Glib::MainLoop>  mainloop;
 
-	/* We cannot use RefPtrs. See
-	 * https://bugzilla.gnome.org/show_bug.cgi?id=561885
-	 */
-	CompEventSource * source;
-	CompTimeoutSource * timeout;
-	CompSignalSource * sighupSource;
-	CompSignalSource * sigtermSource;
-	CompSignalSource * sigintSource;
+	Glib::RefPtr <CompEventSource> source;
+	Glib::RefPtr <CompTimeoutSource> timeout;
+	CompSignalSource *sighupSource;
+	CompSignalSource *sigtermSource;
+	CompSignalSource *sigintSource;
 	Glib::RefPtr <Glib::MainContext> ctx;
 
 	CompFileWatchList   fileWatch;
@@ -329,7 +338,7 @@ class EventManager :
 
 	// TODO - almost certainly the wrong data structure
 	// Why not a std::map<CompWatchFdHandle, CompWatchFd>?
-	std::list< CompWatchFd * > watchFds;
+	std::list<Glib::RefPtr<CompWatchFd> > watchFds;
 	CompWatchFdHandle        lastWatchFdHandle;
 
         bool	grabbed;   /* true once we receive a GrabNotify
@@ -403,6 +412,7 @@ class History : public virtual ::compiz::History,
 {
     public:
 	History();
+	virtual ~History () {}
 
 	void setCurrentActiveWindowHistory (int x, int y);
 
@@ -458,6 +468,7 @@ class StartupSequence : boost::noncopyable
 {
     public:
 	StartupSequence();
+	virtual ~StartupSequence() {}
 	void addSequence (SnStartupSequence *sequence, CompPoint const& vp);
 	void removeSequence (SnStartupSequence *sequence);
 	void removeAllSequences ();
@@ -519,6 +530,7 @@ public virtual ::compiz::Ping
 {
 public:
     Ping() : lastPing_(1) {}
+    virtual ~Ping() {}
     bool handlePingTimeout (WindowManager::iterator begin, WindowManager::iterator end, Display* dpy);
     unsigned int lastPing () const { return lastPing_; }
 
@@ -531,6 +543,7 @@ class DesktopWindowCount :
 {
 public:
     DesktopWindowCount();
+    virtual ~DesktopWindowCount() {}
     virtual void incrementDesktopWindowCount();
     virtual void decrementDesktopWindowCount();
     virtual int desktopWindowCount();
@@ -543,6 +556,7 @@ class MapNum :
 {
 public:
     MapNum();
+    virtual ~MapNum() {}
     virtual unsigned int nextMapNum();
 
 private:
@@ -555,6 +569,7 @@ class XWindowInfo :
 public:
     XWindowInfo(Display* const& dpy) :
 	dpy(dpy) {}
+    virtual ~XWindowInfo() {}
 
     virtual int getWmState (Window id);
     virtual void setWmState (int state, Window id) const;
@@ -621,15 +636,30 @@ class PrivateScreen :
 					   XButtonEvent       *event,
 					   CompOption::Vector &arguments);
 
+	bool shouldTriggerKeyPressAction (CompAction *action,
+					  XKeyEvent  *event);
+
+	bool shouldTriggerKeyReleaseAction (CompAction *action,
+					    XKeyEvent  *event);
+
+	bool shouldTriggerModifierPressAction (CompAction          *action,
+					       XkbStateNotifyEvent *event);
+
+	bool shouldTriggerModifierReleaseAction (CompAction          *action,
+						 XkbStateNotifyEvent *event);
+
 	bool triggerKeyPressBindings (CompOption::Vector &options,
+				      CompAction::Vector &actions,
 				      XKeyEvent          *event,
 				      CompOption::Vector &arguments);
 
 	bool triggerKeyReleaseBindings (CompOption::Vector &options,
+					CompAction::Vector &actions,
 					XKeyEvent          *event,
 					CompOption::Vector &arguments);
 
 	bool triggerStateNotifyBindings (CompOption::Vector  &options,
+					 CompAction::Vector  &actions,
 					 XkbStateNotifyEvent *event,
 					 CompOption::Vector  &arguments);
 
@@ -1147,6 +1177,9 @@ class CompScreenImpl : public CompScreen,
 
         bool handlePingTimeout();
 
+	void saveViewportFocus ();
+	CompWindow * findViewportFocusCandidate ();
+
         Window below;
 	CompTimer autoRaiseTimer_;
 	Window    autoRaiseWindow_;
@@ -1157,6 +1190,8 @@ class CompScreenImpl : public CompScreen,
         PrivateScreen privateScreen;
         compiz::private_screen::WindowManager windowManager;
         unsigned int showingDesktopMask_;
+	typedef std::map<CompPoint, Window, PointCompare> FocusMap;
+	FocusMap savedViewportFocus;
 };
 
 #endif

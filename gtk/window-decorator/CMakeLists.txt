@@ -10,7 +10,6 @@ if (USE_GTK)
 	${CMAKE_BINARY_DIR}/gtk
 	${GTK_WINDOW_DECORATOR_INCLUDE_DIRS}
 	${METACITY_INCLUDE_DIRS}
-	${GCONF_INCLUDE_DIRS}
 	${DBUS_GLIB_INCLUDE_DIRS}
     )
 
@@ -57,19 +56,6 @@ if (USE_GTK)
 	 gtk_window_decorator_settings_storage_xproperty_interface
 	 gtk_window_decorator_metacity_window_decoration_util
 	 gtk_window_decorator_cairo_window_decoration_util)
-
-    if (USE_GCONF)
-	set (gwd_schema ${CMAKE_CURRENT_BINARY_DIR}/gwd.schemas)
-	compiz_translate_xml (
-	    ${CMAKE_CURRENT_SOURCE_DIR}/gwd.schemas.in
-	    ${gwd_schema}
-	)
-	compiz_install_gconf_schema (${CMAKE_CURRENT_BINARY_DIR}/gwd.schemas ${SCHEMADIR})
-	add_library (gtk_window_decorator_settings_storage_gconf STATIC
-		     ${CMAKE_CURRENT_SOURCE_DIR}/gwd-settings-storage-gconf.c)
-	list (APPEND GTK_WINDOW_DECORATOR_ADDITIONAL_LIBRARIES
-	      gtk_window_decorator_settings_storage_gconf)
-    endif (USE_GCONF)
 
     if (USE_GSETTINGS)
 	add_definitions (-DUSE_GSETTINGS)
@@ -119,7 +105,6 @@ if (USE_GTK)
 		    actionmenu.c
 		    settings.c
 		    util.c
-		    style.c
 		    wnck.c
 		    decorator.c
 		    ${CMAKE_CURRENT_SOURCE_DIR}/gwd-settings-xproperty-storage.c
@@ -138,7 +123,6 @@ if (USE_GTK)
 	gtk-window-decorator
 	decoration
 	${GTK_WINDOW_DECORATOR_LIBRARIES}
-	${GCONF_LIBRARIES}
 	${DBUS_GLIB_LIBRARIES}
 	${metacitylibs}
 	${GTK_WINDOW_DECORATOR_ADDITIONAL_LIBRARIES}

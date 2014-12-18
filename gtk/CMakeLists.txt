@@ -9,8 +9,8 @@ compiz_set (USE_GNOME ${BUILD_GNOME})
 if (USE_GTK)
     pkg_check_modules (GTK_WINDOW_DECORATOR
 	xrender>=0.8.4
-	gtk+-2.0>=2.18.0
-	libwnck-1.0
+	gtk+-3.0
+	libwnck-3.0
 	pangocairo
     )
     if (GTK_WINDOW_DECORATOR_FOUND)
@@ -21,22 +21,14 @@ if (USE_GTK)
           list (REMOVE_AT CMAKE_REQUIRED_FLAGS REENTRANT_INDEX)
           list (APPEND CMAKE_REQUIRED_FLAGS "-D_REENTRANT=1")
         endif (REENTRANT_INDEX)
-        check_function_exists (wnck_window_has_name HAVE_WNCK_WINDOW_HAS_NAME)
         set (CMAKE_REQUIRED_FLAGS "")
         set (CMAKE_REQUIRED_LIBRARIES "")
 
-        compiz_pkg_check_modules (HAVE_LIBWNCK_2_18_1 libwnck-1.0>=2.18.1)
-        compiz_pkg_check_modules (HAVE_LIBWNCK_2_19_4 libwnck-1.0>=2.19.4)
-
         if (USE_METACITY)
-            pkg_check_modules (METACITY libmetacity-private)
-            if (METACITY_FOUND)
-		compiz_pkg_check_modules (HAVE_METACITY_2_15_21 libmetacity-private>=2.15.21)
-		compiz_pkg_check_modules (HAVE_METACITY_2_17_0 libmetacity-private>=2.17.0)
-		compiz_pkg_check_modules (HAVE_METACITY_2_23_2 libmetacity-private>=2.23.2)
-            else (METACITY_FOUND)
-		compiz_set (USE_METACITY 0)
-            endif (METACITY_FOUND)
+            pkg_check_modules (METACITY libmetacity-private>=3.12.0)
+            if (NOT METACITY_FOUND)
+                compiz_set (USE_METACITY 0)
+            endif (NOT METACITY_FOUND)
         endif (USE_METACITY)
 
 	if (USE_GNOME)

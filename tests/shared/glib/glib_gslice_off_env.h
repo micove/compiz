@@ -29,6 +29,8 @@ class CompizGLibGSliceOffEnv
 {
     public:
 
+	virtual ~CompizGLibGSliceOffEnv () {}
+
 	virtual void SetUpEnv ()
 	{
 	    g_setenv ("G_SLICE", "always-malloc", 1);

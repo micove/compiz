@@ -69,9 +69,14 @@ struct GLShaderParameters
  */
 struct GLShaderData
 {
+    GLShaderData(const std::string &name,
+                 const std::string &vertexShader,
+                 const std::string &fragmentShader);
+
     std::string name;
     std::string vertexShader;
     std::string fragmentShader;
+    bool        isCached;
 };
 
 class PrivateShaderCache;

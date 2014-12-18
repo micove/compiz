@@ -754,8 +754,6 @@ GridScreen::edgeToGridType ()
 void
 GridScreen::handleEvent (XEvent *event)
 {
-    CompWindow *w;
-
     screen->handleEvent (event);
 
     if (event->type != MotionNotify || !mGrabWindow)
@@ -826,6 +824,8 @@ GridScreen::handleEvent (XEvent *event)
 
     /* Detect edge region change */
 
+    CompWindow *w = screen->findWindow (CompOption::getIntOptionNamed (o, "window"));
+
     if (lastEdge != edge)
     {
 	bool check = false;
@@ -851,18 +851,16 @@ GridScreen::handleEvent (XEvent *event)
 
 	    if (edge != NoEdge && check)
 	    {
-		CompWindow *cw = screen->findWindow (screen->activeWindow ());
-
-		if (cw)
+		if (w)
 		{
 		    animations.push_back (Animation ());
 		    int current = animations.size () - 1;
-		    animations.at (current).fromRect	= cw->serverBorderRect ();
-		    animations.at (current).currentRect	= cw->serverBorderRect ();
+		    animations.at (current).fromRect = w->serverBorderRect ();
+		    animations.at (current).currentRect	= w->serverBorderRect ();
 		    animations.at (current).duration = optionGetAnimationDuration ();
 		    animations.at (current).timer = animations.at (current).duration;
 		    animations.at (current).targetRect = desiredSlot;
-		    animations.at (current).window = cw->id();
+		    animations.at (current).window = w->id();
 
 		    if (lastEdge == NoEdge || !animating)
 		    {
@@ -878,8 +876,6 @@ GridScreen::handleEvent (XEvent *event)
 
 	lastEdge = edge;
     }
-
-    w = screen->findWindow (CompOption::getIntOptionNamed (o, "window"));
 
     if (w)
     {
@@ -1011,20 +1007,17 @@ GridWindow::stateChangeNotify (unsigned int lastState)
     {
 	lastTarget = GridUnknown;
 
-	if (!window->grabbed ())
+	if (isGridHorzMaximized)
 	{
-	    if (isGridHorzMaximized)
-	    {
- 		window->saveMask ()      |= CWY | CWHeight;
-  		window->saveWc ().y      = originalSize.y ();
-  		window->saveWc ().height = originalSize.height ();
-	    }
-	    else if (isGridVertMaximized)
-	    {
-  		window->saveMask ()     |= CWX | CWWidth;
-  		window->saveWc ().x     = originalSize.x ();
-  		window->saveWc ().width = originalSize.width ();
-	    }
+ 	    window->saveMask ()      |= CWY | CWHeight;
+  	    window->saveWc ().y      = originalSize.y ();
+  	    window->saveWc ().height = originalSize.height ();
+	}
+	else if (isGridVertMaximized)
+	{
+  	    window->saveMask ()     |= CWX | CWWidth;
+  	    window->saveWc ().x     = originalSize.x () - window->border ().left;
+  	    window->saveWc ().width = originalSize.width () + window->border ().left + window->border ().right;
 	}
 
 	if ((isGridHorzMaximized &&
@@ -1204,10 +1197,16 @@ GridScreen::preparePaint (int msSinceLastPaint)
 
     if (optionGetDrawStretchedWindow ())
     {
-	CompWindow *cw = screen->findWindow (screen->activeWindow ());
-	GRID_WINDOW (cw);
+	CompWindow *cw = screen->findWindow (CompOption::getIntOptionNamed (o, "window"));
 
-	gw->gWindow->glPaintSetEnabled (gw, true);
+	if (!cw)
+	    cw = screen->findWindow (screen->activeWindow ());
+
+	if (cw)
+	{
+	    GRID_WINDOW (cw);
+	    gw->gWindow->glPaintSetEnabled (gw, true);
+	}
     }
 
     cScreen->preparePaint (msSinceLastPaint);
@@ -1242,10 +1241,16 @@ GridScreen::donePaint ()
 
     if (optionGetDrawStretchedWindow ())
     {
-	CompWindow *cw = screen->findWindow (screen->activeWindow ());
-	GRID_WINDOW (cw);
+	CompWindow *cw = screen->findWindow (CompOption::getIntOptionNamed (o, "window"));
 
-	gw->gWindow->glPaintSetEnabled (gw, false);
+	if (!cw)
+	    cw = screen->findWindow (screen->activeWindow ());
+
+	if (cw)
+	{
+	    GRID_WINDOW (cw);
+	    gw->gWindow->glPaintSetEnabled (gw, false);
+	}
     }
 
     cScreen->damageScreen ();
@@ -1316,6 +1321,9 @@ GridScreen::GridScreen (CompScreen *screen) :
     GRIDSET (PutBottomleftKey, GridWindowType::GridBottomLeft, true, true);
     GRIDSET (PutBottomrightKey, GridWindowType::GridBottomRight, true, true);
     GRIDSET (PutMaximizeKey, GridWindowType::GridMaximize, true, true);
+
+    GRIDSET (RightMaximize, GridWindowType::GridRight, true, true);
+    GRIDSET (LeftMaximize, GridWindowType::GridLeft, true, true);
 
 #undef GRIDSET
 

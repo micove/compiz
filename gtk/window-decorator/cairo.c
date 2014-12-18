@@ -249,13 +249,17 @@ button_state_offsets (gdouble x,
 }
 
 static void
-button_state_paint (cairo_t	  *cr,
-		    GtkStyle	  *style,
-		    decor_color_t *color,
-		    guint	  state)
+button_state_paint (cairo_t         *cr,
+                    GtkStyleContext *context,
+                    decor_color_t   *color,
+                    guint            state)
 {
+    GdkRGBA fg;
 
 #define IN_STATE (PRESSED_EVENT_WINDOW | IN_EVENT_WINDOW)
+
+    gtk_style_context_get_color (context, GTK_STATE_FLAG_NORMAL, &fg);
+    fg.alpha = STROKE_ALPHA;
 
     if ((state & IN_STATE) == IN_STATE)
     {
@@ -266,9 +270,7 @@ button_state_paint (cairo_t	  *cr,
 
 	cairo_fill_preserve (cr);
 
-	gdk_cairo_set_source_color_alpha (cr,
-					  &style->fg[GTK_STATE_NORMAL],
-					  STROKE_ALPHA);
+	gdk_cairo_set_source_rgba (cr, &fg);
 
 	cairo_set_line_width (cr, 1.0);
 	cairo_stroke (cr);
@@ -276,9 +278,7 @@ button_state_paint (cairo_t	  *cr,
     }
     else
     {
-	gdk_cairo_set_source_color_alpha (cr,
-					  &style->fg[GTK_STATE_NORMAL],
-					  STROKE_ALPHA);
+	gdk_cairo_set_source_rgba (cr, &fg);
 	cairo_stroke_preserve (cr);
 
 	if (state & IN_EVENT_WINDOW)
@@ -294,8 +294,9 @@ void
 draw_window_decoration (decor_t *d)
 {
     cairo_t       *cr;
-    GtkStyle	  *style;
-    GdkDrawable   *drawable;
+    GtkStyleContext *context;
+    GdkRGBA bg, fg;
+    cairo_surface_t *surface;
     decor_color_t color;
     double        alpha;
     double        x1, y1, x2, y2, x, y, h;
@@ -303,26 +304,27 @@ draw_window_decoration (decor_t *d)
     int		  top;
     int		  button_x;
 
-    if (!d->pixmap)
+    if (!d->surface)
 	return;
 
-
-    style = gtk_widget_get_style (d->frame->style_window_rgba);
+    context = gtk_widget_get_style_context (d->frame->style_window_rgba);
+    gtk_style_context_get_background_color (context, GTK_STATE_FLAG_NORMAL, &bg);
+    gtk_style_context_get_color (context, GTK_STATE_FLAG_NORMAL, &fg);
 
     if (d->state & (WNCK_WINDOW_STATE_MAXIMIZED_HORIZONTALLY |
 		    WNCK_WINDOW_STATE_MAXIMIZED_VERTICALLY))
 	corners = 0;
 
-    color.r = style->bg[GTK_STATE_NORMAL].red   / 65535.0;
-    color.g = style->bg[GTK_STATE_NORMAL].green / 65535.0;
-    color.b = style->bg[GTK_STATE_NORMAL].blue  / 65535.0;
+    color.r = bg.red;
+    color.g = bg.green;
+    color.b = bg.blue;
 
-    if (d->buffer_pixmap)
-	drawable = d->buffer_pixmap;
+    if (d->buffer_surface)
+	surface = d->buffer_surface;
     else
-	drawable = d->pixmap;
+	surface = d->surface;
 
-    cr = gdk_cairo_create (GDK_DRAWABLE (drawable));
+    cr = cairo_create (surface);
     if (!cr)
 	return;
 
@@ -462,16 +464,15 @@ draw_window_decoration (decor_t *d)
 		     d->width - d->context->left_space -
 		     d->context->right_space,
 		     h);
-    gdk_cairo_set_source_color (cr, &style->bg[GTK_STATE_NORMAL]);
+    gdk_cairo_set_source_rgba (cr, &bg);
     cairo_fill (cr);
 
     cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
 
     if (d->active)
     {
-	gdk_cairo_set_source_color_alpha (cr,
-					  &style->fg[GTK_STATE_NORMAL],
-					  0.7);
+	fg.alpha = 0.7;
+	gdk_cairo_set_source_rgba (cr, &fg);
 
 	cairo_move_to (cr, x1 + 0.5, y1 + top - 0.5);
 	cairo_rel_line_to (cr, x2 - x1 - 1.0, 0.0);
@@ -525,9 +526,8 @@ draw_window_decoration (decor_t *d)
 		       (CORNER_TOPLEFT | CORNER_TOPRIGHT | CORNER_BOTTOMLEFT |
 			CORNER_BOTTOMRIGHT) & corners);
 
-    gdk_cairo_set_source_color_alpha (cr,
-				      &style->fg[GTK_STATE_NORMAL],
-				      alpha);
+    fg.alpha = alpha;
+    gdk_cairo_set_source_rgba (cr, &fg);
 
     cairo_stroke (cr);
 
@@ -547,14 +547,13 @@ draw_window_decoration (decor_t *d)
 	{
 	    cairo_move_to (cr, x, y);
 	    draw_close_button (d, cr, 3.0);
-	    button_state_paint (cr, style, &color,
+	    button_state_paint (cr, context, &color,
 				d->button_states[BUTTON_CLOSE]);
 	}
 	else
 	{
-	    gdk_cairo_set_source_color_alpha (cr,
-					      &style->fg[GTK_STATE_NORMAL],
-					      alpha * 0.75);
+	    fg.alpha = alpha * 0.75;
+	    gdk_cairo_set_source_rgba (cr, &fg);
 
 	    cairo_move_to (cr, x, y);
 	    draw_close_button (d, cr, 3.0);
@@ -574,9 +573,8 @@ draw_window_decoration (decor_t *d)
 
 	if (d->active)
 	{
-	    gdk_cairo_set_source_color_alpha (cr,
-					      &style->fg[GTK_STATE_NORMAL],
-					      STROKE_ALPHA);
+	    fg.alpha = STROKE_ALPHA;
+	    gdk_cairo_set_source_rgba (cr, &fg);
 
 	    cairo_move_to (cr, x, y);
 
@@ -586,14 +584,13 @@ draw_window_decoration (decor_t *d)
 	    else
 		draw_max_button (d, cr, 4.0);
 
-	    button_state_paint (cr, style, &color,
+	    button_state_paint (cr, context, &color,
 				d->button_states[BUTTON_MAX]);
 	}
 	else
 	{
-	    gdk_cairo_set_source_color_alpha (cr,
-					      &style->fg[GTK_STATE_NORMAL],
-					      alpha * 0.75);
+	    fg.alpha = alpha * 0.75;
+	    gdk_cairo_set_source_rgba (cr, &fg);
 
 	    cairo_move_to (cr, x, y);
 
@@ -617,21 +614,19 @@ draw_window_decoration (decor_t *d)
 
 	if (d->active)
 	{
-	    gdk_cairo_set_source_color_alpha (cr,
-					      &style->fg[GTK_STATE_NORMAL],
-					      STROKE_ALPHA);
+	    fg.alpha = STROKE_ALPHA;
+	    gdk_cairo_set_source_rgba (cr, &fg);
 
 
 	    cairo_move_to (cr, x, y);
 	    draw_min_button (d, cr, 4.0);
-	    button_state_paint (cr, style, &color,
+	    button_state_paint (cr, context, &color,
 				d->button_states[BUTTON_MIN]);
 	}
 	else
 	{
-	    gdk_cairo_set_source_color_alpha (cr,
-					      &style->fg[GTK_STATE_NORMAL],
-					      alpha * 0.75);
+	    fg.alpha = alpha * 0.75;
+	    gdk_cairo_set_source_rgba (cr, &fg);
 
 	    cairo_move_to (cr, x, y);
 	    draw_min_button (d, cr, 4.0);
@@ -647,9 +642,8 @@ draw_window_decoration (decor_t *d)
 			   d->context->left_space + 21.0,
 			   y1 + 2.0 + (d->frame->titlebar_height - d->frame->text_height) / 2.0);
 
-	    gdk_cairo_set_source_color_alpha (cr,
-					      &style->fg[GTK_STATE_NORMAL],
-					      STROKE_ALPHA);
+	    fg.alpha = STROKE_ALPHA;
+	    gdk_cairo_set_source_rgba (cr, &fg);
 
 	    pango_cairo_layout_path (cr, d->layout);
 	    cairo_stroke (cr);
@@ -658,9 +652,8 @@ draw_window_decoration (decor_t *d)
 	}
 	else
 	{
-	    gdk_cairo_set_source_color_alpha (cr,
-					      &style->fg[GTK_STATE_NORMAL],
-					      alpha);
+	    fg.alpha = alpha;
+	    gdk_cairo_set_source_rgba (cr, &fg);
 	}
 
 	cairo_move_to (cr,
@@ -691,8 +684,11 @@ draw_window_decoration (decor_t *d)
     if (d->frame_window)
     {
 	GdkWindow *gdk_frame_window = gtk_widget_get_window (d->decor_window);
+	GdkPixbuf *pixbuf = gdk_pixbuf_get_from_surface (d->surface, 0, 0, d->width, d->height);
 
-	gtk_image_set_from_pixmap (GTK_IMAGE (d->decor_image), d->pixmap, NULL);
+	gtk_image_set_from_pixbuf (GTK_IMAGE (d->decor_image), pixbuf);
+	g_object_unref (pixbuf);
+
 	gtk_window_resize (GTK_WINDOW (d->decor_window), d->width, d->height);
 	gdk_window_move (gdk_frame_window, 0, 0);
 	gdk_window_lower (gdk_frame_window);
@@ -817,6 +813,38 @@ calc_decoration_size (decor_t *d,
     return FALSE;
 }
 
+static gboolean
+button_present (decor_t *d,
+                gint     i)
+{
+    switch (i) {
+        case BUTTON_MIN:
+            if (d->actions & WNCK_WINDOW_ACTION_MINIMIZE)
+                return TRUE;
+            break;
+        case BUTTON_MAX:
+            if (d->actions & WNCK_WINDOW_ACTION_MAXIMIZE)
+                return TRUE;
+            break;
+        case BUTTON_CLOSE:
+            if (d->actions & WNCK_WINDOW_ACTION_CLOSE)
+                return TRUE;
+            break;
+        case BUTTON_MENU:
+        case BUTTON_SHADE:
+        case BUTTON_ABOVE:
+        case BUTTON_STICK:
+        case BUTTON_UNSHADE:
+        case BUTTON_UNABOVE:
+        case BUTTON_UNSTICK:
+            break;
+        default:
+            break;
+    }
+
+    return FALSE;
+}
+
 gboolean
 get_button_position (decor_t *d,
 		     gint    i,
@@ -848,8 +876,16 @@ get_button_position (decor_t *d,
 	(d->frame->titlebar_height - 17);
 
     /* hack to position multiple buttons on the right */
-    if (i != BUTTON_MENU)
-	*x -= 10 + 16 * i;
+    if (i != BUTTON_MENU) {
+        gint position = 0;
+        gint button = 0;
+        while (button != i) {
+            if (button_present (d, button))
+                position++;
+            button++;
+        }
+        *x -= 10 + 16 * position;
+    }
 
     return TRUE;
 }

@@ -77,6 +77,7 @@ class Options : public KDecorationOptions
 	};
 
 	Options (KConfig *config);
+	virtual ~Options () {}
 
 	virtual unsigned long updateSettings (void);
 

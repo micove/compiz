@@ -40,11 +40,11 @@ const float DreamAnim::kDurationFactor = 1.67;
 
 // =====================  Effect: Dream  =========================
 
-DreamAnim::DreamAnim (CompWindow *w,
-		      WindowEvent curWindowEvent,
-		      float duration,
+DreamAnim::DreamAnim (CompWindow       *w,
+		      WindowEvent      curWindowEvent,
+		      float            duration,
 		      const AnimEffect info,
-		      const CompRect &icon) :
+		      const CompRect   &icon) :
     Animation::Animation (w, curWindowEvent, duration, info, icon),
     TransformAnim::TransformAnim (w, curWindowEvent, duration, info, icon),
     GridZoomAnim::GridZoomAnim (w, curWindowEvent, duration, info, icon)
@@ -74,7 +74,7 @@ DreamAnim::adjustDuration ()
 void
 DreamAnim::initGrid ()
 {
-    mGridWidth = 2;
+    mGridWidth  = 2;
     mGridHeight = optValI (AnimationOptions::MagicLampWavyGridRes); // TODO new option
 }
 
@@ -98,15 +98,16 @@ DreamAnim::step ()
     int wx = winRect.x ();
     int wy = winRect.y ();
 
-    int owidth = outRect.width ();
+    int owidth  = outRect.width ();
     int oheight = outRect.height ();
 
     float waveAmpMax = MIN (oheight, owidth) * 0.125f;
-    float waveWidth = 10.0f;
-    float waveSpeed = 7.0f;
+    float waveWidth  = 10.0f;
+    float waveSpeed  = 7.0f;
 
     GridModel::GridObject *object = mModel->objects ();
     unsigned int n = mModel->numObjects ();
+
     for (unsigned int i = 0; i < n; ++i, ++object)
     {
 	Point3d &objPos = object->position ();
@@ -132,8 +133,7 @@ DreamAnim::step ()
 	objPos.setX (
 	    origx +
 	    forwardProgress * waveAmpMax * mModel->scale ().x () *
-	    sin (objGridPos.y () * M_PI * waveWidth +
-		waveSpeed * forwardProgress));
+	    sin (objGridPos.y () * M_PI * waveWidth + waveSpeed * forwardProgress));
     }
 }
 
@@ -153,4 +153,3 @@ DreamAnim::zoomToIcon ()
 	     mCurWindowEvent == WindowEventUnminimize) &&
 	    optValB (AnimationOptions::DreamZoomToTaskbar));
 }
-

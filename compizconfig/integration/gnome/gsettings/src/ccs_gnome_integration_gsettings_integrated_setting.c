@@ -244,8 +244,6 @@ ccsGSettingsIntegratedSettingWriteValue (CCSIntegratedSetting *setting, CCSSetti
     /* g_settings_set_value consumes the reference */
     if (newVariant)
 	ccsGSettingsWrapperSetValue (priv->wrapper, gsettingsTranslatedName, newVariant);
-    else
-	ccsGSettingsWrapperResetKey (priv->wrapper, gsettingsTranslatedName);
 
     g_variant_unref (variant);
     free (gsettingsTranslatedName);

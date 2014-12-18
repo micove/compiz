@@ -119,7 +119,7 @@ class StubWatchFd :
 
 TEST_F (GLibSourceDestroyIntegration, TimeoutSourceGSourceDestroy)
 {
-    StubTimeoutSource *sts = new StubTimeoutSource (&die, context);
+    Glib::RefPtr<StubTimeoutSource> sts(new StubTimeoutSource (&die, context));
 
     EXPECT_CALL (die, Die ());
 
@@ -128,7 +128,7 @@ TEST_F (GLibSourceDestroyIntegration, TimeoutSourceGSourceDestroy)
 
 TEST_F (GLibSourceDestroyIntegration, EventSourceGSourceDestroy)
 {
-    StubEventSource *sts = new StubEventSource (&die);
+    Glib::RefPtr<StubEventSource> sts(new StubEventSource (&die));
 
     sts->attach (context);
 
@@ -142,7 +142,7 @@ TEST_F (GLibSourceDestroyIntegration, FdSourceGSourceDestroy)
     Glib::IOCondition iocond = Glib::IO_IN;
     int fd = 0;
     FdWatchCallBack cb;
-    StubWatchFd *sts = new StubWatchFd (&die, fd, iocond, cb);
+    Glib::RefPtr<StubWatchFd> sts(new StubWatchFd (&die, fd, iocond, cb));
 
     sts->attach (context);
 

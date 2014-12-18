@@ -75,6 +75,16 @@
 		    <_long>Restore window to it's original size. Note: Use the same shortcut you are using to unmaximize a window to be able to restore grid-maximized windows.</_long>
 		    <default>&lt;Alt&gt;F5</default>
 		</option>
+		<option name="left_maximize" type="key">
+		    <_short>Left Maximize</_short>
+		    <_long>Left vertically maximize window.</_long>
+		    <default>&lt;Control&gt;&lt;Super&gt;Left</default>
+		</option>
+		<option name="right_maximize" type="key">
+		    <_short>Right Maximize</_short>
+		    <_long>Right vertically maximize window.</_long>
+		    <default>&lt;Control&gt;&lt;Super&gt;Right</default>
+ 		</option>
 	    </group>
 	    <group>
 		<_short>Corners / Edges</_short>

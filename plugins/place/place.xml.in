@@ -20,8 +20,8 @@
 	    <option name="mode" type="int">
 		<_short>Placement Mode</_short>
 		<_long>Algorithm to use for window placement</_long>
-		<default>0</default>
-		<min>2</min>
+		<default>2</default>
+		<min>0</min>
 		<max>5</max>
 		<desc>
 		    <value>0</value>

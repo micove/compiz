@@ -122,7 +122,7 @@ decor_update_meta_window_property (decor_t	  *d,
     else
     {
 	data = decor_alloc_property (nOffset, WINDOW_DECORATION_TYPE_PIXMAP);
-	decor_quads_to_property (data, nOffset - 1, GDK_PIXMAP_XID (d->pixmap),
+	decor_quads_to_property (data, nOffset - 1, cairo_xlib_surface_get_drawable (d->surface),
 				 &frame_win_extents, &win_extents,
 				 &frame_max_win_extents, &max_win_extents,
 				 ICON_SPACE + d->button_width,
@@ -138,7 +138,7 @@ decor_update_meta_window_property (decor_t	  *d,
 		     32, PropModeReplace, (guchar *) data,
 		     PROP_HEADER_SIZE + BASE_PROP_SIZE + QUAD_PROP_SIZE * N_QUADS_MAX);
     gdk_display_sync (gdk_display_get_default ());
-    gdk_error_trap_pop ();
+    gdk_error_trap_pop_ignored ();
 
     free (data);
 
@@ -157,19 +157,10 @@ meta_get_corner_radius (const MetaFrameGeometry *fgeom,
 			int			*bottom_left_radius,
 			int			*bottom_right_radius)
 {
-
-#ifdef HAVE_METACITY_2_17_0
     *top_left_radius     = fgeom->top_left_corner_rounded_radius;
     *top_right_radius    = fgeom->top_right_corner_rounded_radius;
     *bottom_left_radius  = fgeom->bottom_left_corner_rounded_radius;
     *bottom_right_radius = fgeom->bottom_right_corner_rounded_radius;
-#else
-    *top_left_radius     = fgeom->top_left_corner_rounded ? 5 : 0;
-    *top_right_radius    = fgeom->top_right_corner_rounded ? 5 : 0;
-    *bottom_left_radius  = fgeom->bottom_left_corner_rounded ? 5 : 0;
-    *bottom_right_radius = fgeom->bottom_right_corner_rounded ? 5 : 0;
-#endif
-
 }
 
 static int
@@ -378,8 +369,6 @@ meta_function_to_type (MetaButtonFunction function)
 	return META_BUTTON_TYPE_MAXIMIZE;
     case META_BUTTON_FUNCTION_CLOSE:
 	return META_BUTTON_TYPE_CLOSE;
-
-#ifdef HAVE_METACITY_2_17_0
     case META_BUTTON_FUNCTION_SHADE:
 	return META_BUTTON_TYPE_SHADE;
     case META_BUTTON_FUNCTION_ABOVE:
@@ -392,8 +381,6 @@ meta_function_to_type (MetaButtonFunction function)
 	return META_BUTTON_TYPE_UNABOVE;
     case META_BUTTON_FUNCTION_UNSTICK:
 	return META_BUTTON_TYPE_UNSTICK;
-#endif
-
     default:
 	break;
     }
@@ -436,8 +423,6 @@ meta_button_state_for_button_type (decor_t	  *d,
 	return meta_button_state (d->button_states[BUTTON_MIN]);
     case META_BUTTON_TYPE_MENU:
 	return meta_button_state (d->button_states[BUTTON_MENU]);
-
-#ifdef HAVE_METACITY_2_17_0
     case META_BUTTON_TYPE_SHADE:
 	return meta_button_state (d->button_states[BUTTON_SHADE]);
     case META_BUTTON_TYPE_ABOVE:
@@ -450,8 +435,6 @@ meta_button_state_for_button_type (decor_t	  *d,
 	return meta_button_state (d->button_states[BUTTON_UNABOVE]);
     case META_BUTTON_TYPE_UNSTICK:
 	return meta_button_state (d->button_states[BUTTON_UNSTICK]);
-#endif
-
     default:
 	break;
     }
@@ -539,10 +522,8 @@ meta_get_decoration_geometry (decor_t		*d,
     if (d->state & WNCK_WINDOW_STATE_SHADED)
 	*flags |= (MetaFrameFlags ) META_FRAME_SHADED;
 
-#ifdef HAVE_METACITY_2_17_0
     if (d->state & WNCK_WINDOW_STATE_ABOVE)
 	*flags |= (MetaFrameFlags ) META_FRAME_ABOVE;
-#endif
 
     meta_theme_get_frame_borders (theme,
 				  frame_type,
@@ -582,7 +563,7 @@ meta_draw_window_decoration (decor_t *d)
 {
     Display	      *xdisplay =
 	GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
-    GdkPixmap	      *pixmap;
+    cairo_surface_t *surface;
     Picture	      src;
     MetaButtonState   button_states [META_BUTTON_TYPE_LAST];
     MetaButtonLayout  button_layout;
@@ -590,11 +571,10 @@ meta_draw_window_decoration (decor_t *d)
     MetaFrameFlags    flags;
     MetaFrameType     frame_type;
     MetaTheme	      *theme;
-    GtkStyle	      *style;
+    GtkStyleContext *context;
     cairo_t	      *cr;
-    gint	      size, i;
-    GdkRectangle      clip, rect;
-    GdkDrawable       *drawable;
+    gint	      i;
+    GdkRectangle      clip;
     Region	      top_region = NULL;
     Region	      bottom_region = NULL;
     Region	      left_region = NULL;
@@ -612,29 +592,26 @@ meta_draw_window_decoration (decor_t *d)
 						  meta_inactive_shade_opacity;
     MetaFrameStyle    *frame_style;
     GtkWidget	      *style_window;
-    GdkColor	      bg_color;
-    double	      bg_alpha;
+    GdkRGBA           bg_rgba;
 
-    if (!d->pixmap || !d->picture)
+    if (!d->surface || !d->picture)
 	return;
 
     if (decoration_alpha == 1.0)
 	alpha = 1.0;
 
-    if (gdk_drawable_get_depth (GDK_DRAWABLE (d->pixmap)) == 32)
+    if (cairo_xlib_surface_get_depth (d->surface) == 32)
     {
-	style = gtk_widget_get_style (d->frame->style_window_rgba);
+	context = gtk_widget_get_style_context (d->frame->style_window_rgba);
 	style_window = d->frame->style_window_rgba;
     }
     else
     {
-	style = gtk_widget_get_style (d->frame->style_window_rgb);
+	context = gtk_widget_get_style_context (d->frame->style_window_rgb);
 	style_window = d->frame->style_window_rgb;
     }
 
-    drawable = d->buffer_pixmap ? d->buffer_pixmap : d->pixmap;
-
-    cr = gdk_cairo_create (GDK_DRAWABLE (drawable));
+    cr = cairo_create (d->buffer_surface ? d->buffer_surface : d->surface);
 
     cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
 
@@ -648,7 +625,7 @@ meta_draw_window_decoration (decor_t *d)
     meta_get_decoration_geometry (d, theme, &flags, &fgeom, &button_layout,
 				  frame_type, &clip);
 
-    if ((d->prop_xid || !d->buffer_pixmap) && !d->frame_window)
+    if ((d->prop_xid || !d->buffer_surface) && !d->frame_window)
 	draw_shadow_background (d, cr, d->shadow, d->context);
 
     for (i = 0; i < META_BUTTON_TYPE_LAST; ++i)
@@ -658,69 +635,56 @@ meta_draw_window_decoration (decor_t *d)
 					      frame_type,
 					      flags);
 
-    bg_color = style->bg[GTK_STATE_NORMAL];
-    bg_alpha = 1.0;
+    gtk_style_context_get_background_color (context, GTK_STATE_FLAG_NORMAL, &bg_rgba);
+    bg_rgba.alpha = 1.0;
 
-#ifdef HAVE_METACITY_2_17_0
     if (frame_style->window_background_color)
     {
 	meta_color_spec_render (frame_style->window_background_color,
-				GTK_WIDGET (style_window),
-				&bg_color);
+				gtk_widget_get_style_context (style_window),
+				&bg_rgba);
 
-	bg_alpha = frame_style->window_background_alpha / 255.0;
+	bg_rgba.alpha = frame_style->window_background_alpha / 255.0;
     }
-#endif
+
+    /* Draw something that will be almost invisible to user. This is hacky way
+     * to fix invisible decorations. */
+    cairo_set_source_rgba (cr, 0, 0, 0, 0.01);
+    cairo_rectangle (cr, 0, 0, 1, 1);
+    cairo_fill (cr);
+    /* ------------ */
 
     cairo_destroy (cr);
 
-    rect.x     = 0;
-    rect.y     = 0;
-    rect.width = clip.width;
-
-    size = MAX (fgeom.top_height, fgeom.bottom_height);
-
-    if (rect.width && size)
-    {
-	XRenderPictFormat *format;
-
 	if (d->frame_window)
-	    pixmap = create_pixmap (rect.width, size, d->frame->style_window_rgb);
+	    surface = create_surface (clip.width, clip.height, d->frame->style_window_rgb);
 	else
-	    pixmap = create_pixmap (rect.width, size, d->frame->style_window_rgba);
+	    surface = create_surface (clip.width, clip.height, d->frame->style_window_rgba);
 
-	cr = gdk_cairo_create (GDK_DRAWABLE (pixmap));
-	gdk_cairo_set_source_color_alpha (cr, &bg_color, bg_alpha);
-	cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
+	cr = cairo_create (surface);
+	gdk_cairo_set_source_rgba (cr, &bg_rgba);
+	cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
 
-	format = get_format_for_drawable (d, GDK_DRAWABLE (pixmap));
-	src = XRenderCreatePicture (xdisplay, GDK_PIXMAP_XID (pixmap),
-				    format, 0, NULL);
+	src = XRenderCreatePicture (xdisplay, cairo_xlib_surface_get_drawable (surface),
+                                get_format_for_surface (d, surface), 0, NULL);
 
-	if (fgeom.top_height)
+    cairo_paint (cr);
+    meta_theme_draw_frame (theme,
+                           style_window,
+                           cr,
+                           frame_type,
+                           flags,
+                           clip.width - fgeom.left_width - fgeom.right_width,
+                           clip.height - fgeom.top_height - fgeom.bottom_height,
+                           d->layout,
+                           d->frame->text_height,
+                           &button_layout,
+                           button_states,
+                           d->icon_pixbuf,
+                           NULL);
+
+    if (fgeom.top_height)
 	{
-	    rect.height = fgeom.top_height;
-
-	    cairo_paint (cr);
-
-	    meta_theme_draw_frame (theme,
-				   style_window,
-				   pixmap,
-				   &rect,
-				   0, 0,
-				   frame_type,
-				   flags,
-				   clip.width - fgeom.left_width -
-				   fgeom.right_width,
-				   clip.height - fgeom.top_height -
-				   fgeom.bottom_height,
-				   d->layout,
-				   d->frame->text_height,
-				   &button_layout,
-				   button_states,
-				   d->icon_pixbuf,
-				   NULL);
-
 	    top_region = meta_get_top_border_region (&fgeom, clip.width);
 
 	    decor_blend_border_picture (xdisplay,
@@ -738,35 +702,12 @@ meta_draw_window_decoration (decor_t *d)
 
 	if (fgeom.bottom_height)
 	{
-	    rect.height = fgeom.bottom_height;
-
-	    cairo_paint (cr);
-
-	    meta_theme_draw_frame (theme,
-				   style_window,
-				   pixmap,
-				   &rect,
-				   0,
-				   -(clip.height - fgeom.bottom_height),
-				   frame_type,
-				   flags,
-				   clip.width - fgeom.left_width -
-				   fgeom.right_width,
-				   clip.height - fgeom.top_height -
-				   fgeom.bottom_height,
-				   d->layout,
-				   d->frame->text_height,
-				   &button_layout,
-				   button_states,
-				   d->icon_pixbuf,
-				   NULL);
-
 	    bottom_region = meta_get_bottom_border_region (&fgeom, clip.width);
 
 	    decor_blend_border_picture (xdisplay,
 					d->context,
 					src,
-					0, 0,
+					0, clip.height - fgeom.bottom_height,
 					d->picture,
 					&d->border_layout,
 					BORDER_BOTTOM,
@@ -777,71 +718,14 @@ meta_draw_window_decoration (decor_t *d)
 
 	}
 
-	cairo_destroy (cr);
-
-	g_object_unref (G_OBJECT (pixmap));
-
-	XRenderFreePicture (xdisplay, src);
-    }
-
-    rect.height = clip.height - fgeom.top_height - fgeom.bottom_height;
-
-    size = MAX (fgeom.left_width, fgeom.right_width);
-
-    if (size && rect.height)
-    {
-	XRenderPictFormat *format;
-
-	if (d->frame_window)
-	{
-	    GdkColormap *cmap;
-
-	    cmap   = get_colormap_for_drawable (GDK_DRAWABLE (d->pixmap));
-	    pixmap = create_pixmap (size, rect.height, d->frame->style_window_rgb);
-	    gdk_drawable_set_colormap (GDK_DRAWABLE (pixmap), cmap);
-	}
-	else
-	    pixmap = create_pixmap (size, rect.height, d->frame->style_window_rgba);
-
-	cr = gdk_cairo_create (GDK_DRAWABLE (pixmap));
-	gdk_cairo_set_source_color_alpha (cr, &bg_color, bg_alpha);
-	cairo_set_operator (cr, CAIRO_OPERATOR_SOURCE);
-
-	format = get_format_for_drawable (d, GDK_DRAWABLE (pixmap));
-	src = XRenderCreatePicture (xdisplay, GDK_PIXMAP_XID (pixmap),
-				    format, 0, NULL);
-
 	if (fgeom.left_width)
 	{
-	    rect.width = fgeom.left_width;
-
-	    cairo_paint (cr);
-
-	    meta_theme_draw_frame (theme,
-				   style_window,
-				   pixmap,
-				   &rect,
-				   0,
-				   -fgeom.top_height,
-				   frame_type,
-				   flags,
-				   clip.width - fgeom.left_width -
-				   fgeom.right_width,
-				   clip.height - fgeom.top_height -
-				   fgeom.bottom_height,
-				   d->layout,
-				   d->frame->text_height,
-				   &button_layout,
-				   button_states,
-				   d->icon_pixbuf,
-				   NULL);
-
 	    left_region = meta_get_left_border_region (&fgeom, clip.height);
 
 	    decor_blend_border_picture (xdisplay,
 					d->context,
 					src,
-					0, 0,
+					0, fgeom.top_height,
 					d->picture,
 					&d->border_layout,
 					BORDER_LEFT,
@@ -853,35 +737,12 @@ meta_draw_window_decoration (decor_t *d)
 
 	if (fgeom.right_width)
 	{
-	    rect.width = fgeom.right_width;
-
-	    cairo_paint (cr);
-
-	    meta_theme_draw_frame (theme,
-				   style_window,
-				   pixmap,
-				   &rect,
-				   -(clip.width - fgeom.right_width),
-				   -fgeom.top_height,
-				   frame_type,
-				   flags,
-				   clip.width - fgeom.left_width -
-				   fgeom.right_width,
-				   clip.height - fgeom.top_height -
-				   fgeom.bottom_height,
-				   d->layout,
-				   d->frame->text_height,
-				   &button_layout,
-				   button_states,
-				   d->icon_pixbuf,
-				   NULL);
-
 	    right_region = meta_get_right_border_region (&fgeom, clip.height);
 
 	    decor_blend_border_picture (xdisplay,
 					d->context,
 					src,
-					0, 0,
+					clip.width - fgeom.right_width, fgeom.top_height,
 					d->picture,
 					&d->border_layout,
 					BORDER_RIGHT,
@@ -892,23 +753,19 @@ meta_draw_window_decoration (decor_t *d)
 	}
 
 	cairo_destroy (cr);
-
-	g_object_unref (G_OBJECT (pixmap));
-
+	cairo_surface_destroy (surface);
 	XRenderFreePicture (xdisplay, src);
-    }
 
     copy_to_front_buffer (d);
 
     if (d->frame_window)
     {
 	GdkWindow *gdk_frame_window = gtk_widget_get_window (d->decor_window);
+	GdkPixbuf *pixbuf = gdk_pixbuf_get_from_surface (d->surface, 0, 0, d->width, d->height);
 
-	/*
-	 * FIXME: What is '4' supposed to be for here...
-	 */
+	gtk_image_set_from_pixbuf (GTK_IMAGE (d->decor_image), pixbuf);
+	g_object_unref (pixbuf);
 
-	gtk_image_set_from_pixmap (GTK_IMAGE (d->decor_image), d->pixmap, NULL);
 	gtk_window_resize (GTK_WINDOW (d->decor_window), d->width, d->height);
 	gdk_window_move (gdk_frame_window,
 			 d->context->left_corner_space - 1,
@@ -992,11 +849,7 @@ meta_get_button_position (decor_t	 *d,
 
     GdkRectangle      clip;
 
-#ifdef HAVE_METACITY_2_15_21
     MetaButtonSpace   *space;
-#else
-    GdkRectangle      *space;
-#endif
 
     gint mutter_draggable_border_width = 0;
 
@@ -1041,8 +894,6 @@ meta_get_button_position (decor_t	 *d,
 
 	space = &fgeom.close_rect;
 	break;
-
-#if defined (HAVE_METACITY_2_17_0) && defined (HAVE_LIBWNCK_2_18_1)
     case BUTTON_SHADE:
 	if (!meta_button_present (&button_layout, META_BUTTON_FUNCTION_SHADE))
 	    return FALSE;
@@ -1079,13 +930,10 @@ meta_get_button_position (decor_t	 *d,
 
 	space = &fgeom.unstick_rect;
 	break;
-#endif
-
     default:
 	return FALSE;
     }
 
-#ifdef HAVE_METACITY_2_15_21
     if (!space->clickable.width && !space->clickable.height)
 	return FALSE;
 
@@ -1093,22 +941,13 @@ meta_get_button_position (decor_t	 *d,
     *y = space->clickable.y;
     *w = space->clickable.width;
     *h = space->clickable.height;
-#else
-    if (!space->width && !space->height)
-	return FALSE;
-
-    *x = space->x;
-    *y = space->y;
-    *w = space->width;
-    *h = space->height;
-#endif
 
     if (d->frame_window)
     {
 	*x += d->frame->win_extents.left + 4;
 	*y += d->frame->win_extents.top + 2;
     }
-    
+
     if (flags & META_FRAME_ALLOWS_HORIZONTAL_RESIZE)
     {
 	*x += mutter_draggable_border_width;
@@ -1389,7 +1228,8 @@ meta_get_event_window_position (decor_t *d,
 	    if (!d->frame_window)
 	    {
 		*x += mutter_draggable_border_width;
-		*y += mutter_draggable_border_width;
+		if (flags & META_FRAME_ALLOWS_VERTICAL_RESIZE)
+		    *y += mutter_draggable_border_width;
 	    }
 
 	    break;
@@ -1501,8 +1341,6 @@ meta_button_function_from_string (const char *str)
 	return META_BUTTON_FUNCTION_MAXIMIZE;
     else if (strcmp (str, "close") == 0)
 	return META_BUTTON_FUNCTION_CLOSE;
-
-#ifdef HAVE_METACITY_2_17_0
     else if (strcmp (str, "shade") == 0)
 	return META_BUTTON_FUNCTION_SHADE;
     else if (strcmp (str, "above") == 0)
@@ -1515,8 +1353,6 @@ meta_button_function_from_string (const char *str)
 	return META_BUTTON_FUNCTION_UNABOVE;
     else if (strcmp (str, "unstick") == 0)
 	return META_BUTTON_FUNCTION_UNSTICK;
-#endif
-
     else
 	return META_BUTTON_FUNCTION_LAST;
 }
@@ -1526,7 +1362,6 @@ meta_button_opposite_function (MetaButtonFunction ofwhat)
 {
     switch (ofwhat)
     {
-#ifdef HAVE_METACITY_2_17_0
     case META_BUTTON_FUNCTION_SHADE:
 	return META_BUTTON_FUNCTION_UNSHADE;
     case META_BUTTON_FUNCTION_UNSHADE:
@@ -1541,7 +1376,6 @@ meta_button_opposite_function (MetaButtonFunction ofwhat)
 	return META_BUTTON_FUNCTION_UNSTICK;
     case META_BUTTON_FUNCTION_UNSTICK:
 	return META_BUTTON_FUNCTION_STICK;
-#endif
 
     default:
 	return META_BUTTON_FUNCTION_LAST;
@@ -1557,10 +1391,8 @@ meta_initialize_button_layout (MetaButtonLayout *layout)
     {
 	layout->left_buttons[i] = META_BUTTON_FUNCTION_LAST;
 	layout->right_buttons[i] = META_BUTTON_FUNCTION_LAST;
-#ifdef HAVE_METACITY_2_23_2
 	layout->left_buttons_has_spacer[i] = FALSE;
 	layout->right_buttons_has_spacer[i] = FALSE;
-#endif
     }
 }
 
@@ -1591,7 +1423,6 @@ meta_update_button_layout (const char *value)
 	while (buttons[b] != NULL)
 	{
 	    f = meta_button_function_from_string (buttons[b]);
-#ifdef HAVE_METACITY_2_23_2
 	    if (i > 0 && strcmp ("spacer", buttons[b]) == 0)
             {
 	       new_layout.left_buttons_has_spacer[i - 1] = TRUE;
@@ -1601,7 +1432,6 @@ meta_update_button_layout (const char *value)
                   new_layout.left_buttons_has_spacer[i - 2] = TRUE;
             }
 	    else
-#endif
 	    {
 	       if (f != META_BUTTON_FUNCTION_LAST && !used[f])
 	       {
@@ -1638,7 +1468,6 @@ meta_update_button_layout (const char *value)
 	    while (buttons[b] != NULL)
 	    {
 	       f = meta_button_function_from_string (buttons[b]);
-#ifdef HAVE_METACITY_2_23_2
 	       if (i > 0 && strcmp ("spacer", buttons[b]) == 0)
 	       {
 		  new_layout.right_buttons_has_spacer[i - 1] = TRUE;
@@ -1647,7 +1476,6 @@ meta_update_button_layout (const char *value)
 		     new_layout.right_buttons_has_spacer[i - 2] = TRUE;
 	       }
 	       else
-#endif
 	       {
 		   if (f != META_BUTTON_FUNCTION_LAST && !used[f])
 		   {
@@ -1691,14 +1519,12 @@ meta_update_button_layout (const char *value)
 	for (j = 0; j < i; ++j)
 	{
 	    rtl_layout.right_buttons[j] = new_layout.left_buttons[i - j - 1];
-#ifdef HAVE_METACITY_2_23_2
 	    if (j == 0)
 		rtl_layout.right_buttons_has_spacer[i - 1] =
 		    new_layout.left_buttons_has_spacer[i - j - 1];
 	    else
 		rtl_layout.right_buttons_has_spacer[j - 1] =
 		    new_layout.left_buttons_has_spacer[i - j - 1];
-#endif
 	}
 
 	i = 0;
@@ -1708,14 +1534,12 @@ meta_update_button_layout (const char *value)
 	for (j = 0; j < i; ++j)
 	{
 	    rtl_layout.left_buttons[j] = new_layout.right_buttons[i - j - 1];
-#ifdef HAVE_METACITY_2_23_2
 	    if (j == 0)
 		rtl_layout.left_buttons_has_spacer[i - 1] =
 		    new_layout.right_buttons_has_spacer[i - j - 1];
 	    else
 		rtl_layout.left_buttons_has_spacer[j - 1] =
 		    new_layout.right_buttons_has_spacer[i - j - 1];
-#endif
 	}
 
 	new_layout = rtl_layout;

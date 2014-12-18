@@ -198,6 +198,11 @@
 					<_long>Windows that should not slide during the slide animation</_long>
 					<default>type=Dock | type=Desktop | state=Sticky</default>
 				</option>
+				<option name="auto_switch_vp_and_window" type="bool">
+					<_short>Auto Switch Vp And Window</_short>
+					<_long>Auto switch the viewport and move window when Alt-Tab to window that is more than half contained in another viewport</_long>
+					<default>true</default>
+				</option>
 			</group>
 			<group>
 				<_short>Bindings</_short>

@@ -4910,6 +4910,8 @@ ccsApplyUnappliedUpgrades (CCSContext    *context,
 {
     int			   i = 0;
     const char	  	   *path = CCS_UPGRADE_PATH;
+    CCSContextPrivate	   *cPrivate = GET_PRIVATE (CCSContextPrivate, context);
+    char		   *previousProfile = strdup(cPrivate->profile);
 
     for (i = 0; i < nFile; ++i)
     {
@@ -4926,6 +4928,13 @@ ccsApplyUnappliedUpgrades (CCSContext    *context,
 
 	free (nameList[i]);
     }
+
+    if (strcmp (cPrivate->profile, previousProfile))
+    {
+	    ccsSetProfile (context, previousProfile);
+    }
+
+    free (previousProfile);
 }
 
 Bool
