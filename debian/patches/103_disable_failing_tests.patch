@@ -1,0 +1,53 @@
+Description: compizconfig unit test segfaults.
+ Running the compizconfig unit tests results in 3 tests segfaulting due to use
+ of undefined behaviour in the test infrastructure.
+ .
+ The following tests FAILED:
+	1023 - CCSGSettingsTestIndependent.TestUpdateProfileDefaultImplDifferentProfile (SEGFAULT)
+	1024 - CCSGSettingsTestIndependent.TestUpdateProfileDefaultImplNullProfile (SEGFAULT)
+	1025 - CCSGSettingsTestIndependent.TestUpdateProfileDefaultImplEmptyStringProfile (SEGFAULT)
+Author: Miguel A. Colón Vélez <debian.micove@gmail.com>
+Bug-Ubuntu: https://launchpad.net/bugs/1386733
+Forwarded: not-needed
+Last-Update: 2014-12-18
+
+--- a/compizconfig/gsettings/tests/test_gsettings_tests.cpp
++++ b/compizconfig/gsettings/tests/test_gsettings_tests.cpp
+@@ -1527,7 +1527,7 @@
+ 
+     ccsGSettingsBackendUpdateProfileDefault (backend.get (), context.get ());
+ }
+-
++#if 0
+ TEST_F (CCSGSettingsTestIndependent, TestUpdateProfileDefaultImplDifferentProfile)
+ {
+     boost::shared_ptr <CCSContext> context (ccsMockContextNew (),
+@@ -1546,7 +1546,8 @@
+ 
+     ccsGSettingsBackendUpdateProfileDefault (backend.get (), context.get ());
+ }
+-
++#endif
++#if 0
+ TEST_F (CCSGSettingsTestIndependent, TestUpdateProfileDefaultImplNullProfile)
+ {
+     boost::shared_ptr <CCSContext> context (ccsMockContextNew (),
+@@ -1565,7 +1566,8 @@
+ 
+     ccsGSettingsBackendUpdateProfileDefault (backend.get (), context.get ());
+ }
+-
++#endif
++#if 0
+ TEST_F (CCSGSettingsTestIndependent, TestUpdateProfileDefaultImplEmptyStringProfile)
+ {
+     boost::shared_ptr <CCSContext> context (ccsMockContextNew (),
+@@ -1584,7 +1586,7 @@
+ 
+     ccsGSettingsBackendUpdateProfileDefault (backend.get (), context.get ());
+ }
+-
++#endif
+ class CCSGSettingsUpdateHandlersTest :
+     public CCSGSettingsTestIndependent
+ {
