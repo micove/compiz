@@ -1,3 +1,4 @@
+000_up_to_bzr3917.patch
 001_ubuntu-config_adapted_to_debian.patch
 002_workaround_virtualbox_hang.patch
 003_ccsm_remove_redundant_sliders.patch
@@ -6,4 +7,3 @@
 100_fix_pc_files.patch
 101_ring_requires_text.patch
 102_disable_edgeflip_move.patch
-103_libdir_gsettings.patch

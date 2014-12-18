@@ -9,8 +9,8 @@ Description: Miscellaneous fixes and workarounds from Ubuntu.
 -			<default>any</default>
 +			<default>!(class=Polkit-gnome-authentication-agent-1)</default>
  			</option>
- 			<option type="bool" name="remember_vp_focus">
- 			<_short>Remember Focus</_short>
+ 		</group>
+ 		<group>
 --- a/plugins/fade/fade.xml.in
 +++ b/plugins/fade/fade.xml.in
 @@ -10,6 +10,7 @@

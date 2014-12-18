@@ -3,7 +3,7 @@ Bug: https://bugs.launchpad.net/bugs/1127866
 
 --- a/plugins/opengl/include/opengl/opengl.h
 +++ b/plugins/opengl/include/opengl/opengl.h
-@@ -590,6 +590,17 @@
+@@ -654,6 +654,17 @@
  
  extern GLScreenPaintAttrib defaultScreenPaintAttrib;
  
@@ -21,7 +21,7 @@ Bug: https://bugs.launchpad.net/bugs/1127866
  class GLScreen;
  class GLFramebufferObject;
  class GLScreenInterface;
-@@ -787,6 +798,13 @@
+@@ -851,6 +862,13 @@
  
  	bool glInitContext (XVisualInfo *);
  
@@ -37,7 +37,7 @@ Bug: https://bugs.launchpad.net/bugs/1127866
  		      const CompRegion &, CompOutput *, unsigned int);
 --- a/plugins/opengl/src/privates.h
 +++ b/plugins/opengl/src/privates.h
-@@ -47,6 +47,24 @@
+@@ -48,6 +48,24 @@
  
  extern CompOutput *targetOutput;
  
@@ -62,7 +62,7 @@ Bug: https://bugs.launchpad.net/bugs/1127866
  class GLDoubleBuffer :
      public compiz::opengl::DoubleBuffer
  {
-@@ -141,6 +159,7 @@
+@@ -142,6 +160,7 @@
      public ScreenInterface,
      public CompositeScreenInterface,
      public compiz::composite::PaintHandler,
@@ -70,7 +70,7 @@ Bug: https://bugs.launchpad.net/bugs/1127866
      public OpenglOptions
  {
      public:
-@@ -232,6 +251,7 @@
+@@ -239,6 +258,7 @@
  	std::vector<GLTexture::BindPixmapProc> bindPixmap;
  	bool hasCompositing;
  	bool commonFrontbuffer;
@@ -78,10 +78,10 @@ Bug: https://bugs.launchpad.net/bugs/1127866
  	bool incorrectRefreshRate; // hack for NVIDIA specifying an incorrect
  				   // refresh rate, causing us to miss vblanks
  
-@@ -253,6 +273,10 @@
- 	bool postprocessingRequired;
- 	mutable CompString prevRegex;
- 	mutable bool       prevBlacklisted;
+@@ -266,6 +286,10 @@
+ 	std::vector<XToGLSync*>::size_type currentSyncNum;
+ 	XToGLSync *currentSync;
+ 	std::vector<XToGLSync*>::size_type warmupSyncs;
 +
 +    private:
 +
@@ -97,9 +97,9 @@ Bug: https://bugs.launchpad.net/bugs/1127866
  using namespace compiz::opengl;
 +namespace cglint = compiz::opengl::internal;
  
- namespace GL {
-     #ifdef USE_GLES
-@@ -537,6 +538,18 @@
+ /**
+  * The number of X11 sync objects to create.
+@@ -558,6 +559,18 @@
  };
  
  bool
@@ -118,7 +118,7 @@ Bug: https://bugs.launchpad.net/bugs/1127866
  GLScreen::glInitContext (XVisualInfo *visinfo)
  {
  #ifndef USE_GLES
-@@ -855,6 +868,7 @@
+@@ -876,6 +889,7 @@
  
      priv->commonFrontbuffer = true;
      priv->incorrectRefreshRate = false;
@@ -126,7 +126,7 @@ Bug: https://bugs.launchpad.net/bugs/1127866
      if (glRenderer != NULL && strstr (glRenderer, "on llvmpipe"))
      {
  	/*
-@@ -875,6 +889,18 @@
+@@ -896,6 +910,18 @@
  	priv->incorrectRefreshRate = true;
      }
  

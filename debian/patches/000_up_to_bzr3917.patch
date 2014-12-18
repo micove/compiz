@@ -1,0 +1,1554 @@
+Description: Update from bzr3903 to bzr3917.
+Author: Miguel A. Colón Vélez <debian.micove@gmail.com>
+Forwarded: not-needed
+Last-Update: 2014-12-18
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -8,6 +8,7 @@
+ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${COMPIZ_CMAKE_MODULE_PATH})
+ 
+ include (CTest)
++include (GNUInstallDirs)
+ 
+ set (MEMORYCHECK_COMMAND_OPTIONS --trace-children=yes)
+ set (MEMORYCHECK_SUPPRESSIONS_FILE ${CMAKE_SOURCE_DIR}/tests/experimental-memcheck/compiz.supp CACHE FILEPATH "" FORCE)
+@@ -64,15 +65,15 @@
+ if (COMPIZ_PACKAGING_ENABLED)
+     set (prefix ${CMAKE_INSTALL_PREFIX}                   CACHE PATH "prefix")
+     set (exec_prefix ${CMAKE_INSTALL_PREFIX}/bin          CACHE PATH "bindir")
+-    set (libdir ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}  CACHE PATH "libdir")
+-    set (includedir ${CMAKE_INSTALL_PREFIX}/include       CACHE PATH "includedir")
+-    set (datadir ${CMAKE_INSTALL_PREFIX}/share            CACHE PATH "datadir")
++    set (libdir ${CMAKE_INSTALL_FULL_LIBDIR}              CACHE PATH "libdir")
++    set (includedir ${CMAKE_INSTALL_FULL_INCLUDEDIR}      CACHE PATH "includedir")
++    set (datadir ${CMAKE_INSTALL_FULL_DATAROOTDIR}        CACHE PATH "datadir")
+ else (COMPIZ_PACKAGING_ENABLED)
+     set (prefix ${CMAKE_INSTALL_PREFIX}                 )
+     set (exec_prefix ${CMAKE_INSTALL_PREFIX}/bin        )
+-    set (libdir ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+-    set (includedir ${CMAKE_INSTALL_PREFIX}/include     )
+-    set (datadir ${CMAKE_INSTALL_PREFIX}/share          )
++    set (libdir ${CMAKE_INSTALL_FULL_LIBDIR}            )
++    set (includedir ${CMAKE_INSTALL_FULL_INCLUDEDIR}    )
++    set (datadir ${CMAKE_INSTALL_FULL_DATAROOTDIR}      )
+ endif (COMPIZ_PACKAGING_ENABLED)
+ 
+ set (compiz_plugindir ${libdir}/compiz)
+@@ -114,7 +115,7 @@
+     "libstartup-notification-1.0 >= 0.7"
+ )
+ 
+-set (DECORATION_REQUIRES xrender)
++set (DECORATION_REQUIRES xrender>=0.9.3)
+ 
+ compiz_pkg_check_modules (COMPIZ REQUIRED ${COMPIZ_REQUIRES})
+ compiz_pkg_check_modules (LIBDECORATION REQUIRED ${DECORATION_REQUIRES})
+--- a/compizconfig/CMakeLists.txt
++++ b/compizconfig/CMakeLists.txt
+@@ -5,14 +5,14 @@
+ set (COMPIZCONFIG_LIBRARY_DIRS ${CMAKE_CURRENT_BINARY_DIR}/libcompizconfig)
+ 
+ if (COMPIZ_PACKAGING_ENABLED)
+-    set (libcompizconfig_libdir ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}         CACHE PATH "libdir")
+-    set (libcompizconfig_includedir ${CMAKE_INSTALL_PREFIX}/include/compizconfig CACHE PATH "includedir")
+-    set (libcompizconfig_prefix ${CMAKE_INSTALL_PREFIX}                          CACHE PATH "prefix")
+-    set (libcompizconfig_exec_prefix ${CMAKE_INSTALL_PREFIX}/bin                 CACHE PATH "bindir")
++    set (libcompizconfig_prefix ${CMAKE_INSTALL_PREFIX}                           CACHE PATH "prefix")
++    set (libcompizconfig_libdir ${CMAKE_INSTALL_FULL_LIBDIR}                      CACHE PATH "libdir")
++    set (libcompizconfig_includedir ${CMAKE_INSTALL_FULL_INCLUDEDIR}/compizconfig CACHE PATH "includedir")
++    set (libcompizconfig_exec_prefix ${CMAKE_INSTALL_PREFIX}/bin                  CACHE PATH "bindir")
+ else (COMPIZ_PACKAGING_ENABLED)
+-    set (libcompizconfig_libdir ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+-    set (libcompizconfig_includedir ${CMAKE_INSTALL_PREFIX}/include/compizconfig)
+     set (libcompizconfig_prefix ${CMAKE_INSTALL_PREFIX})
++    set (libcompizconfig_libdir ${CMAKE_INSTALL_FULL_LIBDIR})
++    set (libcompizconfig_includedir ${CMAKE_INSTALL_FULL_INCLUDEDIR}/compizconfig)
+     set (libcompizconfig_exec_prefix ${CMAKE_INSTALL_PREFIX}/bin)
+ endif (COMPIZ_PACKAGING_ENABLED)
+ 
+--- a/compizconfig/compizconfig-python/CMakeLists.txt
++++ b/compizconfig/compizconfig-python/CMakeLists.txt
+@@ -95,7 +95,7 @@
+     set (INSTALL_LAYOUT_DIR site-packages)
+ endif ($ENV{COMPIZ_DEB_BUILD})
+ 
+-set (PYTHON_MODULE_DIR ${libdir}/python${PY_VERSION}/${INSTALL_LAYOUT_DIR})
++set (PYTHON_MODULE_DIR ${CMAKE_INSTALL_PREFIX}/lib/python${PY_VERSION}/${INSTALL_LAYOUT_DIR})
+ 
+ install (TARGETS compizconfig_python_module
+ 	 DESTINATION ${PYTHON_MODULE_DIR})
+--- a/compizconfig/gsettings/gsettings_backend_shared/CMakeLists.txt
++++ b/compizconfig/gsettings/gsettings_backend_shared/CMakeLists.txt
+@@ -77,6 +77,6 @@
+                            ${GSETTINGS_UTIL_LIBRARIES})
+ 
+     install (TARGETS compizconfig_gsettings_backend
+-	     DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
++             DESTINATION ${libdir})
+ 
+ endif (GSETTINGS_UTIL_FOUND)
+--- a/compizconfig/libcompizconfig/src/compiz.cpp
++++ b/compizconfig/libcompizconfig/src/compiz.cpp
+@@ -35,7 +35,9 @@
+ #include <dirent.h>
+ #include <sys/stat.h>
+ #include <errno.h>
++#include <fcntl.h>
+ #include <glib.h>
++#include <unistd.h>
+ 
+ #include <libxslt/transform.h>
+ #include <libxslt/xsltutils.h>
+@@ -1973,7 +1975,7 @@
+ 	Bool success = ccsCreateDirFor (metadataCacheFileDummy.c_str ());
+ 	if (!success)
+ 	    ccsError ("Error creating directory \"%s\"",
+-		     metadataCacheDir.c_str ());
++		      metadataCacheDir.c_str ());
+ 	free (cacheBaseDir);
+ 
+ 	if (success)
+@@ -2899,16 +2901,24 @@
+ #endif
+ 
+     // Load from .xml
+-    FILE *fp = fopen (xmlFilePath, "r");
++    int fd = open (xmlFilePath, O_RDONLY);
+ #ifdef USE_PROTOBUF
+     Bool xmlLoaded = FALSE;
+ #endif
+ 
+-    if (fp)
++    if (-1 == fd)
+     {
+-	fclose (fp);
+-	xmlDoc *doc = xmlReadFile (xmlFilePath, NULL, 0);
+-	if (doc)
++	ccsError ("error %d opening %s: %s",
++	          errno, xmlFilePath, strerror(errno));
++    }
++    else
++    {
++	xmlDoc *doc = xmlReadFd (fd, xmlFilePath, NULL, 0);
++	if (!doc)
++	{
++	    ccsError ("error parsing %s", xmlFilePath);
++	}
++	else
+ 	{
+ #ifdef USE_PROTOBUF
+ 	    xmlLoaded =
+@@ -2917,6 +2927,7 @@
+ 					   pluginInfoPBv);
+ 	    xmlFreeDoc (doc);
+ 	}
++	close (fd);
+     }
+     free (xmlFilePath);
+ 
+@@ -3163,30 +3174,41 @@
+ {
+     CCSPluginPrivate *pPrivate = GET_PRIVATE (CCSPluginPrivate, plugin);
+ 
+-    xmlDoc *doc = NULL;
+-    xmlNode **nodes;
+-    int num;
+-
+-    if (stat (pPrivate->xmlFile, xmlStat))
++    int fd = open (pPrivate->xmlFile, O_RDONLY);
++    if (-1 == fd)
++    {
++	ccsError ("error %d opening %s: %s",
++	          errno, pPrivate->xmlFile, strerror(errno));
+ 	return;
++    }
+ 
+-    FILE *fp = fopen (pPrivate->xmlFile, "r");
+-    if (!fp)
++    if (-1 == fstat (fd, xmlStat))
++    {
++	ccsError ("error %d statting %s: %s",
++	          errno, pPrivate->xmlFile, strerror(errno));
++	close (fd);
+ 	return;
++    }
+ 
+-    fclose (fp);
+-    doc = xmlReadFile (pPrivate->xmlFile, NULL, 0);
+-
+-    nodes = getNodesFromXPath (doc, NULL, pPrivate->xmlPath, &num);
+-    if (num)
++    xmlDoc *doc = xmlReadFd (fd, pPrivate->xmlFile, NULL, 0);
++    if (!doc)
+     {
+-	initOptionsFromRootNode (plugin, nodes[0], pluginPBv);
+-	if (!basicMetadata)
+-	    initStringExtensionsFromRootNode (plugin, nodes[0], pluginPBv);
+-	free (nodes);
++	ccsError ("error parsing %s", pPrivate->xmlFile);
+     }
+-    if (doc)
++    else
++    {
++	int num = 0;
++	xmlNode **nodes = getNodesFromXPath (doc, NULL, pPrivate->xmlPath, &num);
++	if (num)
++	{
++	    initOptionsFromRootNode (plugin, nodes[0], pluginPBv);
++	    if (!basicMetadata)
++		initStringExtensionsFromRootNode (plugin, nodes[0], pluginPBv);
++	    free (nodes);
++	}
+ 	xmlFreeDoc (doc);
++    }
++    close (fd);
+ }
+ 
+ void
+--- a/gtk/CMakeLists.txt
++++ b/gtk/CMakeLists.txt
+@@ -26,9 +26,11 @@
+ 
+         if (USE_METACITY)
+             pkg_check_modules (METACITY libmetacity-private>=3.12.0)
+-            if (NOT METACITY_FOUND)
++            if (METACITY_FOUND)
++                compiz_pkg_check_modules (HAVE_METACITY_3_14_0 libmetacity-private>=3.14.0)
++            else (METACITY_FOUND)
+                 compiz_set (USE_METACITY 0)
+-            endif (NOT METACITY_FOUND)
++            endif (METACITY_FOUND)
+         endif (USE_METACITY)
+ 
+ 	if (USE_GNOME)
+--- a/gtk/config.h.gtk.in
++++ b/gtk/config.h.gtk.in
+@@ -1,4 +1,7 @@
+ /* Define to 1 if Metacity support is enabled */
+ #cmakedefine USE_METACITY 1
+ 
++/* Define to 1 if metacity version >= 3.14.0 */
++#cmakedefine HAVE_METACITY_3_14_0 1
++
+ #define GETTEXT_PACKAGE "${GETTEXT_PACKAGE}"
+--- a/gtk/window-decorator/metacity.c
++++ b/gtk/window-decorator/metacity.c
+@@ -451,6 +451,9 @@
+ 			      MetaFrameType	frame_type,
+ 			      GdkRectangle      *clip)
+ {
++#ifdef HAVE_METACITY_3_14_0
++    MetaFrameBorders borders;
++#endif
+     gint left_width, right_width, top_height, bottom_height;
+ 
+     if (!(frame_type < META_FRAME_TYPE_LAST))
+@@ -525,6 +528,17 @@
+     if (d->state & WNCK_WINDOW_STATE_ABOVE)
+ 	*flags |= (MetaFrameFlags ) META_FRAME_ABOVE;
+ 
++#ifdef HAVE_METACITY_3_14_0
++    meta_theme_get_frame_borders (theme,
++				  frame_type,
++				  d->frame->text_height,
++				  *flags,
++				  &borders);
++    top_height = borders.visible.top;
++    bottom_height = borders.visible.bottom;
++    left_width = borders.visible.left;
++    right_width = borders.visible.right;
++#else
+     meta_theme_get_frame_borders (theme,
+ 				  frame_type,
+ 				  d->frame->text_height,
+@@ -533,6 +547,7 @@
+ 				  &bottom_height,
+ 				  &left_width,
+ 				  &right_width);
++#endif
+ 
+     clip->x = d->context->left_space - left_width;
+     clip->y = d->context->top_space - top_height;
+@@ -1552,6 +1567,9 @@
+ meta_update_border_extents (decor_frame_t *frame)
+ {
+     MetaTheme *theme = meta_theme_get_current ();
++#ifdef HAVE_METACITY_3_14_0
++    MetaFrameBorders borders;
++#endif
+ 
+     gwd_decor_frame_ref (frame);
+     MetaFrameType frame_type = meta_frame_type_from_string (frame->type);
+@@ -1560,6 +1578,17 @@
+     if (!(frame_type < META_FRAME_TYPE_LAST))
+ 	frame_type = META_FRAME_TYPE_NORMAL;
+ 
++#ifdef HAVE_METACITY_3_14_0
++    meta_theme_get_frame_borders (theme,
++				  frame_type,
++				  frame->text_height,
++				  0,
++				  &borders);
++    top_height = borders.visible.top;
++    bottom_height = borders.visible.bottom;
++    left_width = borders.visible.left;
++    right_width = borders.visible.right;
++#else
+     meta_theme_get_frame_borders (theme,
+ 				  frame_type,
+ 				  frame->text_height,
+@@ -1568,6 +1597,7 @@
+ 				  &bottom_height,
+ 				  &left_width,
+ 				  &right_width);
++#endif
+ 
+     frame->win_extents.top    = frame->win_extents.top;
+     frame->win_extents.bottom = bottom_height;
+@@ -1576,6 +1606,17 @@
+ 
+     frame->titlebar_height = top_height - frame->win_extents.top;
+ 
++#ifdef HAVE_METACITY_3_14_0
++    meta_theme_get_frame_borders (theme,
++				  frame_type,
++				  frame->text_height,
++				  META_FRAME_MAXIMIZED,
++				  &borders);
++    top_height = borders.visible.top;
++    bottom_height = borders.visible.bottom;
++    left_width = borders.visible.left;
++    right_width = borders.visible.right;
++#else
+     meta_theme_get_frame_borders (theme,
+ 				  frame_type,
+ 				  frame->text_height,
+@@ -1584,6 +1625,7 @@
+ 				  &bottom_height,
+ 				  &left_width,
+ 				  &right_width);
++#endif
+ 
+     frame->max_win_extents.top    = frame->win_extents.top;
+     frame->max_win_extents.bottom = bottom_height;
+--- a/libdecoration/CMakeLists.txt
++++ b/libdecoration/CMakeLists.txt
+@@ -1,5 +1,3 @@
+-compiz_pkg_check_modules (HAVE_XRENDER_0_9_3 xrender>=0.9.3)
+-
+ configure_file (
+     ${CMAKE_CURRENT_SOURCE_DIR}/config.h.libdecoration.in
+     ${CMAKE_CURRENT_BINARY_DIR}/config.h
+@@ -17,7 +15,7 @@
+ )
+ 
+ link_directories (
+-    ${LIBDECORATION_LINK_DIRS}
++    ${LIBDECORATION_LIBRARY_DIRS}
+ )
+ 
+ add_library (decoration SHARED
+--- a/metadata/core.xml.in
++++ b/metadata/core.xml.in
+@@ -141,11 +141,6 @@
+ 			<_long>Focus prevention windows</_long>
+ 			<default>any</default>
+ 			</option>
+-			<option type="bool" name="remember_vp_focus">
+-			<_short>Remember Focus</_short>
+-			<_long>Remember Focus Per Workspace</_long>
+-			<default>true</default>
+-			</option>
+ 		</group>
+ 		<group>
+ 		<_short>Key bindings</_short>
+--- a/plugins/animation/src/dodge.cpp
++++ b/plugins/animation/src/dodge.cpp
+@@ -232,6 +232,9 @@
+ 	DodgeAnim *animDodger =
+ 	    dynamic_cast<DodgeAnim *> (adw->curAnimation ());
+ 
++	if (!animDodger)
++	    continue;
++
+ 	if (!(animDodger->mTransformProgress > 0.5f))
+ 	    break;
+     }
+@@ -456,6 +459,8 @@
+ 		if (curAnim && curAnim->info () == AnimEffectDodge)
+ 		{
+ 		    DodgeAnim *animDodger = dynamic_cast<DodgeAnim *> (curAnim);
++		    if (!animDodger)
++			continue;
+ 
+ 		    if (animDodger->mDodgeSubjectWin == mWindow)
+ 			animDodger->mDodgeSubjectWin = NULL;
+@@ -604,6 +609,8 @@
+ 	}
+ 
+ 	DodgeAnim *animDodger = dynamic_cast<DodgeAnim *> (adw->curAnimation ());
++	if (!animDodger)
++	    continue;
+ 
+ 	animDodger->mDodgeSubjectWin = mWindow;
+ 
+@@ -823,6 +830,8 @@
+ 		continue;
+ 
+ 	    DodgeAnim *dodgeAnim = dynamic_cast<DodgeAnim *> (curAnim);
++	    if (!dodgeAnim)
++		continue;
+ 
+ 	    dodgeAnim->mDodgeMaxAmountX = dodgeAmountX + offsetX;
+ 	    dodgeAnim->mDodgeMaxAmountY = dodgeAmountY + offsetY;
+--- a/plugins/opengl/include/opengl/opengl.h
++++ b/plugins/opengl/include/opengl/opengl.h
+@@ -36,7 +36,9 @@
+ #include <EGL/eglext.h>
+ #else
+ #include <GL/gl.h>
++#include <GL/glext.h>
+ #include <GL/glx.h>
++#include <inttypes.h>
+ 
+ /* Some implementations have not yet given a definition
+  * to GLX_BACK_BUFFER_AGE_EXT but this is the token as defined
+@@ -117,6 +119,39 @@
+ #define GLX_FRONT_LEFT_EXT                 0x20DE
+ #endif
+ 
++#ifndef GL_ARB_sync
++# ifndef GL_ES_VERSION_2_0
++typedef struct __GLsync *GLsync;
++typedef int64_t GLint64;
++typedef uint64_t GLuint64;
++typedef intptr_t GLintptr;
++# endif
++
++# ifdef GL_APPLE_sync
++#  define GL_TIMEOUT_IGNORED               GL_TIMEOUT_IGNORED_APPLE
++#  define GL_ALREADY_SIGNALED              GL_ALREADY_SIGNALED_APPLE
++#  define GL_TIMEOUT_EXPIRED               GL_TIMEOUT_EXPIRED_APPLE
++#  define GL_CONDITION_SATISFIED           GL_CONDITION_SATISFIED_APPLE
++#  define GL_WAIT_FAILED                   GL_WAIT_FAILED_APPLE
++#  define GL_SYNC_GPU_COMMANDS_COMPLETE    GL_SYNC_GPU_COMMANDS_COMPLETE_APPLE
++#  define GL_SYNC_STATUS                   GL_SYNC_STATUS _APPLE
++#  define GL_SIGNALED                      GL_SIGNALED_APPLE
++# else
++#  define GL_TIMEOUT_IGNORED               0xFFFFFFFFFFFFFFFFull
++#  define GL_ALREADY_SIGNALED              0x911A
++#  define GL_TIMEOUT_EXPIRED               0x911B
++#  define GL_CONDITION_SATISFIED           0x911C
++#  define GL_WAIT_FAILED                   0x911D
++#  define GL_SYNC_GPU_COMMANDS_COMPLETE    0x9117
++#  define GL_SYNC_STATUS                   0x9114
++#  define GL_SIGNALED                      0x9119
++# endif
++#endif
++
++#ifndef GL_EXT_x11_sync_object
++#define GL_SYNC_X11_FENCE_EXT              0x90E1
++#endif
++
+ namespace GL {
+     #ifdef USE_GLES
+     typedef EGLImageKHR (*EGLCreateImageKHRProc)  (EGLDisplay dpy,
+@@ -320,6 +355,24 @@
+ 					   GLsizei width,
+ 					   GLsizei height);
+ 
++    typedef GLsync (*GLFenceSyncProc) (GLenum condition, GLbitfield flags);
++    typedef void (*GLDeleteSyncProc) (GLsync sync);
++    typedef GLenum (*GLClientWaitSyncProc) (GLsync sync,
++					GLbitfield flags,
++					GLuint64 timeout);
++    typedef void (*GLWaitSyncProc) (GLsync sync,
++				GLbitfield flags,
++				GLuint64 timeout);
++    typedef void (*GLGetSyncivProc) (GLsync sync,
++				 GLenum pname,
++				 GLsizei bufSize,
++				 GLsizei *length,
++				 GLint *values);
++
++    typedef GLsync (*GLImportSyncProc) (GLenum external_sync_type,
++				    GLintptr external_sync,
++				    GLbitfield flags);
++
+ 
+     /* GL_ARB_shader_objects */
+     #ifndef USE_GLES
+@@ -519,6 +572,14 @@
+ 
+ #endif
+ 
++    extern GLFenceSyncProc      fenceSync;
++    extern GLDeleteSyncProc     deleteSync;
++    extern GLClientWaitSyncProc clientWaitSync;
++    extern GLWaitSyncProc       waitSync;
++    extern GLGetSyncivProc      getSynciv;
++
++    extern GLImportSyncProc importSync;
++
+     extern bool  textureFromPixmap;
+     extern bool  textureRectangle;
+     extern bool  textureNonPowerOfTwo;
+@@ -538,6 +599,9 @@
+     extern GLint maxTextureUnits;
+     extern bool  bufferAge;
+ 
++    extern bool  sync;
++    extern bool  xToGLSync;
++
+     extern bool canDoSaturated;
+     extern bool canDoSlightlySaturated;
+ 
+--- /dev/null
++++ b/plugins/opengl/include/opengl/xtoglsync.h
+@@ -0,0 +1,99 @@
++/*
++ * Copyright © 2011 NVIDIA Corporation
++ *
++ * Permission to use, copy, modify, distribute, and sell this software
++ * and its documentation for any purpose is hereby granted without
++ * fee, provided that the above copyright notice appear in all copies
++ * and that both that copyright notice and this permission notice
++ * appear in supporting documentation, and that the name of
++ * NVIDIA Corporation not be used in advertising or publicity pertaining to
++ * distribution of the software without specific, written prior permission.
++ * NVIDIA Corporation makes no representations about the suitability of this
++ * software for any purpose. It is provided "as is" without express or
++ * implied warranty.
++ *
++ * NVIDIA CORPORATION DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
++ * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN
++ * NO EVENT SHALL NVIDIA CORPORATION BE LIABLE FOR ANY SPECIAL, INDIRECT OR
++ * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
++ * OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
++ * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
++ * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ *
++ * Authors: James Jones <jajones@nvidia.com>
++ */
++
++#ifndef _GLXTOGLSYNC_H
++#define _GLXTOGLSYNC_H
++
++#include <composite/composite.h>
++#include <opengl/opengl.h>
++#include <X11/extensions/sync.h>
++
++#include "opengl/opengl.h"
++
++/**
++ * Class that manages an XFenceSync wrapped in a GLsync object.
++ *
++ * Can be used to synchronize operations in the GL command stream
++ * with operations in the X command stream.
++ */
++class XToGLSync {
++    public:
++	XToGLSync ();
++	~XToGLSync ();
++
++	XSyncAlarm alarm (void) const { return a; }
++	bool isReady (void) const { return state == XTOGLS_READY; }
++
++	/**
++	 * Sends the trigger request to the server. The fence will be signaled
++	 * after all rendering has completed.
++	 */
++	void trigger (void);
++
++	/**
++	 * Calls glWaitSync. Any OpenGL commands after this will wait for the
++	 * fence to be signaled.
++	 */
++	void insertWait (void);
++
++	/**
++	 * Blocks until the fence is signaled, or until a timeout expires.
++	 *
++	 * \param The maximum time to wait, in nanoseconds.
++	 * \return One of \c GL_ALREADY_SIGNALED, \c GL_CONDITION_SATISFIED,
++	 *	\c GL_TIMEOUT_EXPIRED, or \c GL_WAIT_FAILED.
++	 */
++	GLenum checkUpdateFinished (GLuint64 timeout);
++
++	/**
++	 * Resets the fence.
++	 */
++	void reset (void);
++	void handleEvent (XSyncAlarmNotifyEvent *ev);
++
++    private:
++	XSyncFence f;
++	GLsync fGL;
++
++	XSyncCounter c;
++	XSyncAlarm a;
++	XSyncValue nextCounterValue;
++
++	enum {
++	    XTOGLS_READY,
++	    XTOGLS_TRIGGER_SENT,
++	    XTOGLS_WAITING,
++	    XTOGLS_DONE,
++	    XTOGLS_RESET_PENDING,
++	} state;
++
++	static bool syncValuesInitialized;
++	static XSyncValue zero;
++	static XSyncValue one;
++
++	static Bool alarmEventPredicate (Display *dpy, XEvent *ev, XPointer arg);
++};
++
++#endif
+--- a/plugins/opengl/opengl.xml.in
++++ b/plugins/opengl/opengl.xml.in
+@@ -59,6 +59,11 @@
+ 		<_long>Use glXSwapBuffers to display every frame. This eliminates visible tearing with most drivers and dramatically improves visual smoothness. Automatically enabled when framebuffer_object is on.</_long>
+ 		<default>true</default>
+ 	    </option>
++	    <option name="enable_x11_sync" type="bool">
++		<_short>X11 Sync objects</_short>
++		<_long>Use X11 Sync fences to synchronize rendering between X11 and OpenGL (GL_EXT_x11_sync_object). Without this, the contents of windows may not be completely redrawn.</_long>
++		<default>true</default>
++	    </option>
+ 	    <option name="unredirect_driver_blacklist" type="string">
+ 		<_short>Unredirect Driver Blacklist</_short>
+ 		<_long>If non-empty, specifies a POSIX (extended) regular expression to match against the OpenGL driver strings (newline separated): "GL_VENDOR\nGL_RENDERER\nGL_VERSION". If the regular expression matches a substring of that concatenation then no windows will ever be unredirected while using that particular graphics driver.</_long>
+--- a/plugins/opengl/src/privates.h
++++ b/plugins/opengl/src/privates.h
+@@ -35,6 +35,7 @@
+ 
+ #include <composite/composite.h>
+ #include <opengl/opengl.h>
++#include <opengl/xtoglsync.h>
+ #include <core/atoms.h>
+ #include <core/configurerequestbuffer.h>
+ 
+@@ -184,6 +185,12 @@
+ 
+ 	void updateView ();
+ 
++	bool syncObjectsInitialized () const;
++	bool syncObjectsEnabled ();
++	void initXToGLSyncs ();
++	void destroyXToGLSyncs ();
++	void updateXToGLSyncs ();
++
+ 	bool driverIsBlacklisted (const char *regex) const;
+ 
+ 	bool postprocessRequiredForCurrentFrame ();
+@@ -253,6 +260,12 @@
+ 	bool postprocessingRequired;
+ 	mutable CompString prevRegex;
+ 	mutable bool       prevBlacklisted;
++
++	std::vector<XToGLSync*> xToGLSyncs;
++	std::map<XSyncAlarm, XToGLSync*> alarmToSync;
++	std::vector<XToGLSync*>::size_type currentSyncNum;
++	XToGLSync *currentSync;
++	std::vector<XToGLSync*>::size_type warmupSyncs;
+ };
+ 
+ class PrivateGLWindow :
+--- a/plugins/opengl/src/screen.cpp
++++ b/plugins/opengl/src/screen.cpp
+@@ -68,6 +68,16 @@
+ 
+ using namespace compiz::opengl;
+ 
++/**
++ * The number of X11 sync objects to create.
++ */
++static const size_t NUM_X11_SYNCS = 16;
++
++/**
++ * The maximum time to wait for a sync object, in nanoseconds.
++ */
++static const GLuint64 MAX_SYNC_WAIT_TIME = 1000000000ull; // One second
++
+ namespace GL {
+     #ifdef USE_GLES
+     EGLCreateImageKHRProc  createImage;
+@@ -170,6 +180,14 @@
+     GLBindRenderbufferProc bindRenderbuffer = NULL;
+     GLRenderbufferStorageProc renderbufferStorage = NULL;
+ 
++    GLFenceSyncProc      fenceSync = NULL;
++    GLDeleteSyncProc     deleteSync = NULL;
++    GLClientWaitSyncProc clientWaitSync = NULL;
++    GLWaitSyncProc       waitSync = NULL;
++    GLGetSyncivProc      getSynciv = NULL;
++
++    GLImportSyncProc importSync = NULL;
++
+     bool  textureFromPixmap = true;
+     bool  textureRectangle = false;
+     bool  textureNonPowerOfTwo = false;
+@@ -188,6 +206,9 @@
+     GLint maxTextureUnits = 1;
+     bool  bufferAge = false;
+ 
++    bool sync = false;
++    bool xToGLSync = false;
++
+     bool canDoSaturated = false;
+     bool canDoSlightlySaturated = false;
+ 
+@@ -1054,6 +1075,36 @@
+     if (strstr (glExtensions, "GL_ARB_texture_compression"))
+ 	GL::textureCompression = true;
+ 
++    if (strstr (glExtensions, "GL_ARB_sync"))
++    {
++	GL::fenceSync = (GL::GLFenceSyncProc)
++	    getProcAddress ("glFenceSync");
++	GL::deleteSync = (GL::GLDeleteSyncProc)
++	    getProcAddress ("glDeleteSync");
++	GL::clientWaitSync = (GL::GLClientWaitSyncProc)
++	    getProcAddress ("glClientWaitSync");
++	GL::waitSync = (GL::GLWaitSyncProc)
++	    getProcAddress ("glWaitSync");
++	GL::getSynciv = (GL::GLGetSyncivProc)
++	    getProcAddress ("glGetSynciv");
++
++	if (GL::fenceSync      &&
++	    GL::deleteSync     &&
++	    GL::clientWaitSync &&
++	    GL::waitSync       &&
++	    GL::getSynciv)
++	    GL::sync = true;
++    }
++
++    if (strstr (glExtensions, "GL_EXT_x11_sync_object"))
++    {
++	GL::importSync = (GL::GLImportSyncProc)
++	    getProcAddress ("glImportSyncEXT");
++
++	if (GL::importSync)
++	    GL::xToGLSync = true;
++    }
++
+     glClearColor (0.0, 0.0, 0.0, 1.0);
+     glBlendFunc (GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+     glEnable (GL_CULL_FACE);
+@@ -1257,6 +1308,8 @@
+ 	    getProcAddress ("glXSwapIntervalSGI");
+     }
+ 
++    priv->initXToGLSyncs ();
++
+     fbConfigs = (*GL::getFBConfigs) (dpy, s->screenNum (), &nElements);
+ 
+     GL::stencilBuffer = false;
+@@ -1411,6 +1464,9 @@
+ 
+ GLScreen::~GLScreen ()
+ {
++    // Must occur before context is destroyed.
++    priv->destroyXToGLSyncs ();
++
+     if (priv->hasCompositing)
+ 	CompositeScreen::get (screen)->unregisterPaintHandler ();
+ 
+@@ -1471,7 +1527,10 @@
+     glVersion (NULL),
+     postprocessingRequired (false),
+     prevRegex (),
+-    prevBlacklisted (false)
++    prevBlacklisted (false),
++    currentSyncNum (0),
++    currentSync (0),
++    warmupSyncs (0)
+ {
+     ScreenInterface::setHandler (screen);
+     CompositeScreenInterface::setHandler (cScreen);
+@@ -1563,6 +1622,16 @@
+ 		 * be recopying the root window pixmap all the time
+ 		 * which is no good, so don't do that */
+ 	    }
++	    else if (event->type == screen->syncEvent () + XSyncAlarmNotify)
++	    {
++		XSyncAlarmNotifyEvent *ae =
++		    reinterpret_cast<XSyncAlarmNotifyEvent*>(event);
++		std::map<XSyncAlarm, XToGLSync*>::iterator it =
++		    alarmToSync.find (ae->alarm);
++
++		if (it != alarmToSync.end ())
++		    it->second->handleEvent (ae);
++	    }
+ 	    break;
+     }
+ }
+@@ -2026,6 +2095,101 @@
+ {
+ }
+ 
++bool
++PrivateGLScreen::syncObjectsInitialized () const
++{
++    return !xToGLSyncs.empty ();
++}
++
++bool
++PrivateGLScreen::syncObjectsEnabled ()
++{
++    return GL::sync && GL::xToGLSync && optionGetEnableX11Sync ();
++}
++
++void
++PrivateGLScreen::initXToGLSyncs ()
++{
++    assert (!syncObjectsInitialized ());
++    assert (xToGLSyncs.empty ());
++    assert (alarmToSync.empty ());
++
++    if (syncObjectsEnabled () && !syncObjectsInitialized ())
++    {
++	xToGLSyncs.resize (NUM_X11_SYNCS, NULL);
++
++	foreach (XToGLSync*& sync, xToGLSyncs)
++	{
++	    sync = new XToGLSync ();
++	    alarmToSync[sync->alarm ()] = sync;
++	}
++
++	currentSyncNum = 0;
++	currentSync = xToGLSyncs[0];
++	warmupSyncs = 0;
++    }
++}
++
++void
++PrivateGLScreen::destroyXToGLSyncs ()
++{
++    if (syncObjectsInitialized ())
++    {
++	foreach (XToGLSync* sync, xToGLSyncs)
++	    delete sync;
++	xToGLSyncs.resize (0);
++    }
++    alarmToSync.clear ();
++    currentSyncNum = 0;
++    currentSync = NULL;
++    warmupSyncs = 0;
++}
++
++void
++PrivateGLScreen::updateXToGLSyncs ()
++{
++    const std::vector<XToGLSync*>::size_type numSyncs = xToGLSyncs.size ();
++
++    if (numSyncs)
++    {
++	if (warmupSyncs >= numSyncs / 2)
++	{
++	    const std::vector<XToGLSync*>::size_type resetSyncIdx =
++		(currentSyncNum + (numSyncs / 2)) % numSyncs;
++
++	    XToGLSync* syncToReset = xToGLSyncs[resetSyncIdx];
++
++	    GLenum status = syncToReset->checkUpdateFinished (0);
++	    if (status == GL_TIMEOUT_EXPIRED)
++	    {
++		status = syncToReset->checkUpdateFinished (MAX_SYNC_WAIT_TIME);
++	    }
++
++	    if (status != GL_ALREADY_SIGNALED && status != GL_CONDITION_SATISFIED)
++	    {
++		// This should never happen. If there was an error somewhere,
++		// then we don't want to risk a hang here, so just destroy the
++		// sync objects. We'll recreate them again in the next call to
++		// prepareDrawing.
++		compLogMessage ("opengl", CompLogLevelError, "Timed out waiting for sync object.");
++		destroyXToGLSyncs ();
++		return;
++	    }
++
++	    syncToReset->reset ();
++	}
++	else
++	{
++	    warmupSyncs++;
++	}
++
++	currentSyncNum++;
++	currentSyncNum %= numSyncs;
++
++	currentSync = xToGLSyncs[currentSyncNum];
++    }
++}
++
+ #ifndef USE_GLES
+ 
+ void
+@@ -2199,6 +2363,9 @@
+ 	    glClear (GL_COLOR_BUFFER_BIT);
+     }
+ 
++    if (currentSync)
++	currentSync->insertWait ();
++
+     // Disable everything that we don't usually need and could slow us down
+     glDisable (GL_BLEND);
+     glDisable (GL_STENCIL_TEST);
+@@ -2352,6 +2519,8 @@
+     doubleBuffer.render (paintRegion, fullscreen);
+ 
+     lastMask = mask;
++
++    updateXToGLSyncs ();
+ }
+ 
+ unsigned int
+@@ -2448,6 +2617,55 @@
+ 	updateFrameProvider ();
+ 	CompositeScreen::get (screen)->damageScreen ();
+     }
++
++    // Check if the option to use sync objects has been enabled or disabled.
++    if (syncObjectsEnabled () && !syncObjectsInitialized ())
++    {
++	initXToGLSyncs ();
++    }
++    else if (!syncObjectsEnabled () && syncObjectsInitialized ())
++    {
++	destroyXToGLSyncs ();
++    }
++
++    if (currentSync)
++    {
++	if (!currentSync->isReady ())
++	{
++	    for (std::vector<XToGLSync*>::size_type i = xToGLSyncs.size () / 2; i > 0; i--)
++	    {
++		// try to check next sync
++		updateXToGLSyncs ();
++
++		// method updateXToGLSync may disable syncs
++		if (!currentSync)
++		    break;
++
++		if (currentSync->isReady ())
++		    break;
++	    }
++	}
++    }
++
++    if (currentSync)
++    {
++	if (!currentSync->isReady ())
++	{
++	    // If this happens, then we must have missed an event or update
++	    // somewhere. Destroy and recreate the sync objects to put us back
++	    // into a good state.
++	    destroyXToGLSyncs ();
++	    initXToGLSyncs ();
++	}
++    }
++
++    if (currentSync)
++    {
++	// Tell the server to trigger the fence object after all rendering has
++	// completed.
++	assert (currentSync->isReady ());
++	currentSync->trigger ();
++    }
+ }
+ 
+ bool
+--- /dev/null
++++ b/plugins/opengl/src/xtoglsync.cpp
+@@ -0,0 +1,194 @@
++/*
++ * Copyright © 2011 NVIDIA Corporation
++ *
++ * Permission to use, copy, modify, distribute, and sell this software
++ * and its documentation for any purpose is hereby granted without
++ * fee, provided that the above copyright notice appear in all copies
++ * and that both that copyright notice and this permission notice
++ * appear in supporting documentation, and that the name of
++ * NVIDIA Corporation not be used in advertising or publicity pertaining to
++ * distribution of the software without specific, written prior permission.
++ * NVIDIA Corporation makes no representations about the suitability of this
++ * software for any purpose. It is provided "as is" without express or
++ * implied warranty.
++ *
++ * NVIDIA CORPORATION DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
++ * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN
++ * NO EVENT SHALL NVIDIA CORPORATION BE LIABLE FOR ANY SPECIAL, INDIRECT OR
++ * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
++ * OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
++ * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
++ * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ *
++ * Authors: James Jones <jajones@nvidia.com>
++ */
++
++#include "opengl/xtoglsync.h"
++
++bool XToGLSync::syncValuesInitialized = false;
++XSyncValue XToGLSync::zero;
++XSyncValue XToGLSync::one;
++
++XToGLSync::XToGLSync () :
++    f (None),
++    fGL (NULL),
++    c (None),
++    a (None),
++    state (XToGLSync::XTOGLS_READY)
++{
++    Display *dpy = screen->dpy ();
++
++    f = XSyncCreateFence (dpy, DefaultRootWindow (dpy), False);
++    fGL = GL::importSync (GL_SYNC_X11_FENCE_EXT, f, 0);
++
++    if (!syncValuesInitialized)
++    {
++	XSyncIntToValue (&zero, 0);
++	XSyncIntToValue (&one, 1);
++	syncValuesInitialized = true;
++    }
++
++    XSyncIntToValue (&nextCounterValue, 1);
++    c = XSyncCreateCounter (dpy, zero);
++
++    XSyncAlarmAttributes alarmAttribs;
++    alarmAttribs.trigger.counter = c;
++    alarmAttribs.trigger.value_type = XSyncAbsolute;
++    alarmAttribs.trigger.wait_value = one;
++    alarmAttribs.trigger.test_type = XSyncPositiveTransition;
++    alarmAttribs.events = True;
++    a = XSyncCreateAlarm (dpy,
++			  XSyncCACounter |
++			  XSyncCAValueType |
++			  XSyncCAValue |
++			  XSyncCATestType |
++			  XSyncCAEvents,
++			  &alarmAttribs);
++
++}
++
++XToGLSync::~XToGLSync ()
++{
++    Display *dpy = screen->dpy ();
++
++    switch (state) {
++    case XTOGLS_WAITING:
++	break;
++
++    case XTOGLS_RESET_PENDING:
++	{
++	    XEvent ev;
++
++	    XIfEvent (dpy, &ev, &XToGLSync::alarmEventPredicate,
++		      reinterpret_cast<XPointer>(this));
++	    handleEvent(reinterpret_cast<XSyncAlarmNotifyEvent*>(&ev));
++	}
++	// Fall through.
++    case XTOGLS_READY:
++	XSyncTriggerFence (dpy, f);
++	XFlush (dpy);
++	break;
++
++    case XTOGLS_TRIGGER_SENT:
++    case XTOGLS_DONE:
++	// Nothing to do.
++	break;
++    }
++
++    GL::deleteSync (fGL);
++    XSyncDestroyFence (dpy, f);
++    XSyncDestroyCounter (dpy, c);
++    XSyncDestroyAlarm (dpy, a);
++}
++
++Bool XToGLSync::alarmEventPredicate (Display *dpy, XEvent *ev, XPointer arg)
++{
++    if (ev->type == screen->syncEvent () + XSyncAlarmNotify)
++    {
++	XToGLSync *sync = reinterpret_cast<XToGLSync*>(arg);
++	XSyncAlarmNotifyEvent *ae =
++	    reinterpret_cast<XSyncAlarmNotifyEvent*>(ev);
++
++	if (ae->alarm == sync->a)
++	    return True;
++    }
++
++    return False;
++}
++
++void XToGLSync::trigger (void)
++{
++    Display *dpy = screen->dpy ();
++    assert (state == XTOGLS_READY);
++
++    XSyncTriggerFence (dpy, f);
++    XFlush (dpy);
++
++    state = XTOGLS_TRIGGER_SENT;
++}
++
++void XToGLSync::insertWait (void)
++{
++    if (state != XTOGLS_TRIGGER_SENT)
++	return;
++
++    GL::waitSync (fGL, 0, GL_TIMEOUT_IGNORED);
++
++    state = XTOGLS_WAITING;
++}
++
++GLenum XToGLSync::checkUpdateFinished (GLuint64 timeout)
++{
++    GLenum status;
++
++    switch (state) {
++	case XTOGLS_DONE:
++	    return GL_ALREADY_SIGNALED;
++
++	case XTOGLS_WAITING:
++	    status = GL::clientWaitSync (fGL, 0, timeout);
++	    if (status == GL_ALREADY_SIGNALED || status == GL_CONDITION_SATISFIED)
++	    {
++		state = XTOGLS_DONE;
++	    }
++	    return status;
++
++	default:
++	    return GL_WAIT_FAILED;
++    }
++}
++
++void XToGLSync::reset (void)
++{
++    Display *dpy = screen->dpy ();
++    if (state != XTOGLS_DONE)
++    {
++	return;
++    }
++
++    XSyncResetFence (dpy, f);
++
++    XSyncAlarmAttributes values;
++    values.trigger.wait_value = nextCounterValue;
++    XSyncChangeAlarm (dpy, a, XSyncCAValue, &values);
++    XSyncSetCounter (dpy, c, nextCounterValue);
++
++    int overflow;
++    XSyncValueAdd (&nextCounterValue, nextCounterValue, one, &overflow);
++
++    state = XTOGLS_RESET_PENDING;
++}
++
++void XToGLSync::handleEvent (XSyncAlarmNotifyEvent* ae)
++{
++    if (ae->alarm == a)
++    {
++	if (state != XTOGLS_RESET_PENDING)
++	{
++	    return;
++	}
++
++	state = XTOGLS_READY;
++    }
++}
++
+--- a/plugins/switcher/src/switcher.cpp
++++ b/plugins/switcher/src/switcher.cpp
+@@ -534,9 +534,9 @@
+ 
+ 	allWindowsWidth = windows.size () * WIDTH;
+ 
+-	foreach (CompWindow *w, windows)
++	foreach (CompWindow *win, windows)
+ 	{
+-	    selectedWindow = w;
++	    selectedWindow = win;
+ 
+ 	    if (selectedWindow == selected)
+ 		break;
+--- a/src/plugin.cpp
++++ b/src/plugin.cpp
+@@ -1,5 +1,6 @@
+ /*
+  * Copyright © 2005 Novell, Inc.
++ * Copyright 2014 Canonical Ltd.
+  *
+  * Permission to use, copy, modify, distribute, and sell this software
+  * and its documentation for any purpose is hereby granted without
+@@ -412,53 +413,59 @@
+     delete p;
+ }
+ 
+-CompPlugin *
+-CompPlugin::load (const char *name)
+-{
+-    char *compiz_plugin_dir_override = getenv ("COMPIZ_PLUGIN_DIR");
+-    std::auto_ptr<CompPlugin>p(new CompPlugin ());
++#ifndef COMPIZ_LIBDIR
++# define COMPIZ_LIBDIR "/usr/lib/compiz"
++#endif
+ 
+-    p->devPrivate.uval = 0;
+-    p->devType	       = "";
+-    p->vTable	       = 0;
++typedef std::vector<std::string> PluginSearchPath;
+ 
+-    compLogMessage (here, CompLogLevelInfo, "Loading plugin: %s", name);
++static PluginSearchPath
++create_plugin_search_path ()
++{
++    PluginSearchPath plugin_search_path;
+ 
+-    if (compiz_plugin_dir_override)
++    if (char* plugin_dir_override = getenv ("COMPIZ_PLUGIN_DIR"))
+     {
+ 	std::vector <std::string> paths;
+-	boost::split (paths,
+-		      compiz_plugin_dir_override,
+-		      boost::is_any_of (":"));
+-
++	boost::split (paths, plugin_dir_override, boost::is_any_of (":"));
+ 	foreach (const std::string &path, paths)
+ 	{
+-	    if (path.empty ())
+-		continue;
+-
+-	    if (loaderLoadPlugin (p.get (), path.c_str (), name))
+-		return p.release ();
++	    if (!path.empty ())
++		plugin_search_path.push_back (path);
+ 	}
+     }
+-
+     if (char* home = getenv ("HOME"))
+     {
+-        boost::scoped_array<char> plugindir(new char [strlen (home) + strlen (HOME_PLUGINDIR) + 3]);
+-        sprintf (plugindir.get(), "%s/%s", home, HOME_PLUGINDIR);
+-
+-        if (loaderLoadPlugin (p.get(), plugindir.get(), name))
+-            return p.release();
++	plugin_search_path.push_back (std::string (home) + HOME_PLUGINDIR);
+     }
++    plugin_search_path.push_back (PLUGINDIR);
++    plugin_search_path.push_back (COMPIZ_LIBDIR);
++    return plugin_search_path;
++}
+ 
+-    if (loaderLoadPlugin (p.get(), PLUGINDIR, name))
+-        return p.release();
++CompPlugin *
++CompPlugin::load (const char *name)
++{
++    std::auto_ptr <CompPlugin> p (new CompPlugin ());
++    p->devPrivate.uval = 0;
++    p->devType	       = "";
++    p->vTable	       = 0;
+ 
+-    if (loaderLoadPlugin (p.get(), NULL, name))
+-        return p.release();
++    compLogMessage (here, CompLogLevelInfo, "Loading plugin: %s", name);
++
++    PluginSearchPath plugin_search_path = create_plugin_search_path ();
++    foreach (const std::string &path, plugin_search_path)
++    {
++	if (loaderLoadPlugin (p.get (), path.c_str (), name))
++	  return p.release();
++    }
++
++    if (loaderLoadPlugin (p.get (), NULL, name))
++      return p.release();
+ 
+     compLogMessage (here, CompLogLevelError, "Failed to load plugin: %s", name);
+ 
+-    return 0;
++    return NULL;
+ }
+ 
+ bool
+--- a/src/plugin/tests/test-plugin.cpp
++++ b/src/plugin/tests/test-plugin.cpp
+@@ -90,6 +90,8 @@
+ 	MockPluginFilesystem mockfs;
+ };
+ 
++#define COMPIZ_LIBDIR "/usr/lib/compiz"
++
+ TEST_F (PluginTest, load_non_existant_plugin_must_fail)
+ {
+     using namespace testing;
+@@ -100,6 +102,9 @@
+     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(PLUGINDIR), StrEq("dummy"))).
+ 	WillOnce(Return(false));
+ 
++    EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(COMPIZ_LIBDIR), StrEq("dummy"))).
++	WillOnce(Return(false));
++
+     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), Eq((void*)0), StrEq("dummy"))).
+ 	WillOnce(Return(false));
+ 
+@@ -118,6 +123,9 @@
+     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(PLUGINDIR), StrEq("dummy"))).
+ 	Times(AtMost(0));
+ 
++    EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(COMPIZ_LIBDIR), StrEq("dummy"))).
++	Times(AtMost(0));
++
+     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), Eq((void*)0), StrEq("dummy"))).
+ 	Times(AtMost(0));
+ 
+@@ -139,6 +147,9 @@
+     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(PLUGINDIR), StrEq("dummy"))).
+ 	WillOnce(Return(true));
+ 
++    EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(COMPIZ_LIBDIR), StrEq("dummy"))).
++	Times(AtMost(0));
++
+     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), Eq((void*)0), StrEq("dummy"))).
+ 	    Times(AtMost(0));;
+ 
+@@ -166,6 +177,9 @@
+     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(PLUGINDIR), StrEq("dummy"))).
+ 	Times(AtMost(0));
+ 
++    EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(COMPIZ_LIBDIR), StrEq("dummy"))).
++	Times(AtMost(0));
++
+     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), Eq((void*)0), StrEq("dummy"))).
+ 	    Times(AtMost(0));
+ 
+@@ -205,6 +219,9 @@
+ 				   EndsWith(PLUGINDIR), StrEq("dummy"))).
+ 	Times(AtMost(0));
+ 
++    EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(COMPIZ_LIBDIR), StrEq("dummy"))).
++	Times(AtMost(0));
++
+     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0),
+ 				   Eq((void*)0), StrEq("dummy"))).
+ 	    Times(AtMost(0));
+@@ -227,6 +244,9 @@
+     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(PLUGINDIR), StrEq("dummy"))).
+ 	WillOnce(Return(false));
+ 
++    EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), EndsWith(COMPIZ_LIBDIR), StrEq("dummy"))).
++	WillOnce(Return(false));
++
+     EXPECT_CALL(mockfs, LoadPlugin(Ne((void*)0), Eq((void*)0), StrEq("dummy"))).
+ 	WillOnce(Return(true));
+ 
+--- a/src/privatescreen.h
++++ b/src/privatescreen.h
+@@ -47,7 +47,6 @@
+ 
+ #include "core_options.h"
+ 
+-#include <map>
+ #include <set>
+ 
+ CompPlugin::VTable * getCoreVTable ();
+@@ -90,17 +89,6 @@
+     unsigned int		viewportY;
+ };
+ 
+-// to allow using CompPoint as std::map keys
+-struct PointCompare
+-{
+-    bool operator () (const CompPoint& p1, const CompPoint& p2)
+-    {
+-	if (p1.x () == p2.x ())
+-	    return p1.y () < p2.y ();
+-	return p1.x () < p2.x ();
+-    }
+-};
+-
+ namespace compiz
+ {
+ namespace core
+@@ -1177,9 +1165,6 @@
+ 
+         bool handlePingTimeout();
+ 
+-	void saveViewportFocus ();
+-	CompWindow * findViewportFocusCandidate ();
+-
+         Window below;
+ 	CompTimer autoRaiseTimer_;
+ 	Window    autoRaiseWindow_;
+@@ -1190,8 +1175,6 @@
+         PrivateScreen privateScreen;
+         compiz::private_screen::WindowManager windowManager;
+         unsigned int showingDesktopMask_;
+-	typedef std::map<CompPoint, Window, PointCompare> FocusMap;
+-	FocusMap savedViewportFocus;
+ };
+ 
+ #endif
+--- a/src/privatescreen/tests/test-privatescreen.cpp
++++ b/src/privatescreen/tests/test-privatescreen.cpp
+@@ -1057,7 +1057,7 @@
+     MockTriggerableAction triggerableAction;
+     ce::EventArguments    arguments;
+ 
+-    option.set (value);
++    ASSERT_FALSE (option.set (value));
+ 
+     const ce::ActionModsMatchesEventStateFunc &matchEventState =
+ 	    GetMatchEventStateFuncForMock (triggerableAction);
+@@ -1091,7 +1091,7 @@
+     cps::EventManager     eventManager;
+     ce::EventArguments    arguments;
+ 
+-    option.set (value);
++    ASSERT_TRUE (option.set (value));
+     option.value ().action ().setInitiate (initiate);
+     option.value ().action ().setState (CompAction::StateInitButton);
+     ca::setActionActiveState (option.value ().action (), false);
+@@ -1123,7 +1123,7 @@
+     cps::EventManager     eventManager;
+     ce::EventArguments    arguments;
+ 
+-    option.set (value);
++    ASSERT_TRUE (option.set (value));
+     option.value ().action ().setInitiate (initiate);
+     option.value ().action ().setState (CompAction::StateInitButton);
+     ca::setActionActiveState (option.value ().action (), true);
+@@ -1155,7 +1155,7 @@
+     cps::EventManager     eventManager;
+     ce::EventArguments    arguments;
+ 
+-    option.set (value);
++    ASSERT_TRUE (option.set (value));
+     option.value ().action ().setInitiate (initiate);
+     option.value ().action ().setState (CompAction::StateInitButton);
+     ca::setActionActiveState (option.value ().action (), true);
+@@ -1189,7 +1189,7 @@
+     cps::EventManager     eventManager;
+     ce::EventArguments    arguments;
+ 
+-    option.set (value);
++    ASSERT_TRUE (option.set (value));
+     option.value ().action ().setInitiate (initiate);
+     option.value ().action ().setState (CompAction::StateInitButton);
+     ca::setActionActiveState (option.value ().action (), true);
+@@ -1217,7 +1217,7 @@
+     ce::EventArguments    arguments;
+     int                   edgeMask = -1;
+ 
+-    option.set (value);
++    ASSERT_FALSE (option.set (value));
+ 
+     const ce::ActionModsMatchesEventStateFunc &matchEventState =
+ 	    GetMatchEventStateFuncForMock (triggerableAction);
+@@ -1241,7 +1241,7 @@
+     ce::EventArguments    arguments;
+     int                   edgeMask = 1 << SCREEN_EDGE_TOP;
+ 
+-    option.set (value);
++    ASSERT_FALSE (option.set (value));
+ 
+     const ce::ActionModsMatchesEventStateFunc &matchEventState =
+ 	    GetMatchEventStateFuncForMock (triggerableAction);
+@@ -1276,7 +1276,7 @@
+     ce::EventArguments    arguments;
+ 
+ 
+-    option.set (value);
++    ASSERT_TRUE (option.set (value));
+     option.value ().action ().setInitiate (initiate);
+     option.value ().action ().setState (CompAction::StateInitButton);
+     ca::setActionActiveState (option.value ().action (), true);
+@@ -1312,7 +1312,7 @@
+     ce::EventArguments    arguments;
+ 
+ 
+-    option.set (value);
++    ASSERT_TRUE (option.set (value));
+     option.value ().action ().setInitiate (initiate);
+     option.value ().action ().setState (CompAction::StateInitButton);
+     ca::setActionActiveState (option.value ().action (), true);
+@@ -1348,7 +1348,7 @@
+     cps::EventManager     eventManager;
+     ce::EventArguments    arguments;
+ 
+-    option.set (value);
++    ASSERT_TRUE (option.set (value));
+     option.value ().action ().setInitiate (initiate);
+     option.value ().action ().setState (CompAction::StateInitButton);
+     ca::setActionActiveState (option.value ().action (), true);
+@@ -1385,7 +1385,7 @@
+     cps::EventManager     eventManager;
+     ce::EventArguments    arguments;
+ 
+-    option.set (value);
++    ASSERT_TRUE (option.set (value));
+     option.value ().action ().setInitiate (initiate);
+     option.value ().action ().setState (CompAction::StateInitButton |
+ 					CompAction::StateInitEdge);
+--- a/src/screen.cpp
++++ b/src/screen.cpp
+@@ -2688,11 +2688,6 @@
+ 	    }
+ 	}
+     }
+-    else
+-    {
+-	// check if there was a focused window stored
+-	focus = findViewportFocusCandidate ();
+-    }
+ 
+     if (!focus)
+     {
+@@ -3789,8 +3784,6 @@
+     if (!tx && !ty)
+ 	return;
+ 
+-    saveViewportFocus ();
+-
+     privateScreen.viewPort.vp.setX (privateScreen.viewPort.vp.x () + tx);
+     privateScreen.viewPort.vp.setY (privateScreen.viewPort.vp.y () + ty);
+ 
+@@ -5162,37 +5155,6 @@
+     return true;
+ }
+ 
+-void
+-CompScreenImpl::saveViewportFocus ()
+-{
+-    if ((privateScreen.optionGetHsize () > 1 || privateScreen.optionGetVsize () > 1) &&
+-	privateScreen.optionGetRememberVpFocus ())
+-    {
+-	Window id = activeWindow ();
+-	if (id != None)
+-	{
+-	    savedViewportFocus[privateScreen.viewPort.vp] = id;
+-	}
+-    }
+-}
+-
+-CompWindow *
+-CompScreenImpl::findViewportFocusCandidate ()
+-{
+-    if ((privateScreen.optionGetHsize () > 1 || privateScreen.optionGetVsize () > 1) &&
+-	privateScreen.optionGetRememberVpFocus ())
+-    {
+-	FocusMap::iterator it = savedViewportFocus.find (privateScreen.viewPort.vp);
+-	if (it != savedViewportFocus.end ())
+-	{
+-	    Window id = it->second;
+-	    savedViewportFocus.erase (it);
+-	    return findWindow (id);
+-	}
+-    }
+-    return NULL;
+-}
+-
+ CompScreenImpl::~CompScreenImpl ()
+ {
+     privateScreen.startupSequence.removeAllSequences ();
