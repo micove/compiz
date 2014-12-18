@@ -17,7 +17,6 @@ override_dh_auto_configure:
 			-DCMAKE_BUILD_TYPE=RelWithDebInfo \
 			-DCOMPIZ_PACKAGING_ENABLED=TRUE \
 			-Dlibdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
-			-Dlibcompizconfig_libdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
 			-DUSE_GSETTINGS=ON \
 			-DUSE_GCONF=ON \
 			-DBUILD_XORG_GTEST=OFF
