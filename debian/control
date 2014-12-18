@@ -9,6 +9,7 @@ Uploaders:
 Build-Depends:
  cmake (>= 2.6),
  debhelper (>= 9.20120419),
+ gcovr,
  gnome-control-center-dev,
  google-mock,
  gsettings-desktop-schemas-dev,
@@ -40,6 +41,7 @@ Build-Depends:
  libsm-dev (>= 1:1.0.1),
  libstartup-notification0-dev (>= 0.7),
  libtool,
+ libwnck-3-dev,
  libwnck-dev,
  libx11-dev,
  libx11-xcb-dev,
