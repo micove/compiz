@@ -373,7 +373,7 @@ Package: compizconfig-backend-gconf
 Architecture: any
 Multi-Arch: same
 Depends:
- libcompizconfig0 (>= ${source:Version}),
+ libcompizconfig0 (= ${binary:Version}),
  ${misc:Depends},
  ${shlibs:Depends}
 Recommends:
@@ -402,7 +402,7 @@ Multi-Arch: same
 Depends:
  gnome-settings-daemon,
  gsettings-desktop-schemas,
- libcompizconfig0 (>= ${source:Version}),
+ libcompizconfig0 (= ${binary:Version}),
  ${misc:Depends},
  ${shlibs:Depends}
 Description: Compiz Fusion configuration system - gsettings backend
