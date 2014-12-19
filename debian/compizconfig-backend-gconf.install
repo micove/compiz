@@ -1,0 +1,2 @@
+usr/lib/*/compizconfig/backends/libgconf.so
+usr/share/gconf/schemas/*.schemas

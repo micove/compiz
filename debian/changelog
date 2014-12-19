@@ -93,14 +93,10 @@ compiz (0.9.12.0+bzr3917+repack-0.1) experimental; urgency=medium
     - Add the libcompiz-core package.
       + Add a Breaks: compiz-core (<< 0.9.10.0).
     - Update the compiz-gtk stanza.
-      + Add compiz-plugins, gnome-settings-daemon and gsettings-desktop-schemas
-        to the dependencies.
-      + Add python-gconf to the recommendations.
-      + Breaks/replaces compiz-plugins (<< 0.9.10.0). The gconf schemas folder
-        is now here. Changes Conflicts/Replaces to Breaks/Replaces.
-      + Breaks/replaces compiz-gnome and compizconfig-backend-gconf to
-        transition to this package.
-      + Break/replaces libcompizconfig0 (<< 0.9.10.0) due to moving schemas.
+      + Add compiz-plugins to the dependencies.
+      + Breaks/replaces compiz-plugins (<< 0.9.10.0). Changes Conflicts/Replaces
+        to Breaks/Replaces.
+      + Breaks/replaces compiz-gnome to transition to this package.
     - Update the compiz-kde stanza.
       + Remove the dependency on compizconfig-backend-kconfig4.
       + Breaks/replaces compizconfig-backend-kconfig (<< 0.9.10.0) to transition
@@ -125,7 +121,18 @@ compiz (0.9.12.0+bzr3917+repack-0.1) experimental; urgency=medium
       + Add a ${python:Provides}.
     - Add the compizconfig-settings-manager stanza from the ccsm source.
       + Add python-compizconfig and ${shlibs:Depends} to the dependencies.
-    - Add transitional packages for compizconfig-backend-{gconf,kconfig}, 
+    - Add the compizconfig-backend-gconf stanza from the
+      compizconfig-backend-gconf source.
+      + Explicitly depend on libcompizconfig0.
+      + Add python-gconf to the recommendations.
+      + Breaks/replaces compiz-plugins (<< 0.9.10.0). The gconf schemas folder
+        is now here.
+      + Break/replaces libcompizconfig0 (<< 0.9.10.0) due to moving schemas.
+    - Add the compizconfig-backend-gsettings package.
+      + Explicitly depend on libcompizconfig0.
+      + Add gnome-settings-daemon and gsettings-desktop-schemas to the
+        dependencies.
+    - Add transitional packages for compizconfig-backend-kconfig,
       compiz-fusion-plugins-{main,extra,unsupported} and compiz-gnome.
   * debian/rules:
     - Fix the clean routine.

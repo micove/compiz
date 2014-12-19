@@ -185,22 +185,14 @@ Architecture: any
 Depends:
  compiz-core (= ${binary:Version}),
  compiz-plugins (= ${binary:Version}),
- gnome-settings-daemon,
- gsettings-desktop-schemas,
  ${misc:Depends},
  ${shlibs:Depends}
-Recommends:
- python-gconf
 Breaks:
  compiz-gnome (<< 0.9.10.0),
- compiz-plugins (<< 0.9.10.0),
- compizconfig-backend-gconf (<< 0.9.10.0),
- libcompizconfig0 (<< 0.9.10.0)
+ compiz-plugins (<< 1:0.9.10)
 Replaces:
  compiz-gnome (<< 0.9.10.0),
- compiz-plugins (<< 0.9.10.0),
- compizconfig-backend-gconf (<< 0.9.10.0),
- libcompizconfig0 (<< 0.9.10.0)
+ compiz-plugins (<< 1:0.9.10)
 Description: OpenGL window and compositing manager - Gtk window decorator
  Compiz brings to life a variety of visual effects that make the Linux desktop
  easier to use, more powerful and intuitive, and more accessible for users
@@ -375,6 +367,52 @@ Description: Compiz configuration settings manager
  This package provides a python-based "settings manager", a graphical interface
  used to administer the various options for the compiz-fusion system.
 
+Package: compizconfig-backend-gconf
+Architecture: any
+Multi-Arch: same
+Depends:
+ libcompizconfig0 (>= ${source:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends}
+Recommends:
+ python-gconf
+Breaks:
+ compiz-plugins (<< 0.9.10.0),
+ libcompizconfig0 (<< 0.9.10.0)
+Replaces:
+ compiz-plugins (<< 0.9.10.0),
+ libcompizconfig0 (<< 0.9.10.0)
+Description: Compiz Fusion configuration system - gconf backend
+ Compiz Fusion is the result of the re-unification of the Beryl-project
+ and the community around the Compiz Window Manager. It seeks to provide
+ an easy and fun-to-use windowing environment, allowing use of the
+ graphics hardware to provide impressive effects, amazing speed and
+ unrivalled usefulness
+ .
+ This package provides the gconf-based configuration backend for the
+ compiz-fusion plugin system
+
+Package: compizconfig-backend-gsettings
+Architecture: any
+Pre-Depends:
+ ${misc:Pre-Depends}
+Multi-Arch: same
+Depends:
+ gnome-settings-daemon,
+ gsettings-desktop-schemas,
+ libcompizconfig0 (>= ${source:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends}
+Description: Compiz Fusion configuration system - gsettings backend
+ Compiz Fusion is the result of the re-unification of the Beryl-project
+ and the community around the Compiz Window Manager. It seeks to provide
+ an easy and fun-to-use windowing environment, allowing use of the
+ graphics hardware to provide impressive effects, amazing speed and
+ unrivalled usefulness
+ .
+ This package provides the gsettings-based configuration backend for the
+ compiz-fusion plugin system
+
 Package: compiz-fusion-plugins-main
 Section: oldlibs
 Architecture: all
@@ -406,16 +444,6 @@ Description: transitional dummy package.
  after the upgrade.
 
 Package: compiz-gnome
-Section: oldlibs
-Architecture: all
-Depends:
- compiz-gtk,
- ${misc:Depends}
-Description: transitional dummy package.
- This package ensures a clean upgrade path, and can be safely removed
- after the upgrade.
-
-Package: compizconfig-backend-gconf
 Section: oldlibs
 Architecture: all
 Depends:

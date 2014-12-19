@@ -1,0 +1,3 @@
+usr/lib/*/compizconfig/backends/libgsettings.so
+usr/lib/*/libcompizconfig_gsettings_backend.so
+usr/share/glib-2.0/schemas/*.xml
