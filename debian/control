@@ -7,7 +7,7 @@ Uploaders:
  Sean Finney <seanius@debian.org>,
  Cyril Brulebois <kibi@debian.org>
 Build-Depends:
- cmake (>= 2.6),
+ cmake (>= 2.8.5),
  debhelper (>= 9.20120419),
  dh-python,
  gcovr,
@@ -33,7 +33,7 @@ Build-Depends:
  libgtk2.0-dev,
  libice-dev (>= 1:1.0.1),
  libjpeg-dev,
- libmetacity-dev (>= 1:2.30.0),
+ libmetacity-dev (>= 1:3.12.0),
  libnotify-dev,
  libpango1.0-dev,
  libpng-dev,
@@ -65,9 +65,9 @@ Build-Depends:
  python-pyrex,
  x11proto-gl-dev (>= 1.4.8),
  xsltproc
-Standards-Version: 3.9.2
-X-Python-Version: >= 2.6
-Homepage: http://www.compiz.org/
+Standards-Version: 3.9.6
+X-Python-Version: >= 2.7
+Homepage: https://launchpad.net/compiz
 Vcs-Git: git://git.debian.org/git/pkg-xorg/app/compiz.git
 Vcs-Browser: http://git.debian.org/?p=pkg-xorg/app/compiz.git
 
