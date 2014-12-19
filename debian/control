@@ -89,41 +89,6 @@ Description: OpenGL window and compositing manager - metapackage
  the Gtk toolkit and the files necessary to integrate compiz with the GNOME
  desktop environment.
 
-Package: compiz-dev
-Architecture: any
-Multi-Arch: same
-Depends:
- compiz-plugins (= ${binary:Version}),
- libcompiz-core (= ${binary:Version}),
- libdecoration0-dev (= ${binary:Version}),
- libegl1-mesa-dev,
- libgl1-mesa-dev | libgl-dev,
- libgles2-mesa-dev,
- libglib2.0-dev,
- libglibmm-2.4-dev,
- libgtk-3-dev,
- libice-dev (>= 1:1.0.1),
- libpng-dev,
- libsm-dev (>= 1:1.0.1),
- libstartup-notification0-dev (>= 0.7),
- libx11-xcb-dev,
- libxcomposite-dev (>= 1:0.3-2),
- libxcursor-dev,
- libxdamage-dev (>= 1:1.0.3),
- libxfixes-dev (>=1:4.0.1),
- libxinerama-dev,
- libxml2-dev,
- libxrandr-dev (>=2:1.1.0.2),
- libxslt1-dev,
- ${misc:Depends}
-Description: OpenGL window and compositing manager - development files
- Compiz brings to life a variety of visual effects that make the Linux desktop
- easier to use, more powerful and intuitive, and more accessible for users
- with special needs.
- .
- This package contains the headers and libraries needed to compile compiz
- plugins.
-
 Package: compiz-core
 Architecture: any
 Depends:
@@ -161,9 +126,9 @@ Description: OpenGL window and compositing manager
 Package: libcompiz-core
 Section: libs
 Architecture: any
+Multi-Arch: same
 Pre-Depends:
  ${misc:Pre-Depends}
-Multi-Arch: same
 Depends:
  ${misc:Depends},
  ${shlibs:Depends}
@@ -175,6 +140,43 @@ Description: OpenGL window and compositing manager - core library
  with special needs.
  .
  This package contains the core library of compiz.
+
+Package: compiz-dev
+Architecture: any
+Multi-Arch: same
+Pre-Depends:
+ ${misc:Pre-Depends}
+Depends:
+ compiz-plugins (= ${binary:Version}),
+ libcompiz-core (= ${binary:Version}),
+ libdecoration0-dev (= ${binary:Version}),
+ libegl1-mesa-dev,
+ libgl1-mesa-dev | libgl-dev,
+ libgles2-mesa-dev,
+ libglib2.0-dev,
+ libglibmm-2.4-dev,
+ libgtk-3-dev,
+ libice-dev (>= 1:1.0.1),
+ libpng-dev,
+ libsm-dev (>= 1:1.0.1),
+ libstartup-notification0-dev (>= 0.7),
+ libx11-xcb-dev,
+ libxcomposite-dev (>= 1:0.3-2),
+ libxcursor-dev,
+ libxdamage-dev (>= 1:1.0.3),
+ libxfixes-dev (>=1:4.0.1),
+ libxinerama-dev,
+ libxml2-dev,
+ libxrandr-dev (>=2:1.1.0.2),
+ libxslt1-dev,
+ ${misc:Depends}
+Description: OpenGL window and compositing manager - development files
+ Compiz brings to life a variety of visual effects that make the Linux desktop
+ easier to use, more powerful and intuitive, and more accessible for users
+ with special needs.
+ .
+ This package contains the headers and libraries needed to compile compiz
+ plugins.
 
 Package: compiz-gtk
 Architecture: any
@@ -201,12 +203,39 @@ Description: OpenGL window and compositing manager - Gtk window decorator
  This package contains a window decorator that uses Gtk to provide a look and
  feel similar to that of the metacity window manager.
 
+Package: compiz-plugins
+Architecture: any
+Multi-Arch: same
+Depends:
+ libcompiz-core (= ${binary:Version}),
+ libdecoration0 (= ${binary:Version}),
+ ${misc:Depends},
+ ${shlibs:Depends}
+Breaks:
+ compiz-core (<< 0.9.10.0),
+ compiz-fusion-plugins-extra (<< 0.9.10.0),
+ compiz-fusion-plugins-main (<< 0.9.10.0),
+ compiz-fusion-plugins-unsupported (<< 0.9.10.0),
+ compiz-gtk (<< 0.9.10.0)
+Replaces:
+ compiz-core (<< 0.9.10.0),
+ compiz-fusion-plugins-extra (<< 0.9.10.0),
+ compiz-fusion-plugins-main (<< 0.9.10.0),
+ compiz-fusion-plugins-unsupported (<< 0.9.10.0),
+ compiz-gtk (<< 0.9.10.0)
+Description: OpenGL window and compositing manager - plugins
+ Compiz brings to life a variety of visual effects that make the Linux desktop
+ easier to use, more powerful and intuitive, and more accessible for users
+ with special needs.
+ .
+ This package contains all the plugins that come with compiz.
+
 Package: libdecoration0
 Section: libs
 Architecture: any
+Multi-Arch: same
 Pre-Depends:
  ${misc:Pre-Depends}
-Multi-Arch: same
 Depends:
  ${misc:Depends},
  ${shlibs:Depends}
@@ -215,7 +244,7 @@ Breaks:
 Description: Compiz window decoration library
  The window decoration library is responsible for drawing the window borders
  and title bar of windows managed by Compiz. It is used by window decorators
- like gtk-window-decorator and kde-window-decorator.
+ like gtk-window-decorator.
 
 Package: libdecoration0-dev
 Section: libdevel
@@ -229,7 +258,7 @@ Depends:
 Description: Compiz window decoration library - development files
  The window decoration library is responsible for drawing the window borders
  and title bar of windows managed by Compiz. It is used by window decorators
- like gtk-window-decorator and kde-window-decorator.
+ like gtk-window-decorator.
  .
  This package contains files required for developing window decorators
  compatible with Compiz.
@@ -237,9 +266,9 @@ Description: Compiz window decoration library - development files
 Package: libcompizconfig0
 Section: libs
 Architecture: any
+Multi-Arch: same
 Pre-Depends:
  ${misc:Pre-Depends}
-Multi-Arch: same
 Depends:
  libcompiz-core (= ${binary:Version}),
  ${misc:Depends},
@@ -276,40 +305,12 @@ Description: Configuration settings library for compiz-fusion - development file
  This package provides the development files for the compiz-fusion
  configuration system.
 
-Package: compiz-plugins
-Architecture: any
-Multi-Arch: same
-Depends:
- libcompiz-core (= ${binary:Version}),
- libdecoration0 (= ${binary:Version}),
- ${misc:Depends},
- ${shlibs:Depends}
-Breaks:
- compiz-core (<< 0.9.10.0),
- compiz-fusion-plugins-extra (<< 0.9.10.0),
- compiz-fusion-plugins-main (<< 0.9.10.0),
- compiz-fusion-plugins-unsupported (<< 0.9.10.0),
- compiz-gtk (<< 0.9.10.0)
-Replaces:
- compiz-core (<< 0.9.10.0),
- compiz-fusion-plugins-extra (<< 0.9.10.0),
- compiz-fusion-plugins-main (<< 0.9.10.0),
- compiz-fusion-plugins-unsupported (<< 0.9.10.0),
- compiz-gtk (<< 0.9.10.0)
-Description: OpenGL window and compositing manager - plugins
- Compiz brings to life a variety of visual effects that make the Linux desktop
- easier to use, more powerful and intuitive, and more accessible for users
- with special needs.
- .
- This package contains the standard plugins that come with compiz. Compiz
- without these plugins is not very useful.
-
 Package: python-compizconfig
 Section: python
 Architecture: any
+Multi-Arch: same
 Pre-Depends:
  ${misc:Pre-Depends}
-Multi-Arch: same
 Depends:
  libcompizconfig0 (= ${binary:Version}),
  ${misc:Depends},
@@ -376,9 +377,9 @@ Description: Compiz Fusion configuration system - GConf backend
 
 Package: compizconfig-backend-gsettings
 Architecture: any
+Multi-Arch: same
 Pre-Depends:
  ${misc:Pre-Depends}
-Multi-Arch: same
 Depends:
  gnome-settings-daemon,
  gsettings-desktop-schemas,
