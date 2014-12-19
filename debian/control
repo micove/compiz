@@ -382,14 +382,14 @@ Breaks:
 Replaces:
  compiz-plugins (<< 0.9.10.0),
  libcompizconfig0 (<< 0.9.10.0)
-Description: Compiz Fusion configuration system - gconf backend
+Description: Compiz Fusion configuration system - GConf backend
  Compiz Fusion is the result of the re-unification of the Beryl-project
  and the community around the Compiz Window Manager. It seeks to provide
  an easy and fun-to-use windowing environment, allowing use of the
  graphics hardware to provide impressive effects, amazing speed and
  unrivalled usefulness
  .
- This package provides the gconf-based configuration backend for the
+ This package provides the GConf-based configuration backend for the
  compiz-fusion plugin system
 
 Package: compizconfig-backend-gsettings
@@ -419,7 +419,7 @@ Architecture: all
 Depends:
  compiz-plugins,
  ${misc:Depends}
-Description: transitional dummy package.
+Description: transitional dummy package
  This package ensures a clean upgrade path, and can be safely removed
  after the upgrade.
 
@@ -429,7 +429,7 @@ Architecture: all
 Depends:
  compiz-plugins,
  ${misc:Depends}
-Description: transitional dummy package.
+Description: transitional dummy package
  This package ensures a clean upgrade path, and can be safely removed
  after the upgrade.
 
@@ -439,7 +439,7 @@ Architecture: all
 Depends:
  compiz-plugins,
  ${misc:Depends}
-Description: transitional dummy package.
+Description: transitional dummy package
  This package ensures a clean upgrade path, and can be safely removed
  after the upgrade.
 
@@ -449,7 +449,7 @@ Architecture: all
 Depends:
  compiz-gtk,
  ${misc:Depends}
-Description: transitional dummy package.
+Description: transitional dummy package
  This package ensures a clean upgrade path, and can be safely removed
  after the upgrade.
 
@@ -459,6 +459,6 @@ Architecture: all
 Depends:
  compiz-kde,
  ${misc:Depends}
-Description: transitional dummy package.
+Description: transitional dummy package
  This package ensures a clean upgrade path, and can be safely removed
  after the upgrade.
