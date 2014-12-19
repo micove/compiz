@@ -145,6 +145,7 @@ compiz (0.9.12.0+bzr3917+repack-0.1) experimental; urgency=medium
     - Use GLES on arm.
     - Update and reorder the DEFAULT_PLUGINS list.
     - Disable xorg-gtest due to missing build dependencies (libxorg-gtest-dev).
+    - Disable compiz-kde due to https://launchpad.net/bugs/931500.
     - Enable --with python2 for the merged python code.
     - Add a get-orig-source routine to repack the tarball. Upstream now includes
       a debian folder.
