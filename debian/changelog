@@ -47,6 +47,7 @@ compiz (0.9.12.0+bzr3917+repack-0.1) experimental; urgency=medium
     - Integrate the files from compizconfig-python.
       + Add the .install file.
     - Update the watch file to find the tarball in launchpad.
+    - Add lintian-overrides.
   * debian/patches:
     - Drop the deprecated Ubuntu patches.
     - Rename and refresh the remaining patches.
