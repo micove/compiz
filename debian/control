@@ -129,7 +129,6 @@ Description: OpenGL window and compositing manager - development files
 
 Package: compiz-core
 Architecture: any
-Multi-Arch: foreign
 Depends:
  libcompiz-core (= ${binary:Version}),
  ${misc:Depends},
@@ -328,6 +327,9 @@ Description: OpenGL window and compositing manager - plugins
 Package: python-compizconfig
 Section: python
 Architecture: any
+Pre-Depends:
+ ${misc:Pre-Depends}
+Multi-Arch: same
 Depends:
  libcompizconfig0 (= ${binary:Version}),
  ${misc:Depends},
