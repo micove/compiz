@@ -58,6 +58,8 @@ override_dh_install:
 	$(RM) debian/compiz-plugins/usr/share/compiz/kde.xml
 	$(RM) debian/compiz-plugins/usr/lib/$(DEB_HOST_MULTIARCH)/compiz/libkde.so
 	$(RM) debian/compiz-plugins/usr/share/compiz/core.xml
+	$(RM) debian/compiz-plugins/usr/share/compiz/ccp.xml
+	$(RM) debian/compiz-plugins/usr/lib/$(DEB_HOST_MULTIARCH)/compiz/libccp.so
 
 override_dh_installdocs:
 	dh_installdocs -Nlibdecoration0 -Nlibdecoration0-dev --link-doc=libcompiz-core
