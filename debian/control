@@ -15,8 +15,6 @@ Build-Depends:
  google-mock,
  gsettings-desktop-schemas-dev,
  intltool,
- kde-workspace-dev,
- kdelibs5-dev (>= 4:4.2.2),
  lcov,
  libboost-dev,
  libboost-serialization-dev,
@@ -79,7 +77,7 @@ Provides:
  x-window-manager
 Depends:
  compiz-core (>= ${source:Version}),
- compiz-gtk (>= ${source:Version}) | compiz-kde (>= ${source:Version}),
+ compiz-gtk (>= ${source:Version}),
  compiz-plugins (>= ${source:Version}),
  libcompizconfig0 (>= ${source:Version}),
  ${misc:Depends}
@@ -202,26 +200,6 @@ Description: OpenGL window and compositing manager - Gtk window decorator
  .
  This package contains a window decorator that uses Gtk to provide a look and
  feel similar to that of the metacity window manager.
-
-Package: compiz-kde
-Architecture: any
-Depends:
- compiz-core (= ${binary:Version}),
- compiz-plugins (= ${binary:Version}),
- ${misc:Depends},
- ${shlibs:Depends}
-Breaks:
- compizconfig-backend-kconfig (<< 0.9.10.0),
- libcompizconfig0 (<< 0.9.10.0)
-Replaces:
- compizconfig-backend-kconfig (<< 0.9.10.0)
-Description: OpenGL window and compositing manager - KDE window decorator
- Compiz brings to life a variety of visual effects that make the Linux desktop
- easier to use, more powerful and intuitive, and more accessible for users
- with special needs.
- .
- This package contains a window decorator that uses KDE to provide a look and
- feel similar to that of the default KDE window manager.
 
 Package: libdecoration0
 Section: libs
@@ -457,11 +435,21 @@ Description: transitional dummy package
  This package ensures a clean upgrade path, and can be safely removed
  after the upgrade.
 
+Package: compiz-kde
+Section: oldlibs
+Architecture: all
+Depends:
+ compiz-gtk,
+ ${misc:Depends}
+Description: transitional dummy package
+ This package ensures a clean upgrade path, and can be safely removed
+ after the upgrade.
+
 Package: compizconfig-backend-kconfig
 Section: oldlibs
 Architecture: all
 Depends:
- compiz-kde,
+ compiz-gtk,
  ${misc:Depends}
 Description: transitional dummy package
  This package ensures a clean upgrade path, and can be safely removed

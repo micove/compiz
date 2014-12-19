@@ -14,6 +14,7 @@ CORE_ABIVERSION := $(shell sed -rn 's/^\#define[[:space:]]+CORE_ABIVERSION[[:spa
 DEFAULT_PLUGINS = "core composite opengl decor mousepoll snap compiztoolbox resize gnomecompat wall grid regex vpswitch place move session animation expo workarounds ezoom staticswitcher fade scale"
 
 # currently, segfault if CMAKE_BUILD_TYPE=Release
+# kde4-window-decorator is broken https://launchpad.net/bugs/931500
 confflags := \
 	-DCOMPIZ_BUILD_WITH_RPATH=FALSE \
 	-DCOMPIZ_DEFAULT_PLUGINS=\"$(DEFAULT_PLUGINS)\" \
@@ -22,6 +23,7 @@ confflags := \
 	-Dlibdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
 	-DUSE_GSETTINGS=ON \
 	-DUSE_GCONF=ON \
+	-DUSE_KDE4=OFF \
 	-DBUILD_XORG_GTEST=OFF
 
 ifeq ($(DEB_HOST_ARCH_CPU),$(findstring $(DEB_HOST_ARCH_CPU),arm arm64 armeb))
@@ -48,8 +50,6 @@ override_dh_install:
 
 	# remove duplicate files
 	$(RM) debian/compiz-dev/usr/share/compiz/cmake/LibCompizConfigCommon.cmake
-	$(RM) debian/compiz-plugins/usr/share/compiz/kde.xml
-	$(RM) debian/compiz-plugins/usr/lib/$(DEB_HOST_MULTIARCH)/compiz/libkde.so
 	$(RM) debian/compiz-plugins/usr/share/compiz/core.xml
 	$(RM) debian/compiz-plugins/usr/share/compiz/ccp.xml
 	$(RM) debian/compiz-plugins/usr/lib/$(DEB_HOST_MULTIARCH)/compiz/libccp.so
