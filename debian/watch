@@ -1,2 +1,3 @@
 version=3
-https://launchpad.net/compiz/+download https://launchpad.net/compiz/.*/compiz-(.+).tar.bz2
+opts=pgpsigurlmangle=s/$/.asc/,dversionmangle=s/\+repack\d*$// \
+  https://launchpad.net/compiz/+download https://launchpad.net/compiz/.*/compiz-(.+).tar.bz2
