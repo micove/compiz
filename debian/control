@@ -43,7 +43,6 @@ Build-Depends:
  libstartup-notification0-dev (>= 0.7),
  libtool,
  libwnck-3-dev,
- libwnck-dev,
  libx11-dev,
  libx11-xcb-dev,
  libxcomposite-dev (>= 1:0.3-2),

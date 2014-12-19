@@ -23,7 +23,9 @@ confflags := \
 	-Dlibdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
 	-DUSE_GSETTINGS=ON \
 	-DUSE_GCONF=ON \
-	-DUSE_KDE4=OFF \
+	-DBUILD_KDE4=OFF \
+	-DCOMPIZ_DISABLE_PLUGIN_KDE=ON \
+	-DBUILD_GNOME=OFF \
 	-DBUILD_XORG_GTEST=OFF
 
 ifeq ($(DEB_HOST_ARCH_CPU),$(findstring $(DEB_HOST_ARCH_CPU),arm arm64 armeb))
