@@ -28,8 +28,6 @@ compiz (0.9.12.0+bzr3917+repack-0.1) experimental; urgency=medium
       + Remove TODO from the docs file.
       + Install the gsettings files.
       + Update gconf file s/allscreens/screen0/.
-    - Update the compiz-kde files.
-      + Remove TODO from the docs file.
     - Update the compiz-plugins files.
       + Remove TODO from the docs file.
       + Update the .install file so it includes all the plugins and xml files.
@@ -72,15 +70,14 @@ compiz (0.9.12.0+bzr3917+repack-0.1) experimental; urgency=medium
     - Bump debhelper to (>= 9.20120419) and the compatibility level to 9.
       + debhelper (>= 9.20120419) enables hardening support with cmake.
     - Organize the build dependency list:
-      + Change kdebase-workspace-dev to kde-workspace-dev.
       + Change libpng12-dev | libpng-dev to libpng-dev.
       + Change libgnome-window-settings-dev to gnome-control-center-dev.
       + Add dh-python, gcovr, google-mock, gsettings-desktop-schemas-dev, lcov,
-        libgnome-desktop-dev, libgtest-dev, libgtk-3-dev, libjpeg-dev,
-        libnotify-dev, libprotobuf-dev, libwnck-3-dev, libxi-dev, pkg-config,
-        protobuf-compiler, python-all-dev and python-pyrex since all of the
-        compiz project got merged into a single source.
-    - Add X-Python-Version: >= 2.6 since compizconfig-settings-manager and
+        libgtest-dev, libgtk-3-dev, libjpeg-dev, libnotify-dev, libprotobuf-dev,
+        libwnck-3-dev, libxi-dev, pkg-config, protobuf-compiler, python-all-dev
+        and python-pyrex since all of the compiz project got merged into a
+        single source.
+    - Add X-Python-Version: >= 2.7 since compizconfig-settings-manager and
       python-compizconfig are now here.
     - Update the dependencies of compiz.
       + Remove compiz-fusion-plugins-main.
@@ -99,12 +96,8 @@ compiz (0.9.12.0+bzr3917+repack-0.1) experimental; urgency=medium
       + Add compiz-plugins to the dependencies.
       + Breaks/replaces compiz-plugins (<< 0.9.10.0). Changes Conflicts/Replaces
         to Breaks/Replaces.
-      + Breaks/replaces compiz-gnome to transition to this package.
-    - Update the compiz-kde stanza.
-      + Remove the dependency on compizconfig-backend-kconfig4.
-      + Breaks/replaces compizconfig-backend-kconfig (<< 0.9.10.0) to transition
-        to this package.
-      + Break libcompizconfig0 (<< 0.9.10.0) due to old ABI breakage.
+      + Breaks/replaces compiz-{gnome,kde} and  compizconfig-backend-kconfig to
+        transition to this package.
     - Update the compiz-plugins stanza.
       + Breaks/replaces compiz-fusion-plugins-extra, compiz-fusion-plugins-main
         and compiz-fusion-plugins-unsupported to transition to this package.
@@ -135,8 +128,9 @@ compiz (0.9.12.0+bzr3917+repack-0.1) experimental; urgency=medium
       + Explicitly depend on libcompizconfig0.
       + Add gnome-settings-daemon and gsettings-desktop-schemas to the
         dependencies.
-    - Add transitional packages for compizconfig-backend-kconfig,
+    - Add transitional packages for compizconfig-backend-kconfig, compiz-kde,
       compiz-fusion-plugins-{main,extra,unsupported} and compiz-gnome.
+      + Drop build dependencies of the transitional packages.
   * debian/rules:
     - Fix the clean routine.
     - Use symlinks for the doc directories.
