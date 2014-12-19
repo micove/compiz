@@ -1,2 +1,3 @@
 usr/bin/kde4-window-decorator
 usr/lib/*/compiz/libkde.so
+usr/share/compiz/kde.xml

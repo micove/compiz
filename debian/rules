@@ -43,6 +43,11 @@ override_dh_install:
 
 	dh_install --fail-missing
 
+	# remove duplicate files
+	$(RM) debian/compiz-dev/usr/share/compiz/cmake/LibCompizConfigCommon.cmake
+	$(RM) debian/compiz-plugins/usr/share/compiz/kde.xml
+	$(RM) debian/compiz-plugins/usr/lib/$(DEB_HOST_MULTIARCH)/compiz/libkde.so
+
 override_dh_installdocs:
 	dh_installdocs -Nlibdecoration0 -Nlibdecoration0-dev --link-doc=libcompiz-core
 	dh_installdocs --remaining-packages --link-doc=libdecoration0

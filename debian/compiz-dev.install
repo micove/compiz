@@ -5,5 +5,5 @@ usr/lib/*/pkgconfig/compiz.pc
 usr/share/cmake*/FindCompiz.cmake
 usr/share/cmake*/FindOpenGLES2.cmake
 usr/share/cmake*/Modules/FindCompiz.cmake
-usr/share/compiz/cmake/[!L]*
+usr/share/compiz/cmake
 usr/share/compiz/xslt
