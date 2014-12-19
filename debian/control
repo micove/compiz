@@ -97,7 +97,6 @@ Package: compiz-dev
 Architecture: any
 Multi-Arch: same
 Depends:
- compiz-core (= ${binary:Version}),
  compiz-plugins (= ${binary:Version}),
  libcompiz-core (= ${binary:Version}),
  libdecoration0-dev (= ${binary:Version}),
@@ -260,7 +259,7 @@ Pre-Depends:
  ${misc:Pre-Depends}
 Multi-Arch: same
 Depends:
- compiz-core (= ${binary:Version}),
+ libcompiz-core (= ${binary:Version}),
  ${misc:Depends},
  ${shlibs:Depends}
 Breaks:
@@ -299,7 +298,6 @@ Package: compiz-plugins
 Architecture: any
 Multi-Arch: same
 Depends:
- compiz-core (= ${binary:Version}),
  libcompiz-core (= ${binary:Version}),
  libdecoration0 (= ${binary:Version}),
  ${misc:Depends},
