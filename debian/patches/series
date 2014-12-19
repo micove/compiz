@@ -7,3 +7,4 @@
 101_ring_requires_text.patch
 102_disable_edgeflip_move.patch
 103_disable_failing_tests.patch
+104_fix_cmake_path.patch

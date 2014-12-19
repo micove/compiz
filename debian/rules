@@ -41,13 +41,6 @@ override_dh_gencontrol:
 	dh_gencontrol -- -Vcoreabiversion=$(CORE_ABIVERSION)
 
 override_dh_install:
-	# cmake findcompiz_install use COMPIZ_DESTDIR and using COMPIZ_DESTDIR and
-	# DESTDIR together is completely broken upstream
-	# So, doing the same in debian/rules to find a way to install things in the
-	# right place, sorry for the kittens
-	cmake_dir=`cmake --system-information 2> /dev/null | grep "^CMAKE_ROOT " | sed -e 's/.*"\(.*\)"/\1/'` && \
-	mkdir -p debian/tmp$${cmake_dir}/Modules && cp cmake/FindCompiz.cmake debian/tmp$${cmake_dir}/Modules
-
 	# remove acceptance test binary
 	$(RM) debian/tmp/usr/bin/compiz_autopilot_acceptance_tests
 
