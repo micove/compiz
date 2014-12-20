@@ -63,30 +63,7 @@ override_dh_installdocs-arch:
 %:
 	dh $@ --parallel --with python2
 
-
-# Based on http://wiki.debian.org/onlyjob/get-orig-source
-# For a specific bzr revision like bzr3811 use:
-# REV=3811 debian/rules get-orig-source
-
-PKD   = $(abspath $(dir $(MAKEFILE_LIST)))
-PKG   = $(word 2,$(shell dpkg-parsechangelog -l$(PKD)/changelog | grep ^Source))
-UVER  = $(shell dpkg-parsechangelog -l$(PKD)/changelog | perl -ne 'print $$1 if m{^Version:\s+(?:\d+:)?(\d.*)(?:\-\d+.*)};')
-DTYPE = +repack
-VER  ?= $(subst $(DTYPE),,$(UVER))
-UURL ?= lp:compiz/0.9.12
-REV  ?= tag:$(VER)
-
 get-orig-source:
-	@echo "# Downloading..."
-	$(if $(wildcard $(PKG)-$(VER)),$(error $(PKG)-$(VER) exist, aborting..))
-	bzr export --per-file-timestamps -r $(REV) $(PKG)-$(VER) $(UURL) \
-	|| $(RM) -r $(PKG)-$(VER)
-	@echo "# Cleaning-up..."
-	cd $(PKG)-$(VER) \
-	&& $(RM) -r .gitignore debian
-	@echo "# Packing..."
-	find -L "$(PKG)-$(VER)" -xdev -type f -print | LC_ALL=C sort \
-	| XZ_OPT="-6v" tar -caf "$(PKG)_$(VER)$(DTYPE).orig.tar.xz" -T- --owner=root --group=root --mode=a+rX \
-	&& $(RM) -r "$(PKG)-$(VER)"
+	sh debian/get-bzr-source.sh
 
 .PHONY: get-orig-source
