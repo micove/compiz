@@ -56,9 +56,9 @@ override_dh_install:
 	$(RM) debian/compiz-plugins/usr/share/compiz/ccp.xml
 	$(RM) debian/compiz-plugins/usr/lib/$(DEB_HOST_MULTIARCH)/compiz/libccp.so
 
-override_dh_installdocs:
-	dh_installdocs -Nlibdecoration0 -Nlibdecoration0-dev --link-doc=libcompiz-core
-	dh_installdocs --remaining-packages --link-doc=libdecoration0
+override_dh_installdocs-arch:
+	dh_installdocs -plibdecoration0 -plibdecoration0-dev --link-doc=libdecoration0
+	dh_installdocs --remaining-packages --link-doc=libcompiz-core
 
 %:
 	dh $@ --parallel --with python2
