@@ -76,14 +76,22 @@ set_frame_scale (decor_frame_t *frame,
     gwd_decor_frame_ref (frame);
 
     if (frame->titlebar_font)
-	pango_font_description_free (frame->titlebar_font);
+    {
+        pango_font_description_free (frame->titlebar_font);
+        frame->titlebar_font = NULL;
+    }
 
-    frame->titlebar_font = pango_font_description_from_string (font_str);
+    if (font_str)
+    {
+        gint size;
 
-    scale = (*theme_get_title_scale) (frame);
+        frame->titlebar_font = pango_font_description_from_string (font_str);
 
-    pango_font_description_set_size (frame->titlebar_font,
-				     MAX (pango_font_description_get_size (frame->titlebar_font) * scale, 1));
+        scale = (*theme_get_title_scale) (frame);
+        size = MAX (pango_font_description_get_size (frame->titlebar_font) * scale, 1);
+
+        pango_font_description_set_size (frame->titlebar_font, size);
+    }
 
     gwd_decor_frame_unref (frame);
 }
