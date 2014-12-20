@@ -151,6 +151,11 @@ frame_update_titlebar_font (decor_frame_t *frame)
     {
         GtkCssProvider *provider = gtk_css_provider_get_default ();
         GtkStyleContext *context = gtk_style_context_new ();
+        GtkWidgetPath *path = gtk_widget_path_new ();
+
+        gtk_widget_path_prepend_type (path, GTK_TYPE_WIDGET);
+        gtk_style_context_set_path (context, path);
+        gtk_widget_path_free (path);
 
         gtk_style_context_add_provider (context, GTK_STYLE_PROVIDER (provider), GTK_STYLE_PROVIDER_PRIORITY_FALLBACK);
 
