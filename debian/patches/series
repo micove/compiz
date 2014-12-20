@@ -4,7 +4,6 @@
 004_bug326995.patch
 005_disable_desktop_vpswitch.patch
 100_fix_pc_files.patch
-101_ring_requires_text.patch
-102_disable_edgeflip_move.patch
-103_disable_failing_tests.patch
-104_fix_cmake_path.patch
+101_disable_edgeflip_move.patch
+102_disable_failing_tests.patch
+103_fix_cmake_path.patch

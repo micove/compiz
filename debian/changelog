@@ -60,7 +60,6 @@ compiz (0.9.12.0+bzr3917+repack-0.1) experimental; urgency=medium
       + 005_disable_desktop_vpswitch.patch. Disable switching between desktops
         with a mousewheel over the desktop background by default.
     - Add a patch to fix the exec_prefix entries in some pc files.
-    - Add a patch to add text as a dependency of ring.
     - Add a patch to disable edge flip move in the wall plugin. It can
       potentially make windows disappear.
     - Add a patch to disable tests that are known to fail.
@@ -148,7 +147,7 @@ compiz (0.9.12.0+bzr3917+repack-0.1) experimental; urgency=medium
       libcompizconfig{0,-dev}, compizconfig-backend-{gconf,gsettings}, and
       python-compizconfig as M-A: same.
 
- -- Miguel A. Colón Vélez <debian.micove@gmail.com>  Fri, 19 Dec 2014 12:40:37 -0500
+ -- Miguel A. Colón Vélez <debian.micove@gmail.com>  Fri, 19 Dec 2014 19:27:57 -0500
 
 compiz (0.9.2.1+git20110226.f059fae9-4) experimental; urgency=low
 
